@@ -1,5 +1,4 @@
 import MetricCard from '@/components/shared/metric-card';
-import React from 'react';
 
 const Assets = () => {
   return (
