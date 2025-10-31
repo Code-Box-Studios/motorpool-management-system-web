@@ -6,10 +6,10 @@ const AuthenticatedLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <main className="w-full">
+      <div className="w-full">
         <AppHeader />
-        {children}
-      </main>
+        <main className="p-5">{children}</main>
+      </div>
     </SidebarProvider>
   );
 };

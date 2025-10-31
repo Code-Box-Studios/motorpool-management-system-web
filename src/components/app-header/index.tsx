@@ -9,6 +9,7 @@ import {
   BreadcrumbSeparator
 } from '@/components/ui/breadcrumb';
 import React from 'react';
+import ThemeSwitcher from './theme-switcher';
 
 const AppHeader = () => {
   const { pathname } = useLocation();
@@ -25,30 +26,32 @@ const AppHeader = () => {
   });
 
   return (
-    <header className="bg-sidebar flex w-full items-center border-b p-4">
-      <SidebarTrigger />
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem></BreadcrumbItem>
-          {breadcrumbs.map((crumb, index) => (
-            <React.Fragment key={`${crumb.path}-${index}`}>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                {crumb.isLast ? (
-                  <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink asChild>
-                    <Link to={crumb.path}>
-                      <span>{crumb.label}</span>{' '}
-                      {/* Remove className="capitalize" */}
-                    </Link>
-                  </BreadcrumbLink>
-                )}
-              </BreadcrumbItem>
-            </React.Fragment>
-          ))}
-        </BreadcrumbList>
-      </Breadcrumb>
+    <header className="border-border bg-sidebar flex w-full items-center justify-between border-b-2 p-4">
+      <div className="flex items-center gap-3">
+        <SidebarTrigger />
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem></BreadcrumbItem>
+            {breadcrumbs.map((crumb, index) => (
+              <React.Fragment key={`${crumb.path}-${index}`}>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  {crumb.isLast ? (
+                    <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink asChild>
+                      <Link to={crumb.path}>
+                        <span>{crumb.label}</span>{' '}
+                      </Link>
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+              </React.Fragment>
+            ))}
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+      <ThemeSwitcher />
     </header>
   );
 };

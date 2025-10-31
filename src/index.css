@@ -1,9 +1,9 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 /* @theme {
   --breakpoint-mobile: 390px;
@@ -27,7 +27,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1 0 0);
+  --background: #f3f3f3;
   --foreground: oklch(0.2178 0 0);
   --card: oklch(0.9779 0.0042 56.3756);
   --card-foreground: oklch(0.2178 0 0);
@@ -71,15 +71,20 @@
   --shadow-color: hsl(0 63% 18%);
   --shadow-2xs: 1px 1px 5px -2px hsl(0 63% 18% / 0.07);
   --shadow-xs: 1px 1px 5px -2px hsl(0 63% 18% / 0.07);
-  --shadow-sm: 1px 1px 5px -2px hsl(0 63% 18% / 0.13),
+  --shadow-sm:
+    1px 1px 5px -2px hsl(0 63% 18% / 0.13),
     1px 1px 2px -3px hsl(0 63% 18% / 0.13);
-  --shadow: 1px 1px 5px -2px hsl(0 63% 18% / 0.13),
+  --shadow:
+    1px 1px 5px -2px hsl(0 63% 18% / 0.13),
     1px 1px 2px -3px hsl(0 63% 18% / 0.13);
-  --shadow-md: 1px 1px 5px -2px hsl(0 63% 18% / 0.13),
+  --shadow-md:
+    1px 1px 5px -2px hsl(0 63% 18% / 0.13),
     1px 2px 4px -3px hsl(0 63% 18% / 0.13);
-  --shadow-lg: 1px 1px 5px -2px hsl(0 63% 18% / 0.13),
+  --shadow-lg:
+    1px 1px 5px -2px hsl(0 63% 18% / 0.13),
     1px 4px 6px -3px hsl(0 63% 18% / 0.13);
-  --shadow-xl: 1px 1px 5px -2px hsl(0 63% 18% / 0.13),
+  --shadow-xl:
+    1px 1px 5px -2px hsl(0 63% 18% / 0.13),
     1px 8px 10px -3px hsl(0 63% 18% / 0.13);
   --shadow-2xl: 1px 1px 5px -2px hsl(0 63% 18% / 0.33);
   --tracking-normal: 0em;
@@ -134,15 +139,20 @@
   --shadow-color: hsl(0 63% 18%);
   --shadow-2xs: 1px 1px 5px -2px hsl(0 63% 18% / 0.07);
   --shadow-xs: 1px 1px 5px -2px hsl(0 63% 18% / 0.07);
-  --shadow-sm: 1px 1px 5px -2px hsl(0 63% 18% / 0.13),
+  --shadow-sm:
+    1px 1px 5px -2px hsl(0 63% 18% / 0.13),
     1px 1px 2px -3px hsl(0 63% 18% / 0.13);
-  --shadow: 1px 1px 5px -2px hsl(0 63% 18% / 0.13),
+  --shadow:
+    1px 1px 5px -2px hsl(0 63% 18% / 0.13),
     1px 1px 2px -3px hsl(0 63% 18% / 0.13);
-  --shadow-md: 1px 1px 5px -2px hsl(0 63% 18% / 0.13),
+  --shadow-md:
+    1px 1px 5px -2px hsl(0 63% 18% / 0.13),
     1px 2px 4px -3px hsl(0 63% 18% / 0.13);
-  --shadow-lg: 1px 1px 5px -2px hsl(0 63% 18% / 0.13),
+  --shadow-lg:
+    1px 1px 5px -2px hsl(0 63% 18% / 0.13),
     1px 4px 6px -3px hsl(0 63% 18% / 0.13);
-  --shadow-xl: 1px 1px 5px -2px hsl(0 63% 18% / 0.13),
+  --shadow-xl:
+    1px 1px 5px -2px hsl(0 63% 18% / 0.13),
     1px 8px 10px -3px hsl(0 63% 18% / 0.13);
   --shadow-2xl: 1px 1px 5px -2px hsl(0 63% 18% / 0.33);
   --shadow-offset-x: 1px;

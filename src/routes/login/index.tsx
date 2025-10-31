@@ -1,9 +1,9 @@
-import PublicLayout from "@/components/layout/public-layout";
-import { LoginForm } from "@/components/pages/login/login-form";
-import { createFileRoute } from "@tanstack/react-router";
+import PublicLayout from '@/components/layout/public-layout';
+import { LoginForm } from '@/components/login/login-form';
+import { createFileRoute } from '@tanstack/react-router';
 
-export const Route = createFileRoute("/login/")({
-  component: RouteComponent,
+export const Route = createFileRoute('/login/')({
+  component: RouteComponent
 });
 
 function RouteComponent() {
