@@ -5,6 +5,25 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* @theme {
+  --breakpoint-mobile: 390px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-laptop: 1024px;
+  --breakpoint-desktop: 1440px;
+  --breakpoint-max-mobile: 389px;
+  --breakpoint-max-tablet: 767px;
+  --breakpoint-max-laptop: 1023px;
+  --breakpoint-max-desktop: 1439px;
+  --max-w-mobile: 390px;
+  --max-w-tablet: 768px;
+  --max-w-laptop: 1024px;
+  --max-w-desktop: 1440px;
+  --min-w-mobile: 390px;
+  --min-w-tablet: 768px;
+  --min-w-laptop: 1024px;
+  --min-w-desktop: 1440px;
+} */
+
 @custom-variant dark (&:is(.dark *));
 
 :root {

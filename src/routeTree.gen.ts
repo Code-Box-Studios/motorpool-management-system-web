@@ -11,8 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReservationsIndexRouteImport } from './routes/reservations/index'
-import { Route as ReportsIndexRouteImport } from './routes/reports/index'
 import { Route as MaintenanceScheduleIndexRouteImport } from './routes/maintenance-schedule/index'
+import { Route as LoginIndexRouteImport } from './routes/login/index'
 import { Route as JobOrderIndexRouteImport } from './routes/job-order/index'
 import { Route as DriversIndexRouteImport } from './routes/drivers/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
@@ -28,17 +28,17 @@ const ReservationsIndexRoute = ReservationsIndexRouteImport.update({
   path: '/reservations/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReportsIndexRoute = ReportsIndexRouteImport.update({
-  id: '/reports/',
-  path: '/reports/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const MaintenanceScheduleIndexRoute =
   MaintenanceScheduleIndexRouteImport.update({
     id: '/maintenance-schedule/',
     path: '/maintenance-schedule/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const LoginIndexRoute = LoginIndexRouteImport.update({
+  id: '/login/',
+  path: '/login/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JobOrderIndexRoute = JobOrderIndexRouteImport.update({
   id: '/job-order/',
   path: '/job-order/',
@@ -66,8 +66,8 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardIndexRoute
   '/drivers': typeof DriversIndexRoute
   '/job-order': typeof JobOrderIndexRoute
+  '/login': typeof LoginIndexRoute
   '/maintenance-schedule': typeof MaintenanceScheduleIndexRoute
-  '/reports': typeof ReportsIndexRoute
   '/reservations': typeof ReservationsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -76,8 +76,8 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardIndexRoute
   '/drivers': typeof DriversIndexRoute
   '/job-order': typeof JobOrderIndexRoute
+  '/login': typeof LoginIndexRoute
   '/maintenance-schedule': typeof MaintenanceScheduleIndexRoute
-  '/reports': typeof ReportsIndexRoute
   '/reservations': typeof ReservationsIndexRoute
 }
 export interface FileRoutesById {
@@ -87,8 +87,8 @@ export interface FileRoutesById {
   '/dashboard/': typeof DashboardIndexRoute
   '/drivers/': typeof DriversIndexRoute
   '/job-order/': typeof JobOrderIndexRoute
+  '/login/': typeof LoginIndexRoute
   '/maintenance-schedule/': typeof MaintenanceScheduleIndexRoute
-  '/reports/': typeof ReportsIndexRoute
   '/reservations/': typeof ReservationsIndexRoute
 }
 export interface FileRouteTypes {
@@ -99,8 +99,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/drivers'
     | '/job-order'
+    | '/login'
     | '/maintenance-schedule'
-    | '/reports'
     | '/reservations'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -109,8 +109,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/drivers'
     | '/job-order'
+    | '/login'
     | '/maintenance-schedule'
-    | '/reports'
     | '/reservations'
   id:
     | '__root__'
@@ -119,8 +119,8 @@ export interface FileRouteTypes {
     | '/dashboard/'
     | '/drivers/'
     | '/job-order/'
+    | '/login/'
     | '/maintenance-schedule/'
-    | '/reports/'
     | '/reservations/'
   fileRoutesById: FileRoutesById
 }
@@ -130,8 +130,8 @@ export interface RootRouteChildren {
   DashboardIndexRoute: typeof DashboardIndexRoute
   DriversIndexRoute: typeof DriversIndexRoute
   JobOrderIndexRoute: typeof JobOrderIndexRoute
+  LoginIndexRoute: typeof LoginIndexRoute
   MaintenanceScheduleIndexRoute: typeof MaintenanceScheduleIndexRoute
-  ReportsIndexRoute: typeof ReportsIndexRoute
   ReservationsIndexRoute: typeof ReservationsIndexRoute
 }
 
@@ -151,18 +151,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReservationsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reports/': {
-      id: '/reports/'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof ReportsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/maintenance-schedule/': {
       id: '/maintenance-schedule/'
       path: '/maintenance-schedule'
       fullPath: '/maintenance-schedule'
       preLoaderRoute: typeof MaintenanceScheduleIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login/': {
+      id: '/login/'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/job-order/': {
@@ -202,8 +202,8 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardIndexRoute: DashboardIndexRoute,
   DriversIndexRoute: DriversIndexRoute,
   JobOrderIndexRoute: JobOrderIndexRoute,
+  LoginIndexRoute: LoginIndexRoute,
   MaintenanceScheduleIndexRoute: MaintenanceScheduleIndexRoute,
-  ReportsIndexRoute: ReportsIndexRoute,
   ReservationsIndexRoute: ReservationsIndexRoute,
 }
 export const routeTree = rootRouteImport

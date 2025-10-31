@@ -1,12 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import AuthenticatedLayout from "@/components/layout/authenticated-layout";
+import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/dashboard/")({
-  component: () => (
-    <div className='text-black'>
-      {" "}
-      <div>
-        <Link to='/drivers'>Go to Dashboard</Link>
-      </div>
-    </div>
-  ),
+  component: RouteComponent,
 });
+
+function RouteComponent() {
+  return <AuthenticatedLayout>Hello "/dashboard/"!</AuthenticatedLayout>;
+}
