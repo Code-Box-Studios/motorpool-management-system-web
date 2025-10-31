@@ -1,23 +1,33 @@
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel
-} from '@/components/ui/field';
+import { FieldDescription, FieldGroup } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { useSignIn } from '@/lib/mutation/auth';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { Controller } from 'react-hook-form';
+import { useLoginForm, type LoginFormData } from './action';
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<'div'>) {
+  const signIn = useSignIn();
+  const form = useLoginForm();
+
+  const onSubmit = (data: LoginFormData) => {
+    signIn.mutate(data);
+  };
+
   return (
     <div className={cn('flex w-full flex-col gap-6', className)} {...props}>
       <Card className="overflow-hidden p-0">
         <CardContent className="grid p-0 md:grid-cols-2">
-          <form className="p-6 md:p-8">
+          <form
+            className="flex flex-col items-center justify-center p-11 md:p-13"
+            id="login-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+          >
             <FieldGroup>
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">
@@ -27,35 +37,62 @@ export function LoginForm({
                   Login to your account
                 </p>
               </div>
-              <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                />
-              </Field>
-              <Field>
-                <div className="flex items-center">
-                  <FieldLabel htmlFor="password">Password</FieldLabel>
-                  <a
-                    href="#"
-                    className="ml-auto text-sm underline-offset-2 hover:underline"
-                  >
-                    Forgot your password?
-                  </a>
-                </div>
-                <Input id="password" type="password" required />
-              </Field>
-              <Field>
-                <Button type="submit">Login</Button>
-              </Field>
-
-              <FieldDescription className="text-center">
-                Don&apos;t have an account? <span>Contact Admin</span>
-              </FieldDescription>
+              <Controller
+                name="email"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="login-email">Email</FieldLabel>
+                    <Input
+                      {...field}
+                      id="login-email"
+                      type="email"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Enter your email"
+                      autoComplete="email"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+              <Controller
+                name="password"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="login-password">Password</FieldLabel>
+                    <Input
+                      {...field}
+                      id="login-password"
+                      type="password"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Enter your password"
+                      autoComplete="current-password"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
             </FieldGroup>
+
+            <Field className="mt-10 flex justify-end">
+              <Button
+                type="submit"
+                form="login-form"
+                disabled={signIn.isPending}
+                className="w-full"
+              >
+                {signIn.isPending ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </Field>
+
+            <FieldDescription className="pt-3 text-center">
+              Don&apos;t have an account? <span>Contact Admin</span>
+            </FieldDescription>
           </form>
           <div className="bg-muted hidden md:block">
             <img

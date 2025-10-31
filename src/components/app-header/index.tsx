@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/breadcrumb';
 import React from 'react';
 import ThemeSwitcher from './theme-switcher';
+import UserAvatar from './user-avatar';
 
 const AppHeader = () => {
   const { pathname } = useLocation();
@@ -51,7 +52,10 @@ const AppHeader = () => {
           </BreadcrumbList>
         </Breadcrumb>
       </div>
-      <ThemeSwitcher />
+      <div className="flex items-center gap-3">
+        <ThemeSwitcher />
+        <UserAvatar />
+      </div>
     </header>
   );
 };
