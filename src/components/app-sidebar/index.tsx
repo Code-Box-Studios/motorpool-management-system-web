@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -11,42 +12,64 @@ import {
   SidebarMenuItem
 } from '@/components/ui/sidebar';
 import { useRouter, Link } from '@tanstack/react-router';
-import {
-  Calendar,
-  CarIcon,
-  ClipboardList,
-  LayoutDashboard,
-  Settings,
-  UserRoundCog,
-  Users2,
-  Wrench
-} from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { Typography } from '../ui/typography';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from '@/components/ui/collapsible';
 
-const routeIcons: Record<string, React.ComponentType> = {
-  'dashboard/': LayoutDashboard,
-  'assets/': CarIcon,
-  'drivers/': Users2,
-  'job-order/': ClipboardList,
-  'maintenance-schedule/': Wrench,
-  'reservations/': Calendar,
-  'user-management/': UserRoundCog
-};
+interface MenuItem {
+  title: string;
+  icon: React.ComponentType;
+  group: string;
+  url: string;
+}
+
+interface NavItem {
+  title: string;
+  items: MenuItem[];
+}
+
+interface RouteWithStaticData {
+  options: { staticData: Omit<MenuItem, 'url'> };
+  path: string;
+}
 
 export function AppSidebar() {
   const router = useRouter();
   const routes = Object.values(router.routesByPath);
 
-  const order = Object.keys(routeIcons);
-  const items = routes
-    .filter((route) => route.path !== '__root' && route.path in routeIcons)
-    .map((route) => ({
-      title: route.path.replace('/', '').replace('-', ' ').toUpperCase(),
-      url: `/${route.path}`,
-      path: route.path,
-      icon: routeIcons[route.path] || Settings
-    }))
-    .sort((a, b) => order.indexOf(a.path) - order.indexOf(b.path));
+  if (!routes.length) {
+    return null;
+  }
+
+  const routesWithData: RouteWithStaticData[] = routes.filter(
+    (route): route is RouteWithStaticData => !!route.options?.staticData
+  );
+
+  const menuItems: MenuItem[] = routesWithData.map((route) => ({
+    ...route.options.staticData,
+    url: `/${route.path.replace('/_authenticated', '')}`
+  }));
+
+  const grouped: Record<string, MenuItem[]> = menuItems.reduce<
+    Record<string, MenuItem[]>
+  >(
+    (acc, item) => {
+      const group = item.group || 'Other';
+      if (!acc[group]) acc[group] = [];
+      acc[group].push(item);
+      return acc;
+    },
+    {} as Record<string, MenuItem[]>
+  );
+
+  const navMain: NavItem[] = Object.entries(grouped).map(([title, items]) => ({
+    title,
+    items
+  }));
 
   return (
     <Sidebar>
@@ -60,24 +83,43 @@ export function AppSidebar() {
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <Link to={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent className="gap-0">
+        {navMain?.map((item) => (
+          <Collapsible
+            key={item.title}
+            title={item.title}
+            defaultOpen
+            className="group/collapsible"
+          >
+            <SidebarGroup>
+              <SidebarGroupLabel
+                asChild
+                className="group/label text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sm"
+              >
+                <CollapsibleTrigger>
+                  {item.title}{' '}
+                  <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {item?.items?.map((subItem) => (
+                      <SidebarMenuItem key={subItem.title}>
+                        <SidebarMenuButton asChild>
+                          <Link to={subItem.url}>
+                            {subItem.icon && <subItem.icon />}
+                            <span>{subItem.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        ))}
       </SidebarContent>
       <SidebarFooter />
     </Sidebar>

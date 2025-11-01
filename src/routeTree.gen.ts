@@ -9,161 +9,250 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PublicRouteImport } from './routes/_public'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as UserManagementIndexRouteImport } from './routes/user-management/index'
-import { Route as ReservationsIndexRouteImport } from './routes/reservations/index'
-import { Route as MaintenanceScheduleIndexRouteImport } from './routes/maintenance-schedule/index'
-import { Route as LoginIndexRouteImport } from './routes/login/index'
-import { Route as JobOrderIndexRouteImport } from './routes/job-order/index'
-import { Route as DriversIndexRouteImport } from './routes/drivers/index'
-import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
-import { Route as AssetsIndexRouteImport } from './routes/assets/index'
-import { Route as UserManagementAddUserIndexRouteImport } from './routes/user-management/add-user/index'
+import { Route as PublicLoginRouteImport } from './routes/_public/login'
+import { Route as AuthenticatedReservationsRouteImport } from './routes/_authenticated/reservations'
+import { Route as AuthenticatedMaintenanceRouteImport } from './routes/_authenticated/maintenance'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedVehiclesIndexRouteImport } from './routes/_authenticated/vehicles.index'
+import { Route as AuthenticatedUserManagementIndexRouteImport } from './routes/_authenticated/user-management.index'
+import { Route as AuthenticatedToolsIndexRouteImport } from './routes/_authenticated/tools.index'
+import { Route as AuthenticatedJobOrderIndexRouteImport } from './routes/_authenticated/job-order.index'
+import { Route as AuthenticatedDriversIndexRouteImport } from './routes/_authenticated/drivers.index'
+import { Route as AuthenticatedVehiclesVehicleIdRouteImport } from './routes/_authenticated/vehicles.$vehicleId'
+import { Route as AuthenticatedUserManagementAddUserRouteImport } from './routes/_authenticated/user-management.add-user'
+import { Route as AuthenticatedToolsToolsIdRouteImport } from './routes/_authenticated/tools.$toolsId'
+import { Route as AuthenticatedDriversAddDriverRouteImport } from './routes/_authenticated/drivers.add-driver'
+import { Route as AuthenticatedDriversIdRouteImport } from './routes/_authenticated/drivers.$id'
 
+const PublicRoute = PublicRouteImport.update({
+  id: '/_public',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const UserManagementIndexRoute = UserManagementIndexRouteImport.update({
-  id: '/user-management/',
-  path: '/user-management/',
-  getParentRoute: () => rootRouteImport,
+const PublicLoginRoute = PublicLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => PublicRoute,
 } as any)
-const ReservationsIndexRoute = ReservationsIndexRouteImport.update({
-  id: '/reservations/',
-  path: '/reservations/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MaintenanceScheduleIndexRoute =
-  MaintenanceScheduleIndexRouteImport.update({
-    id: '/maintenance-schedule/',
-    path: '/maintenance-schedule/',
-    getParentRoute: () => rootRouteImport,
+const AuthenticatedReservationsRoute =
+  AuthenticatedReservationsRouteImport.update({
+    id: '/reservations',
+    path: '/reservations',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
-const LoginIndexRoute = LoginIndexRouteImport.update({
-  id: '/login/',
-  path: '/login/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const JobOrderIndexRoute = JobOrderIndexRouteImport.update({
-  id: '/job-order/',
-  path: '/job-order/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DriversIndexRoute = DriversIndexRouteImport.update({
-  id: '/drivers/',
-  path: '/drivers/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardIndexRoute = DashboardIndexRouteImport.update({
-  id: '/dashboard/',
-  path: '/dashboard/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AssetsIndexRoute = AssetsIndexRouteImport.update({
-  id: '/assets/',
-  path: '/assets/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const UserManagementAddUserIndexRoute =
-  UserManagementAddUserIndexRouteImport.update({
-    id: '/user-management/add-user/',
-    path: '/user-management/add-user/',
-    getParentRoute: () => rootRouteImport,
+const AuthenticatedMaintenanceRoute =
+  AuthenticatedMaintenanceRouteImport.update({
+    id: '/maintenance',
+    path: '/maintenance',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedVehiclesIndexRoute =
+  AuthenticatedVehiclesIndexRouteImport.update({
+    id: '/vehicles/',
+    path: '/vehicles/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedUserManagementIndexRoute =
+  AuthenticatedUserManagementIndexRouteImport.update({
+    id: '/user-management/',
+    path: '/user-management/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedToolsIndexRoute = AuthenticatedToolsIndexRouteImport.update({
+  id: '/tools/',
+  path: '/tools/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedJobOrderIndexRoute =
+  AuthenticatedJobOrderIndexRouteImport.update({
+    id: '/job-order/',
+    path: '/job-order/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedDriversIndexRoute =
+  AuthenticatedDriversIndexRouteImport.update({
+    id: '/drivers/',
+    path: '/drivers/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedVehiclesVehicleIdRoute =
+  AuthenticatedVehiclesVehicleIdRouteImport.update({
+    id: '/vehicles/$vehicleId',
+    path: '/vehicles/$vehicleId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedUserManagementAddUserRoute =
+  AuthenticatedUserManagementAddUserRouteImport.update({
+    id: '/user-management/add-user',
+    path: '/user-management/add-user',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedToolsToolsIdRoute =
+  AuthenticatedToolsToolsIdRouteImport.update({
+    id: '/tools/$toolsId',
+    path: '/tools/$toolsId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedDriversAddDriverRoute =
+  AuthenticatedDriversAddDriverRouteImport.update({
+    id: '/drivers/add-driver',
+    path: '/drivers/add-driver',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedDriversIdRoute = AuthenticatedDriversIdRouteImport.update({
+  id: '/drivers/$id',
+  path: '/drivers/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/assets': typeof AssetsIndexRoute
-  '/dashboard': typeof DashboardIndexRoute
-  '/drivers': typeof DriversIndexRoute
-  '/job-order': typeof JobOrderIndexRoute
-  '/login': typeof LoginIndexRoute
-  '/maintenance-schedule': typeof MaintenanceScheduleIndexRoute
-  '/reservations': typeof ReservationsIndexRoute
-  '/user-management': typeof UserManagementIndexRoute
-  '/user-management/add-user': typeof UserManagementAddUserIndexRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/maintenance': typeof AuthenticatedMaintenanceRoute
+  '/reservations': typeof AuthenticatedReservationsRoute
+  '/login': typeof PublicLoginRoute
+  '/drivers/$id': typeof AuthenticatedDriversIdRoute
+  '/drivers/add-driver': typeof AuthenticatedDriversAddDriverRoute
+  '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
+  '/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
+  '/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
+  '/drivers': typeof AuthenticatedDriversIndexRoute
+  '/job-order': typeof AuthenticatedJobOrderIndexRoute
+  '/tools': typeof AuthenticatedToolsIndexRoute
+  '/user-management': typeof AuthenticatedUserManagementIndexRoute
+  '/vehicles': typeof AuthenticatedVehiclesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/assets': typeof AssetsIndexRoute
-  '/dashboard': typeof DashboardIndexRoute
-  '/drivers': typeof DriversIndexRoute
-  '/job-order': typeof JobOrderIndexRoute
-  '/login': typeof LoginIndexRoute
-  '/maintenance-schedule': typeof MaintenanceScheduleIndexRoute
-  '/reservations': typeof ReservationsIndexRoute
-  '/user-management': typeof UserManagementIndexRoute
-  '/user-management/add-user': typeof UserManagementAddUserIndexRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/maintenance': typeof AuthenticatedMaintenanceRoute
+  '/reservations': typeof AuthenticatedReservationsRoute
+  '/login': typeof PublicLoginRoute
+  '/drivers/$id': typeof AuthenticatedDriversIdRoute
+  '/drivers/add-driver': typeof AuthenticatedDriversAddDriverRoute
+  '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
+  '/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
+  '/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
+  '/drivers': typeof AuthenticatedDriversIndexRoute
+  '/job-order': typeof AuthenticatedJobOrderIndexRoute
+  '/tools': typeof AuthenticatedToolsIndexRoute
+  '/user-management': typeof AuthenticatedUserManagementIndexRoute
+  '/vehicles': typeof AuthenticatedVehiclesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/assets/': typeof AssetsIndexRoute
-  '/dashboard/': typeof DashboardIndexRoute
-  '/drivers/': typeof DriversIndexRoute
-  '/job-order/': typeof JobOrderIndexRoute
-  '/login/': typeof LoginIndexRoute
-  '/maintenance-schedule/': typeof MaintenanceScheduleIndexRoute
-  '/reservations/': typeof ReservationsIndexRoute
-  '/user-management/': typeof UserManagementIndexRoute
-  '/user-management/add-user/': typeof UserManagementAddUserIndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/_public': typeof PublicRouteWithChildren
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/maintenance': typeof AuthenticatedMaintenanceRoute
+  '/_authenticated/reservations': typeof AuthenticatedReservationsRoute
+  '/_public/login': typeof PublicLoginRoute
+  '/_authenticated/drivers/$id': typeof AuthenticatedDriversIdRoute
+  '/_authenticated/drivers/add-driver': typeof AuthenticatedDriversAddDriverRoute
+  '/_authenticated/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
+  '/_authenticated/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
+  '/_authenticated/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
+  '/_authenticated/drivers/': typeof AuthenticatedDriversIndexRoute
+  '/_authenticated/job-order/': typeof AuthenticatedJobOrderIndexRoute
+  '/_authenticated/tools/': typeof AuthenticatedToolsIndexRoute
+  '/_authenticated/user-management/': typeof AuthenticatedUserManagementIndexRoute
+  '/_authenticated/vehicles/': typeof AuthenticatedVehiclesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/assets'
     | '/dashboard'
+    | '/maintenance'
+    | '/reservations'
+    | '/login'
+    | '/drivers/$id'
+    | '/drivers/add-driver'
+    | '/tools/$toolsId'
+    | '/user-management/add-user'
+    | '/vehicles/$vehicleId'
     | '/drivers'
     | '/job-order'
-    | '/login'
-    | '/maintenance-schedule'
-    | '/reservations'
+    | '/tools'
     | '/user-management'
-    | '/user-management/add-user'
+    | '/vehicles'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/assets'
     | '/dashboard'
+    | '/maintenance'
+    | '/reservations'
+    | '/login'
+    | '/drivers/$id'
+    | '/drivers/add-driver'
+    | '/tools/$toolsId'
+    | '/user-management/add-user'
+    | '/vehicles/$vehicleId'
     | '/drivers'
     | '/job-order'
-    | '/login'
-    | '/maintenance-schedule'
-    | '/reservations'
+    | '/tools'
     | '/user-management'
-    | '/user-management/add-user'
+    | '/vehicles'
   id:
     | '__root__'
     | '/'
-    | '/assets/'
-    | '/dashboard/'
-    | '/drivers/'
-    | '/job-order/'
-    | '/login/'
-    | '/maintenance-schedule/'
-    | '/reservations/'
-    | '/user-management/'
-    | '/user-management/add-user/'
+    | '/_authenticated'
+    | '/_public'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/maintenance'
+    | '/_authenticated/reservations'
+    | '/_public/login'
+    | '/_authenticated/drivers/$id'
+    | '/_authenticated/drivers/add-driver'
+    | '/_authenticated/tools/$toolsId'
+    | '/_authenticated/user-management/add-user'
+    | '/_authenticated/vehicles/$vehicleId'
+    | '/_authenticated/drivers/'
+    | '/_authenticated/job-order/'
+    | '/_authenticated/tools/'
+    | '/_authenticated/user-management/'
+    | '/_authenticated/vehicles/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AssetsIndexRoute: typeof AssetsIndexRoute
-  DashboardIndexRoute: typeof DashboardIndexRoute
-  DriversIndexRoute: typeof DriversIndexRoute
-  JobOrderIndexRoute: typeof JobOrderIndexRoute
-  LoginIndexRoute: typeof LoginIndexRoute
-  MaintenanceScheduleIndexRoute: typeof MaintenanceScheduleIndexRoute
-  ReservationsIndexRoute: typeof ReservationsIndexRoute
-  UserManagementIndexRoute: typeof UserManagementIndexRoute
-  UserManagementAddUserIndexRoute: typeof UserManagementAddUserIndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  PublicRoute: typeof PublicRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/_public': {
+      id: '/_public'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof PublicRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -171,83 +260,159 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/user-management/': {
-      id: '/user-management/'
-      path: '/user-management'
-      fullPath: '/user-management'
-      preLoaderRoute: typeof UserManagementIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reservations/': {
-      id: '/reservations/'
-      path: '/reservations'
-      fullPath: '/reservations'
-      preLoaderRoute: typeof ReservationsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/maintenance-schedule/': {
-      id: '/maintenance-schedule/'
-      path: '/maintenance-schedule'
-      fullPath: '/maintenance-schedule'
-      preLoaderRoute: typeof MaintenanceScheduleIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login/': {
-      id: '/login/'
+    '/_public/login': {
+      id: '/_public/login'
       path: '/login'
       fullPath: '/login'
-      preLoaderRoute: typeof LoginIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof PublicLoginRouteImport
+      parentRoute: typeof PublicRoute
     }
-    '/job-order/': {
-      id: '/job-order/'
-      path: '/job-order'
-      fullPath: '/job-order'
-      preLoaderRoute: typeof JobOrderIndexRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/reservations': {
+      id: '/_authenticated/reservations'
+      path: '/reservations'
+      fullPath: '/reservations'
+      preLoaderRoute: typeof AuthenticatedReservationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/drivers/': {
-      id: '/drivers/'
-      path: '/drivers'
-      fullPath: '/drivers'
-      preLoaderRoute: typeof DriversIndexRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/maintenance': {
+      id: '/_authenticated/maintenance'
+      path: '/maintenance'
+      fullPath: '/maintenance'
+      preLoaderRoute: typeof AuthenticatedMaintenanceRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/dashboard/': {
-      id: '/dashboard/'
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/assets/': {
-      id: '/assets/'
-      path: '/assets'
-      fullPath: '/assets'
-      preLoaderRoute: typeof AssetsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/vehicles/': {
+      id: '/_authenticated/vehicles/'
+      path: '/vehicles'
+      fullPath: '/vehicles'
+      preLoaderRoute: typeof AuthenticatedVehiclesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/user-management/add-user/': {
-      id: '/user-management/add-user/'
+    '/_authenticated/user-management/': {
+      id: '/_authenticated/user-management/'
+      path: '/user-management'
+      fullPath: '/user-management'
+      preLoaderRoute: typeof AuthenticatedUserManagementIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tools/': {
+      id: '/_authenticated/tools/'
+      path: '/tools'
+      fullPath: '/tools'
+      preLoaderRoute: typeof AuthenticatedToolsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/job-order/': {
+      id: '/_authenticated/job-order/'
+      path: '/job-order'
+      fullPath: '/job-order'
+      preLoaderRoute: typeof AuthenticatedJobOrderIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/drivers/': {
+      id: '/_authenticated/drivers/'
+      path: '/drivers'
+      fullPath: '/drivers'
+      preLoaderRoute: typeof AuthenticatedDriversIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/vehicles/$vehicleId': {
+      id: '/_authenticated/vehicles/$vehicleId'
+      path: '/vehicles/$vehicleId'
+      fullPath: '/vehicles/$vehicleId'
+      preLoaderRoute: typeof AuthenticatedVehiclesVehicleIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/user-management/add-user': {
+      id: '/_authenticated/user-management/add-user'
       path: '/user-management/add-user'
       fullPath: '/user-management/add-user'
-      preLoaderRoute: typeof UserManagementAddUserIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedUserManagementAddUserRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tools/$toolsId': {
+      id: '/_authenticated/tools/$toolsId'
+      path: '/tools/$toolsId'
+      fullPath: '/tools/$toolsId'
+      preLoaderRoute: typeof AuthenticatedToolsToolsIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/drivers/add-driver': {
+      id: '/_authenticated/drivers/add-driver'
+      path: '/drivers/add-driver'
+      fullPath: '/drivers/add-driver'
+      preLoaderRoute: typeof AuthenticatedDriversAddDriverRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/drivers/$id': {
+      id: '/_authenticated/drivers/$id'
+      path: '/drivers/$id'
+      fullPath: '/drivers/$id'
+      preLoaderRoute: typeof AuthenticatedDriversIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
 
+interface AuthenticatedRouteChildren {
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedMaintenanceRoute: typeof AuthenticatedMaintenanceRoute
+  AuthenticatedReservationsRoute: typeof AuthenticatedReservationsRoute
+  AuthenticatedDriversIdRoute: typeof AuthenticatedDriversIdRoute
+  AuthenticatedDriversAddDriverRoute: typeof AuthenticatedDriversAddDriverRoute
+  AuthenticatedToolsToolsIdRoute: typeof AuthenticatedToolsToolsIdRoute
+  AuthenticatedUserManagementAddUserRoute: typeof AuthenticatedUserManagementAddUserRoute
+  AuthenticatedVehiclesVehicleIdRoute: typeof AuthenticatedVehiclesVehicleIdRoute
+  AuthenticatedDriversIndexRoute: typeof AuthenticatedDriversIndexRoute
+  AuthenticatedJobOrderIndexRoute: typeof AuthenticatedJobOrderIndexRoute
+  AuthenticatedToolsIndexRoute: typeof AuthenticatedToolsIndexRoute
+  AuthenticatedUserManagementIndexRoute: typeof AuthenticatedUserManagementIndexRoute
+  AuthenticatedVehiclesIndexRoute: typeof AuthenticatedVehiclesIndexRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedMaintenanceRoute: AuthenticatedMaintenanceRoute,
+  AuthenticatedReservationsRoute: AuthenticatedReservationsRoute,
+  AuthenticatedDriversIdRoute: AuthenticatedDriversIdRoute,
+  AuthenticatedDriversAddDriverRoute: AuthenticatedDriversAddDriverRoute,
+  AuthenticatedToolsToolsIdRoute: AuthenticatedToolsToolsIdRoute,
+  AuthenticatedUserManagementAddUserRoute:
+    AuthenticatedUserManagementAddUserRoute,
+  AuthenticatedVehiclesVehicleIdRoute: AuthenticatedVehiclesVehicleIdRoute,
+  AuthenticatedDriversIndexRoute: AuthenticatedDriversIndexRoute,
+  AuthenticatedJobOrderIndexRoute: AuthenticatedJobOrderIndexRoute,
+  AuthenticatedToolsIndexRoute: AuthenticatedToolsIndexRoute,
+  AuthenticatedUserManagementIndexRoute: AuthenticatedUserManagementIndexRoute,
+  AuthenticatedVehiclesIndexRoute: AuthenticatedVehiclesIndexRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
+interface PublicRouteChildren {
+  PublicLoginRoute: typeof PublicLoginRoute
+}
+
+const PublicRouteChildren: PublicRouteChildren = {
+  PublicLoginRoute: PublicLoginRoute,
+}
+
+const PublicRouteWithChildren =
+  PublicRoute._addFileChildren(PublicRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AssetsIndexRoute: AssetsIndexRoute,
-  DashboardIndexRoute: DashboardIndexRoute,
-  DriversIndexRoute: DriversIndexRoute,
-  JobOrderIndexRoute: JobOrderIndexRoute,
-  LoginIndexRoute: LoginIndexRoute,
-  MaintenanceScheduleIndexRoute: MaintenanceScheduleIndexRoute,
-  ReservationsIndexRoute: ReservationsIndexRoute,
-  UserManagementIndexRoute: UserManagementIndexRoute,
-  UserManagementAddUserIndexRoute: UserManagementAddUserIndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  PublicRoute: PublicRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

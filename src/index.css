@@ -5,25 +5,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-/* @theme {
-  --breakpoint-mobile: 390px;
-  --breakpoint-tablet: 768px;
-  --breakpoint-laptop: 1024px;
-  --breakpoint-desktop: 1440px;
-  --breakpoint-max-mobile: 389px;
-  --breakpoint-max-tablet: 767px;
-  --breakpoint-max-laptop: 1023px;
-  --breakpoint-max-desktop: 1439px;
-  --max-w-mobile: 390px;
-  --max-w-tablet: 768px;
-  --max-w-laptop: 1024px;
-  --max-w-desktop: 1440px;
-  --min-w-mobile: 390px;
-  --min-w-tablet: 768px;
-  --min-w-laptop: 1024px;
-  --min-w-desktop: 1440px;
-} */
-
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -44,7 +25,7 @@
   --destructive: oklch(0.4437 0.1613 26.8994);
   --destructive-foreground: oklch(1 0 0);
   --border: oklch(0.9779 0.0042 56.3756);
-  --input: oklch(0.9355 0.0324 80.9937);
+  --input: #ffff;
   --ring: oklch(0.465 0.147 24.9381);
   --chart-1: oklch(0.5054 0.1905 27.5181);
   --chart-2: oklch(0.465 0.147 24.9381);
