@@ -17,6 +17,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   Settings,
+  UserRoundCog,
   Users2,
   Wrench
 } from 'lucide-react';
@@ -28,7 +29,8 @@ const routeIcons: Record<string, React.ComponentType> = {
   'drivers/': Users2,
   'job-order/': ClipboardList,
   'maintenance-schedule/': Wrench,
-  'reservations/': Calendar
+  'reservations/': Calendar,
+  'user-management/': UserRoundCog
 };
 
 export function AppSidebar() {

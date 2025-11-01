@@ -9,14 +9,6 @@ export const signIn = async (
   if (error) throw error as AuthError;
 };
 
-export const signUp = async (
-  email: string,
-  password: string
-): Promise<void> => {
-  const { error } = await supabase.auth.signUp({ email, password });
-  if (error) throw error as AuthError;
-};
-
 export const signOut = async (): Promise<void> => {
   const { error } = await supabase.auth.signOut();
   if (error) throw error as AuthError;

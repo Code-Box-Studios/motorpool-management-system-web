@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner'; // Add toast import
-import { resetPassword, signIn, signOut, signUp } from '../supabase/auth';
+import { resetPassword, signIn, signOut } from '../supabase/auth';
 
 export const useSignIn = () => {
   return useMutation({
@@ -11,19 +11,6 @@ export const useSignIn = () => {
     },
     onError: (error) => {
       toast.error(`Login failed: ${error.message}`);
-    }
-  });
-};
-
-export const useSignUp = () => {
-  return useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) =>
-      signUp(email, password),
-    onSuccess: () => {
-      toast.success('Sign up successful!');
-    },
-    onError: (error) => {
-      toast.error(`Sign up failed: ${error.message}`);
     }
   });
 };

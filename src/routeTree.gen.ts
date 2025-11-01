@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as UserManagementIndexRouteImport } from './routes/user-management/index'
 import { Route as ReservationsIndexRouteImport } from './routes/reservations/index'
 import { Route as MaintenanceScheduleIndexRouteImport } from './routes/maintenance-schedule/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
@@ -17,10 +18,16 @@ import { Route as JobOrderIndexRouteImport } from './routes/job-order/index'
 import { Route as DriversIndexRouteImport } from './routes/drivers/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as AssetsIndexRouteImport } from './routes/assets/index'
+import { Route as UserManagementAddUserIndexRouteImport } from './routes/user-management/add-user/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UserManagementIndexRoute = UserManagementIndexRouteImport.update({
+  id: '/user-management/',
+  path: '/user-management/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReservationsIndexRoute = ReservationsIndexRouteImport.update({
@@ -59,6 +66,12 @@ const AssetsIndexRoute = AssetsIndexRouteImport.update({
   path: '/assets/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UserManagementAddUserIndexRoute =
+  UserManagementAddUserIndexRouteImport.update({
+    id: '/user-management/add-user/',
+    path: '/user-management/add-user/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -69,6 +82,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginIndexRoute
   '/maintenance-schedule': typeof MaintenanceScheduleIndexRoute
   '/reservations': typeof ReservationsIndexRoute
+  '/user-management': typeof UserManagementIndexRoute
+  '/user-management/add-user': typeof UserManagementAddUserIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -79,6 +94,8 @@ export interface FileRoutesByTo {
   '/login': typeof LoginIndexRoute
   '/maintenance-schedule': typeof MaintenanceScheduleIndexRoute
   '/reservations': typeof ReservationsIndexRoute
+  '/user-management': typeof UserManagementIndexRoute
+  '/user-management/add-user': typeof UserManagementAddUserIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -90,6 +107,8 @@ export interface FileRoutesById {
   '/login/': typeof LoginIndexRoute
   '/maintenance-schedule/': typeof MaintenanceScheduleIndexRoute
   '/reservations/': typeof ReservationsIndexRoute
+  '/user-management/': typeof UserManagementIndexRoute
+  '/user-management/add-user/': typeof UserManagementAddUserIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -102,6 +121,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/maintenance-schedule'
     | '/reservations'
+    | '/user-management'
+    | '/user-management/add-user'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -112,6 +133,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/maintenance-schedule'
     | '/reservations'
+    | '/user-management'
+    | '/user-management/add-user'
   id:
     | '__root__'
     | '/'
@@ -122,6 +145,8 @@ export interface FileRouteTypes {
     | '/login/'
     | '/maintenance-schedule/'
     | '/reservations/'
+    | '/user-management/'
+    | '/user-management/add-user/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -133,6 +158,8 @@ export interface RootRouteChildren {
   LoginIndexRoute: typeof LoginIndexRoute
   MaintenanceScheduleIndexRoute: typeof MaintenanceScheduleIndexRoute
   ReservationsIndexRoute: typeof ReservationsIndexRoute
+  UserManagementIndexRoute: typeof UserManagementIndexRoute
+  UserManagementAddUserIndexRoute: typeof UserManagementAddUserIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -142,6 +169,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/user-management/': {
+      id: '/user-management/'
+      path: '/user-management'
+      fullPath: '/user-management'
+      preLoaderRoute: typeof UserManagementIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reservations/': {
@@ -193,6 +227,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AssetsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/user-management/add-user/': {
+      id: '/user-management/add-user/'
+      path: '/user-management/add-user'
+      fullPath: '/user-management/add-user'
+      preLoaderRoute: typeof UserManagementAddUserIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -205,6 +246,8 @@ const rootRouteChildren: RootRouteChildren = {
   LoginIndexRoute: LoginIndexRoute,
   MaintenanceScheduleIndexRoute: MaintenanceScheduleIndexRoute,
   ReservationsIndexRoute: ReservationsIndexRoute,
+  UserManagementIndexRoute: UserManagementIndexRoute,
+  UserManagementAddUserIndexRoute: UserManagementAddUserIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
