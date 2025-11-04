@@ -5,7 +5,8 @@ import { useForm } from 'react-hook-form';
 export const signupSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  fullName: z.string().min(1, 'Full name is required')
+  fullName: z.string().min(1, 'Full name is required'),
+  role: z.enum(['admin', 'driver'], { required_error: 'Role is required' })
 });
 
 export type SignupFormData = z.infer<typeof signupSchema>;
@@ -16,7 +17,8 @@ export const useSignupForm = () => {
     defaultValues: {
       email: '',
       password: '',
-      fullName: ''
+      fullName: '',
+      role: 'admin' 
     }
   });
 };

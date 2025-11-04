@@ -1,3 +1,4 @@
+// src/components/login/login-form.tsx
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,17 +7,20 @@ import { Input } from '@/components/ui/input';
 import { useSignIn } from '@/lib/mutation/auth';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Controller } from 'react-hook-form';
+import { useNavigate } from '@tanstack/react-router';
 import { useLoginForm, type LoginFormData } from './action';
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<'div'>) {
-  const signIn = useSignIn();
+  const signInMutation = useSignIn();
+  const navigate = useNavigate();
   const form = useLoginForm();
 
-  const onSubmit = (data: LoginFormData) => {
-    signIn.mutate(data);
+  const handleSubmit = async (data: LoginFormData) => {
+    await signInMutation.mutateAsync(data);
+    navigate({ to: '/' });
   };
 
   return (
@@ -26,7 +30,7 @@ export function LoginForm({
           <form
             className="flex flex-col items-center justify-center p-11 md:p-13"
             id="login-form"
-            onSubmit={form.handleSubmit(onSubmit)}
+            onSubmit={form.handleSubmit(handleSubmit)}
           >
             <FieldGroup>
               <div className="flex flex-col items-center gap-2 text-center">
@@ -83,10 +87,10 @@ export function LoginForm({
               <Button
                 type="submit"
                 form="login-form"
-                disabled={signIn.isPending}
+                disabled={signInMutation.isPending}
                 className="w-full"
               >
-                {signIn.isPending ? 'Signing in...' : 'Sign In'}
+                {signInMutation.isPending ? 'Signing in...' : 'Sign In'}
               </Button>
             </Field>
 

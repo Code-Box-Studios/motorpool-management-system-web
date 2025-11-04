@@ -1,6 +1,8 @@
+// src/lib/supabase/drivers.ts
 import { supabase } from '.';
+import type { Driver, NewDriver, UpdateDriver } from '../types'; // Added types
 
-export const getDrivers = async (page: number = 1, limit: number = 10) => {
+export const getDrivers = async (page: number = 1, limit: number = 10): Promise<{ data: Driver[]; count: number | null }> => {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
   const { data, error, count } = await supabase
@@ -11,10 +13,10 @@ export const getDrivers = async (page: number = 1, limit: number = 10) => {
     console.error('Error fetching drivers:', error);
     throw error;
   }
-  return { data, count };
+  return { data: data as Driver[], count }; 
 };
 
-export const getDriverById = async (id: string) => {
+export const getDriverById = async (id: string): Promise<Driver> => {
   const { data, error } = await supabase
     .from('drivers')
     .select('*')
@@ -24,55 +26,49 @@ export const getDriverById = async (id: string) => {
     console.error('Error fetching driver:', error);
     throw error;
   }
-  return data;
+  return data as Driver;
 };
 
-export const createDriver = async (driver: {
-  full_name: string;
-  date_of_birth?: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  license_number: string;
-  license_type?: string;
-  license_expiry?: string;
-  sss_number?: string;
-  tin?: string;
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
-  hire_date?: string;
-  status?: string;
-  assigned_vehicle_id?: string;
-  notes?: string;
-}) => {
-  const { data, error } = await supabase.from('drivers').insert(driver);
+export const createDriver = async (driver: NewDriver): Promise<Driver> => {
+  const { data, error } = await supabase
+    .from('drivers')
+    .insert(driver)
+    .select()
+    .single();
   if (error) {
     console.error('Error creating driver:', error);
     throw error;
   }
-  return data;
+  return data as Driver;
 };
 
 export const updateDriver = async (
   id: string,
-  updates: Partial<(typeof createDriver.arguments)[0]>
-) => {
+  updates: UpdateDriver 
+): Promise<Driver> => {
   const { data, error } = await supabase
     .from('drivers')
     .update(updates)
-    .eq('id', id);
+    .eq('id', id)
+    .select()
+    .single();
   if (error) {
     console.error('Error updating driver:', error);
     throw error;
   }
-  return data;
+  return data as Driver;
 };
 
-export const deleteDriver = async (id: string) => {
-  const { data, error } = await supabase.from('drivers').delete().eq('id', id);
+export const deleteDriver = async (id: string): Promise<Driver> => { 
+  const { data, error } = await supabase
+    .from('drivers')
+    .delete()
+    .eq('id', id)
+    .select()
+    .single();
   if (error) {
     console.error('Error deleting driver:', error);
     throw error;
   }
-  return data;
+  return data as Driver;
 };

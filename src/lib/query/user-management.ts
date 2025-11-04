@@ -1,9 +1,10 @@
+// src/lib/query/user-management.ts
 import { useQuery } from '@tanstack/react-query';
-import { getAllProfiles } from '../supabase/user-management';
+import { getAllAdmins } from '../supabase/user-management';
 
-export const useProfiles = () => {
+export const useAdmins = () => {
   return useQuery({
-    queryKey: ['profiles'],
-    queryFn: getAllProfiles
+    queryKey: ['admins'],
+    queryFn: getAllAdmins
   });
 };

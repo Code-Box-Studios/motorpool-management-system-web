@@ -17,11 +17,11 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
-import { useProfiles } from '@/lib/query/user-management';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
+import { useAdmins } from '@/lib/query/user-management';
 
 const UserManagement = () => {
-  const { data: profiles, isLoading } = useProfiles();
+  const { data: profiles, isLoading } = useAdmins();
 
   return (
     <div>

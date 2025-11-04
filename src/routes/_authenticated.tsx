@@ -19,10 +19,6 @@ function AuthenticatedLayout() {
     }
   }, [session, navigate]);
 
-  if (!session) {
-    return null;
-  }
-
   return (
     <SidebarProvider>
       <AppSidebar />

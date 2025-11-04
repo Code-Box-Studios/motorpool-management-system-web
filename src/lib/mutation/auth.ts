@@ -1,6 +1,8 @@
-import { useMutation } from '@tanstack/react-query';
-import { toast } from 'sonner'; // Add toast import
-import { resetPassword, signIn, signOut } from '../supabase/auth';
+// src/lib/mutation/auth.ts
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { signIn, signUp, signOut, resetPassword, getCurrentUser} from '../supabase/auth';
+import type { AuthError } from '@supabase/supabase-js';
 
 export const useSignIn = () => {
   return useMutation({
@@ -9,8 +11,21 @@ export const useSignIn = () => {
     onSuccess: () => {
       toast.success('Login successful!');
     },
-    onError: (error) => {
+    onError: (error: AuthError) => {
       toast.error(`Login failed: ${error.message}`);
+    }
+  });
+};
+
+export const useSignUp = () => {
+  return useMutation({
+    mutationFn: ({ email, password, fullName, role }: { email: string; password: string; fullName: string; role: string }) =>
+      signUp(email, password, fullName, role),
+    onSuccess: () => {
+      toast.success('Sign up successful! Check your email for confirmation.');
+    },
+    onError: (error: AuthError) => {
+      toast.error(`Sign up failed: ${error.message}`);
     }
   });
 };
@@ -21,7 +36,7 @@ export const useSignOut = () => {
     onSuccess: () => {
       toast.success('Signed out successfully!');
     },
-    onError: (error) => {
+    onError: (error: AuthError) => {
       toast.error(`Sign out failed: ${error.message}`);
     }
   });
@@ -33,8 +48,15 @@ export const useResetPassword = () => {
     onSuccess: () => {
       toast.success('Password reset email sent!');
     },
-    onError: (error) => {
+    onError: (error: AuthError) => {
       toast.error(`Password reset failed: ${error.message}`);
     }
+  });
+};
+
+export const useCurrentUser = () => {
+  return useQuery({
+    queryKey: ['currentUser'],
+    queryFn: getCurrentUser,
   });
 };
