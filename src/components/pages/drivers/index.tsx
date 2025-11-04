@@ -46,7 +46,7 @@ const Drivers = () => {
           <CardDescription>Manage and view driver details.</CardDescription>
           <CardAction>
             <Button>
-              <Link to="/drivers/add-driver">Add Driver</Link>
+              <Link to="/">Add Driver</Link>
             </Button>
           </CardAction>
         </CardHeader>

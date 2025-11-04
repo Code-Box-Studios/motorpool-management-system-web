@@ -42,7 +42,7 @@ export function AddVehicle() {
   return (
     <div>
       <form
-        className="flex flex-col justify-center p-11 md:p-13"
+        className="flex flex-col justify-center"
         id="add-vehicle-form"
         onSubmit={form.handleSubmit(onSubmit)}
       >

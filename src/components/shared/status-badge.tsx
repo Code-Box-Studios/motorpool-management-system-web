@@ -25,11 +25,14 @@ const getBadgeVariant = (status: string) => {
 };
 
 const StatusBadge = ({ status }: StatusBadgeProps) => {
+  const formattedStatus = status
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (l) => l.toUpperCase());
   const variant = getBadgeVariant(status);
 
   return (
     <Badge variant={variant} className="capitalize">
-      {status}
+      {formattedStatus}
     </Badge>
   );
 };

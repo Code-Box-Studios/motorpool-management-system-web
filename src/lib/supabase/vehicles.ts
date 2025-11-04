@@ -82,15 +82,17 @@ export const createVehicle = async (
 export const updateVehicle = async (
   id: string,
   updates: UpdateVehicle,
-  files: File[] = []
+  files: File[] = [],
+  removedImages: string[] = []
 ): Promise<Vehicle> => {
   try {
     let imageUrls: string[] = [];
     if (files.length > 0) {
       imageUrls = await uploadVehicleImages(files);
-      const current = await getVehicleById(id);
-      updates.images = [...(current.images || []), ...imageUrls];
     }
+    const current = await getVehicleById(id);
+    const filteredImages = (current.images || []).filter(url => !removedImages.includes(url));
+    updates.images = [...filteredImages, ...imageUrls];
     const { data, error } = await supabase
       .from('vehicles')
       .update(updates)

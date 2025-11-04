@@ -24,7 +24,7 @@ function AuthenticatedLayout() {
       <AppSidebar />
       <div className="w-full">
         <AppHeader />
-        <main className="p-5">
+        <main className="p-11 md:p-20">
           <Outlet />
         </main>
       </div>

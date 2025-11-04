@@ -4,6 +4,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Typography } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
+import StatusBadge from '@/components/shared/status-badge';
 
 const Vehicles = () => {
   const { data } = useVehicles(1, 10);
@@ -11,10 +12,8 @@ const Vehicles = () => {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <Typography variant={'h2'} className="mb-4">
-          Vehicles
-        </Typography>
+      <div className="mb-5 flex items-center justify-between">
+        <Typography variant={'h2'}>Vehicles</Typography>
         <Link to="/vehicles/add-vehicle" className={cn(buttonVariants())}>
           Add Vehicle
         </Link>
@@ -24,10 +23,26 @@ const Vehicles = () => {
           <CardWithImage
             key={vehicle.id}
             imageSrc={vehicle.images?.[0]}
-            title={`${vehicle.make} ${vehicle.model}`}
-            description={`Year: ${vehicle.year}, License: ${vehicle.license_plate}`}
+            title={
+              <div className="space-y-3">
+                <StatusBadge status={vehicle.status} />
+                <Typography variant="h5" className="line-clamp-1">
+                  {vehicle.make} {vehicle.model} {vehicle.year}
+                </Typography>
+              </div>
+            }
+            description={
+              <div>
+                <Typography variant="p-sm">
+                  License Plate: {vehicle.license_plate}
+                </Typography>
+                <Typography variant="p-sm">
+                  Mileage: {vehicle.mileage}
+                </Typography>
+              </div>
+            }
             primaryAction={() => navigate({ to: `/vehicles/${vehicle.id}` })}
-            status={vehicle.status.replace('_', ' ')}
+            primaryButtonText="View Vehicle"
           />
         ))}
       </div>

@@ -25,12 +25,14 @@ export const useUpdateVehicle = () => {
     mutationFn: ({
       id,
       updates,
-      files
+      files,
+      removedImages
     }: {
       id: string;
       updates: Omit<UpdateVehicle, 'images'>; 
       files?: File[];
-    }) => updateVehicle(id, updates, files),
+      removedImages?: string[];
+    }) => updateVehicle(id, updates, files, removedImages),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
     }

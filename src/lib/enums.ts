@@ -14,3 +14,4 @@ export const FUEL_TYPE = {
   OTHER: 'other'
 } as const;
 
+export const DRIVER_STATUS = ['Active', 'Inactive'] as const;

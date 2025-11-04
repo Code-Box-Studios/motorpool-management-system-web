@@ -10,6 +10,7 @@ import { useDriverForm, type DriverFormData } from '../add-driver/action';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { FormSkeleton } from '@/components/shared/skeleton/form-skeleton';
+import { Typography } from '@/components/ui/typography';
 
 export function DriverDetails({ id }: { id: string }) {
   const { data: driver, isLoading } = useDriver(id);
@@ -57,9 +58,11 @@ export function DriverDetails({ id }: { id: string }) {
   if (!driver) return <div>Driver not found</div>;
 
   return (
-    <div className="p-11 md:p-13">
-      <div className="mb-11 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Driver Details</h1>
+    <div className="">
+      <div className="mb-11 flex justify-between">
+        <Typography className="text-center" variant={'h1'}>
+          Driver Details
+        </Typography>
         <Button onClick={() => setIsEditing(!isEditing)}>
           {isEditing ? 'Cancel' : 'Edit'}
         </Button>

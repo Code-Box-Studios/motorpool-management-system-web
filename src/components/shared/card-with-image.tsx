@@ -8,22 +8,22 @@ import {
   CardFooter
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import StatusBadge from './status-badge';
+import type React from 'react';
 
 export type CardWithImageProps = {
   imageSrc?: string;
-  title: string;
-  description: string;
+  title: React.ReactNode;
+  description: React.ReactNode;
   primaryAction?: () => void;
-  status: string;
+  primaryButtonText?: string;
 };
 
 const CardWithImage = ({
   imageSrc,
   title,
   description,
-  status,
-  primaryAction
+  primaryAction,
+  primaryButtonText
 }: CardWithImageProps) => {
   return (
     <Card className="pt-0">
@@ -36,12 +36,11 @@ const CardWithImage = ({
       </CardContent>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        {status && <StatusBadge status={status} />}
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardFooter className="flex gap-3 max-sm:flex-col max-sm:items-stretch">
         <Button className="w-full" onClick={primaryAction}>
-          View Vehicle
+          {primaryButtonText}
         </Button>
       </CardFooter>
     </Card>

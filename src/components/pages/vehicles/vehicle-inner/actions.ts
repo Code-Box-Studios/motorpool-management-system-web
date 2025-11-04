@@ -1,12 +1,10 @@
-// src/components/pages/vehicles/add-vehicle/actions.ts
+// src/components/pages/vehicles/vehicle-inner/actions.ts
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCreateVehicle } from '@/lib/mutation/vehicles';
-import type { NewVehicle } from '@/lib/types'; 
 import { FUEL_TYPE, VEHICLE_STATUS } from '@/lib/enums';
 
-const vehicleSchema = z.object({
+const updateVehicleSchema = z.object({
   make: z.string().min(1, 'Make is required'),
   model: z.string().min(1, 'Model is required'),
   year: z.coerce.number().min(1900, 'Year must be at least 1900'),
@@ -19,13 +17,14 @@ const vehicleSchema = z.object({
   mileage: z.coerce.number().min(0, 'Mileage must be non-negative'),
   insurance_expiry: z.string().min(1, 'Insurance expiry is required'),
   registration_expiry: z.string().min(1, 'Registration expiry is required'),
-  images: z.array(z.instanceof(File)).optional(),
   newImages: z.array(z.instanceof(File)).optional()
-});export type VehicleFormData = z.infer<typeof vehicleSchema>;
+});
 
-export const useVehicleForm = () => {
-  return useForm<VehicleFormData>({
-    resolver: zodResolver(vehicleSchema),
+export type UpdateVehicleFormData = z.infer<typeof updateVehicleSchema>;
+
+export const useVehicleUpdateForm = () => {
+  return useForm<UpdateVehicleFormData>({
+    resolver: zodResolver(updateVehicleSchema),
     defaultValues: {
       make: '',
       model: '',
@@ -39,23 +38,7 @@ export const useVehicleForm = () => {
       mileage: 0,
       insurance_expiry: '',
       registration_expiry: '',
-      images: [],
       newImages: []
     }
   });
-};
-
-export const useAddVehicleAction = () => {
-  const createVehicle = useCreateVehicle();
-
-  const addVehicle = async (data: VehicleFormData) => {
-    const { images, ...vehicle } = data;
-    const vehicleData = {
-      ...vehicle,
-      assigned_driver: vehicle.assigned_driver ?? null,
-    };
-    await createVehicle.mutateAsync({ vehicle: vehicleData as Omit<NewVehicle, 'images'>, files: images || [] }); 
-  };
-
-  return { addVehicle, isLoading: createVehicle.isPending };
 };
