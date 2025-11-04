@@ -27,6 +27,7 @@ import {
   CarouselPrevious
 } from '@/components/ui/carousel';
 import { cn } from '@/lib/utils';
+import { Loading } from '@/components/ui/loader';
 
 const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   const { data: vehicle } = useVehicle(vehicleId);
@@ -75,8 +76,7 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
     }
   };
 
-  if (!vehicle || driversLoading || branchesLoading)
-    return <div>Loading...</div>;
+  if (!vehicle || driversLoading || branchesLoading) return <Loading />;
 
   return (
     <div>
@@ -123,7 +123,7 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
                             type="button"
                             variant="destructive"
                             size="sm"
-                            className="absolute top-2 right-13 rounded-full p-1"
+                            className="absolute top-2 right-2 rounded-full p-1"
                             onClick={() =>
                               setRemovedImages((prev) => [...prev, url])
                             }
