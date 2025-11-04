@@ -31,7 +31,7 @@ const CardWithImage = ({
         <img
           src={imageSrc ?? '/logo/mms-logo.png'}
           alt="Banner"
-          className={cn('aspect-video h-52 rounded-t-xl object-contain')}
+          className={cn('aspect-video h-40 rounded-t-xl object-contain')}
         />
       </CardContent>
       <CardHeader>

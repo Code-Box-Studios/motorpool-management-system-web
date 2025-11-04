@@ -24,6 +24,7 @@ import { Route as AuthenticatedDriversIndexRouteImport } from './routes/_authent
 import { Route as AuthenticatedVehiclesAddVehicleRouteImport } from './routes/_authenticated/vehicles.add-vehicle'
 import { Route as AuthenticatedVehiclesVehicleIdRouteImport } from './routes/_authenticated/vehicles.$vehicleId'
 import { Route as AuthenticatedUserManagementAddUserRouteImport } from './routes/_authenticated/user-management.add-user'
+import { Route as AuthenticatedToolsAddToolsRouteImport } from './routes/_authenticated/tools.add-tools'
 import { Route as AuthenticatedToolsToolsIdRouteImport } from './routes/_authenticated/tools.$toolsId'
 import { Route as AuthenticatedDriversIdRouteImport } from './routes/_authenticated/drivers.$id'
 
@@ -109,6 +110,12 @@ const AuthenticatedUserManagementAddUserRoute =
     path: '/user-management/add-user',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedToolsAddToolsRoute =
+  AuthenticatedToolsAddToolsRouteImport.update({
+    id: '/tools/add-tools',
+    path: '/tools/add-tools',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedToolsToolsIdRoute =
   AuthenticatedToolsToolsIdRouteImport.update({
     id: '/tools/$toolsId',
@@ -129,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
+  '/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
   '/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
   '/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
@@ -146,6 +154,7 @@ export interface FileRoutesByTo {
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
+  '/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
   '/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
   '/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
@@ -166,6 +175,7 @@ export interface FileRoutesById {
   '/_public/login': typeof PublicLoginRoute
   '/_authenticated/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/_authenticated/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
+  '/_authenticated/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
   '/_authenticated/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
   '/_authenticated/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/_authenticated/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
@@ -185,6 +195,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/drivers/$id'
     | '/tools/$toolsId'
+    | '/tools/add-tools'
     | '/user-management/add-user'
     | '/vehicles/$vehicleId'
     | '/vehicles/add-vehicle'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/drivers/$id'
     | '/tools/$toolsId'
+    | '/tools/add-tools'
     | '/user-management/add-user'
     | '/vehicles/$vehicleId'
     | '/vehicles/add-vehicle'
@@ -221,6 +233,7 @@ export interface FileRouteTypes {
     | '/_public/login'
     | '/_authenticated/drivers/$id'
     | '/_authenticated/tools/$toolsId'
+    | '/_authenticated/tools/add-tools'
     | '/_authenticated/user-management/add-user'
     | '/_authenticated/vehicles/$vehicleId'
     | '/_authenticated/vehicles/add-vehicle'
@@ -344,6 +357,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUserManagementAddUserRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/tools/add-tools': {
+      id: '/_authenticated/tools/add-tools'
+      path: '/tools/add-tools'
+      fullPath: '/tools/add-tools'
+      preLoaderRoute: typeof AuthenticatedToolsAddToolsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/tools/$toolsId': {
       id: '/_authenticated/tools/$toolsId'
       path: '/tools/$toolsId'
@@ -367,6 +387,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedReservationsRoute: typeof AuthenticatedReservationsRoute
   AuthenticatedDriversIdRoute: typeof AuthenticatedDriversIdRoute
   AuthenticatedToolsToolsIdRoute: typeof AuthenticatedToolsToolsIdRoute
+  AuthenticatedToolsAddToolsRoute: typeof AuthenticatedToolsAddToolsRoute
   AuthenticatedUserManagementAddUserRoute: typeof AuthenticatedUserManagementAddUserRoute
   AuthenticatedVehiclesVehicleIdRoute: typeof AuthenticatedVehiclesVehicleIdRoute
   AuthenticatedVehiclesAddVehicleRoute: typeof AuthenticatedVehiclesAddVehicleRoute
@@ -383,6 +404,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedReservationsRoute: AuthenticatedReservationsRoute,
   AuthenticatedDriversIdRoute: AuthenticatedDriversIdRoute,
   AuthenticatedToolsToolsIdRoute: AuthenticatedToolsToolsIdRoute,
+  AuthenticatedToolsAddToolsRoute: AuthenticatedToolsAddToolsRoute,
   AuthenticatedUserManagementAddUserRoute:
     AuthenticatedUserManagementAddUserRoute,
   AuthenticatedVehiclesVehicleIdRoute: AuthenticatedVehiclesVehicleIdRoute,

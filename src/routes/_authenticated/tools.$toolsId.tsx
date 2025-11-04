@@ -1,9 +1,11 @@
-import { createFileRoute } from '@tanstack/react-router';
+import ToolsInner from '@/components/pages/tools/tools-inner';
+import { createFileRoute, useParams } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/_authenticated/tools/$toolsId')({
   component: RouteComponent
 });
 
 function RouteComponent() {
-  return <div>Hello "/assets/tools/$toolsId"!</div>;
+  const { toolsId } = useParams({ from: '/_authenticated/tools/$toolsId' });
+  return <ToolsInner toolId={toolsId} />;
 }

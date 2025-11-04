@@ -19,6 +19,8 @@ const getBadgeVariant = (status: string) => {
       return 'not_available';
     case 'to_be_repaired':
       return 'to_be_repaired';
+    case 'borrowed':
+      return 'borrowed';
     default:
       return 'default';
   }

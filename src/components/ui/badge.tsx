@@ -31,7 +31,9 @@ const badgeVariants = cva(
         to_be_repaired:
           'border-transparent bg-rose-500 text-white [a&]:hover:bg-rose-600',
         under_maintenance:
-          'border-transparent bg-amber-400 text-white [a&]:hover:bg-amber-500'
+          'border-transparent bg-amber-400 text-white [a&]:hover:bg-amber-500',
+        borrowed:
+          'border-transparent bg-purple-500 text-white [a&]:hover:bg-purple-600'
       }
     },
     defaultVariants: {

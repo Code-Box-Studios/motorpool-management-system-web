@@ -15,3 +15,10 @@ export const FUEL_TYPE = {
 } as const;
 
 export const DRIVER_STATUS = ['Active', 'Inactive'] as const;
+
+export const TOOL_STATUS = {
+  AVAILABLE: 'available',
+  BORROWED: 'borrowed',
+  UNDER_MAINTENANCE: 'under_maintenance',
+  OUT_OF_SERVICE: 'out_of_service'
+} as const;
