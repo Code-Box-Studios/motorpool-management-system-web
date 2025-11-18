@@ -682,6 +682,16 @@ export type Database = {
       }
       trip_tickets: {
         Row: {
+          allocation_approved_by_evp_operations: string | null
+          allocation_date: string | null
+          allocation_fuel_type: string | null
+          allocation_km: number | null
+          allocation_liters: number | null
+          allocation_purpose: string | null
+          allocation_requested_by: string | null
+          allocation_status: string | null
+          allocation_trip_to: string | null
+          allocation_vehicle_id: string | null
           approved_by: string
           branch_id: string
           created_at: string | null
@@ -689,6 +699,7 @@ export type Database = {
           destination: string
           driver_id: string
           id: string
+          pdf_path: string | null
           pickup_date_time: string
           post_trip_guard: string | null
           pre_trip_guard: string | null
@@ -701,6 +712,16 @@ export type Database = {
           vehicle_id: string
         }
         Insert: {
+          allocation_approved_by_evp_operations?: string | null
+          allocation_date?: string | null
+          allocation_fuel_type?: string | null
+          allocation_km?: number | null
+          allocation_liters?: number | null
+          allocation_purpose?: string | null
+          allocation_requested_by?: string | null
+          allocation_status?: string | null
+          allocation_trip_to?: string | null
+          allocation_vehicle_id?: string | null
           approved_by: string
           branch_id: string
           created_at?: string | null
@@ -708,6 +729,7 @@ export type Database = {
           destination: string
           driver_id: string
           id?: string
+          pdf_path?: string | null
           pickup_date_time: string
           post_trip_guard?: string | null
           pre_trip_guard?: string | null
@@ -720,6 +742,16 @@ export type Database = {
           vehicle_id: string
         }
         Update: {
+          allocation_approved_by_evp_operations?: string | null
+          allocation_date?: string | null
+          allocation_fuel_type?: string | null
+          allocation_km?: number | null
+          allocation_liters?: number | null
+          allocation_purpose?: string | null
+          allocation_requested_by?: string | null
+          allocation_status?: string | null
+          allocation_trip_to?: string | null
+          allocation_vehicle_id?: string | null
           approved_by?: string
           branch_id?: string
           created_at?: string | null
@@ -727,6 +759,7 @@ export type Database = {
           destination?: string
           driver_id?: string
           id?: string
+          pdf_path?: string | null
           pickup_date_time?: string
           post_trip_guard?: string | null
           pre_trip_guard?: string | null
@@ -739,6 +772,13 @@ export type Database = {
           vehicle_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "trip_tickets_allocation_vehicle_fkey"
+            columns: ["allocation_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "trip_tickets_approved_by_fkey"
             columns: ["approved_by"]
@@ -937,6 +977,7 @@ export type Database = {
           next_due_mileage: number
         }[]
       }
+      safe_uuid: { Args: { input: string }; Returns: string }
       user_is_admin: { Args: { p_user: string }; Returns: boolean }
       user_is_admin_text: { Args: { p_user_text: string }; Returns: boolean }
     }

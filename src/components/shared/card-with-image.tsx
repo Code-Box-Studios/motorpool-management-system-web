@@ -27,7 +27,7 @@ const CardWithImage = ({
 }: CardWithImageProps) => {
   return (
     <Card className="pt-0">
-      <CardContent className="rounded-t-2xl bg-white px-0">
+      <CardContent className="flex items-center justify-center rounded-t-2xl bg-white p-3 px-0">
         <img
           src={imageSrc ?? '/logo/mms-logo.png'}
           alt="Banner"

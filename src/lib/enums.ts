@@ -14,11 +14,19 @@ export const FUEL_TYPE = {
   OTHER: 'other'
 } as const;
 
-export const DRIVER_STATUS = ['Active', 'Inactive'] as const;
+export const DRIVER_STATUS = ['Active', 'Inactive', 'On Trip'] as const;
 
 export const TOOL_STATUS = {
   AVAILABLE: 'available',
   BORROWED: 'borrowed',
   UNDER_MAINTENANCE: 'under_maintenance',
   OUT_OF_SERVICE: 'out_of_service'
+} as const;
+
+export const TRIP_TICKET_STATUS = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled'
 } as const;

@@ -1,7 +1,6 @@
 import MetricCard from '../../shared/metric-card';
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -18,7 +17,6 @@ import {
 } from '@/components/ui/table';
 import { useDrivers } from '@/lib/query/drivers';
 import { Button } from '@/components/ui/button';
-import { Link } from '@tanstack/react-router';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Typography } from '@/components/ui/typography';
@@ -44,11 +42,6 @@ const Drivers = () => {
         <CardHeader>
           <CardTitle>Drivers</CardTitle>
           <CardDescription>Manage and view driver details.</CardDescription>
-          <CardAction>
-            <Button>
-              <Link to="/">Add Driver</Link>
-            </Button>
-          </CardAction>
         </CardHeader>
         <CardContent>
           {isLoading ? (

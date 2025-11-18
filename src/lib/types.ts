@@ -60,6 +60,13 @@ export type TripTicket = Tables<'trip_tickets'>;
 export type NewTripTicket = TablesInsert<'trip_tickets'>;
 export type UpdateTripTicket = TablesUpdate<'trip_tickets'>;
 
+export type TripTicketWithRelations = TripTicket & {
+  branches: Branch | null;
+  drivers: Driver | null;
+  vehicles: Vehicle | null;
+  fuel_allocations: FuelAllocation[];
+};
+
 export type VehicleMaintenanceTracking = Tables<'vehicle_maintenance_tracking'>;
 export type NewVehicleMaintenanceTracking = TablesInsert<'vehicle_maintenance_tracking'>;
 export type UpdateVehicleMaintenanceTracking = TablesUpdate<'vehicle_maintenance_tracking'>;

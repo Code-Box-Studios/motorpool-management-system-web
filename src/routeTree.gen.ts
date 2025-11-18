@@ -18,12 +18,15 @@ import { Route as AuthenticatedMaintenanceRouteImport } from './routes/_authenti
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedVehiclesIndexRouteImport } from './routes/_authenticated/vehicles.index'
 import { Route as AuthenticatedUserManagementIndexRouteImport } from './routes/_authenticated/user-management.index'
+import { Route as AuthenticatedTripTicketsIndexRouteImport } from './routes/_authenticated/trip-tickets.index'
 import { Route as AuthenticatedToolsIndexRouteImport } from './routes/_authenticated/tools.index'
 import { Route as AuthenticatedJobOrderIndexRouteImport } from './routes/_authenticated/job-order.index'
 import { Route as AuthenticatedDriversIndexRouteImport } from './routes/_authenticated/drivers.index'
 import { Route as AuthenticatedVehiclesAddVehicleRouteImport } from './routes/_authenticated/vehicles.add-vehicle'
 import { Route as AuthenticatedVehiclesVehicleIdRouteImport } from './routes/_authenticated/vehicles.$vehicleId'
 import { Route as AuthenticatedUserManagementAddUserRouteImport } from './routes/_authenticated/user-management.add-user'
+import { Route as AuthenticatedTripTicketsAddTripTicketRouteImport } from './routes/_authenticated/trip-tickets.add-trip-ticket'
+import { Route as AuthenticatedTripTicketsIdRouteImport } from './routes/_authenticated/trip-tickets.$id'
 import { Route as AuthenticatedToolsAddToolsRouteImport } from './routes/_authenticated/tools.add-tools'
 import { Route as AuthenticatedToolsToolsIdRouteImport } from './routes/_authenticated/tools.$toolsId'
 import { Route as AuthenticatedDriversIdRouteImport } from './routes/_authenticated/drivers.$id'
@@ -75,6 +78,12 @@ const AuthenticatedUserManagementIndexRoute =
     path: '/user-management/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedTripTicketsIndexRoute =
+  AuthenticatedTripTicketsIndexRouteImport.update({
+    id: '/trip-tickets/',
+    path: '/trip-tickets/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedToolsIndexRoute = AuthenticatedToolsIndexRouteImport.update({
   id: '/tools/',
   path: '/tools/',
@@ -110,6 +119,18 @@ const AuthenticatedUserManagementAddUserRoute =
     path: '/user-management/add-user',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedTripTicketsAddTripTicketRoute =
+  AuthenticatedTripTicketsAddTripTicketRouteImport.update({
+    id: '/trip-tickets/add-trip-ticket',
+    path: '/trip-tickets/add-trip-ticket',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedTripTicketsIdRoute =
+  AuthenticatedTripTicketsIdRouteImport.update({
+    id: '/trip-tickets/$id',
+    path: '/trip-tickets/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedToolsAddToolsRoute =
   AuthenticatedToolsAddToolsRouteImport.update({
     id: '/tools/add-tools',
@@ -137,12 +158,15 @@ export interface FileRoutesByFullPath {
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
+  '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
+  '/trip-tickets/add-trip-ticket': typeof AuthenticatedTripTicketsAddTripTicketRoute
   '/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
   '/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
   '/drivers': typeof AuthenticatedDriversIndexRoute
   '/job-order': typeof AuthenticatedJobOrderIndexRoute
   '/tools': typeof AuthenticatedToolsIndexRoute
+  '/trip-tickets': typeof AuthenticatedTripTicketsIndexRoute
   '/user-management': typeof AuthenticatedUserManagementIndexRoute
   '/vehicles': typeof AuthenticatedVehiclesIndexRoute
 }
@@ -155,12 +179,15 @@ export interface FileRoutesByTo {
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
+  '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
+  '/trip-tickets/add-trip-ticket': typeof AuthenticatedTripTicketsAddTripTicketRoute
   '/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
   '/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
   '/drivers': typeof AuthenticatedDriversIndexRoute
   '/job-order': typeof AuthenticatedJobOrderIndexRoute
   '/tools': typeof AuthenticatedToolsIndexRoute
+  '/trip-tickets': typeof AuthenticatedTripTicketsIndexRoute
   '/user-management': typeof AuthenticatedUserManagementIndexRoute
   '/vehicles': typeof AuthenticatedVehiclesIndexRoute
 }
@@ -176,12 +203,15 @@ export interface FileRoutesById {
   '/_authenticated/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/_authenticated/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/_authenticated/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
+  '/_authenticated/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
+  '/_authenticated/trip-tickets/add-trip-ticket': typeof AuthenticatedTripTicketsAddTripTicketRoute
   '/_authenticated/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
   '/_authenticated/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/_authenticated/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
   '/_authenticated/drivers/': typeof AuthenticatedDriversIndexRoute
   '/_authenticated/job-order/': typeof AuthenticatedJobOrderIndexRoute
   '/_authenticated/tools/': typeof AuthenticatedToolsIndexRoute
+  '/_authenticated/trip-tickets/': typeof AuthenticatedTripTicketsIndexRoute
   '/_authenticated/user-management/': typeof AuthenticatedUserManagementIndexRoute
   '/_authenticated/vehicles/': typeof AuthenticatedVehiclesIndexRoute
 }
@@ -196,12 +226,15 @@ export interface FileRouteTypes {
     | '/drivers/$id'
     | '/tools/$toolsId'
     | '/tools/add-tools'
+    | '/trip-tickets/$id'
+    | '/trip-tickets/add-trip-ticket'
     | '/user-management/add-user'
     | '/vehicles/$vehicleId'
     | '/vehicles/add-vehicle'
     | '/drivers'
     | '/job-order'
     | '/tools'
+    | '/trip-tickets'
     | '/user-management'
     | '/vehicles'
   fileRoutesByTo: FileRoutesByTo
@@ -214,12 +247,15 @@ export interface FileRouteTypes {
     | '/drivers/$id'
     | '/tools/$toolsId'
     | '/tools/add-tools'
+    | '/trip-tickets/$id'
+    | '/trip-tickets/add-trip-ticket'
     | '/user-management/add-user'
     | '/vehicles/$vehicleId'
     | '/vehicles/add-vehicle'
     | '/drivers'
     | '/job-order'
     | '/tools'
+    | '/trip-tickets'
     | '/user-management'
     | '/vehicles'
   id:
@@ -234,12 +270,15 @@ export interface FileRouteTypes {
     | '/_authenticated/drivers/$id'
     | '/_authenticated/tools/$toolsId'
     | '/_authenticated/tools/add-tools'
+    | '/_authenticated/trip-tickets/$id'
+    | '/_authenticated/trip-tickets/add-trip-ticket'
     | '/_authenticated/user-management/add-user'
     | '/_authenticated/vehicles/$vehicleId'
     | '/_authenticated/vehicles/add-vehicle'
     | '/_authenticated/drivers/'
     | '/_authenticated/job-order/'
     | '/_authenticated/tools/'
+    | '/_authenticated/trip-tickets/'
     | '/_authenticated/user-management/'
     | '/_authenticated/vehicles/'
   fileRoutesById: FileRoutesById
@@ -315,6 +354,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUserManagementIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/trip-tickets/': {
+      id: '/_authenticated/trip-tickets/'
+      path: '/trip-tickets'
+      fullPath: '/trip-tickets'
+      preLoaderRoute: typeof AuthenticatedTripTicketsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/tools/': {
       id: '/_authenticated/tools/'
       path: '/tools'
@@ -357,6 +403,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUserManagementAddUserRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/trip-tickets/add-trip-ticket': {
+      id: '/_authenticated/trip-tickets/add-trip-ticket'
+      path: '/trip-tickets/add-trip-ticket'
+      fullPath: '/trip-tickets/add-trip-ticket'
+      preLoaderRoute: typeof AuthenticatedTripTicketsAddTripTicketRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/trip-tickets/$id': {
+      id: '/_authenticated/trip-tickets/$id'
+      path: '/trip-tickets/$id'
+      fullPath: '/trip-tickets/$id'
+      preLoaderRoute: typeof AuthenticatedTripTicketsIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/tools/add-tools': {
       id: '/_authenticated/tools/add-tools'
       path: '/tools/add-tools'
@@ -388,12 +448,15 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDriversIdRoute: typeof AuthenticatedDriversIdRoute
   AuthenticatedToolsToolsIdRoute: typeof AuthenticatedToolsToolsIdRoute
   AuthenticatedToolsAddToolsRoute: typeof AuthenticatedToolsAddToolsRoute
+  AuthenticatedTripTicketsIdRoute: typeof AuthenticatedTripTicketsIdRoute
+  AuthenticatedTripTicketsAddTripTicketRoute: typeof AuthenticatedTripTicketsAddTripTicketRoute
   AuthenticatedUserManagementAddUserRoute: typeof AuthenticatedUserManagementAddUserRoute
   AuthenticatedVehiclesVehicleIdRoute: typeof AuthenticatedVehiclesVehicleIdRoute
   AuthenticatedVehiclesAddVehicleRoute: typeof AuthenticatedVehiclesAddVehicleRoute
   AuthenticatedDriversIndexRoute: typeof AuthenticatedDriversIndexRoute
   AuthenticatedJobOrderIndexRoute: typeof AuthenticatedJobOrderIndexRoute
   AuthenticatedToolsIndexRoute: typeof AuthenticatedToolsIndexRoute
+  AuthenticatedTripTicketsIndexRoute: typeof AuthenticatedTripTicketsIndexRoute
   AuthenticatedUserManagementIndexRoute: typeof AuthenticatedUserManagementIndexRoute
   AuthenticatedVehiclesIndexRoute: typeof AuthenticatedVehiclesIndexRoute
 }
@@ -405,6 +468,9 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDriversIdRoute: AuthenticatedDriversIdRoute,
   AuthenticatedToolsToolsIdRoute: AuthenticatedToolsToolsIdRoute,
   AuthenticatedToolsAddToolsRoute: AuthenticatedToolsAddToolsRoute,
+  AuthenticatedTripTicketsIdRoute: AuthenticatedTripTicketsIdRoute,
+  AuthenticatedTripTicketsAddTripTicketRoute:
+    AuthenticatedTripTicketsAddTripTicketRoute,
   AuthenticatedUserManagementAddUserRoute:
     AuthenticatedUserManagementAddUserRoute,
   AuthenticatedVehiclesVehicleIdRoute: AuthenticatedVehiclesVehicleIdRoute,
@@ -412,6 +478,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDriversIndexRoute: AuthenticatedDriversIndexRoute,
   AuthenticatedJobOrderIndexRoute: AuthenticatedJobOrderIndexRoute,
   AuthenticatedToolsIndexRoute: AuthenticatedToolsIndexRoute,
+  AuthenticatedTripTicketsIndexRoute: AuthenticatedTripTicketsIndexRoute,
   AuthenticatedUserManagementIndexRoute: AuthenticatedUserManagementIndexRoute,
   AuthenticatedVehiclesIndexRoute: AuthenticatedVehiclesIndexRoute,
 }
