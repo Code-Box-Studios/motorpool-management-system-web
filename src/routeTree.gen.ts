@@ -29,6 +29,8 @@ import { Route as AuthenticatedTripTicketsAddTripTicketRouteImport } from './rou
 import { Route as AuthenticatedTripTicketsIdRouteImport } from './routes/_authenticated/trip-tickets.$id'
 import { Route as AuthenticatedToolsAddToolsRouteImport } from './routes/_authenticated/tools.add-tools'
 import { Route as AuthenticatedToolsToolsIdRouteImport } from './routes/_authenticated/tools.$toolsId'
+import { Route as AuthenticatedJobOrderAddJobOrderRouteImport } from './routes/_authenticated/job-order.add-job-order'
+import { Route as AuthenticatedJobOrderIdRouteImport } from './routes/_authenticated/job-order.$id'
 import { Route as AuthenticatedDriversIdRouteImport } from './routes/_authenticated/drivers.$id'
 
 const PublicRoute = PublicRouteImport.update({
@@ -143,6 +145,17 @@ const AuthenticatedToolsToolsIdRoute =
     path: '/tools/$toolsId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedJobOrderAddJobOrderRoute =
+  AuthenticatedJobOrderAddJobOrderRouteImport.update({
+    id: '/job-order/add-job-order',
+    path: '/job-order/add-job-order',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedJobOrderIdRoute = AuthenticatedJobOrderIdRouteImport.update({
+  id: '/job-order/$id',
+  path: '/job-order/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedDriversIdRoute = AuthenticatedDriversIdRouteImport.update({
   id: '/drivers/$id',
   path: '/drivers/$id',
@@ -156,6 +169,8 @@ export interface FileRoutesByFullPath {
   '/reservations': typeof AuthenticatedReservationsRoute
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
+  '/job-order/$id': typeof AuthenticatedJobOrderIdRoute
+  '/job-order/add-job-order': typeof AuthenticatedJobOrderAddJobOrderRoute
   '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
   '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
@@ -177,6 +192,8 @@ export interface FileRoutesByTo {
   '/reservations': typeof AuthenticatedReservationsRoute
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
+  '/job-order/$id': typeof AuthenticatedJobOrderIdRoute
+  '/job-order/add-job-order': typeof AuthenticatedJobOrderAddJobOrderRoute
   '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
   '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
@@ -201,6 +218,8 @@ export interface FileRoutesById {
   '/_authenticated/reservations': typeof AuthenticatedReservationsRoute
   '/_public/login': typeof PublicLoginRoute
   '/_authenticated/drivers/$id': typeof AuthenticatedDriversIdRoute
+  '/_authenticated/job-order/$id': typeof AuthenticatedJobOrderIdRoute
+  '/_authenticated/job-order/add-job-order': typeof AuthenticatedJobOrderAddJobOrderRoute
   '/_authenticated/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/_authenticated/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
   '/_authenticated/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
@@ -224,6 +243,8 @@ export interface FileRouteTypes {
     | '/reservations'
     | '/login'
     | '/drivers/$id'
+    | '/job-order/$id'
+    | '/job-order/add-job-order'
     | '/tools/$toolsId'
     | '/tools/add-tools'
     | '/trip-tickets/$id'
@@ -245,6 +266,8 @@ export interface FileRouteTypes {
     | '/reservations'
     | '/login'
     | '/drivers/$id'
+    | '/job-order/$id'
+    | '/job-order/add-job-order'
     | '/tools/$toolsId'
     | '/tools/add-tools'
     | '/trip-tickets/$id'
@@ -268,6 +291,8 @@ export interface FileRouteTypes {
     | '/_authenticated/reservations'
     | '/_public/login'
     | '/_authenticated/drivers/$id'
+    | '/_authenticated/job-order/$id'
+    | '/_authenticated/job-order/add-job-order'
     | '/_authenticated/tools/$toolsId'
     | '/_authenticated/tools/add-tools'
     | '/_authenticated/trip-tickets/$id'
@@ -431,6 +456,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedToolsToolsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/job-order/add-job-order': {
+      id: '/_authenticated/job-order/add-job-order'
+      path: '/job-order/add-job-order'
+      fullPath: '/job-order/add-job-order'
+      preLoaderRoute: typeof AuthenticatedJobOrderAddJobOrderRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/job-order/$id': {
+      id: '/_authenticated/job-order/$id'
+      path: '/job-order/$id'
+      fullPath: '/job-order/$id'
+      preLoaderRoute: typeof AuthenticatedJobOrderIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/drivers/$id': {
       id: '/_authenticated/drivers/$id'
       path: '/drivers/$id'
@@ -446,6 +485,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMaintenanceRoute: typeof AuthenticatedMaintenanceRoute
   AuthenticatedReservationsRoute: typeof AuthenticatedReservationsRoute
   AuthenticatedDriversIdRoute: typeof AuthenticatedDriversIdRoute
+  AuthenticatedJobOrderIdRoute: typeof AuthenticatedJobOrderIdRoute
+  AuthenticatedJobOrderAddJobOrderRoute: typeof AuthenticatedJobOrderAddJobOrderRoute
   AuthenticatedToolsToolsIdRoute: typeof AuthenticatedToolsToolsIdRoute
   AuthenticatedToolsAddToolsRoute: typeof AuthenticatedToolsAddToolsRoute
   AuthenticatedTripTicketsIdRoute: typeof AuthenticatedTripTicketsIdRoute
@@ -466,6 +507,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMaintenanceRoute: AuthenticatedMaintenanceRoute,
   AuthenticatedReservationsRoute: AuthenticatedReservationsRoute,
   AuthenticatedDriversIdRoute: AuthenticatedDriversIdRoute,
+  AuthenticatedJobOrderIdRoute: AuthenticatedJobOrderIdRoute,
+  AuthenticatedJobOrderAddJobOrderRoute: AuthenticatedJobOrderAddJobOrderRoute,
   AuthenticatedToolsToolsIdRoute: AuthenticatedToolsToolsIdRoute,
   AuthenticatedToolsAddToolsRoute: AuthenticatedToolsAddToolsRoute,
   AuthenticatedTripTicketsIdRoute: AuthenticatedTripTicketsIdRoute,

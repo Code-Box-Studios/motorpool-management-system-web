@@ -30,3 +30,11 @@ export const TRIP_TICKET_STATUS = {
   COMPLETED: 'completed',
   CANCELLED: 'cancelled'
 } as const;
+
+export const JOB_ORDER_STATUS = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled'
+} as const;
