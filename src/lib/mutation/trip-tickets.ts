@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createTripTicket, updateTripTicket } from '@/lib/supabase/trip-tickets';
+import { createTripTicket, updateTripTicket, deleteTripTicket } from '@/lib/supabase/trip-tickets';
 import type { NewTripTicket, UpdateTripTicket } from '../types';
 
 export const useCreateTripTicket = () => {
@@ -22,6 +22,16 @@ export const useUpdateTripTicket = () => {
       id: string;
       updates: UpdateTripTicket;
     }) => updateTripTicket(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trip_tickets'] });
+    }
+  });
+};
+
+export const useDeleteTripTicket = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteTripTicket(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trip_tickets'] });
     }

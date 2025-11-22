@@ -51,13 +51,21 @@ const UserManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {profiles?.map((profile) => (
-                  <TableRow key={profile.id}>
-                    <TableCell>{profile.id}</TableCell>
-                    <TableCell>{profile.full_name}</TableCell>
-                    <TableCell>{profile.avatar_url}</TableCell>
+                {profiles && profiles.length > 0 ? (
+                  profiles.map((profile) => (
+                    <TableRow key={profile.id}>
+                      <TableCell>{profile.id}</TableCell>
+                      <TableCell>{profile.full_name}</TableCell>
+                      <TableCell>{profile.avatar_url}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                      No data found
+                    </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           )}

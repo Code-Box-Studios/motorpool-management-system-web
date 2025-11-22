@@ -56,40 +56,48 @@ const JobOrdersPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data?.data?.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell>
-                      <StatusBadge status={order.status || 'pending'} />
-                    </TableCell>
-                    <TableCell>
-                      {new Date(order.incident_date).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      {order.assigned_mechanic || 'Not assigned'}
-                    </TableCell>
-                    <TableCell>
-                      {order.target_date
-                        ? new Date(order.target_date).toLocaleDateString()
-                        : 'Not set'}
-                    </TableCell>
-                    <TableCell>
-                      {order.repair_done !== null
-                        ? `${order.repair_done}%`
-                        : 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          navigate({ to: `/job-orders/${order.id}` })
-                        }
-                      >
-                        View Details
-                      </Button>
+                {data?.data && data.data.length > 0 ? (
+                  data.data.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell>
+                        <StatusBadge status={order.status || 'pending'} />
+                      </TableCell>
+                      <TableCell>
+                        {new Date(order.incident_date).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        {order.assigned_mechanic || 'Not assigned'}
+                      </TableCell>
+                      <TableCell>
+                        {order.target_date
+                          ? new Date(order.target_date).toLocaleDateString()
+                          : 'Not set'}
+                      </TableCell>
+                      <TableCell>
+                        {order.repair_done !== null
+                          ? `${order.repair_done}%`
+                          : 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            navigate({ to: `/job-order/${order.id}` })
+                          }
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      No data found
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           )}

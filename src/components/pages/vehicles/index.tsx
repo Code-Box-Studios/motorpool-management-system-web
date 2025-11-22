@@ -19,32 +19,38 @@ const Vehicles = () => {
         </Link>
       </div>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:grid-cols-4">
-        {data?.data?.map((vehicle) => (
-          <CardWithImage
-            key={vehicle.id}
-            imageSrc={vehicle.images?.[0]}
-            title={
-              <div className="space-y-3">
-                <StatusBadge status={vehicle.status} />
-                <Typography variant="h5" className="line-clamp-1">
-                  {vehicle.make} {vehicle.model} {vehicle.year}
-                </Typography>
-              </div>
-            }
-            description={
-              <div>
-                <Typography variant="p-sm">
-                  License Plate: {vehicle.license_plate}
-                </Typography>
-                <Typography variant="p-sm">
-                  Mileage: {vehicle.mileage}
-                </Typography>
-              </div>
-            }
-            primaryAction={() => navigate({ to: `/vehicles/${vehicle.id}` })}
-            primaryButtonText="View Vehicle"
-          />
-        ))}
+        {data?.data && data.data.length > 0 ? (
+          data.data.map((vehicle) => (
+            <CardWithImage
+              key={vehicle.id}
+              imageSrc={vehicle.images?.[0]}
+              title={
+                <div className="space-y-3">
+                  <StatusBadge status={vehicle.status} />
+                  <Typography variant="h5" className="line-clamp-1">
+                    {vehicle.make} {vehicle.model} {vehicle.year}
+                  </Typography>
+                </div>
+              }
+              description={
+                <div>
+                  <Typography variant="p-sm">
+                    License Plate: {vehicle.license_plate}
+                  </Typography>
+                  <Typography variant="p-sm">
+                    Mileage: {vehicle.mileage}
+                  </Typography>
+                </div>
+              }
+              primaryAction={() => navigate({ to: `/vehicles/${vehicle.id}` })}
+              primaryButtonText="View Vehicle"
+            />
+          ))
+        ) : (
+          <div className="col-span-full text-center py-8 text-muted-foreground">
+            No data found
+          </div>
+        )}
       </div>
       {data?.count && data.count > 10 && (
         <div className="mt-6 flex justify-center">

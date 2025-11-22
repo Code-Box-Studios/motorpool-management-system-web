@@ -124,47 +124,55 @@ const MaintenancePage = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tableData?.data?.map((maintenance) => (
-                      <TableRow key={maintenance.id}>
-                        <TableCell>
-                          {new Date(maintenance.date).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell className="capitalize">
-                          {maintenance.type}
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate">
-                          {maintenance.description || 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          {maintenance.cost !== null
-                            ? `$${maintenance.cost.toFixed(2)}`
-                            : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          {maintenance.mileage !== null
-                            ? `${maintenance.mileage} km`
-                            : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          {maintenance.next_due
-                            ? new Date(
-                                maintenance.next_due
-                              ).toLocaleDateString()
-                            : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              navigate({ to: `/maintenance/${maintenance.id}` })
-                            }
-                          >
-                            View Details
-                          </Button>
+                    {tableData?.data && tableData.data.length > 0 ? (
+                      tableData.data.map((maintenance) => (
+                        <TableRow key={maintenance.id}>
+                          <TableCell>
+                            {new Date(maintenance.date).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="capitalize">
+                            {maintenance.type}
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {maintenance.description || 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            {maintenance.cost !== null
+                              ? `$${maintenance.cost.toFixed(2)}`
+                              : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            {maintenance.mileage !== null
+                              ? `${maintenance.mileage} km`
+                              : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            {maintenance.next_due
+                              ? new Date(
+                                  maintenance.next_due
+                                ).toLocaleDateString()
+                              : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                navigate({ to: `/maintenance/${maintenance.id}` })
+                              }
+                            >
+                              View Details
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          No data found
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               )}

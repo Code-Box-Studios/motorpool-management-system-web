@@ -174,3 +174,32 @@ export const updateTripTicket = async (
     throw error;
   }
 };
+
+export const deleteTripTicket = async (id: string): Promise<void> => {
+  try {
+    // First, delete related fuel allocations
+    const { error: fuelError } = await supabase
+      .from('fuel_allocations')
+      .delete()
+      .eq('trip_ticket_id', id);
+
+    if (fuelError) {
+      console.error('Error deleting fuel allocations:', fuelError);
+      throw fuelError;
+    }
+
+    // Then delete the trip ticket
+    const { error } = await supabase
+      .from('trip_tickets')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting trip ticket:', error);
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error in deleteTripTicket:', error);
+    throw error;
+  }
+};

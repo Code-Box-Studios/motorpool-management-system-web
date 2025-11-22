@@ -27,12 +27,26 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
 import { useMemo } from 'react';
+import { useDeleteTripTicket } from '@/lib/mutation/trip-tickets';
+import { Pencil, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
 
 const TripTicketsPage = () => {
   const { data: tableData, isLoading: isTableLoading } = useTripTickets(1, 100);
   const { data: calendarData, isLoading: isCalendarLoading } =
     useAllTripTickets();
   const navigate = useNavigate();
+  const deleteTripTicket = useDeleteTripTicket();
 
   const calendarEvents = useMemo(() => {
     if (!calendarData) return [];
@@ -127,36 +141,74 @@ const TripTicketsPage = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tableData?.data?.map((ticket) => (
-                      <TableRow key={ticket.id}>
-                        <TableCell>
-                          <StatusBadge status={ticket.status || 'pending'} />
-                        </TableCell>
-                        <TableCell>{ticket.destination}</TableCell>
-                        <TableCell className="max-w-xs truncate">
-                          {ticket.purpose}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(
-                            ticket.pickup_date_time
-                          ).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(ticket.return_date).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              navigate({ to: `/trip-tickets/${ticket.id}` })
-                            }
-                          >
-                            View Details
-                          </Button>
+                    {tableData?.data && tableData.data.length > 0 ? (
+                      tableData.data.map((ticket) => (
+                        <TableRow key={ticket.id}>
+                          <TableCell>
+                            <StatusBadge status={ticket.status || 'pending'} />
+                          </TableCell>
+                          <TableCell>{ticket.destination}</TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {ticket.purpose}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(
+                              ticket.pickup_date_time
+                            ).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(ticket.return_date).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  navigate({ to: `/trip-tickets/${ticket.id}` })
+                                }
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={deleteTripTicket.isPending}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will permanently delete the trip ticket
+                                      and remove the data from the server.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteTripTicket.mutate(ticket.id)}
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          No data found
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               )}

@@ -63,22 +63,30 @@ const Drivers = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {drivers.map((driver) => (
-                    <TableRow
-                      key={driver.id}
-                      className="hover:bg-muted cursor-pointer"
-                      onClick={() =>
-                        navigate({
-                          to: '/drivers/$id',
-                          params: { id: driver.id }
-                        })
-                      }
-                    >
-                      <TableCell>{driver.full_name}</TableCell>
-                      <TableCell>{driver.license_number}</TableCell>
-                      <TableCell>{driver.status}</TableCell>
+                  {drivers && drivers.length > 0 ? (
+                    drivers.map((driver) => (
+                      <TableRow
+                        key={driver.id}
+                        className="hover:bg-muted cursor-pointer"
+                        onClick={() =>
+                          navigate({
+                            to: '/drivers/$id',
+                            params: { id: driver.id }
+                          })
+                        }
+                      >
+                        <TableCell>{driver.full_name}</TableCell>
+                        <TableCell>{driver.license_number}</TableCell>
+                        <TableCell>{driver.status}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                        No data found
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
               <div className="mt-5 flex items-center justify-center">
