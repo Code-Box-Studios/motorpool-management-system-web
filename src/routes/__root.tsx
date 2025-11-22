@@ -6,17 +6,6 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  // const { session } = useAuth();
-  // const navigate = useNavigate();
-
-  // React.useEffect(() => {
-  //   if (session) {
-  //     navigate({ to: '/dashboard' });
-  //   } else {
-  //     navigate({ to: '/login' });
-  //   }
-  // }, [session, navigate]);
-
   return (
     <React.Fragment>
       <Outlet />
