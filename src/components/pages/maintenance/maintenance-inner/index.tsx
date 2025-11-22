@@ -23,12 +23,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { useEffect } from 'react';
 
 export function MaintenanceInner() {
-  const { maintenanceId } = useParams({ strict: false });
+  const { id } = useParams({ from: '/_authenticated/maintenance/$id' });
   const { data: maintenance, isLoading: isLoadingMaintenance } = useMaintenance(
-    maintenanceId as string
+    id as string
   );
   const { data: vehicles, isLoading: isLoadingVehicles } = useVehicles(1, 100);
-  const updateMaintenanceAction = useUpdateMaintenanceAction(maintenanceId as string);
+  const updateMaintenanceAction = useUpdateMaintenanceAction(id as string);
   const form = useMaintenanceForm();
   const navigate = useNavigate();
 
@@ -39,16 +39,23 @@ export function MaintenanceInner() {
         date: maintenance.date || '',
         type: (maintenance.type as MaintenanceFormData['type']) || 'preventive',
         description: maintenance.description || '',
-        cost: maintenance.cost || undefined,
-        mileage: maintenance.mileage || undefined,
+        cost: maintenance.cost !== null ? String(maintenance.cost) : '',
+        mileage:
+          maintenance.mileage !== null ? String(maintenance.mileage) : '',
         next_due: maintenance.next_due || ''
       });
     }
   }, [maintenance, form]);
 
   const onSubmit = (data: MaintenanceFormData) => {
+    const transformedData = {
+      ...data,
+      cost: data.cost === '' ? null : Number(data.cost),
+      mileage: data.mileage === '' ? null : Number(data.mileage),
+      next_due: data.next_due === '' ? null : data.next_due
+    };
     updateMaintenanceAction
-      .updateMaintenanceAction(data)
+      .updateMaintenanceAction(transformedData)
       .then(() => {
         navigate({ to: '/maintenance' });
       })
@@ -59,6 +66,10 @@ export function MaintenanceInner() {
 
   if (isLoadingMaintenance || isLoadingVehicles) {
     return <div>Loading...</div>;
+  }
+
+  if (!id) {
+    return <div>Invalid maintenance ID</div>;
   }
 
   if (!maintenance) {
@@ -93,7 +104,8 @@ export function MaintenanceInner() {
                     <SelectContent>
                       {vehicles?.data?.map((vehicle) => (
                         <SelectItem key={vehicle.id} value={vehicle.id}>
-                          {vehicle.make} {vehicle.model} - {vehicle.license_plate}
+                          {vehicle.make} {vehicle.model} -{' '}
+                          {vehicle.license_plate}
                         </SelectItem>
                       ))}
                     </SelectContent>

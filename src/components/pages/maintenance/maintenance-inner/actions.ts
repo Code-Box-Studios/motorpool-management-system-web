@@ -11,8 +11,8 @@ const maintenanceSchema = z.object({
   date: z.string().min(1, 'Date is required'),
   type: z.enum(Object.values(MAINTENANCE_TYPE) as [string, ...string[]]),
   description: z.string().optional(),
-  cost: z.coerce.number().min(0, 'Cost must be 0 or greater').optional(),
-  mileage: z.coerce.number().min(0, 'Mileage must be 0 or greater').optional(),
+  cost: z.string().optional(),
+  mileage: z.string().optional(),
   next_due: z.string().optional()
 });
 
@@ -26,8 +26,8 @@ export const useMaintenanceForm = () => {
       date: '',
       type: 'preventive',
       description: '',
-      cost: undefined,
-      mileage: undefined,
+      cost: '',
+      mileage: '',
       next_due: ''
     }
   });
@@ -36,10 +36,10 @@ export const useMaintenanceForm = () => {
 export const useUpdateMaintenanceAction = (id: string) => {
   const updateMaintenance = useUpdateMaintenance();
 
-  const updateMaintenanceAction = async (data: MaintenanceFormData) => {
+  const updateMaintenanceAction = async (data: UpdateMaintenance) => {
     await updateMaintenance.mutateAsync({
       id,
-      updates: data as UpdateMaintenance
+      updates: data
     });
   };
 
