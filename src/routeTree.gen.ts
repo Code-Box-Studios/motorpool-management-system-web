@@ -14,12 +14,12 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
 import { Route as AuthenticatedReservationsRouteImport } from './routes/_authenticated/reservations'
-import { Route as AuthenticatedMaintenanceRouteImport } from './routes/_authenticated/maintenance'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedVehiclesIndexRouteImport } from './routes/_authenticated/vehicles.index'
 import { Route as AuthenticatedUserManagementIndexRouteImport } from './routes/_authenticated/user-management.index'
 import { Route as AuthenticatedTripTicketsIndexRouteImport } from './routes/_authenticated/trip-tickets.index'
 import { Route as AuthenticatedToolsIndexRouteImport } from './routes/_authenticated/tools.index'
+import { Route as AuthenticatedMaintenanceIndexRouteImport } from './routes/_authenticated/maintenance.index'
 import { Route as AuthenticatedJobOrderIndexRouteImport } from './routes/_authenticated/job-order.index'
 import { Route as AuthenticatedDriversIndexRouteImport } from './routes/_authenticated/drivers.index'
 import { Route as AuthenticatedVehiclesAddVehicleRouteImport } from './routes/_authenticated/vehicles.add-vehicle'
@@ -29,6 +29,8 @@ import { Route as AuthenticatedTripTicketsAddTripTicketRouteImport } from './rou
 import { Route as AuthenticatedTripTicketsIdRouteImport } from './routes/_authenticated/trip-tickets.$id'
 import { Route as AuthenticatedToolsAddToolsRouteImport } from './routes/_authenticated/tools.add-tools'
 import { Route as AuthenticatedToolsToolsIdRouteImport } from './routes/_authenticated/tools.$toolsId'
+import { Route as AuthenticatedMaintenanceAddMaintenanceRouteImport } from './routes/_authenticated/maintenance.add-maintenance'
+import { Route as AuthenticatedMaintenanceIdRouteImport } from './routes/_authenticated/maintenance.$id'
 import { Route as AuthenticatedJobOrderAddJobOrderRouteImport } from './routes/_authenticated/job-order.add-job-order'
 import { Route as AuthenticatedJobOrderIdRouteImport } from './routes/_authenticated/job-order.$id'
 import { Route as AuthenticatedDriversIdRouteImport } from './routes/_authenticated/drivers.$id'
@@ -55,12 +57,6 @@ const AuthenticatedReservationsRoute =
   AuthenticatedReservationsRouteImport.update({
     id: '/reservations',
     path: '/reservations',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedMaintenanceRoute =
-  AuthenticatedMaintenanceRouteImport.update({
-    id: '/maintenance',
-    path: '/maintenance',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -91,6 +87,12 @@ const AuthenticatedToolsIndexRoute = AuthenticatedToolsIndexRouteImport.update({
   path: '/tools/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedMaintenanceIndexRoute =
+  AuthenticatedMaintenanceIndexRouteImport.update({
+    id: '/maintenance/',
+    path: '/maintenance/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedJobOrderIndexRoute =
   AuthenticatedJobOrderIndexRouteImport.update({
     id: '/job-order/',
@@ -145,6 +147,18 @@ const AuthenticatedToolsToolsIdRoute =
     path: '/tools/$toolsId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedMaintenanceAddMaintenanceRoute =
+  AuthenticatedMaintenanceAddMaintenanceRouteImport.update({
+    id: '/maintenance/add-maintenance',
+    path: '/maintenance/add-maintenance',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMaintenanceIdRoute =
+  AuthenticatedMaintenanceIdRouteImport.update({
+    id: '/maintenance/$id',
+    path: '/maintenance/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedJobOrderAddJobOrderRoute =
   AuthenticatedJobOrderAddJobOrderRouteImport.update({
     id: '/job-order/add-job-order',
@@ -165,12 +179,13 @@ const AuthenticatedDriversIdRoute = AuthenticatedDriversIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/maintenance': typeof AuthenticatedMaintenanceRoute
   '/reservations': typeof AuthenticatedReservationsRoute
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/job-order/$id': typeof AuthenticatedJobOrderIdRoute
   '/job-order/add-job-order': typeof AuthenticatedJobOrderAddJobOrderRoute
+  '/maintenance/$id': typeof AuthenticatedMaintenanceIdRoute
+  '/maintenance/add-maintenance': typeof AuthenticatedMaintenanceAddMaintenanceRoute
   '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
   '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
@@ -180,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
   '/drivers': typeof AuthenticatedDriversIndexRoute
   '/job-order': typeof AuthenticatedJobOrderIndexRoute
+  '/maintenance': typeof AuthenticatedMaintenanceIndexRoute
   '/tools': typeof AuthenticatedToolsIndexRoute
   '/trip-tickets': typeof AuthenticatedTripTicketsIndexRoute
   '/user-management': typeof AuthenticatedUserManagementIndexRoute
@@ -188,12 +204,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/maintenance': typeof AuthenticatedMaintenanceRoute
   '/reservations': typeof AuthenticatedReservationsRoute
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/job-order/$id': typeof AuthenticatedJobOrderIdRoute
   '/job-order/add-job-order': typeof AuthenticatedJobOrderAddJobOrderRoute
+  '/maintenance/$id': typeof AuthenticatedMaintenanceIdRoute
+  '/maintenance/add-maintenance': typeof AuthenticatedMaintenanceAddMaintenanceRoute
   '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
   '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
@@ -203,6 +220,7 @@ export interface FileRoutesByTo {
   '/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
   '/drivers': typeof AuthenticatedDriversIndexRoute
   '/job-order': typeof AuthenticatedJobOrderIndexRoute
+  '/maintenance': typeof AuthenticatedMaintenanceIndexRoute
   '/tools': typeof AuthenticatedToolsIndexRoute
   '/trip-tickets': typeof AuthenticatedTripTicketsIndexRoute
   '/user-management': typeof AuthenticatedUserManagementIndexRoute
@@ -214,12 +232,13 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/maintenance': typeof AuthenticatedMaintenanceRoute
   '/_authenticated/reservations': typeof AuthenticatedReservationsRoute
   '/_public/login': typeof PublicLoginRoute
   '/_authenticated/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/_authenticated/job-order/$id': typeof AuthenticatedJobOrderIdRoute
   '/_authenticated/job-order/add-job-order': typeof AuthenticatedJobOrderAddJobOrderRoute
+  '/_authenticated/maintenance/$id': typeof AuthenticatedMaintenanceIdRoute
+  '/_authenticated/maintenance/add-maintenance': typeof AuthenticatedMaintenanceAddMaintenanceRoute
   '/_authenticated/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/_authenticated/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
   '/_authenticated/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
@@ -229,6 +248,7 @@ export interface FileRoutesById {
   '/_authenticated/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
   '/_authenticated/drivers/': typeof AuthenticatedDriversIndexRoute
   '/_authenticated/job-order/': typeof AuthenticatedJobOrderIndexRoute
+  '/_authenticated/maintenance/': typeof AuthenticatedMaintenanceIndexRoute
   '/_authenticated/tools/': typeof AuthenticatedToolsIndexRoute
   '/_authenticated/trip-tickets/': typeof AuthenticatedTripTicketsIndexRoute
   '/_authenticated/user-management/': typeof AuthenticatedUserManagementIndexRoute
@@ -239,12 +259,13 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
-    | '/maintenance'
     | '/reservations'
     | '/login'
     | '/drivers/$id'
     | '/job-order/$id'
     | '/job-order/add-job-order'
+    | '/maintenance/$id'
+    | '/maintenance/add-maintenance'
     | '/tools/$toolsId'
     | '/tools/add-tools'
     | '/trip-tickets/$id'
@@ -254,6 +275,7 @@ export interface FileRouteTypes {
     | '/vehicles/add-vehicle'
     | '/drivers'
     | '/job-order'
+    | '/maintenance'
     | '/tools'
     | '/trip-tickets'
     | '/user-management'
@@ -262,12 +284,13 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
-    | '/maintenance'
     | '/reservations'
     | '/login'
     | '/drivers/$id'
     | '/job-order/$id'
     | '/job-order/add-job-order'
+    | '/maintenance/$id'
+    | '/maintenance/add-maintenance'
     | '/tools/$toolsId'
     | '/tools/add-tools'
     | '/trip-tickets/$id'
@@ -277,6 +300,7 @@ export interface FileRouteTypes {
     | '/vehicles/add-vehicle'
     | '/drivers'
     | '/job-order'
+    | '/maintenance'
     | '/tools'
     | '/trip-tickets'
     | '/user-management'
@@ -287,12 +311,13 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/_public'
     | '/_authenticated/dashboard'
-    | '/_authenticated/maintenance'
     | '/_authenticated/reservations'
     | '/_public/login'
     | '/_authenticated/drivers/$id'
     | '/_authenticated/job-order/$id'
     | '/_authenticated/job-order/add-job-order'
+    | '/_authenticated/maintenance/$id'
+    | '/_authenticated/maintenance/add-maintenance'
     | '/_authenticated/tools/$toolsId'
     | '/_authenticated/tools/add-tools'
     | '/_authenticated/trip-tickets/$id'
@@ -302,6 +327,7 @@ export interface FileRouteTypes {
     | '/_authenticated/vehicles/add-vehicle'
     | '/_authenticated/drivers/'
     | '/_authenticated/job-order/'
+    | '/_authenticated/maintenance/'
     | '/_authenticated/tools/'
     | '/_authenticated/trip-tickets/'
     | '/_authenticated/user-management/'
@@ -351,13 +377,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReservationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/maintenance': {
-      id: '/_authenticated/maintenance'
-      path: '/maintenance'
-      fullPath: '/maintenance'
-      preLoaderRoute: typeof AuthenticatedMaintenanceRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -391,6 +410,13 @@ declare module '@tanstack/react-router' {
       path: '/tools'
       fullPath: '/tools'
       preLoaderRoute: typeof AuthenticatedToolsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/maintenance/': {
+      id: '/_authenticated/maintenance/'
+      path: '/maintenance'
+      fullPath: '/maintenance'
+      preLoaderRoute: typeof AuthenticatedMaintenanceIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/job-order/': {
@@ -456,6 +482,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedToolsToolsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/maintenance/add-maintenance': {
+      id: '/_authenticated/maintenance/add-maintenance'
+      path: '/maintenance/add-maintenance'
+      fullPath: '/maintenance/add-maintenance'
+      preLoaderRoute: typeof AuthenticatedMaintenanceAddMaintenanceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/maintenance/$id': {
+      id: '/_authenticated/maintenance/$id'
+      path: '/maintenance/$id'
+      fullPath: '/maintenance/$id'
+      preLoaderRoute: typeof AuthenticatedMaintenanceIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/job-order/add-job-order': {
       id: '/_authenticated/job-order/add-job-order'
       path: '/job-order/add-job-order'
@@ -482,11 +522,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedMaintenanceRoute: typeof AuthenticatedMaintenanceRoute
   AuthenticatedReservationsRoute: typeof AuthenticatedReservationsRoute
   AuthenticatedDriversIdRoute: typeof AuthenticatedDriversIdRoute
   AuthenticatedJobOrderIdRoute: typeof AuthenticatedJobOrderIdRoute
   AuthenticatedJobOrderAddJobOrderRoute: typeof AuthenticatedJobOrderAddJobOrderRoute
+  AuthenticatedMaintenanceIdRoute: typeof AuthenticatedMaintenanceIdRoute
+  AuthenticatedMaintenanceAddMaintenanceRoute: typeof AuthenticatedMaintenanceAddMaintenanceRoute
   AuthenticatedToolsToolsIdRoute: typeof AuthenticatedToolsToolsIdRoute
   AuthenticatedToolsAddToolsRoute: typeof AuthenticatedToolsAddToolsRoute
   AuthenticatedTripTicketsIdRoute: typeof AuthenticatedTripTicketsIdRoute
@@ -496,6 +537,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedVehiclesAddVehicleRoute: typeof AuthenticatedVehiclesAddVehicleRoute
   AuthenticatedDriversIndexRoute: typeof AuthenticatedDriversIndexRoute
   AuthenticatedJobOrderIndexRoute: typeof AuthenticatedJobOrderIndexRoute
+  AuthenticatedMaintenanceIndexRoute: typeof AuthenticatedMaintenanceIndexRoute
   AuthenticatedToolsIndexRoute: typeof AuthenticatedToolsIndexRoute
   AuthenticatedTripTicketsIndexRoute: typeof AuthenticatedTripTicketsIndexRoute
   AuthenticatedUserManagementIndexRoute: typeof AuthenticatedUserManagementIndexRoute
@@ -504,11 +546,13 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedMaintenanceRoute: AuthenticatedMaintenanceRoute,
   AuthenticatedReservationsRoute: AuthenticatedReservationsRoute,
   AuthenticatedDriversIdRoute: AuthenticatedDriversIdRoute,
   AuthenticatedJobOrderIdRoute: AuthenticatedJobOrderIdRoute,
   AuthenticatedJobOrderAddJobOrderRoute: AuthenticatedJobOrderAddJobOrderRoute,
+  AuthenticatedMaintenanceIdRoute: AuthenticatedMaintenanceIdRoute,
+  AuthenticatedMaintenanceAddMaintenanceRoute:
+    AuthenticatedMaintenanceAddMaintenanceRoute,
   AuthenticatedToolsToolsIdRoute: AuthenticatedToolsToolsIdRoute,
   AuthenticatedToolsAddToolsRoute: AuthenticatedToolsAddToolsRoute,
   AuthenticatedTripTicketsIdRoute: AuthenticatedTripTicketsIdRoute,
@@ -520,6 +564,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedVehiclesAddVehicleRoute: AuthenticatedVehiclesAddVehicleRoute,
   AuthenticatedDriversIndexRoute: AuthenticatedDriversIndexRoute,
   AuthenticatedJobOrderIndexRoute: AuthenticatedJobOrderIndexRoute,
+  AuthenticatedMaintenanceIndexRoute: AuthenticatedMaintenanceIndexRoute,
   AuthenticatedToolsIndexRoute: AuthenticatedToolsIndexRoute,
   AuthenticatedTripTicketsIndexRoute: AuthenticatedTripTicketsIndexRoute,
   AuthenticatedUserManagementIndexRoute: AuthenticatedUserManagementIndexRoute,

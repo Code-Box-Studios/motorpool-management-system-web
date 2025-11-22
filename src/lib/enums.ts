@@ -38,3 +38,11 @@ export const JOB_ORDER_STATUS = {
   COMPLETED: 'completed',
   CANCELLED: 'cancelled'
 } as const;
+
+export const MAINTENANCE_TYPE = {
+  PREVENTIVE: 'preventive',
+  CORRECTIVE: 'corrective',
+  INSPECTION: 'inspection',
+  REPAIR: 'repair',
+  SERVICE: 'service'
+} as const;
