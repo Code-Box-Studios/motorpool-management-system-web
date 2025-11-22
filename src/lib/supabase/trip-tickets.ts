@@ -19,6 +19,18 @@ export const getTripTickets = async (
   return { data: data as TripTicket[], count };
 };
 
+export const getAllTripTickets = async (): Promise<TripTicket[]> => {
+  const { data, error } = await supabase
+    .from('trip_tickets')
+    .select('*')
+    .order('pickup_date_time', { ascending: false });
+  if (error) {
+    console.error('Error fetching all trip tickets:', error);
+    throw error;
+  }
+  return data as TripTicket[];
+};
+
 export const getTripTicketById = async (id: string): Promise<TripTicket> => {
   const { data, error } = await supabase
     .from('trip_tickets')

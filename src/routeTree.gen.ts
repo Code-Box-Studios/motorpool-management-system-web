@@ -13,7 +13,6 @@ import { Route as PublicRouteImport } from './routes/_public'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
-import { Route as AuthenticatedReservationsRouteImport } from './routes/_authenticated/reservations'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedVehiclesIndexRouteImport } from './routes/_authenticated/vehicles.index'
 import { Route as AuthenticatedUserManagementIndexRouteImport } from './routes/_authenticated/user-management.index'
@@ -53,12 +52,6 @@ const PublicLoginRoute = PublicLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => PublicRoute,
 } as any)
-const AuthenticatedReservationsRoute =
-  AuthenticatedReservationsRouteImport.update({
-    id: '/reservations',
-    path: '/reservations',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -179,7 +172,6 @@ const AuthenticatedDriversIdRoute = AuthenticatedDriversIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/reservations': typeof AuthenticatedReservationsRoute
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/job-order/$id': typeof AuthenticatedJobOrderIdRoute
@@ -204,7 +196,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/reservations': typeof AuthenticatedReservationsRoute
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/job-order/$id': typeof AuthenticatedJobOrderIdRoute
@@ -232,7 +223,6 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/reservations': typeof AuthenticatedReservationsRoute
   '/_public/login': typeof PublicLoginRoute
   '/_authenticated/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/_authenticated/job-order/$id': typeof AuthenticatedJobOrderIdRoute
@@ -259,7 +249,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
-    | '/reservations'
     | '/login'
     | '/drivers/$id'
     | '/job-order/$id'
@@ -284,7 +273,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
-    | '/reservations'
     | '/login'
     | '/drivers/$id'
     | '/job-order/$id'
@@ -311,7 +299,6 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/_public'
     | '/_authenticated/dashboard'
-    | '/_authenticated/reservations'
     | '/_public/login'
     | '/_authenticated/drivers/$id'
     | '/_authenticated/job-order/$id'
@@ -369,13 +356,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof PublicLoginRouteImport
       parentRoute: typeof PublicRoute
-    }
-    '/_authenticated/reservations': {
-      id: '/_authenticated/reservations'
-      path: '/reservations'
-      fullPath: '/reservations'
-      preLoaderRoute: typeof AuthenticatedReservationsRouteImport
-      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
@@ -522,7 +502,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedReservationsRoute: typeof AuthenticatedReservationsRoute
   AuthenticatedDriversIdRoute: typeof AuthenticatedDriversIdRoute
   AuthenticatedJobOrderIdRoute: typeof AuthenticatedJobOrderIdRoute
   AuthenticatedJobOrderAddJobOrderRoute: typeof AuthenticatedJobOrderAddJobOrderRoute
@@ -546,7 +525,6 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedReservationsRoute: AuthenticatedReservationsRoute,
   AuthenticatedDriversIdRoute: AuthenticatedDriversIdRoute,
   AuthenticatedJobOrderIdRoute: AuthenticatedJobOrderIdRoute,
   AuthenticatedJobOrderAddJobOrderRoute: AuthenticatedJobOrderAddJobOrderRoute,

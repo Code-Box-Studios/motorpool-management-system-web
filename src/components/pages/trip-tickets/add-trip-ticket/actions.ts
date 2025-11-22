@@ -18,9 +18,9 @@ const tripTicketSchema = z.object({
   pickup_date_time: z.string().min(1, 'Pickup date and time is required'),
   return_date: z.string().min(1, 'Return date is required'),
   status: z.enum(Object.values(TRIP_TICKET_STATUS) as [string, ...string[]]),
-  pre_trip_guard: z.string().optional(),
-  post_trip_guard: z.string().optional(),
-  remarks: z.string().optional(),
+  pre_trip_guard: z.string().optional().or(z.literal('')),
+  post_trip_guard: z.string().optional().or(z.literal('')),
+  remarks: z.string().optional().or(z.literal('')),
   allocation_date: z.string().min(1, 'Allocation date is required'),
   allocation_trip_to: z.string().min(1, 'Trip to is required'),
   allocation_purpose: z.string().min(1, 'Allocation purpose is required'),
@@ -31,8 +31,8 @@ const tripTicketSchema = z.object({
     errorMap: () => ({ message: 'Please select a fuel type' })
   }),
   allocation_requested_by: z.string().min(1, 'Please select who requested'),
-  allocation_approved_by_evp_operations: z.string().optional(),
-  allocation_status: z.enum(['pending', 'approved', 'completed'] as const).optional()
+  allocation_approved_by_evp_operations: z.string().optional().or(z.literal('')),
+  allocation_status: z.enum(['pending', 'approved', 'completed'] as const).optional().or(z.literal(''))
 });
 
 export type TripTicketFormData = z.infer<typeof tripTicketSchema>;
