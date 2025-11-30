@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createTripTicket, updateTripTicket, deleteTripTicket } from '@/lib/supabase/trip-tickets';
 import type { NewTripTicket, UpdateTripTicket } from '../types';
+import { toast } from 'sonner';
 
 export const useCreateTripTicket = () => {
   const queryClient = useQueryClient();
@@ -8,6 +9,10 @@ export const useCreateTripTicket = () => {
     mutationFn: (tripTicket: NewTripTicket) => createTripTicket(tripTicket),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trip_tickets'] });
+      toast.success('Trip ticket created successfully!');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to create trip ticket: ${error.message}`);
     }
   });
 };
@@ -24,6 +29,10 @@ export const useUpdateTripTicket = () => {
     }) => updateTripTicket(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trip_tickets'] });
+      toast.success('Trip ticket updated successfully!');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update trip ticket: ${error.message}`);
     }
   });
 };
@@ -34,6 +43,10 @@ export const useDeleteTripTicket = () => {
     mutationFn: (id: string) => deleteTripTicket(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trip_tickets'] });
+      toast.success('Trip ticket deleted successfully!');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to delete trip ticket: ${error.message}`);
     }
   });
 };

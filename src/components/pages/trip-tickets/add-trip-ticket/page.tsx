@@ -35,12 +35,22 @@ export function AddTripTicket() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Get current user's full name
+  const currentUserName =
+    admins?.find((admin) => admin.id === user?.id)?.full_name ||
+    user?.user_metadata?.full_name ||
+    'Current User';
+
   useEffect(() => {
     if (user) {
       form.setValue('approved_by', user.id);
       form.setValue('allocation_requested_by', user.id);
+      form.setValue('prepared_by', currentUserName);
     }
-  }, [user, form]);
+    // Set date_requested to today's date
+    const today = new Date().toISOString().split('T')[0];
+    form.setValue('date_requested', today);
+  }, [user, form, currentUserName]);
 
   const onSubmit = (data: TripTicketFormData) => {
     addTripTicketAction
@@ -149,25 +159,16 @@ export function AddTripTicket() {
             <Controller
               name="approved_by"
               control={form.control}
-              render={({ field, fieldState }) => (
+              render={({ fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor="approved_by">Approved By *</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
+                  <Input
+                    value={currentUserName}
+                    id="approved_by"
+                    type="text"
+                    aria-invalid={fieldState.invalid}
                     disabled
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select approver" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {admins?.map((admin) => (
-                        <SelectItem key={admin.id} value={admin.id}>
-                          {admin.full_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}
@@ -177,15 +178,15 @@ export function AddTripTicket() {
             <Controller
               name="prepared_by"
               control={form.control}
-              render={({ field, fieldState }) => (
+              render={({ fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor="prepared_by">Prepared By *</FieldLabel>
                   <Input
-                    {...field}
+                    value={currentUserName}
                     id="prepared_by"
                     type="text"
                     aria-invalid={fieldState.invalid}
-                    placeholder="Enter preparer name"
+                    disabled
                   />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
@@ -260,6 +261,7 @@ export function AddTripTicket() {
                     id="date_requested"
                     type="date"
                     aria-invalid={fieldState.invalid}
+                    disabled
                   />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
@@ -535,27 +537,18 @@ export function AddTripTicket() {
             <Controller
               name="allocation_requested_by"
               control={form.control}
-              render={({ field, fieldState }) => (
+              render={({ fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor="allocation_requested_by">
                     Requested By *
                   </FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
+                  <Input
+                    value={currentUserName}
+                    id="allocation_requested_by"
+                    type="text"
+                    aria-invalid={fieldState.invalid}
                     disabled
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select requester" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {admins?.map((admin) => (
-                        <SelectItem key={admin.id} value={admin.id}>
-                          {admin.full_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}

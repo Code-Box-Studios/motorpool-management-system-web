@@ -66,7 +66,8 @@ export function AddMaintenance() {
                     <SelectContent>
                       {vehicles?.data?.map((vehicle) => (
                         <SelectItem key={vehicle.id} value={vehicle.id}>
-                          {vehicle.make} {vehicle.model} - {vehicle.license_plate}
+                          {vehicle.make} {vehicle.model} -{' '}
+                          {vehicle.license_plate}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -168,6 +169,7 @@ export function AddMaintenance() {
                     {...field}
                     id="next_due"
                     type="date"
+                    min={form.watch('date') || undefined}
                     aria-invalid={fieldState.invalid}
                   />
                   {fieldState.invalid && (

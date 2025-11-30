@@ -11,6 +11,14 @@ import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { FormSkeleton } from '@/components/shared/skeleton/form-skeleton';
 import { Typography } from '@/components/ui/typography';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import { DRIVER_STATUS } from '@/lib/enums';
 
 export function DriverDetails({ id }: { id: string }) {
   const { data: driver, isLoading } = useDriver(id);
@@ -224,14 +232,22 @@ export function DriverDetails({ id }: { id: string }) {
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor="status">Status</FieldLabel>
-                  <Input
-                    {...field}
-                    id="status"
-                    type="text"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Active"
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
                     disabled={!isEditing}
-                  />
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DRIVER_STATUS.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}

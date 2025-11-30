@@ -42,6 +42,11 @@ const TripTicketsInner = () => {
 
   useEffect(() => {
     if (tripTicket) {
+      // Format pickup_date_time for datetime-local input (remove timezone)
+      const pickupDateTime = tripTicket.pickup_date_time
+        ? tripTicket.pickup_date_time.slice(0, 16) // Format: YYYY-MM-DDTHH:MM
+        : '';
+
       form.reset({
         vehicle_id: tripTicket.vehicle_id,
         driver_id: tripTicket.driver_id,
@@ -51,7 +56,7 @@ const TripTicketsInner = () => {
         destination: tripTicket.destination,
         purpose: tripTicket.purpose,
         date_requested: tripTicket.date_requested,
-        pickup_date_time: tripTicket.pickup_date_time,
+        pickup_date_time: pickupDateTime,
         return_date: tripTicket.return_date,
         status: tripTicket.status || 'pending',
         pre_trip_guard: tripTicket.pre_trip_guard || '',
@@ -625,76 +630,118 @@ const TripTicketsInner = () => {
                 </Field>
               )}
             />
-            <Controller
-              name="allocation_vehicle_id"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="allocation_vehicle_id">
-                    Allocation Vehicle *
-                  </FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a vehicle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehiclesLoading ? (
-                        <SelectItem value="loading" disabled>
-                          Loading vehicles...
-                        </SelectItem>
-                      ) : (
-                        vehicles?.data
-                          ?.filter((vehicle) => vehicle.status === 'available')
-                          .map((vehicle) => (
-                            <SelectItem key={vehicle.id} value={vehicle.id}>
-                              {vehicle.make} {vehicle.model} -{' '}
-                              {vehicle.license_plate}
-                            </SelectItem>
-                          ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="allocation_fuel_type"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="allocation_fuel_type">
-                    Fuel Type *
-                  </FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select fuel type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(FUEL_TYPE).map((fuel) => (
-                        <SelectItem key={fuel} value={fuel}>
-                          {fuel.charAt(0).toUpperCase() +
-                            fuel.slice(1).toLowerCase()}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+            {isEditing ? (
+              <Controller
+                name="allocation_vehicle_id"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="allocation_vehicle_id">
+                      Allocation Vehicle *
+                    </FieldLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a vehicle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vehiclesLoading ? (
+                          <SelectItem value="loading" disabled>
+                            Loading vehicles...
+                          </SelectItem>
+                        ) : (
+                          vehicles?.data
+                            ?.filter(
+                              (vehicle) =>
+                                vehicle.status === 'available' ||
+                                vehicle.id === tripTicket.allocation_vehicle_id
+                            )
+                            .map((vehicle) => (
+                              <SelectItem key={vehicle.id} value={vehicle.id}>
+                                {vehicle.make} {vehicle.model} -{' '}
+                                {vehicle.license_plate}
+                              </SelectItem>
+                            ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            ) : (
+              <Field>
+                <FieldLabel>Allocation Vehicle</FieldLabel>
+                <Input
+                  value={(() => {
+                    const vehicle = vehicles?.data?.find(
+                      (v) => v.id === tripTicket.allocation_vehicle_id
+                    );
+                    return vehiclesLoading
+                      ? 'Loading...'
+                      : vehicle
+                        ? `${vehicle.make} ${vehicle.model} - ${vehicle.license_plate}`
+                        : '—';
+                  })()}
+                  disabled
+                  className="bg-muted"
+                />
+              </Field>
+            )}
+            {isEditing ? (
+              <Controller
+                name="allocation_fuel_type"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="allocation_fuel_type">
+                      Fuel Type *
+                    </FieldLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select fuel type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.values(FUEL_TYPE).map((fuel) => (
+                          <SelectItem key={fuel} value={fuel}>
+                            {fuel.charAt(0).toUpperCase() +
+                              fuel.slice(1).toLowerCase()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            ) : (
+              <Field>
+                <FieldLabel>Fuel Type</FieldLabel>
+                <Input
+                  value={
+                    tripTicket.allocation_fuel_type
+                      ? tripTicket.allocation_fuel_type
+                          .charAt(0)
+                          .toUpperCase() +
+                        tripTicket.allocation_fuel_type.slice(1).toLowerCase()
+                      : '—'
+                  }
+                  disabled
+                  className="bg-muted"
+                />
+              </Field>
+            )}
             <Controller
               name="allocation_km"
               control={form.control}
@@ -736,42 +783,59 @@ const TripTicketsInner = () => {
                 </Field>
               )}
             />
-            <Controller
-              name="allocation_requested_by"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="allocation_requested_by">
-                    Requested By *
-                  </FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select requester" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {adminsLoading ? (
-                        <SelectItem value="loading" disabled>
-                          Loading admins...
-                        </SelectItem>
-                      ) : (
-                        admins?.map((admin) => (
-                          <SelectItem key={admin.id} value={admin.id}>
-                            {admin.full_name}
+            {isEditing ? (
+              <Controller
+                name="allocation_requested_by"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="allocation_requested_by">
+                      Requested By *
+                    </FieldLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select requester" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {adminsLoading ? (
+                          <SelectItem value="loading" disabled>
+                            Loading admins...
                           </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+                        ) : (
+                          admins?.map((admin) => (
+                            <SelectItem key={admin.id} value={admin.id}>
+                              {admin.full_name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            ) : (
+              <Field>
+                <FieldLabel>Requested By</FieldLabel>
+                <Input
+                  value={
+                    adminsLoading
+                      ? 'Loading...'
+                      : admins?.find(
+                          (a) => a.id === tripTicket.allocation_requested_by
+                        )?.full_name || '—'
+                  }
+                  disabled
+                  className="bg-muted"
+                />
+              </Field>
+            )}
             <Controller
               name="allocation_approved_by_evp_operations"
               control={form.control}

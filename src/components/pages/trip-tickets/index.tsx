@@ -2,7 +2,6 @@ import { useTripTickets, useAllTripTickets } from '@/lib/query/trip-tickets';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import StatusBadge from '@/components/shared/status-badge';
 import {
   Card,
   CardAction,
@@ -11,6 +10,13 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -27,8 +33,12 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
 import { useMemo } from 'react';
-import { useDeleteTripTicket } from '@/lib/mutation/trip-tickets';
+import {
+  useDeleteTripTicket,
+  useUpdateTripTicket
+} from '@/lib/mutation/trip-tickets';
 import { Pencil, Trash2 } from 'lucide-react';
+import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +57,14 @@ const TripTicketsPage = () => {
     useAllTripTickets();
   const navigate = useNavigate();
   const deleteTripTicket = useDeleteTripTicket();
+  const updateTripTicket = useUpdateTripTicket();
+
+  const handleStatusChange = (ticketId: string, newStatus: string) => {
+    updateTripTicket.mutate({
+      id: ticketId,
+      updates: { status: newStatus }
+    });
+  };
 
   const calendarEvents = useMemo(() => {
     if (!calendarData) return [];
@@ -145,7 +163,40 @@ const TripTicketsPage = () => {
                       tableData.data.map((ticket) => (
                         <TableRow key={ticket.id}>
                           <TableCell>
-                            <StatusBadge status={ticket.status || 'pending'} />
+                            <Select
+                              value={ticket.status || 'pending'}
+                              onValueChange={(value) =>
+                                handleStatusChange(ticket.id, value)
+                              }
+                              disabled={updateTripTicket.isPending}
+                            >
+                              <SelectTrigger className="w-[140px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={TRIP_TICKET_STATUS.PENDING}>
+                                  Pending
+                                </SelectItem>
+                                <SelectItem value={TRIP_TICKET_STATUS.APPROVED}>
+                                  Approved
+                                </SelectItem>
+                                <SelectItem
+                                  value={TRIP_TICKET_STATUS.IN_PROGRESS}
+                                >
+                                  In Progress
+                                </SelectItem>
+                                <SelectItem
+                                  value={TRIP_TICKET_STATUS.COMPLETED}
+                                >
+                                  Completed
+                                </SelectItem>
+                                <SelectItem
+                                  value={TRIP_TICKET_STATUS.CANCELLED}
+                                >
+                                  Cancelled
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell>{ticket.destination}</TableCell>
                           <TableCell className="max-w-xs truncate">
@@ -182,16 +233,23 @@ const TripTicketsPage = () => {
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogTitle>
+                                      Are you sure?
+                                    </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      This action cannot be undone. This will permanently delete the trip ticket
-                                      and remove the data from the server.
+                                      This action cannot be undone. This will
+                                      permanently delete the trip ticket and
+                                      remove the data from the server.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogCancel>
+                                      Cancel
+                                    </AlertDialogCancel>
                                     <AlertDialogAction
-                                      onClick={() => deleteTripTicket.mutate(ticket.id)}
+                                      onClick={() =>
+                                        deleteTripTicket.mutate(ticket.id)
+                                      }
                                     >
                                       Delete
                                     </AlertDialogAction>
@@ -204,7 +262,10 @@ const TripTicketsPage = () => {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell
+                          colSpan={6}
+                          className="text-muted-foreground py-8 text-center"
+                        >
                           No data found
                         </TableCell>
                       </TableRow>

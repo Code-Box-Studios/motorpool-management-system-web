@@ -92,24 +92,33 @@ export const updateTripTicket = async (
   updates: UpdateTripTicket
 ): Promise<TripTicket> => {
   try {
-    const cleanedUpdates = {
-      ...updates,
-      driver_id: updates.driver_id === '' ? null : updates.driver_id,
-      vehicle_id: updates.vehicle_id === '' ? null : updates.vehicle_id,
-      approved_by: updates.approved_by === '' ? null : updates.approved_by,
-      pre_trip_guard: updates.pre_trip_guard === '' ? null : updates.pre_trip_guard,
-      post_trip_guard: updates.post_trip_guard === '' ? null : updates.post_trip_guard,
-      remarks: updates.remarks === '' ? null : updates.remarks,
-      allocation_date: updates.allocation_date === '' ? null : updates.allocation_date,
-      allocation_trip_to: updates.allocation_trip_to === '' ? null : updates.allocation_trip_to,
-      allocation_purpose: updates.allocation_purpose === '' ? null : updates.allocation_purpose,
-      allocation_vehicle_id: updates.allocation_vehicle_id === '' ? null : updates.allocation_vehicle_id,
-      allocation_km: updates.allocation_km ?? null,
-      allocation_liters: updates.allocation_liters ?? null,
-      allocation_fuel_type: updates.allocation_fuel_type === '' ? null : updates.allocation_fuel_type,
-      allocation_requested_by: updates.allocation_requested_by === '' ? null : updates.allocation_requested_by,
-      allocation_approved_by_evp_operations: updates.allocation_approved_by_evp_operations === '' ? null : updates.allocation_approved_by_evp_operations
-    };
+    // Only include fields that are actually being updated
+    const cleanedUpdates: any = {};
+    
+    if (updates.driver_id !== undefined) cleanedUpdates.driver_id = updates.driver_id === '' ? null : updates.driver_id;
+    if (updates.vehicle_id !== undefined) cleanedUpdates.vehicle_id = updates.vehicle_id === '' ? null : updates.vehicle_id;
+    if (updates.approved_by !== undefined) cleanedUpdates.approved_by = updates.approved_by === '' ? null : updates.approved_by;
+    if (updates.pre_trip_guard !== undefined) cleanedUpdates.pre_trip_guard = updates.pre_trip_guard === '' ? null : updates.pre_trip_guard;
+    if (updates.post_trip_guard !== undefined) cleanedUpdates.post_trip_guard = updates.post_trip_guard === '' ? null : updates.post_trip_guard;
+    if (updates.remarks !== undefined) cleanedUpdates.remarks = updates.remarks === '' ? null : updates.remarks;
+    if (updates.status !== undefined) cleanedUpdates.status = updates.status;
+    if (updates.destination !== undefined) cleanedUpdates.destination = updates.destination;
+    if (updates.purpose !== undefined) cleanedUpdates.purpose = updates.purpose;
+    if (updates.date_requested !== undefined) cleanedUpdates.date_requested = updates.date_requested;
+    if (updates.pickup_date_time !== undefined) cleanedUpdates.pickup_date_time = updates.pickup_date_time;
+    if (updates.return_date !== undefined) cleanedUpdates.return_date = updates.return_date;
+    if (updates.prepared_by !== undefined) cleanedUpdates.prepared_by = updates.prepared_by;
+    if (updates.branch_id !== undefined) cleanedUpdates.branch_id = updates.branch_id;
+    
+    if (updates.allocation_date !== undefined) cleanedUpdates.allocation_date = updates.allocation_date === '' ? null : updates.allocation_date;
+    if (updates.allocation_trip_to !== undefined) cleanedUpdates.allocation_trip_to = updates.allocation_trip_to === '' ? null : updates.allocation_trip_to;
+    if (updates.allocation_purpose !== undefined) cleanedUpdates.allocation_purpose = updates.allocation_purpose === '' ? null : updates.allocation_purpose;
+    if (updates.allocation_vehicle_id !== undefined) cleanedUpdates.allocation_vehicle_id = updates.allocation_vehicle_id === '' ? null : updates.allocation_vehicle_id;
+    if (updates.allocation_km !== undefined) cleanedUpdates.allocation_km = updates.allocation_km;
+    if (updates.allocation_liters !== undefined) cleanedUpdates.allocation_liters = updates.allocation_liters;
+    if (updates.allocation_fuel_type !== undefined) cleanedUpdates.allocation_fuel_type = updates.allocation_fuel_type === '' ? null : updates.allocation_fuel_type;
+    if (updates.allocation_requested_by !== undefined) cleanedUpdates.allocation_requested_by = updates.allocation_requested_by === '' ? null : updates.allocation_requested_by;
+    if (updates.allocation_approved_by_evp_operations !== undefined) cleanedUpdates.allocation_approved_by_evp_operations = updates.allocation_approved_by_evp_operations === '' ? null : updates.allocation_approved_by_evp_operations;
 
     const { data, error } = await supabase
       .from('trip_tickets')
@@ -123,48 +132,63 @@ export const updateTripTicket = async (
       throw error;
     }
 
-    const fuelAllocationUpdates = {
-      date: updates.allocation_date === '' ? null : updates.allocation_date,
-      trip_to: updates.allocation_trip_to === '' ? null : updates.allocation_trip_to,
-      purpose: updates.allocation_purpose === '' ? null : updates.allocation_purpose,
-      vehicle_id: updates.allocation_vehicle_id === '' ? null : updates.allocation_vehicle_id,
-      km: updates.allocation_km ?? null,
-      liters: updates.allocation_liters ?? null,
-      fuel_type: updates.allocation_fuel_type === '' ? null : updates.allocation_fuel_type,
-      requested_by: updates.allocation_requested_by === '' ? null : updates.allocation_requested_by,
-      approved_by_evp_operations: updates.allocation_approved_by_evp_operations === '' ? null : updates.allocation_approved_by_evp_operations,
-      status: updates.allocation_status || 'pending'
-    };
+    // Only update fuel allocation if allocation-related fields are being updated
+    const hasAllocationUpdates = updates.allocation_date !== undefined ||
+      updates.allocation_trip_to !== undefined ||
+      updates.allocation_purpose !== undefined ||
+      updates.allocation_vehicle_id !== undefined ||
+      updates.allocation_km !== undefined ||
+      updates.allocation_liters !== undefined ||
+      updates.allocation_fuel_type !== undefined ||
+      updates.allocation_requested_by !== undefined ||
+      updates.allocation_approved_by_evp_operations !== undefined ||
+      updates.allocation_status !== undefined;
 
-    const { data: existingFuel } = await supabase
-      .from('fuel_allocations')
-      .select('id')
-      .eq('trip_ticket_id', id)
-      .single();
+    if (hasAllocationUpdates) {
+      const fuelAllocationUpdates: any = {};
+      
+      if (updates.allocation_date !== undefined) fuelAllocationUpdates.date = updates.allocation_date === '' ? null : updates.allocation_date;
+      if (updates.allocation_trip_to !== undefined) fuelAllocationUpdates.trip_to = updates.allocation_trip_to === '' ? null : updates.allocation_trip_to;
+      if (updates.allocation_purpose !== undefined) fuelAllocationUpdates.purpose = updates.allocation_purpose === '' ? null : updates.allocation_purpose;
+      if (updates.allocation_vehicle_id !== undefined) fuelAllocationUpdates.vehicle_id = updates.allocation_vehicle_id === '' ? null : updates.allocation_vehicle_id;
+      if (updates.allocation_km !== undefined) fuelAllocationUpdates.km = updates.allocation_km;
+      if (updates.allocation_liters !== undefined) fuelAllocationUpdates.liters = updates.allocation_liters;
+      if (updates.allocation_fuel_type !== undefined) fuelAllocationUpdates.fuel_type = updates.allocation_fuel_type === '' ? null : updates.allocation_fuel_type;
+      if (updates.allocation_requested_by !== undefined) fuelAllocationUpdates.requested_by = updates.allocation_requested_by === '' ? null : updates.allocation_requested_by;
+      if (updates.allocation_approved_by_evp_operations !== undefined) fuelAllocationUpdates.approved_by_evp_operations = updates.allocation_approved_by_evp_operations === '' ? null : updates.allocation_approved_by_evp_operations;
+      if (updates.allocation_status !== undefined) fuelAllocationUpdates.status = updates.allocation_status;
 
-    if (existingFuel) {
-      const { error: fuelUpdateError } = await supabase
+      const { data: existingFuel } = await supabase
         .from('fuel_allocations')
-        .update({ ...fuelAllocationUpdates, updated_at: new Date().toISOString() })
-        .eq('trip_ticket_id', id);
+        .select('id')
+        .eq('trip_ticket_id', id)
+        .single();
 
-      if (fuelUpdateError) {
-        console.error('Error updating fuel allocation:', fuelUpdateError);
-        throw fuelUpdateError;
-      }
-    } else {
-      const { error: fuelInsertError } = await supabase
-        .from('fuel_allocations')
-        .insert({
-          trip_ticket_id: id,
-          ...fuelAllocationUpdates,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
+      if (existingFuel) {
+        const { error: fuelUpdateError } = await supabase
+          .from('fuel_allocations')
+          .update({ ...fuelAllocationUpdates, updated_at: new Date().toISOString() })
+          .eq('trip_ticket_id', id);
 
-      if (fuelInsertError) {
-        console.error('Error inserting fuel allocation:', fuelInsertError);
-        throw fuelInsertError;
+        if (fuelUpdateError) {
+          console.error('Error updating fuel allocation:', fuelUpdateError);
+          throw fuelUpdateError;
+        }
+      } else if (updates.allocation_km !== undefined && updates.allocation_km !== null) {
+        // Only insert new fuel allocation if km is provided (required field)
+        const { error: fuelInsertError } = await supabase
+          .from('fuel_allocations')
+          .insert({
+            trip_ticket_id: id,
+            ...fuelAllocationUpdates,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (fuelInsertError) {
+          console.error('Error inserting fuel allocation:', fuelInsertError);
+          throw fuelInsertError;
+        }
       }
     }
 

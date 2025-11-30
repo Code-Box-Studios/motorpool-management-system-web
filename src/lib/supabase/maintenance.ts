@@ -103,3 +103,20 @@ export const updateMaintenance = async (
     throw error;
   }
 };
+
+export const deleteMaintenance = async (id: string): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('maintenance')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting maintenance record:', error);
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error in deleteMaintenance:', error);
+    throw error;
+  }
+};

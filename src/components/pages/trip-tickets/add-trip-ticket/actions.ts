@@ -38,6 +38,8 @@ const tripTicketSchema = z.object({
 export type TripTicketFormData = z.infer<typeof tripTicketSchema>;
 
 export const useTripTicketForm = () => {
+  const today = new Date().toISOString().split('T')[0];
+  
   return useForm<TripTicketFormData>({
     resolver: zodResolver(tripTicketSchema),
     defaultValues: {
@@ -48,7 +50,7 @@ export const useTripTicketForm = () => {
       prepared_by: '',
       destination: '',
       purpose: '',
-      date_requested: '',
+      date_requested: today,
       pickup_date_time: '',
       return_date: '',
       status: 'pending',

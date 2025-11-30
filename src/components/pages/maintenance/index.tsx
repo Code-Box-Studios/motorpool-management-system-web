@@ -2,6 +2,19 @@ import { useAllMaintenances, useMaintenances } from '@/lib/query/maintenance';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Eye, Pencil, Trash2 } from 'lucide-react';
+import { useDeleteMaintenance } from '@/lib/mutation/maintenance';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
 import {
   Card,
   CardAction,
@@ -35,6 +48,7 @@ const MaintenancePage = () => {
   const { data: calendarData, isLoading: isCalendarLoading } =
     useAllMaintenances();
   const navigate = useNavigate();
+  const deleteMaintenance = useDeleteMaintenance();
 
   const calendarEvents = useMemo(() => {
     if (!calendarData) return [];
@@ -154,21 +168,77 @@ const MaintenancePage = () => {
                               : 'N/A'}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                navigate({ to: `/maintenance/${maintenance.id}` })
-                              }
-                            >
-                              View Details
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={deleteMaintenance.isPending}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Are you sure?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will
+                                      permanently delete the maintenance record
+                                      and remove the data from the server.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() =>
+                                        deleteMaintenance.mutate(maintenance.id)
+                                      }
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  navigate({
+                                    to: `/maintenance/${maintenance.id}`,
+                                    search: { edit: true }
+                                  })
+                                }
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  navigate({
+                                    to: `/maintenance/${maintenance.id}`
+                                  })
+                                }
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <TableCell
+                          colSpan={7}
+                          className="text-muted-foreground py-8 text-center"
+                        >
                           No data found
                         </TableCell>
                       </TableRow>
