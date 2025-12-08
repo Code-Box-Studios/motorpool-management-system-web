@@ -61,7 +61,10 @@ const UserManagement = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                    <TableCell
+                      colSpan={3}
+                      className="text-muted-foreground py-8 text-center"
+                    >
                       No data found
                     </TableCell>
                   </TableRow>

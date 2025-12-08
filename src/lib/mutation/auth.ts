@@ -19,8 +19,8 @@ export const useSignIn = () => {
 
 export const useSignUp = () => {
   return useMutation({
-    mutationFn: ({ email, password, fullName, role }: { email: string; password: string; fullName: string; role: string }) =>
-      signUp(email, password, fullName, role),
+    mutationFn: ({ email, password, fullName, roleId, branchId }: { email: string; password: string; fullName: string; roleId: string; branchId: string }) =>
+      signUp(email, password, fullName, roleId, branchId),
     onSuccess: () => {
       toast.success('Sign up successful! Check your email for confirmation.');
     },

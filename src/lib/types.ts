@@ -75,4 +75,8 @@ export type UserRole = Tables<'user_roles'>;
 export type NewUserRole = TablesInsert<'user_roles'>;
 export type UpdateUserRole = TablesUpdate<'user_roles'>;
 
+export type Role = Tables<'roles'>;
+export type NewRole = TablesInsert<'roles'>;
+export type UpdateRole = TablesUpdate<'roles'>;
+
 export type AppRole = Enums<'app_role'>; 

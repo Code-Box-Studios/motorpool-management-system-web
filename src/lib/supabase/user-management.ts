@@ -6,9 +6,11 @@ export const signUp = async (
   email: string,
   password: string,
   fullName: string,
-  role: string
+  roleId: string,
+  branchId: string,
+  avatarUrl?: string
 ): Promise<{ user: User; session: Session | null }> => {
-  return await authSignUp(email, password, fullName, role);
+  return await authSignUp(email, password, fullName, roleId, branchId, avatarUrl);
 };
 
 export const getAllAdmins = async () => {

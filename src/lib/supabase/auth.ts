@@ -16,13 +16,20 @@ export const signUp = async (
   email: string,
   password: string,
   fullName: string,
-  role: string
+  roleId: string,
+  branchId: string,
+  avatarUrl?: string
 ): Promise<{ user: User; session: Session | null }> => {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { full_name: fullName, role: role },
+      data: { 
+        full_name: fullName, 
+        role_id: roleId,
+        branch_id: branchId,
+        avatar_url: avatarUrl || null
+      },
     },
   });
   if (error) throw error as AuthError;

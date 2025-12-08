@@ -16,24 +16,35 @@ export type Database = {
     Tables: {
       admins: {
         Row: {
+          branch_id: string | null
           email: string
           full_name: string
           id: string
           updated_at: string | null
         }
         Insert: {
+          branch_id?: string | null
           email: string
           full_name: string
           id: string
           updated_at?: string | null
         }
         Update: {
+          branch_id?: string | null
           email?: string
           full_name?: string
           id?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "admins_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       borrow_requests: {
         Row: {
@@ -121,6 +132,7 @@ export type Database = {
         Row: {
           address: string | null
           assigned_vehicle_id: string | null
+          branch_id: string | null
           date_of_birth: string | null
           email: string
           emergency_contact_name: string | null
@@ -141,6 +153,7 @@ export type Database = {
         Insert: {
           address?: string | null
           assigned_vehicle_id?: string | null
+          branch_id?: string | null
           date_of_birth?: string | null
           email: string
           emergency_contact_name?: string | null
@@ -161,6 +174,7 @@ export type Database = {
         Update: {
           address?: string | null
           assigned_vehicle_id?: string | null
+          branch_id?: string | null
           date_of_birth?: string | null
           email?: string
           emergency_contact_name?: string | null
@@ -178,7 +192,15 @@ export type Database = {
           tin?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "drivers_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fuel_allocations: {
         Row: {
@@ -240,7 +262,7 @@ export type Database = {
           {
             foreignKeyName: "fuel_allocations_trip_ticket_id_fkey"
             columns: ["trip_ticket_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "trip_tickets"
             referencedColumns: ["id"]
           },
@@ -633,6 +655,27 @@ export type Database = {
         }
         Relationships: []
       }
+      roles: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       tools: {
         Row: {
           borrowed_by: string | null
@@ -812,23 +855,47 @@ export type Database = {
       user_roles: {
         Row: {
           assigned_at: string | null
+          avatar_url: string | null
+          branch_id: string | null
           role: string
+          role_id: string
           updated_at: string | null
           user_id: string
         }
         Insert: {
           assigned_at?: string | null
+          avatar_url?: string | null
+          branch_id?: string | null
           role: string
+          role_id: string
           updated_at?: string | null
           user_id: string
         }
         Update: {
           assigned_at?: string | null
+          avatar_url?: string | null
+          branch_id?: string | null
           role?: string
+          role_id?: string
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vehicle_maintenance_tracking: {
         Row: {
