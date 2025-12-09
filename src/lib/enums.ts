@@ -1,3 +1,11 @@
+export const USER_ROLES = {
+  admin: 'admin',
+  security_guard: 'security_guard',
+  evp_operations: 'evp_operations',
+  driver: 'driver',
+  requester: 'requester'
+} as const;
+
 export const VEHICLE_STATUS = {
   AVAILABLE: 'available',
   ON_TRIP: 'on_trip',

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -19,12 +19,15 @@ import {
   CollapsibleContent,
   CollapsibleTrigger
 } from '@/components/ui/collapsible';
+import { useAuth } from '@/hooks/use-auth';
+import { getUserRoleName } from '@/lib/utils';
 
 interface MenuItem {
   title: string;
   icon: React.ComponentType;
   group: string;
   url: string;
+  allowedRoles?: string[];
 }
 
 interface NavItem {
@@ -33,13 +36,28 @@ interface NavItem {
 }
 
 interface RouteWithStaticData {
-  options: { staticData: Omit<MenuItem, 'url'> };
+  options: { staticData: MenuItem };
   path: string;
 }
 
 export function AppSidebar() {
   const router = useRouter();
+  const { user } = useAuth();
   const routes = Object.values(router.routesByPath);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (user?.user_metadata) {
+        const role = await getUserRoleName(user.user_metadata);
+        setUserRole(role);
+      } else {
+        setUserRole(null);
+      }
+    };
+
+    fetchUserRole();
+  }, [user?.user_metadata]);
 
   if (!routes.length) {
     return null;
@@ -49,7 +67,14 @@ export function AppSidebar() {
     (route): route is RouteWithStaticData => !!route.options?.staticData
   );
 
-  const menuItems: MenuItem[] = routesWithData.map((route) => ({
+  const allowedRoutes = routesWithData.filter((route) => {
+    const allowedRoles = route.options.staticData.allowedRoles;
+    if (!allowedRoles) return true;
+
+    return userRole && allowedRoles.includes(userRole);
+  });
+
+  const menuItems: MenuItem[] = allowedRoutes.map((route) => ({
     ...route.options.staticData,
     url: `/${route.path.replace('/_authenticated', '')}`
   }));

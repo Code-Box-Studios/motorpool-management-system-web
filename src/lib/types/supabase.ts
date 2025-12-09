@@ -852,6 +852,48 @@ export type Database = {
           },
         ]
       }
+      user_profiles: {
+        Row: {
+          address: string | null
+          avatar_url: string | null
+          branch_id: string | null
+          created_at: string | null
+          date_of_birth: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          avatar_url?: string | null
+          branch_id?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          avatar_url?: string | null
+          branch_id?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           assigned_at: string | null
@@ -1044,6 +1086,7 @@ export type Database = {
           next_due_mileage: number
         }[]
       }
+      is_current_user_admin: { Args: never; Returns: boolean }
       safe_uuid: { Args: { input: string }; Returns: string }
       user_is_admin: { Args: { p_user: string }; Returns: boolean }
       user_is_admin_text: { Args: { p_user_text: string }; Returns: boolean }

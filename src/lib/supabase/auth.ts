@@ -20,6 +20,22 @@ export const signUp = async (
   branchId: string,
   avatarUrl?: string
 ): Promise<{ user: User; session: Session | null }> => {
+  // First, look up the role name from the roles table
+  const { data: roleData, error: roleError } = await supabase
+    .from('roles')
+    .select('name')
+    .eq('id', roleId)
+    .single();
+
+  if (roleError) {
+    console.error('Error fetching role:', roleError);
+    throw new Error('Invalid role ID provided');
+  }
+
+  if (!roleData) {
+    throw new Error('Role not found');
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -27,6 +43,7 @@ export const signUp = async (
       data: { 
         full_name: fullName, 
         role_id: roleId,
+        role: roleData.name, // Store the role name for access control
         branch_id: branchId,
         avatar_url: avatarUrl || null
       },

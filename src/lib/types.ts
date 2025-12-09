@@ -75,8 +75,40 @@ export type UserRole = Tables<'user_roles'>;
 export type NewUserRole = TablesInsert<'user_roles'>;
 export type UpdateUserRole = TablesUpdate<'user_roles'>;
 
+export type UserProfile = Tables<'user_profiles'>;
+export type NewUserProfile = TablesInsert<'user_profiles'>;
+export type UpdateUserProfile = TablesUpdate<'user_profiles'>;
+
+export type UserProfileData = UserProfile & {
+  role?: string;
+  branch_name?: string;
+  roles_detailed?: Array<{
+    id: string | null;
+    name: string;
+    source: string;
+  }> | null;
+};
+
 export type Role = Tables<'roles'>;
 export type NewRole = TablesInsert<'roles'>;
 export type UpdateRole = TablesUpdate<'roles'>;
 
-export type AppRole = Enums<'app_role'>; 
+export type AppRole = Enums<'app_role'>;
+
+/**
+ * User metadata type for Supabase auth user_metadata
+ */
+export interface UserMetadata {
+  full_name?: string;
+  role?: string; // Role name (e.g., 'admin', 'driver')
+  role_id?: string; // Role UUID
+  branch_id?: string; // Branch UUID
+  avatar_url?: string | null;
+}
+
+/**
+ * Extended User type with properly typed user_metadata
+ */
+export interface ExtendedUser extends Omit<import('@supabase/supabase-js').User, 'user_metadata'> {
+  user_metadata?: UserMetadata;
+} 
