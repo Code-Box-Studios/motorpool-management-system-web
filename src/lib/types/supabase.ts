@@ -995,8 +995,8 @@ export type Database = {
       }
       vehicles: {
         Row: {
-          assigned_driver: string | null
           branch: string
+          capacity: number
           created_at: string | null
           fuel_type: string
           id: string
@@ -1014,8 +1014,8 @@ export type Database = {
           year: number
         }
         Insert: {
-          assigned_driver?: string | null
           branch: string
+          capacity: number
           created_at?: string | null
           fuel_type: string
           id?: string
@@ -1033,8 +1033,8 @@ export type Database = {
           year: number
         }
         Update: {
-          assigned_driver?: string | null
           branch?: string
+          capacity?: number
           created_at?: string | null
           fuel_type?: string
           id?: string
@@ -1053,13 +1053,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "vehicles_assigned_driver_fkey"
-            columns: ["assigned_driver"]
-            isOneToOne: false
-            referencedRelation: "drivers"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "vehicles_maintenance_standard_id_fkey"
             columns: ["maintenance_standard_id"]
             isOneToOne: false
@@ -1070,7 +1063,96 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_profiles_with_roles: {
+        Row: {
+          address: string | null
+          avatar_url: string | null
+          branch_id: string | null
+          created_at: string | null
+          date_of_birth: string | null
+          email: string | null
+          full_name: string | null
+          id: string | null
+          phone: string | null
+          roles: Json | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          avatar_url?: string | null
+          branch_id?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          phone?: string | null
+          roles?: never
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          avatar_url?: string | null
+          branch_id?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          phone?: string | null
+          roles?: never
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_profiles_with_roles_detailed: {
+        Row: {
+          address: string | null
+          avatar_url: string | null
+          branch_id: string | null
+          created_at: string | null
+          date_of_birth: string | null
+          email: string | null
+          full_name: string | null
+          id: string | null
+          phone: string | null
+          roles_detailed: Json | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          avatar_url?: string | null
+          branch_id?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          phone?: string | null
+          roles_detailed?: never
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          avatar_url?: string | null
+          branch_id?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          phone?: string | null
+          roles_detailed?: never
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calculate_next_due_date: {
@@ -1086,7 +1168,31 @@ export type Database = {
           next_due_mileage: number
         }[]
       }
+      get_all_user_profiles: {
+        Args: never
+        Returns: {
+          address: string | null
+          avatar_url: string | null
+          branch_id: string | null
+          created_at: string | null
+          date_of_birth: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          status: string | null
+          updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "user_profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_custom_jwt_claims: { Args: { uid: string }; Returns: Json }
       is_current_user_admin: { Args: never; Returns: boolean }
+      is_user_admin: { Args: { p_user: string }; Returns: boolean }
       safe_uuid: { Args: { input: string }; Returns: string }
       user_is_admin: { Args: { p_user: string }; Returns: boolean }
       user_is_admin_text: { Args: { p_user_text: string }; Returns: boolean }

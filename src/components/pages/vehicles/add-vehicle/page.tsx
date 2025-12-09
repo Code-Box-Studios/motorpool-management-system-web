@@ -9,7 +9,6 @@ import {
   type VehicleFormData
 } from './actions';
 import { useNavigate } from '@tanstack/react-router';
-import { useDrivers } from '@/lib/query/drivers';
 import {
   Select,
   SelectContent,
@@ -21,7 +20,6 @@ import { FUEL_TYPE, VEHICLE_STATUS } from '@/lib/enums';
 import { useBranches } from '@/lib/query/shared';
 
 export function AddVehicle() {
-  const { data: drivers } = useDrivers(1, 100);
   const { data: branches } = useBranches();
   const addVehicleAction = useAddVehicleAction();
   const form = useVehicleForm();
@@ -157,7 +155,11 @@ export function AddVehicle() {
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor="status">Status</FieldLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    disabled
+                    onValueChange={field.onChange}
+                    value={field.value}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -172,32 +174,6 @@ export function AddVehicle() {
                                 word.slice(1).toLowerCase()
                             )
                             .join(' ')}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="assigned_driver"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="assigned_driver">
-                    Assigned Driver
-                  </FieldLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a driver" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {drivers?.data?.map((driver) => (
-                        <SelectItem key={driver.id} value={driver.id}>
-                          {driver.full_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -269,6 +245,25 @@ export function AddVehicle() {
                     type="number"
                     aria-invalid={fieldState.invalid}
                     placeholder="Enter mileage"
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+            <Controller
+              name="capacity"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="capacity">Capacity *</FieldLabel>
+                  <Input
+                    {...field}
+                    id="capacity"
+                    type="number"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Enter capacity"
                   />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />

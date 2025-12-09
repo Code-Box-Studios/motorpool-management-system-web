@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { getVehicles, getVehicleById } from '@/lib/supabase/vehicles';
+import type { VehicleWithBranch } from '@/lib/types';
 
 export const useVehicles = (page: number = 1, limit: number = 10) => {
-  return useQuery({
+  return useQuery<{ data: VehicleWithBranch[]; count: number | null }>({
     queryKey: ['vehicles', page],
     queryFn: () => getVehicles(page, limit)
   });

@@ -1,7 +1,19 @@
 import { supabase } from '.';
-import type { Vehicle, NewVehicle, UpdateVehicle } from '../types'; 
+import type { Vehicle, VehicleWithBranch, NewVehicle, UpdateVehicle } from '../types'; 
 
-export const getVehicles = async (page: number = 1, limit: number = 10): Promise<{ data: Vehicle[]; count: number | null }> => {
+export const getVehicles = async (page: number = 1, limit: number = 10): Promise<{ data: VehicleWithBranch[]; count: number | null }> => {
+  // First, get all branches for lookup
+  const { data: branches, error: branchesError } = await supabase
+    .from('branches')
+    .select('id, name');
+
+  if (branchesError) {
+    console.error('Error fetching branches:', branchesError);
+  }
+
+  // Create a lookup map for branches
+  const branchMap = new Map(branches?.map(branch => [branch.id, branch.name]) || []);
+
   const from = (page - 1) * limit;
   const to = from + limit - 1;
   const { data, error, count } = await supabase
@@ -9,11 +21,19 @@ export const getVehicles = async (page: number = 1, limit: number = 10): Promise
     .select('*', { count: 'exact' })
     .order('updated_at', { ascending: false })
     .range(from, to);
+
   if (error) {
     console.error('Error fetching vehicles:', error);
     throw error;
   }
-  return { data: data as Vehicle[], count }; 
+
+  // Transform data to include branch names
+  const transformedData = (data as Vehicle[])?.map(vehicle => ({
+    ...vehicle,
+    branch_name: vehicle.branch ? branchMap.get(vehicle.branch) || vehicle.branch : 'N/A'
+  }));
+
+  return { data: transformedData as VehicleWithBranch[], count };
 };
 
 export const getVehicleById = async (id: string): Promise<Vehicle> => {

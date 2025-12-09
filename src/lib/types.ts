@@ -9,6 +9,9 @@ export type RouteStaticData = {
 };
 
 export type Vehicle = Tables<'vehicles'>;
+export type VehicleWithBranch = Vehicle & {
+  branch_name?: string;
+};
 export type NewVehicle = TablesInsert<'vehicles'>;
 export type UpdateVehicle = TablesUpdate<'vehicles'>;
 

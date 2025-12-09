@@ -38,7 +38,10 @@ const Vehicles = () => {
                     License Plate: {vehicle.license_plate}
                   </Typography>
                   <Typography variant="p-sm">
-                    Mileage: {vehicle.mileage}
+                    Capacity: {vehicle.capacity}
+                  </Typography>
+                  <Typography variant="p-sm">
+                    Branch: {vehicle.branch_name || vehicle.branch}
                   </Typography>
                 </div>
               }
@@ -47,7 +50,7 @@ const Vehicles = () => {
             />
           ))
         ) : (
-          <div className="col-span-full text-center py-8 text-muted-foreground">
+          <div className="text-muted-foreground col-span-full py-8 text-center">
             No data found
           </div>
         )}

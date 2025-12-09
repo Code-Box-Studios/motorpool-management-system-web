@@ -10,7 +10,6 @@ export const VEHICLE_STATUS = {
   AVAILABLE: 'available',
   ON_TRIP: 'on_trip',
   OUT_OF_SERVICE: 'out_of_service',
-  TO_BE_REPAIRED: 'to_be_repaired',
   UNDER_MAINTENANCE: 'under_maintenance'
 } as const;
 

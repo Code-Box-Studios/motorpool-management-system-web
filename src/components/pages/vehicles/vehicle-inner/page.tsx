@@ -8,7 +8,6 @@ import { useVehicleUpdateForm, type UpdateVehicleFormData } from './actions';
 import { useVehicle } from '@/lib/query/vehicles';
 import { useUpdateVehicle } from '@/lib/mutation/vehicles';
 import { useNavigate } from '@tanstack/react-router';
-import { useDrivers } from '@/lib/query/drivers';
 import { useBranches } from '@/lib/query/shared';
 import {
   Select,
@@ -31,7 +30,6 @@ import { Loading } from '@/components/ui/loader';
 
 const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   const { data: vehicle } = useVehicle(vehicleId);
-  const { data: drivers, isPending: driversLoading } = useDrivers(1, 100);
   const { data: branches, isPending: branchesLoading } = useBranches();
   const updateVehicle = useUpdateVehicle();
   const navigate = useNavigate();
@@ -41,7 +39,7 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   const form = useVehicleUpdateForm();
 
   useEffect(() => {
-    if (vehicle && drivers && branches) {
+    if (vehicle && branches) {
       form.reset({
         make: vehicle.make,
         model: vehicle.model,
@@ -49,16 +47,16 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
         license_plate: vehicle.license_plate,
         vin: vehicle.vin,
         status: vehicle.status,
-        assigned_driver: vehicle.assigned_driver || '',
         branch: vehicle.branch || '',
         fuel_type: vehicle.fuel_type || '',
         mileage: vehicle.mileage,
         insurance_expiry: vehicle.insurance_expiry,
         registration_expiry: vehicle.registration_expiry,
+        capacity: vehicle.capacity,
         newImages: []
       });
     }
-  }, [vehicle, drivers, branches, form]);
+  }, [vehicle, branches, form]);
 
   const onSubmit = (data: UpdateVehicleFormData) => {
     if (vehicle) {
@@ -76,7 +74,7 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
     }
   };
 
-  if (!vehicle || driversLoading || branchesLoading) return <Loading />;
+  if (!vehicle || branchesLoading) return <Loading />;
 
   return (
     <div>
@@ -329,50 +327,6 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
             )}
             {isEditing ? (
               <Controller
-                name="assigned_driver"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="assigned_driver">
-                      Assigned Driver
-                    </FieldLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!isEditing}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a driver" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {drivers?.data?.map((driver) => (
-                          <SelectItem key={driver.id} value={driver.id}>
-                            {driver.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-            ) : (
-              <Field>
-                <FieldLabel>Assigned Driver</FieldLabel>
-                <Input
-                  value={
-                    drivers?.data?.find((d) => d.id === vehicle.assigned_driver)
-                      ?.full_name || '—'
-                  }
-                  disabled
-                  className="bg-muted"
-                />
-              </Field>
-            )}
-            {isEditing ? (
-              <Controller
                 name="branch"
                 control={form.control}
                 render={({ field, fieldState }) => (
@@ -469,6 +423,26 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
                     type="number"
                     aria-invalid={fieldState.invalid}
                     placeholder="Enter mileage"
+                    disabled={!isEditing}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+            <Controller
+              name="capacity"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="capacity">Capacity *</FieldLabel>
+                  <Input
+                    {...field}
+                    id="capacity"
+                    type="number"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Enter capacity"
                     disabled={!isEditing}
                   />
                   {fieldState.invalid && (
