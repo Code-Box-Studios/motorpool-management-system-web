@@ -13,7 +13,7 @@ const vehicleSchema = z.object({
   license_plate: z.string().min(1, 'License plate is required'),
   vin: z.string().min(1, 'VIN is required'),
   status: z.enum(Object.values(VEHICLE_STATUS) as [string, ...string[]]),
-  branch: z.string().uuid(),
+  branch: z.string().min(1, 'Branch is required'),
   fuel_type: z.enum(Object.values(FUEL_TYPE) as [string, ...string[]]),
   mileage: z.coerce.number().min(0, 'Mileage must be non-negative'),
   insurance_expiry: z.string().min(1, 'Insurance expiry is required'),

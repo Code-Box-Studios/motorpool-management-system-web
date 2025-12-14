@@ -128,6 +128,48 @@ export type Database = {
         }
         Relationships: []
       }
+      department_offices: {
+        Row: {
+          branch_id: string | null
+          created_at: string | null
+          head_id: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          branch_id?: string | null
+          created_at?: string | null
+          head_id?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          branch_id?: string | null
+          created_at?: string | null
+          head_id?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_department_offices_branch"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_department_offices_head"
+            columns: ["head_id"]
+            isOneToOne: false
+            referencedRelation: "office_heads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           address: string | null
@@ -204,9 +246,12 @@ export type Database = {
       }
       fuel_allocations: {
         Row: {
+          approved_by_evp: string | null
           approved_by_evp_operations: string | null
+          branch_id: string | null
           created_at: string | null
           date: string
+          disapproved_reason: string | null
           fuel_type: string
           id: string
           km: number
@@ -220,9 +265,12 @@ export type Database = {
           vehicle_id: string
         }
         Insert: {
+          approved_by_evp?: string | null
           approved_by_evp_operations?: string | null
+          branch_id?: string | null
           created_at?: string | null
           date: string
+          disapproved_reason?: string | null
           fuel_type: string
           id?: string
           km: number
@@ -236,9 +284,12 @@ export type Database = {
           vehicle_id: string
         }
         Update: {
+          approved_by_evp?: string | null
           approved_by_evp_operations?: string | null
+          branch_id?: string | null
           created_at?: string | null
           date?: string
+          disapproved_reason?: string | null
           fuel_type?: string
           id?: string
           km?: number
@@ -252,6 +303,13 @@ export type Database = {
           vehicle_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fuel_allocations_approved_by_evp_fkey"
+            columns: ["approved_by_evp"]
+            isOneToOne: false
+            referencedRelation: "admins"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fuel_allocations_requested_by_fkey"
             columns: ["requested_by"]
@@ -655,6 +713,48 @@ export type Database = {
         }
         Relationships: []
       }
+      office_heads: {
+        Row: {
+          branch_id: string | null
+          created_at: string | null
+          id: string
+          name: string
+          office_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          branch_id?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          office_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          branch_id?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          office_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_office_heads_branch"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_office_heads_office"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "department_offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roles: {
         Row: {
           created_at: string
@@ -728,28 +828,39 @@ export type Database = {
           allocation_approved_by_evp_operations: string | null
           allocation_date: string | null
           allocation_fuel_type: string | null
-          allocation_km: number | null
-          allocation_liters: number | null
           allocation_purpose: string | null
           allocation_requested_by: string | null
           allocation_status: string | null
           allocation_trip_to: string | null
           allocation_vehicle_id: string | null
-          approved_by: string
+          approved_by: string | null
+          attachment_path: string | null
           branch_id: string
+          cancellation_reason: string | null
           created_at: string | null
           date_requested: string
           destination: string
+          disapproved_reason: string | null
           driver_id: string
+          end_ts: string | null
+          fuel_allocation_id: string | null
           id: string
+          office_head_id: string | null
+          office_id: string | null
+          participants: string[] | null
+          participants_count: number | null
           pdf_path: string | null
-          pickup_date_time: string
+          post_trip_checked_at: string | null
+          post_trip_checked_by: string | null
           post_trip_guard: string | null
+          pre_trip_checked_at: string | null
+          pre_trip_checked_by: string | null
           pre_trip_guard: string | null
           prepared_by: string
           purpose: string
           remarks: string | null
-          return_date: string
+          requested_by: string | null
+          start_ts: string | null
           status: string | null
           updated_at: string | null
           vehicle_id: string
@@ -758,28 +869,39 @@ export type Database = {
           allocation_approved_by_evp_operations?: string | null
           allocation_date?: string | null
           allocation_fuel_type?: string | null
-          allocation_km?: number | null
-          allocation_liters?: number | null
           allocation_purpose?: string | null
           allocation_requested_by?: string | null
           allocation_status?: string | null
           allocation_trip_to?: string | null
           allocation_vehicle_id?: string | null
-          approved_by: string
+          approved_by?: string | null
+          attachment_path?: string | null
           branch_id: string
+          cancellation_reason?: string | null
           created_at?: string | null
           date_requested: string
           destination: string
+          disapproved_reason?: string | null
           driver_id: string
+          end_ts?: string | null
+          fuel_allocation_id?: string | null
           id?: string
+          office_head_id?: string | null
+          office_id?: string | null
+          participants?: string[] | null
+          participants_count?: number | null
           pdf_path?: string | null
-          pickup_date_time: string
+          post_trip_checked_at?: string | null
+          post_trip_checked_by?: string | null
           post_trip_guard?: string | null
+          pre_trip_checked_at?: string | null
+          pre_trip_checked_by?: string | null
           pre_trip_guard?: string | null
           prepared_by: string
           purpose: string
           remarks?: string | null
-          return_date: string
+          requested_by?: string | null
+          start_ts?: string | null
           status?: string | null
           updated_at?: string | null
           vehicle_id: string
@@ -788,28 +910,39 @@ export type Database = {
           allocation_approved_by_evp_operations?: string | null
           allocation_date?: string | null
           allocation_fuel_type?: string | null
-          allocation_km?: number | null
-          allocation_liters?: number | null
           allocation_purpose?: string | null
           allocation_requested_by?: string | null
           allocation_status?: string | null
           allocation_trip_to?: string | null
           allocation_vehicle_id?: string | null
-          approved_by?: string
+          approved_by?: string | null
+          attachment_path?: string | null
           branch_id?: string
+          cancellation_reason?: string | null
           created_at?: string | null
           date_requested?: string
           destination?: string
+          disapproved_reason?: string | null
           driver_id?: string
+          end_ts?: string | null
+          fuel_allocation_id?: string | null
           id?: string
+          office_head_id?: string | null
+          office_id?: string | null
+          participants?: string[] | null
+          participants_count?: number | null
           pdf_path?: string | null
-          pickup_date_time?: string
+          post_trip_checked_at?: string | null
+          post_trip_checked_by?: string | null
           post_trip_guard?: string | null
+          pre_trip_checked_at?: string | null
+          pre_trip_checked_by?: string | null
           pre_trip_guard?: string | null
           prepared_by?: string
           purpose?: string
           remarks?: string | null
-          return_date?: string
+          requested_by?: string | null
+          start_ts?: string | null
           status?: string | null
           updated_at?: string | null
           vehicle_id?: string
@@ -841,6 +974,20 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_tickets_fuel_allocation_id_fkey"
+            columns: ["fuel_allocation_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_allocations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_tickets_office_head_id_fkey"
+            columns: ["office_head_id"]
+            isOneToOne: false
+            referencedRelation: "office_heads"
             referencedColumns: ["id"]
           },
           {

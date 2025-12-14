@@ -23,7 +23,7 @@ export const getAllTripTickets = async (): Promise<TripTicket[]> => {
   const { data, error } = await supabase
     .from('trip_tickets')
     .select('*')
-    .order('pickup_date_time', { ascending: false });
+    .order('start_ts', { ascending: false });
   if (error) {
     console.error('Error fetching all trip tickets:', error);
     throw error;
@@ -56,17 +56,7 @@ export const createTripTicket = async (
       approved_by: tripTicket.approved_by === '' ? null : tripTicket.approved_by,
       pre_trip_guard: tripTicket.pre_trip_guard === '' ? null : tripTicket.pre_trip_guard,
       post_trip_guard: tripTicket.post_trip_guard === '' ? null : tripTicket.post_trip_guard,
-      remarks: tripTicket.remarks === '' ? null : tripTicket.remarks,
-      allocation_date: tripTicket.allocation_date === '' ? null : tripTicket.allocation_date,
-      allocation_trip_to: tripTicket.allocation_trip_to === '' ? null : tripTicket.allocation_trip_to,
-      allocation_purpose: tripTicket.allocation_purpose === '' ? null : tripTicket.allocation_purpose,
-      allocation_vehicle_id: tripTicket.allocation_vehicle_id === '' ? null : tripTicket.allocation_vehicle_id,
-      allocation_km: tripTicket.allocation_km ?? null,
-      allocation_liters: tripTicket.allocation_liters ?? null,
-      allocation_fuel_type: tripTicket.allocation_fuel_type === '' ? null : tripTicket.allocation_fuel_type,
-      allocation_requested_by: tripTicket.allocation_requested_by === '' ? null : tripTicket.allocation_requested_by,
-      allocation_approved_by_evp_operations: tripTicket.allocation_approved_by_evp_operations === '' ? null : tripTicket.allocation_approved_by_evp_operations,
-      allocation_status: tripTicket.allocation_status || 'pending'
+      remarks: tripTicket.remarks === '' ? null : tripTicket.remarks
     };
 
     const { data, error } = await supabase

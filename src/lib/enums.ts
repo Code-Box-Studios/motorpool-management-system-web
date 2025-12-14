@@ -31,11 +31,13 @@ export const TOOL_STATUS = {
 } as const;
 
 export const TRIP_TICKET_STATUS = {
-  PENDING: 'pending',
+  PENDING_ADMIN_APPROVAL: 'pending_admin_approval',
+  PENDING_FUEL_ALLOCATION_APPROVAL: 'pending_fuel_allocation_approval',
+  CANCELLED: 'cancelled',
+  DISAPPROVED: 'disapproved',
   APPROVED: 'approved',
   IN_PROGRESS: 'in_progress',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled'
+  COMPLETED: 'completed'
 } as const;
 
 export const JOB_ORDER_STATUS = {
