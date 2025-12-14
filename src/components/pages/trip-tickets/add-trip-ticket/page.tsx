@@ -12,7 +12,6 @@ import { useNavigate } from '@tanstack/react-router';
 import { useDrivers } from '@/lib/query/drivers';
 import { useVehicles } from '@/lib/query/vehicles';
 import { useBranches } from '@/lib/query/shared';
-import { useAdmins } from '@/lib/query/user-management';
 import { useDepartmentOffices, useOfficeHeads } from '@/lib/query/offices';
 import {
   Select,
@@ -30,7 +29,6 @@ export function AddTripTicket() {
   const { data: drivers, isLoading: driversLoading } = useDrivers(1, 100);
   const { data: vehicles, isLoading: vehiclesLoading } = useVehicles(1, 100);
   const { data: branches, isLoading: branchesLoading } = useBranches();
-  const { data: admins, isLoading: adminsLoading } = useAdmins();
   const { data: offices, isLoading: officesLoading } = useDepartmentOffices();
   const { data: officeHeads, isLoading: officeHeadsLoading } = useOfficeHeads();
   const addTripTicketAction = useAddTripTicketAction();
@@ -39,19 +37,14 @@ export function AddTripTicket() {
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
 
-  // Check if user is a requester
-  const isRequester = userRole?.role?.toLowerCase() === 'requester';
+  // Get user's branch for filtering
   const userBranchId = userRole?.branch_id || user?.user_metadata?.branch_id;
-
-  // Watch the selected branch to filter drivers and vehicles
-  const selectedBranchId = form.watch('branch_id');
 
   useEffect(() => {
     console.log('Drivers:', drivers);
     console.log('Vehicles:', vehicles);
     console.log('Branches:', branches);
-    console.log('Admins:', admins);
-  }, [drivers, vehicles, branches, admins]);
+  }, [drivers, vehicles, branches]);
 
   useEffect(() => {
     if (user) {
@@ -240,7 +233,10 @@ export function AddTripTicket() {
                             // Filter by availability
                             if (vehicle.status !== 'available') return false;
                             // Filter by user's branch (for both requesters and admins)
-                            if (userBranchId && vehicle.branch !== userBranchId) {
+                            if (
+                              userBranchId &&
+                              vehicle.branch !== userBranchId
+                            ) {
                               return false;
                             }
                             return true;
@@ -290,7 +286,10 @@ export function AddTripTicket() {
                             // Filter by active status
                             if (driver.status !== 'Active') return false;
                             // Filter by user's branch (for both requesters and admins)
-                            if (userBranchId && driver.branch_id !== userBranchId) {
+                            if (
+                              userBranchId &&
+                              driver.branch_id !== userBranchId
+                            ) {
                               return false;
                             }
                             return true;

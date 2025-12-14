@@ -10,8 +10,9 @@ import {
 } from './actions';
 import { useTripTicket } from '@/lib/query/trip-tickets';
 import { useUpdateTripTicket } from '@/lib/mutation/trip-tickets';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { useDrivers } from '@/lib/query/drivers';
+import { useUserRole } from '@/hooks/use-user-role';
 import { useVehicles } from '@/lib/query/vehicles';
 import { useBranches } from '@/lib/query/shared';
 import { useAdmins } from '@/lib/query/user-management';
@@ -29,6 +30,10 @@ import { Loading } from '@/components/ui/loader';
 const TripTicketsInner = () => {
   const { id } = useParams({ from: '/_authenticated/trip-tickets/$id' });
   const tripTicketId = id;
+  const search = useSearch({ from: '/_authenticated/trip-tickets/$id' }) as {
+    viewOnly?: boolean;
+  };
+  const { data: userRole } = useUserRole();
   const { data: tripTicket } = useTripTicket(tripTicketId);
   const { data: drivers, isPending: driversLoading } = useDrivers(1, 100);
   const { data: vehicles, isPending: vehiclesLoading } = useVehicles(1, 100);
@@ -38,26 +43,33 @@ const TripTicketsInner = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
 
+  // Determine if user can edit (only admins can edit)
+  const isAdmin = userRole?.roles?.name?.toLowerCase() === 'admin';
+  const viewOnly = search.viewOnly || !isAdmin;
+
   const form = useTripTicketUpdateForm();
 
   useEffect(() => {
     if (tripTicket) {
-      // Format pickup_date_time for datetime-local input (remove timezone)
-      const pickupDateTime = tripTicket.pickup_date_time
-        ? tripTicket.pickup_date_time.slice(0, 16) // Format: YYYY-MM-DDTHH:MM
+      // Format start_ts for datetime-local input (remove timezone)
+      const startDateTime = tripTicket.start_ts
+        ? tripTicket.start_ts.slice(0, 16) // Format: YYYY-MM-DDTHH:MM
+        : '';
+      const endDateTime = tripTicket.end_ts
+        ? tripTicket.end_ts.slice(0, 16)
         : '';
 
       form.reset({
         vehicle_id: tripTicket.vehicle_id,
         driver_id: tripTicket.driver_id,
         branch_id: tripTicket.branch_id,
-        approved_by: tripTicket.approved_by,
+        approved_by: tripTicket.approved_by || '',
         prepared_by: tripTicket.prepared_by,
         destination: tripTicket.destination,
         purpose: tripTicket.purpose,
         date_requested: tripTicket.date_requested,
-        pickup_date_time: pickupDateTime,
-        return_date: tripTicket.return_date,
+        start_ts: startDateTime,
+        end_ts: endDateTime,
         status: tripTicket.status || 'pending',
         pre_trip_guard: tripTicket.pre_trip_guard || '',
         post_trip_guard: tripTicket.post_trip_guard || '',
@@ -66,20 +78,9 @@ const TripTicketsInner = () => {
         allocation_trip_to: tripTicket.allocation_trip_to || '',
         allocation_purpose: tripTicket.allocation_purpose || '',
         allocation_vehicle_id: tripTicket.allocation_vehicle_id || '',
-        allocation_km: tripTicket.allocation_km ?? 0,
-        allocation_liters: tripTicket.allocation_liters ?? 0,
         allocation_fuel_type: tripTicket.allocation_fuel_type || '',
-        allocation_requested_by: tripTicket.allocation_requested_by || '',
         allocation_approved_by_evp_operations:
-          tripTicket.allocation_approved_by_evp_operations || '',
-        allocation_status: ['pending', 'approved', 'completed'].includes(
-          tripTicket.allocation_status || ''
-        )
-          ? (tripTicket.allocation_status as
-              | 'pending'
-              | 'approved'
-              | 'completed')
-          : 'pending'
+          tripTicket.allocation_approved_by_evp_operations || ''
       });
     }
   }, [tripTicket, form]);
@@ -107,9 +108,11 @@ const TripTicketsInner = () => {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Trip Ticket Details</h1>
-        <Button onClick={() => setIsEditing(!isEditing)}>
-          {isEditing ? 'Cancel' : 'Edit'}
-        </Button>
+        {!viewOnly && (
+          <Button onClick={() => setIsEditing(!isEditing)}>
+            {isEditing ? 'Cancel' : 'Edit'}
+          </Button>
+        )}
       </div>
 
       <form
@@ -453,16 +456,16 @@ const TripTicketsInner = () => {
               )}
             />
             <Controller
-              name="pickup_date_time"
+              name="start_ts"
               control={form.control}
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="pickup_date_time">
-                    Pickup Date & Time *
+                  <FieldLabel htmlFor="start_ts">
+                    Start Date & Time *
                   </FieldLabel>
                   <Input
                     {...field}
-                    id="pickup_date_time"
+                    id="start_ts"
                     type="datetime-local"
                     aria-invalid={fieldState.invalid}
                     disabled={!isEditing}
@@ -474,15 +477,15 @@ const TripTicketsInner = () => {
               )}
             />
             <Controller
-              name="return_date"
+              name="end_ts"
               control={form.control}
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="return_date">Return Date *</FieldLabel>
+                  <FieldLabel htmlFor="end_ts">End Date & Time *</FieldLabel>
                   <Input
                     {...field}
-                    id="return_date"
-                    type="date"
+                    id="end_ts"
+                    type="datetime-local"
                     aria-invalid={fieldState.invalid}
                     disabled={!isEditing}
                   />
@@ -736,100 +739,6 @@ const TripTicketsInner = () => {
                           .toUpperCase() +
                         tripTicket.allocation_fuel_type.slice(1).toLowerCase()
                       : '—'
-                  }
-                  disabled
-                  className="bg-muted"
-                />
-              </Field>
-            )}
-            <Controller
-              name="allocation_km"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="allocation_km">Kilometers *</FieldLabel>
-                  <Input
-                    {...field}
-                    id="allocation_km"
-                    type="number"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter kilometers"
-                    disabled={!isEditing}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="allocation_liters"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="allocation_liters">Liters *</FieldLabel>
-                  <Input
-                    {...field}
-                    id="allocation_liters"
-                    type="number"
-                    step="0.01"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter liters"
-                    disabled={!isEditing}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            {isEditing ? (
-              <Controller
-                name="allocation_requested_by"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="allocation_requested_by">
-                      Requested By *
-                    </FieldLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!isEditing}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select requester" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {adminsLoading ? (
-                          <SelectItem value="loading" disabled>
-                            Loading admins...
-                          </SelectItem>
-                        ) : (
-                          admins?.map((admin) => (
-                            <SelectItem key={admin.id} value={admin.id}>
-                              {admin.full_name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-            ) : (
-              <Field>
-                <FieldLabel>Requested By</FieldLabel>
-                <Input
-                  value={
-                    adminsLoading
-                      ? 'Loading...'
-                      : admins?.find(
-                          (a) => a.id === tripTicket.allocation_requested_by
-                        )?.full_name || '—'
                   }
                   disabled
                   className="bg-muted"

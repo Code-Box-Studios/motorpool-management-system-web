@@ -1,6 +1,7 @@
 import { useTripTickets, useAllTripTickets } from '@/lib/query/trip-tickets';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { useUserRole } from '@/hooks/use-user-role';
 import { cn } from '@/lib/utils';
 import {
   Card,
@@ -37,7 +38,7 @@ import {
   useDeleteTripTicket,
   useUpdateTripTicket
 } from '@/lib/mutation/trip-tickets';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Eye, X } from 'lucide-react';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import {
   AlertDialog,
@@ -58,6 +59,10 @@ const TripTicketsPage = () => {
   const navigate = useNavigate();
   const deleteTripTicket = useDeleteTripTicket();
   const updateTripTicket = useUpdateTripTicket();
+  const { data: userRole } = useUserRole();
+
+  // Check if user is admin (can modify status and perform actions)
+  const isAdmin = userRole?.roles?.name?.toLowerCase() === 'admin';
 
   const handleStatusChange = (ticketId: string, newStatus: string) => {
     updateTripTicket.mutate({
@@ -69,17 +74,19 @@ const TripTicketsPage = () => {
   const calendarEvents = useMemo(() => {
     if (!calendarData) return [];
     return calendarData.map((ticket) => {
-      // Parse the pickup_date_time and return_date properly
-      const pickupDateTime = new Date(ticket.pickup_date_time);
-      const returnDate = new Date(ticket.return_date);
-      // Set return date to end of day to show full day on calendar
-      returnDate.setHours(23, 59, 59, 999);
+      // Parse the start_ts and end_ts properly
+      const startDateTime = new Date(ticket.start_ts || new Date());
+      const endDateTime = new Date(ticket.end_ts || new Date());
+      // Set end time to ensure it shows properly on calendar
+      if (!ticket.end_ts) {
+        endDateTime.setHours(23, 59, 59, 999);
+      }
 
       return {
         id: ticket.id,
         title: `${ticket.destination} - ${ticket.status}`,
-        start: pickupDateTime.toISOString(),
-        end: returnDate.toISOString(),
+        start: startDateTime.toISOString(),
+        end: endDateTime.toISOString(),
         backgroundColor: getStatusColor(ticket.status || 'pending'),
         borderColor: getStatusColor(ticket.status || 'pending'),
         extendedProps: {
@@ -163,99 +170,190 @@ const TripTicketsPage = () => {
                       tableData.data.map((ticket) => (
                         <TableRow key={ticket.id}>
                           <TableCell>
-                            <Select
-                              value={ticket.status || 'pending'}
-                              onValueChange={(value) =>
-                                handleStatusChange(ticket.id, value)
-                              }
-                              disabled={updateTripTicket.isPending}
-                            >
-                              <SelectTrigger className="w-[140px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={TRIP_TICKET_STATUS.PENDING}>
-                                  Pending
-                                </SelectItem>
-                                <SelectItem value={TRIP_TICKET_STATUS.APPROVED}>
-                                  Approved
-                                </SelectItem>
-                                <SelectItem
-                                  value={TRIP_TICKET_STATUS.IN_PROGRESS}
-                                >
-                                  In Progress
-                                </SelectItem>
-                                <SelectItem
-                                  value={TRIP_TICKET_STATUS.COMPLETED}
-                                >
-                                  Completed
-                                </SelectItem>
-                                <SelectItem
-                                  value={TRIP_TICKET_STATUS.CANCELLED}
-                                >
-                                  Cancelled
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
+                            {isAdmin ? (
+                              <Select
+                                value={
+                                  ticket.status || 'pending_admin_approval'
+                                }
+                                onValueChange={(value) =>
+                                  handleStatusChange(ticket.id, value)
+                                }
+                                disabled={updateTripTicket.isPending}
+                              >
+                                <SelectTrigger className="w-[180px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem
+                                    value={
+                                      TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL
+                                    }
+                                  >
+                                    Pending Admin
+                                  </SelectItem>
+                                  <SelectItem
+                                    value={
+                                      TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL
+                                    }
+                                  >
+                                    Pending Fuel
+                                  </SelectItem>
+                                  <SelectItem
+                                    value={TRIP_TICKET_STATUS.APPROVED}
+                                  >
+                                    Approved
+                                  </SelectItem>
+                                  <SelectItem
+                                    value={TRIP_TICKET_STATUS.IN_PROGRESS}
+                                  >
+                                    In Progress
+                                  </SelectItem>
+                                  <SelectItem
+                                    value={TRIP_TICKET_STATUS.COMPLETED}
+                                  >
+                                    Completed
+                                  </SelectItem>
+                                  <SelectItem
+                                    value={TRIP_TICKET_STATUS.DISAPPROVED}
+                                  >
+                                    Disapproved
+                                  </SelectItem>
+                                  <SelectItem
+                                    value={TRIP_TICKET_STATUS.CANCELLED}
+                                  >
+                                    Cancelled
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <span className="text-sm capitalize">
+                                {ticket.status?.replace(/_/g, ' ') || 'pending'}
+                              </span>
+                            )}
                           </TableCell>
                           <TableCell>{ticket.destination}</TableCell>
                           <TableCell className="max-w-xs truncate">
                             {ticket.purpose}
                           </TableCell>
                           <TableCell>
-                            {new Date(
-                              ticket.pickup_date_time
-                            ).toLocaleDateString()}
+                            {ticket.start_ts
+                              ? new Date(ticket.start_ts).toLocaleDateString()
+                              : 'N/A'}
                           </TableCell>
                           <TableCell>
-                            {new Date(ticket.return_date).toLocaleDateString()}
+                            {ticket.end_ts
+                              ? new Date(ticket.end_ts).toLocaleDateString()
+                              : 'N/A'}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() =>
-                                  navigate({ to: `/trip-tickets/${ticket.id}` })
-                                }
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
+                              {isAdmin ? (
+                                <>
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    disabled={deleteTripTicket.isPending}
+                                    onClick={() =>
+                                      navigate({
+                                        to: `/trip-tickets/${ticket.id}`
+                                      })
+                                    }
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Pencil className="h-4 w-4" />
                                   </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                      Are you sure?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      This action cannot be undone. This will
-                                      permanently delete the trip ticket and
-                                      remove the data from the server.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                      Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() =>
-                                        deleteTripTicket.mutate(ticket.id)
-                                      }
-                                    >
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        disabled={deleteTripTicket.isPending}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                          Are you sure?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          This action cannot be undone. This
+                                          will permanently delete the trip
+                                          ticket and remove the data from the
+                                          server.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                          Cancel
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() =>
+                                            deleteTripTicket.mutate(ticket.id)
+                                          }
+                                        >
+                                          Delete
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() =>
+                                      navigate({
+                                        to: `/trip-tickets/${ticket.id}`,
+                                        search: { viewOnly: true }
+                                      })
+                                    }
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        disabled={
+                                          updateTripTicket.isPending ||
+                                          ticket.status ===
+                                            TRIP_TICKET_STATUS.CANCELLED
+                                        }
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                          Cancel Trip Ticket
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Are you sure you want to cancel this
+                                          trip ticket request?
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                          No, keep it
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() =>
+                                            handleStatusChange(
+                                              ticket.id,
+                                              TRIP_TICKET_STATUS.CANCELLED
+                                            )
+                                          }
+                                        >
+                                          Yes, cancel request
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -283,10 +381,12 @@ const TripTicketsPage = () => {
 
 function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
-    pending: '#f59e0b',
+    pending_admin_approval: '#f59e0b',
+    pending_fuel_allocation_approval: '#fb923c',
     approved: '#10b981',
-    'in-progress': '#3b82f6',
+    in_progress: '#3b82f6',
     completed: '#6b7280',
+    disapproved: '#dc2626',
     cancelled: '#ef4444'
   };
   return colors[status] || '#6b7280';

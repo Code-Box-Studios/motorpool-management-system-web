@@ -829,8 +829,6 @@ export type Database = {
           allocation_date: string | null
           allocation_fuel_type: string | null
           allocation_purpose: string | null
-          allocation_requested_by: string | null
-          allocation_status: string | null
           allocation_trip_to: string | null
           allocation_vehicle_id: string | null
           approved_by: string | null
@@ -870,8 +868,6 @@ export type Database = {
           allocation_date?: string | null
           allocation_fuel_type?: string | null
           allocation_purpose?: string | null
-          allocation_requested_by?: string | null
-          allocation_status?: string | null
           allocation_trip_to?: string | null
           allocation_vehicle_id?: string | null
           approved_by?: string | null
@@ -911,8 +907,6 @@ export type Database = {
           allocation_date?: string | null
           allocation_fuel_type?: string | null
           allocation_purpose?: string | null
-          allocation_requested_by?: string | null
-          allocation_status?: string | null
           allocation_trip_to?: string | null
           allocation_vehicle_id?: string | null
           approved_by?: string | null
