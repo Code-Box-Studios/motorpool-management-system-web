@@ -20,6 +20,7 @@ import { Route as AuthenticatedTripTicketsIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedToolsIndexRouteImport } from './routes/_authenticated/tools.index'
 import { Route as AuthenticatedMaintenanceIndexRouteImport } from './routes/_authenticated/maintenance.index'
 import { Route as AuthenticatedJobOrderIndexRouteImport } from './routes/_authenticated/job-order.index'
+import { Route as AuthenticatedGuardConfirmationIndexRouteImport } from './routes/_authenticated/guard-confirmation.index'
 import { Route as AuthenticatedDriversIndexRouteImport } from './routes/_authenticated/drivers.index'
 import { Route as AuthenticatedVehiclesAddVehicleRouteImport } from './routes/_authenticated/vehicles.add-vehicle'
 import { Route as AuthenticatedVehiclesVehicleIdRouteImport } from './routes/_authenticated/vehicles.$vehicleId'
@@ -90,6 +91,12 @@ const AuthenticatedJobOrderIndexRoute =
   AuthenticatedJobOrderIndexRouteImport.update({
     id: '/job-order/',
     path: '/job-order/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedGuardConfirmationIndexRoute =
+  AuthenticatedGuardConfirmationIndexRouteImport.update({
+    id: '/guard-confirmation/',
+    path: '/guard-confirmation/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedDriversIndexRoute =
@@ -186,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
   '/drivers': typeof AuthenticatedDriversIndexRoute
+  '/guard-confirmation': typeof AuthenticatedGuardConfirmationIndexRoute
   '/job-order': typeof AuthenticatedJobOrderIndexRoute
   '/maintenance': typeof AuthenticatedMaintenanceIndexRoute
   '/tools': typeof AuthenticatedToolsIndexRoute
@@ -210,6 +218,7 @@ export interface FileRoutesByTo {
   '/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
   '/drivers': typeof AuthenticatedDriversIndexRoute
+  '/guard-confirmation': typeof AuthenticatedGuardConfirmationIndexRoute
   '/job-order': typeof AuthenticatedJobOrderIndexRoute
   '/maintenance': typeof AuthenticatedMaintenanceIndexRoute
   '/tools': typeof AuthenticatedToolsIndexRoute
@@ -237,6 +246,7 @@ export interface FileRoutesById {
   '/_authenticated/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/_authenticated/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
   '/_authenticated/drivers/': typeof AuthenticatedDriversIndexRoute
+  '/_authenticated/guard-confirmation/': typeof AuthenticatedGuardConfirmationIndexRoute
   '/_authenticated/job-order/': typeof AuthenticatedJobOrderIndexRoute
   '/_authenticated/maintenance/': typeof AuthenticatedMaintenanceIndexRoute
   '/_authenticated/tools/': typeof AuthenticatedToolsIndexRoute
@@ -263,6 +273,7 @@ export interface FileRouteTypes {
     | '/vehicles/$vehicleId'
     | '/vehicles/add-vehicle'
     | '/drivers'
+    | '/guard-confirmation'
     | '/job-order'
     | '/maintenance'
     | '/tools'
@@ -287,6 +298,7 @@ export interface FileRouteTypes {
     | '/vehicles/$vehicleId'
     | '/vehicles/add-vehicle'
     | '/drivers'
+    | '/guard-confirmation'
     | '/job-order'
     | '/maintenance'
     | '/tools'
@@ -313,6 +325,7 @@ export interface FileRouteTypes {
     | '/_authenticated/vehicles/$vehicleId'
     | '/_authenticated/vehicles/add-vehicle'
     | '/_authenticated/drivers/'
+    | '/_authenticated/guard-confirmation/'
     | '/_authenticated/job-order/'
     | '/_authenticated/maintenance/'
     | '/_authenticated/tools/'
@@ -404,6 +417,13 @@ declare module '@tanstack/react-router' {
       path: '/job-order'
       fullPath: '/job-order'
       preLoaderRoute: typeof AuthenticatedJobOrderIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/guard-confirmation/': {
+      id: '/_authenticated/guard-confirmation/'
+      path: '/guard-confirmation'
+      fullPath: '/guard-confirmation'
+      preLoaderRoute: typeof AuthenticatedGuardConfirmationIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/drivers/': {
@@ -515,6 +535,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedVehiclesVehicleIdRoute: typeof AuthenticatedVehiclesVehicleIdRoute
   AuthenticatedVehiclesAddVehicleRoute: typeof AuthenticatedVehiclesAddVehicleRoute
   AuthenticatedDriversIndexRoute: typeof AuthenticatedDriversIndexRoute
+  AuthenticatedGuardConfirmationIndexRoute: typeof AuthenticatedGuardConfirmationIndexRoute
   AuthenticatedJobOrderIndexRoute: typeof AuthenticatedJobOrderIndexRoute
   AuthenticatedMaintenanceIndexRoute: typeof AuthenticatedMaintenanceIndexRoute
   AuthenticatedToolsIndexRoute: typeof AuthenticatedToolsIndexRoute
@@ -541,6 +562,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedVehiclesVehicleIdRoute: AuthenticatedVehiclesVehicleIdRoute,
   AuthenticatedVehiclesAddVehicleRoute: AuthenticatedVehiclesAddVehicleRoute,
   AuthenticatedDriversIndexRoute: AuthenticatedDriversIndexRoute,
+  AuthenticatedGuardConfirmationIndexRoute:
+    AuthenticatedGuardConfirmationIndexRoute,
   AuthenticatedJobOrderIndexRoute: AuthenticatedJobOrderIndexRoute,
   AuthenticatedMaintenanceIndexRoute: AuthenticatedMaintenanceIndexRoute,
   AuthenticatedToolsIndexRoute: AuthenticatedToolsIndexRoute,

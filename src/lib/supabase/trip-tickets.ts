@@ -78,7 +78,6 @@ export const createTripTicket = async (
       ...tripTicket,
       driver_id: tripTicket.driver_id === '' ? null : tripTicket.driver_id,
       vehicle_id: tripTicket.vehicle_id === '' ? null : tripTicket.vehicle_id,
-      approved_by: tripTicket.approved_by === '' ? null : tripTicket.approved_by,
       pre_trip_guard: tripTicket.pre_trip_guard === '' ? null : tripTicket.pre_trip_guard,
       post_trip_guard: tripTicket.post_trip_guard === '' ? null : tripTicket.post_trip_guard,
       remarks: tripTicket.remarks === '' ? null : tripTicket.remarks
@@ -112,7 +111,6 @@ export const updateTripTicket = async (
     
     if (updates.driver_id !== undefined) cleanedUpdates.driver_id = updates.driver_id === '' ? null : updates.driver_id;
     if (updates.vehicle_id !== undefined) cleanedUpdates.vehicle_id = updates.vehicle_id === '' ? null : updates.vehicle_id;
-    if (updates.approved_by !== undefined) cleanedUpdates.approved_by = updates.approved_by === '' ? null : updates.approved_by;
     if (updates.pre_trip_guard !== undefined) cleanedUpdates.pre_trip_guard = updates.pre_trip_guard === '' ? null : updates.pre_trip_guard;
     if (updates.post_trip_guard !== undefined) cleanedUpdates.post_trip_guard = updates.post_trip_guard === '' ? null : updates.post_trip_guard;
     if (updates.remarks !== undefined) cleanedUpdates.remarks = updates.remarks === '' ? null : updates.remarks;
@@ -146,6 +144,8 @@ export const updateTripTicket = async (
     if (updates.allocation_purpose !== undefined) cleanedUpdates.allocation_purpose = updates.allocation_purpose === '' ? null : updates.allocation_purpose;
     if (updates.allocation_vehicle_id !== undefined) cleanedUpdates.allocation_vehicle_id = updates.allocation_vehicle_id === '' ? null : updates.allocation_vehicle_id;
     if (updates.allocation_fuel_type !== undefined) cleanedUpdates.allocation_fuel_type = updates.allocation_fuel_type === '' ? null : updates.allocation_fuel_type;
+    if (updates.allocation_liters !== undefined) cleanedUpdates.allocation_liters = updates.allocation_liters === '' ? null : updates.allocation_liters;
+    if (updates.approved_by_admin !== undefined) cleanedUpdates.approved_by_admin = updates.approved_by_admin === '' ? null : updates.approved_by_admin;
     if (updates.allocation_approved_by_evp_operations !== undefined) cleanedUpdates.allocation_approved_by_evp_operations = updates.allocation_approved_by_evp_operations === '' ? null : updates.allocation_approved_by_evp_operations;
 
     const { data, error } = await supabase
@@ -166,6 +166,8 @@ export const updateTripTicket = async (
       updates.allocation_purpose !== undefined ||
       updates.allocation_vehicle_id !== undefined ||
       updates.allocation_fuel_type !== undefined ||
+      updates.allocation_liters !== undefined ||
+      updates.approved_by_admin !== undefined ||
       updates.allocation_approved_by_evp_operations !== undefined;
 
     if (hasAllocationUpdates) {
@@ -176,6 +178,8 @@ export const updateTripTicket = async (
       if (updates.allocation_purpose !== undefined) fuelAllocationUpdates.purpose = updates.allocation_purpose === '' ? null : updates.allocation_purpose;
       if (updates.allocation_vehicle_id !== undefined) fuelAllocationUpdates.vehicle_id = updates.allocation_vehicle_id === '' ? null : updates.allocation_vehicle_id;
       if (updates.allocation_fuel_type !== undefined) fuelAllocationUpdates.fuel_type = updates.allocation_fuel_type === '' ? null : updates.allocation_fuel_type;
+      if (updates.allocation_liters !== undefined) fuelAllocationUpdates.liters = updates.allocation_liters === '' ? null : parseFloat(updates.allocation_liters);
+      if (updates.approved_by_admin !== undefined) fuelAllocationUpdates.requested_by = updates.approved_by_admin === '' ? null : updates.approved_by_admin;
       if (updates.allocation_approved_by_evp_operations !== undefined) fuelAllocationUpdates.approved_by_evp_operations = updates.allocation_approved_by_evp_operations === '' ? null : updates.allocation_approved_by_evp_operations;
 
       const { data: existingFuel } = await supabase

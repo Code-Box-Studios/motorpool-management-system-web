@@ -34,7 +34,6 @@ const tripTicketSchema = z.object({
   status: z.enum(Object.values(TRIP_TICKET_STATUS) as [string, ...string[]]),
   
   // Admin/Guard fields (not shown in create form)
-  approved_by: z.string().uuid().optional().or(z.literal('')),
   prepared_by: z.string().optional().or(z.literal(''))
 });
 
@@ -61,7 +60,6 @@ export const useTripTicketForm = () => {
       remarks: '',
       date_requested: today,
       status: 'pending_admin_approval',
-      approved_by: '',
       prepared_by: ''
     }
   });

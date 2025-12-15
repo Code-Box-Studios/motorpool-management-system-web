@@ -831,7 +831,8 @@ export type Database = {
           allocation_purpose: string | null
           allocation_trip_to: string | null
           allocation_vehicle_id: string | null
-          approved_by: string | null
+          approved_by_admin: string | null
+          approved_by_evp_operation: string | null
           attachment_path: string | null
           branch_id: string
           cancellation_reason: string | null
@@ -870,7 +871,8 @@ export type Database = {
           allocation_purpose?: string | null
           allocation_trip_to?: string | null
           allocation_vehicle_id?: string | null
-          approved_by?: string | null
+          approved_by_admin?: string | null
+          approved_by_evp_operation?: string | null
           attachment_path?: string | null
           branch_id: string
           cancellation_reason?: string | null
@@ -909,7 +911,8 @@ export type Database = {
           allocation_purpose?: string | null
           allocation_trip_to?: string | null
           allocation_vehicle_id?: string | null
-          approved_by?: string | null
+          approved_by_admin?: string | null
+          approved_by_evp_operation?: string | null
           attachment_path?: string | null
           branch_id?: string
           cancellation_reason?: string | null
@@ -947,13 +950,6 @@ export type Database = {
             columns: ["allocation_vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trip_tickets_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
-            referencedRelation: "admins"
             referencedColumns: ["id"]
           },
           {

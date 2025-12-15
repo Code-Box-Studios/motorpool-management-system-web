@@ -91,7 +91,8 @@ const TripTicketsPage = () => {
     allocation_trip_to: '',
     allocation_purpose: '',
     allocation_vehicle_id: '',
-    allocation_fuel_type: ''
+    allocation_fuel_type: '',
+    allocation_liters: ''
   });
   const [pendingStatusChange, setPendingStatusChange] = useState<{
     ticketId: string;
@@ -108,11 +109,13 @@ const TripTicketsPage = () => {
       status: string;
       cancellation_reason?: string;
       disapproved_reason?: string;
+      approved_by_admin?: string;
       allocation_date?: string;
       allocation_trip_to?: string;
       allocation_purpose?: string;
       allocation_vehicle_id?: string;
       allocation_fuel_type?: string;
+      allocation_liters?: string;
     } = { status: newStatus };
     if (newStatus === TRIP_TICKET_STATUS.CANCELLED && reason) {
       updates.cancellation_reason = reason;
@@ -124,11 +127,13 @@ const TripTicketsPage = () => {
       newStatus === TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL &&
       fuelData
     ) {
+      updates.approved_by_admin = user?.id;
       updates.allocation_date = fuelData.allocation_date;
       updates.allocation_trip_to = fuelData.allocation_trip_to;
       updates.allocation_purpose = fuelData.allocation_purpose;
       updates.allocation_vehicle_id = fuelData.allocation_vehicle_id;
       updates.allocation_fuel_type = fuelData.allocation_fuel_type;
+      updates.allocation_liters = fuelData.allocation_liters;
     }
     updateTripTicket.mutate(
       {
@@ -145,7 +150,8 @@ const TripTicketsPage = () => {
             allocation_trip_to: '',
             allocation_purpose: '',
             allocation_vehicle_id: '',
-            allocation_fuel_type: ''
+            allocation_fuel_type: '',
+            allocation_liters: ''
           });
         }
       }
@@ -288,7 +294,8 @@ const TripTicketsPage = () => {
                                       allocation_purpose: ticket.purpose || '',
                                       allocation_vehicle_id:
                                         ticket.vehicle_id || '',
-                                      allocation_fuel_type: ''
+                                      allocation_fuel_type: '',
+                                      allocation_liters: ''
                                     });
                                     setFuelAllocationDialogOpen(true);
                                   } else {
@@ -628,7 +635,8 @@ const TripTicketsPage = () => {
               allocation_trip_to: '',
               allocation_purpose: '',
               allocation_vehicle_id: '',
-              allocation_fuel_type: ''
+              allocation_fuel_type: '',
+              allocation_liters: ''
             });
           }
         }}
@@ -726,12 +734,32 @@ const TripTicketsPage = () => {
                 </Select>
               </div>
             </div>
+            <div>
+              <Label htmlFor="fuel-allocation-liters" className="mb-2 block">
+                Liters Required *
+              </Label>
+              <Input
+                id="fuel-allocation-liters"
+                type="number"
+                min="0"
+                step="0.01"
+                value={fuelAllocationData.allocation_liters}
+                onChange={(e) =>
+                  setFuelAllocationData((prev) => ({
+                    ...prev,
+                    allocation_liters: e.target.value
+                  }))
+                }
+                placeholder="Enter liters required"
+              />
+            </div>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               disabled={
                 !fuelAllocationData.allocation_fuel_type ||
+                !fuelAllocationData.allocation_liters ||
                 updateTripTicket.isPending
               }
               onClick={() => {

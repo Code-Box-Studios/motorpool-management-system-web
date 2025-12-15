@@ -12,6 +12,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Play, Square } from 'lucide-react';
+import GuardConfirmationPage from '@/components/pages/trip-tickets/guard-confirmation';
+import EvpApprovalPage from '@/components/pages/trip-tickets/evp-approval';
+import { useUserRole } from '@/hooks/use-user-role';
+import { USER_ROLES } from '@/lib/enums';
 
 // Davao City route coordinates
 const davaoCityRoute = [
@@ -29,6 +33,7 @@ const Dashboard = () => {
   const { data: gpsData, isLoading: gpsLoading } = useLatestGpsData();
   const { data: vehiclesData } = useVehicles(1, 100);
   const insertGps = useInsertGpsData();
+  const { data: userRole } = useUserRole();
 
   const [isDemoRunning, setIsDemoRunning] = useState(false);
   const [currentRouteIndex, setCurrentRouteIndex] = useState(0);
@@ -99,6 +104,19 @@ const Dashboard = () => {
 
     return () => clearInterval(interval);
   }, [isDemoRunning, demoVehicleId, currentRouteIndex, insertGps]);
+
+  // Check user role and show appropriate view
+  const userRoleName = userRole?.roles?.name;
+
+  // If user is security guard, show the guard confirmation page
+  if (userRoleName === USER_ROLES.security_guard) {
+    return <GuardConfirmationPage />;
+  }
+
+  // If user is EVP Operations, show the approval page
+  if (userRoleName === USER_ROLES.evp_operations) {
+    return <EvpApprovalPage />;
+  }
 
   if (gpsLoading) {
     return (

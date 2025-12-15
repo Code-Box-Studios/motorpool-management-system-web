@@ -68,7 +68,6 @@ const TripTicketsInner = () => {
         vehicle_id: tripTicket.vehicle_id,
         driver_id: tripTicket.driver_id,
         branch_id: tripTicket.branch_id,
-        approved_by: tripTicket.approved_by || '',
         requested_by: tripTicket.requested_by || tripTicket.prepared_by,
         destination: tripTicket.destination,
         purpose: tripTicket.purpose,
@@ -344,56 +343,6 @@ const TripTicketsInner = () => {
                   value={(tripTicket.status || 'pending')
                     .replace(/_/g, ' ')
                     .replace(/\b\w/g, (l) => l.toUpperCase())}
-                  disabled
-                  className="bg-muted"
-                />
-              </Field>
-            )}
-            {isEditing ? (
-              <Controller
-                name="approved_by"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="approved_by">Approved By *</FieldLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!isEditing}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select approver" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {adminsLoading ? (
-                          <SelectItem value="loading" disabled>
-                            Loading admins...
-                          </SelectItem>
-                        ) : (
-                          admins?.map((admin) => (
-                            <SelectItem key={admin.id} value={admin.id}>
-                              {admin.full_name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-            ) : (
-              <Field>
-                <FieldLabel>Approved By</FieldLabel>
-                <Input
-                  value={
-                    adminsLoading
-                      ? 'Loading...'
-                      : admins?.find((a) => a.id === tripTicket.approved_by)
-                          ?.full_name || '—'
-                  }
                   disabled
                   className="bg-muted"
                 />

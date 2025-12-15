@@ -13,7 +13,7 @@ export const Route = createFileRoute('/_authenticated/trip-tickets/')({
       USER_ROLES.admin,
       // USER_ROLES.evp_operations,
       // USER_ROLES.security_guard,
-      USER_ROLES.requester,
+      USER_ROLES.requester
       // USER_ROLES.driver
     ]
   }
