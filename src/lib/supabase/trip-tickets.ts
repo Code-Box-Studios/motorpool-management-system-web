@@ -132,10 +132,10 @@ export const updateTripTicket = async (
     // Handle participants array conversion
     if (updates.participants !== undefined) {
       if (typeof updates.participants === 'string') {
-        cleanedUpdates.participants = updates.participants
+        cleanedUpdates.participants = (updates.participants as string)
           .split(',')
-          .map(p => p.trim())
-          .filter(p => p.length > 0);
+          .map((p: string) => p.trim())
+          .filter((p: string) => p.length > 0);
       } else {
         cleanedUpdates.participants = updates.participants;
       }
@@ -145,10 +145,7 @@ export const updateTripTicket = async (
     if (updates.allocation_trip_to !== undefined) cleanedUpdates.allocation_trip_to = updates.allocation_trip_to === '' ? null : updates.allocation_trip_to;
     if (updates.allocation_purpose !== undefined) cleanedUpdates.allocation_purpose = updates.allocation_purpose === '' ? null : updates.allocation_purpose;
     if (updates.allocation_vehicle_id !== undefined) cleanedUpdates.allocation_vehicle_id = updates.allocation_vehicle_id === '' ? null : updates.allocation_vehicle_id;
-    if (updates.allocation_km !== undefined) cleanedUpdates.allocation_km = updates.allocation_km;
-    if (updates.allocation_liters !== undefined) cleanedUpdates.allocation_liters = updates.allocation_liters;
     if (updates.allocation_fuel_type !== undefined) cleanedUpdates.allocation_fuel_type = updates.allocation_fuel_type === '' ? null : updates.allocation_fuel_type;
-    if (updates.allocation_requested_by !== undefined) cleanedUpdates.allocation_requested_by = updates.allocation_requested_by === '' ? null : updates.allocation_requested_by;
     if (updates.allocation_approved_by_evp_operations !== undefined) cleanedUpdates.allocation_approved_by_evp_operations = updates.allocation_approved_by_evp_operations === '' ? null : updates.allocation_approved_by_evp_operations;
 
     const { data, error } = await supabase
@@ -168,12 +165,8 @@ export const updateTripTicket = async (
       updates.allocation_trip_to !== undefined ||
       updates.allocation_purpose !== undefined ||
       updates.allocation_vehicle_id !== undefined ||
-      updates.allocation_km !== undefined ||
-      updates.allocation_liters !== undefined ||
       updates.allocation_fuel_type !== undefined ||
-      updates.allocation_requested_by !== undefined ||
-      updates.allocation_approved_by_evp_operations !== undefined ||
-      updates.allocation_status !== undefined;
+      updates.allocation_approved_by_evp_operations !== undefined;
 
     if (hasAllocationUpdates) {
       const fuelAllocationUpdates: any = {};
@@ -182,12 +175,8 @@ export const updateTripTicket = async (
       if (updates.allocation_trip_to !== undefined) fuelAllocationUpdates.trip_to = updates.allocation_trip_to === '' ? null : updates.allocation_trip_to;
       if (updates.allocation_purpose !== undefined) fuelAllocationUpdates.purpose = updates.allocation_purpose === '' ? null : updates.allocation_purpose;
       if (updates.allocation_vehicle_id !== undefined) fuelAllocationUpdates.vehicle_id = updates.allocation_vehicle_id === '' ? null : updates.allocation_vehicle_id;
-      if (updates.allocation_km !== undefined) fuelAllocationUpdates.km = updates.allocation_km;
-      if (updates.allocation_liters !== undefined) fuelAllocationUpdates.liters = updates.allocation_liters;
       if (updates.allocation_fuel_type !== undefined) fuelAllocationUpdates.fuel_type = updates.allocation_fuel_type === '' ? null : updates.allocation_fuel_type;
-      if (updates.allocation_requested_by !== undefined) fuelAllocationUpdates.requested_by = updates.allocation_requested_by === '' ? null : updates.allocation_requested_by;
       if (updates.allocation_approved_by_evp_operations !== undefined) fuelAllocationUpdates.approved_by_evp_operations = updates.allocation_approved_by_evp_operations === '' ? null : updates.allocation_approved_by_evp_operations;
-      if (updates.allocation_status !== undefined) fuelAllocationUpdates.status = updates.allocation_status;
 
       const { data: existingFuel } = await supabase
         .from('fuel_allocations')
@@ -205,8 +194,8 @@ export const updateTripTicket = async (
           console.error('Error updating fuel allocation:', fuelUpdateError);
           throw fuelUpdateError;
         }
-      } else if (updates.allocation_km !== undefined && updates.allocation_km !== null) {
-        // Only insert new fuel allocation if km is provided (required field)
+      } else {
+        // Insert new fuel allocation record if allocation fields are provided
         const { error: fuelInsertError } = await supabase
           .from('fuel_allocations')
           .insert({

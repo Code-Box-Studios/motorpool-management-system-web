@@ -40,7 +40,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
 import { useMemo, useState } from 'react';
 import { useUpdateTripTicket } from '@/lib/mutation/trip-tickets';
-import { Pencil, Eye, X } from 'lucide-react';
+import { Eye, X } from 'lucide-react';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import {
   AlertDialog,
@@ -390,7 +390,7 @@ const TripTicketsPage = () => {
                                     })
                                   }
                                 >
-                                  <Pencil className="h-4 w-4" />
+                                  <Eye className="h-4 w-4" />
                                 </Button>
                               ) : (
                                 <>

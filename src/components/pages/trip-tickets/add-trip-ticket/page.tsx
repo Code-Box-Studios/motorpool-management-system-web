@@ -21,7 +21,7 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
 
@@ -37,6 +37,9 @@ export function AddTripTicket() {
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
 
+  // State for managing participants list
+  const [participants, setParticipants] = useState<string[]>(['']);
+
   // Get user's branch for filtering
   const userBranchId = userRole?.branch_id || user?.user_metadata?.branch_id;
 
@@ -48,10 +51,8 @@ export function AddTripTicket() {
 
   useEffect(() => {
     if (user) {
-      // Set the requester to current user
       form.setValue('requested_by', user.id);
     }
-    // Set date_requested to today's date
     const today = new Date().toISOString().split('T')[0];
     form.setValue('date_requested', today);
   }, [user, form]);
@@ -371,6 +372,16 @@ export function AddTripTicket() {
                     min="1"
                     aria-invalid={fieldState.invalid}
                     placeholder="Enter number of participants"
+                    onChange={(e) => {
+                      const count = parseInt(e.target.value) || 1;
+                      field.onChange(e);
+                      // Adjust participants array to match count
+                      const newParticipants = Array.from(
+                        { length: count },
+                        (_, i) => participants[i] || ''
+                      );
+                      setParticipants(newParticipants);
+                    }}
                   />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
@@ -386,16 +397,29 @@ export function AddTripTicket() {
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid}>
                 <FieldLabel htmlFor="participants">Participants *</FieldLabel>
-                <Textarea
-                  {...field}
-                  id="participants"
-                  aria-invalid={fieldState.invalid}
-                  placeholder="Enter participant names, separated by commas"
-                  rows={3}
-                />
-                <p className="text-muted-foreground text-sm">
-                  Separate names with commas (e.g., John Doe, Jane Smith)
+                <p className="text-muted-foreground mb-2 text-sm">
+                  Number of fields matches the participant count above
                 </p>
+                <div className="space-y-2">
+                  {participants.map((participant, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={participant}
+                        onChange={(e) => {
+                          const newParticipants = [...participants];
+                          newParticipants[index] = e.target.value;
+                          setParticipants(newParticipants);
+                          // Update form value as comma-separated string
+                          field.onChange(
+                            newParticipants.filter((p) => p.trim()).join(', ')
+                          );
+                        }}
+                        placeholder={`Participant ${index + 1} name`}
+                        aria-invalid={fieldState.invalid}
+                      />
+                    </div>
+                  ))}
+                </div>
                 {fieldState.invalid && (
                   <FieldError errors={[fieldState.error]} />
                 )}

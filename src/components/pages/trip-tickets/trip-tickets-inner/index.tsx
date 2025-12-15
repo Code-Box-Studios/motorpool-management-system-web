@@ -38,11 +38,25 @@ const TripTicketsInner = () => {
   const updateTripTicket = useUpdateTripTicket();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
+  const [participants, setParticipants] = useState<string[]>(['']);
 
   const form = useTripTicketUpdateForm();
 
   useEffect(() => {
     if (tripTicket) {
+      // Initialize participants from trip ticket
+      if (tripTicket.participants && Array.isArray(tripTicket.participants)) {
+        setParticipants(
+          tripTicket.participants.length > 0 ? tripTicket.participants : ['']
+        );
+      } else if (typeof tripTicket.participants === 'string') {
+        const participantsList = (tripTicket.participants as string)
+          .split(',')
+          .map((p: string) => p.trim())
+          .filter((p: string) => p);
+        setParticipants(participantsList.length > 0 ? participantsList : ['']);
+      }
+
       const startDateTime = tripTicket.start_ts
         ? tripTicket.start_ts.slice(0, 16)
         : '';
@@ -658,17 +672,28 @@ const TripTicketsInner = () => {
               control={form.control}
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid} className="col-span-2">
-                  <FieldLabel htmlFor="participants">
-                    Participants (comma-separated names)
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="participants"
-                    type="text"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="e.g. John Doe, Jane Smith, Bob Johnson"
-                    disabled={!isEditing}
-                  />
+                  <FieldLabel htmlFor="participants">Participants</FieldLabel>
+                  <div className="space-y-2">
+                    {participants.map((participant, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={participant}
+                          onChange={(e) => {
+                            const newParticipants = [...participants];
+                            newParticipants[index] = e.target.value;
+                            setParticipants(newParticipants);
+                            // Update form value as comma-separated string
+                            field.onChange(
+                              newParticipants.filter((p) => p.trim()).join(', ')
+                            );
+                          }}
+                          placeholder={`Participant ${index + 1} name`}
+                          disabled={!isEditing}
+                          className={!isEditing ? 'bg-muted' : ''}
+                        />
+                      </div>
+                    ))}
+                  </div>
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}

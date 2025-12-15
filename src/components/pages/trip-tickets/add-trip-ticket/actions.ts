@@ -3,8 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCreateTripTicket } from '@/lib/mutation/trip-tickets';
-import type { NewTripTicket } from '@/lib/types';
-import { TRIP_TICKET_STATUS, FUEL_TYPE } from '@/lib/enums';
+import { TRIP_TICKET_STATUS } from '@/lib/enums';
 
 const tripTicketSchema = z.object({
   // Requester info (auto-filled)
