@@ -10,9 +10,8 @@ import {
 } from './actions';
 import { useTripTicket } from '@/lib/query/trip-tickets';
 import { useUpdateTripTicket } from '@/lib/mutation/trip-tickets';
-import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { useDrivers } from '@/lib/query/drivers';
-import { useUserRole } from '@/hooks/use-user-role';
 import { useVehicles } from '@/lib/query/vehicles';
 import { useBranches } from '@/lib/query/shared';
 import { useAdmins } from '@/lib/query/user-management';
@@ -30,10 +29,7 @@ import { Loading } from '@/components/ui/loader';
 const TripTicketsInner = () => {
   const { id } = useParams({ from: '/_authenticated/trip-tickets/$id' });
   const tripTicketId = id;
-  const search = useSearch({ from: '/_authenticated/trip-tickets/$id' }) as {
-    viewOnly?: boolean;
-  };
-  const { data: userRole } = useUserRole();
+
   const { data: tripTicket } = useTripTicket(tripTicketId);
   const { data: drivers, isPending: driversLoading } = useDrivers(1, 100);
   const { data: vehicles, isPending: vehiclesLoading } = useVehicles(1, 100);
@@ -43,17 +39,12 @@ const TripTicketsInner = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
 
-  // Determine if user can edit (only admins can edit)
-  const isAdmin = userRole?.roles?.name?.toLowerCase() === 'admin';
-  const viewOnly = search.viewOnly || !isAdmin;
-
   const form = useTripTicketUpdateForm();
 
   useEffect(() => {
     if (tripTicket) {
-      // Format start_ts for datetime-local input (remove timezone)
       const startDateTime = tripTicket.start_ts
-        ? tripTicket.start_ts.slice(0, 16) // Format: YYYY-MM-DDTHH:MM
+        ? tripTicket.start_ts.slice(0, 16)
         : '';
       const endDateTime = tripTicket.end_ts
         ? tripTicket.end_ts.slice(0, 16)
@@ -64,16 +55,23 @@ const TripTicketsInner = () => {
         driver_id: tripTicket.driver_id,
         branch_id: tripTicket.branch_id,
         approved_by: tripTicket.approved_by || '',
-        prepared_by: tripTicket.prepared_by,
+        requested_by: tripTicket.requested_by || tripTicket.prepared_by,
         destination: tripTicket.destination,
         purpose: tripTicket.purpose,
         date_requested: tripTicket.date_requested,
         start_ts: startDateTime,
         end_ts: endDateTime,
-        status: tripTicket.status || 'pending',
+        status: tripTicket.status || 'pending_admin_approval',
         pre_trip_guard: tripTicket.pre_trip_guard || '',
         post_trip_guard: tripTicket.post_trip_guard || '',
         remarks: tripTicket.remarks || '',
+        cancellation_reason: tripTicket.cancellation_reason || '',
+        disapproved_reason: tripTicket.disapproved_reason || '',
+        participants: tripTicket.participants
+          ? tripTicket.participants.join(', ')
+          : '',
+        office_id: tripTicket.office_id || '',
+        office_head_id: tripTicket.office_head_id || '',
         allocation_date: tripTicket.allocation_date || '',
         allocation_trip_to: tripTicket.allocation_trip_to || '',
         allocation_purpose: tripTicket.allocation_purpose || '',
@@ -87,10 +85,19 @@ const TripTicketsInner = () => {
 
   const onSubmit = (data: UpdateTripTicketFormData) => {
     if (tripTicket) {
+      // Convert participants string to array
+      const updates = { ...data } as Record<string, unknown>;
+      if (data.participants) {
+        updates.participants = data.participants
+          .split(',')
+          .map((p) => p.trim())
+          .filter((p) => p.length > 0);
+      }
+
       updateTripTicket.mutate(
         {
           id: tripTicket.id,
-          updates: data
+          updates
         },
         {
           onSuccess: () => {
@@ -108,11 +115,6 @@ const TripTicketsInner = () => {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Trip Ticket Details</h1>
-        {!viewOnly && (
-          <Button onClick={() => setIsEditing(!isEditing)}>
-            {isEditing ? 'Cancel' : 'Edit'}
-          </Button>
-        )}
       </div>
 
       <form
@@ -385,14 +387,16 @@ const TripTicketsInner = () => {
             )}
             {isEditing ? (
               <Controller
-                name="prepared_by"
+                name="requested_by"
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="prepared_by">Prepared By *</FieldLabel>
+                    <FieldLabel htmlFor="requested_by">
+                      Requested By *
+                    </FieldLabel>
                     <Input
                       {...field}
-                      id="prepared_by"
+                      id="requested_by"
                       type="text"
                       aria-invalid={fieldState.invalid}
                       placeholder="Enter preparer name"
@@ -406,9 +410,19 @@ const TripTicketsInner = () => {
               />
             ) : (
               <Field>
-                <FieldLabel>Prepared By</FieldLabel>
+                <FieldLabel>Requested By</FieldLabel>
                 <Input
-                  value={tripTicket.prepared_by || '—'}
+                  value={
+                    adminsLoading
+                      ? 'Loading...'
+                      : admins?.find(
+                          (a) =>
+                            a.id ===
+                            (tripTicket.requested_by || tripTicket.prepared_by)
+                        )?.full_name ||
+                        tripTicket.prepared_by ||
+                        '—'
+                  }
                   disabled
                   className="bg-muted"
                 />
@@ -572,6 +586,88 @@ const TripTicketsInner = () => {
                     placeholder="Enter any remarks"
                     disabled={!isEditing}
                     rows={3}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+            {(tripTicket.status === TRIP_TICKET_STATUS.CANCELLED ||
+              isEditing) && (
+              <Controller
+                name="cancellation_reason"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field
+                    data-invalid={fieldState.invalid}
+                    className="col-span-2"
+                  >
+                    <FieldLabel htmlFor="cancellation_reason">
+                      Cancellation Reason
+                      {tripTicket.status === TRIP_TICKET_STATUS.CANCELLED &&
+                        ' *'}
+                    </FieldLabel>
+                    <Textarea
+                      {...field}
+                      id="cancellation_reason"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Reason for cancellation"
+                      disabled={!isEditing}
+                      rows={2}
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            )}
+            {(tripTicket.status === TRIP_TICKET_STATUS.DISAPPROVED ||
+              isEditing) && (
+              <Controller
+                name="disapproved_reason"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field
+                    data-invalid={fieldState.invalid}
+                    className="col-span-2"
+                  >
+                    <FieldLabel htmlFor="disapproved_reason">
+                      Disapproval Reason
+                      {tripTicket.status === TRIP_TICKET_STATUS.DISAPPROVED &&
+                        ' *'}
+                    </FieldLabel>
+                    <Textarea
+                      {...field}
+                      id="disapproved_reason"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Reason for disapproval"
+                      disabled={!isEditing}
+                      rows={2}
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            )}
+            <Controller
+              name="participants"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid} className="col-span-2">
+                  <FieldLabel htmlFor="participants">
+                    Participants (comma-separated names)
+                  </FieldLabel>
+                  <Input
+                    {...field}
+                    id="participants"
+                    type="text"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="e.g. John Doe, Jane Smith, Bob Johnson"
+                    disabled={!isEditing}
                   />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />

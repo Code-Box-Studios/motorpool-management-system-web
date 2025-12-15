@@ -1,7 +1,9 @@
 import { useTripTickets, useAllTripTickets } from '@/lib/query/trip-tickets';
+import { useVehicles } from '@/lib/query/vehicles';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { useUserRole } from '@/hooks/use-user-role';
+import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import {
   Card,
@@ -27,18 +29,18 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
-import { useMemo } from 'react';
-import {
-  useDeleteTripTicket,
-  useUpdateTripTicket
-} from '@/lib/mutation/trip-tickets';
-import { Pencil, Trash2, Eye, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useUpdateTripTicket } from '@/lib/mutation/trip-tickets';
+import { Pencil, Eye, X } from 'lucide-react';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import {
   AlertDialog,
@@ -53,31 +55,108 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const TripTicketsPage = () => {
-  const { data: tableData, isLoading: isTableLoading } = useTripTickets(1, 100);
-  const { data: calendarData, isLoading: isCalendarLoading } =
-    useAllTripTickets();
-  const navigate = useNavigate();
-  const deleteTripTicket = useDeleteTripTicket();
-  const updateTripTicket = useUpdateTripTicket();
+  const { user } = useAuth();
   const { data: userRole } = useUserRole();
 
-  // Check if user is admin (can modify status and perform actions)
+  // Check if user is admin or requester
   const isAdmin = userRole?.roles?.name?.toLowerCase() === 'admin';
+  const isRequester = userRole?.roles?.name?.toLowerCase() === 'requester';
 
-  const handleStatusChange = (ticketId: string, newStatus: string) => {
-    updateTripTicket.mutate({
-      id: ticketId,
-      updates: { status: newStatus }
-    });
+  // Filter by userId for requesters, by branchId for admins
+  const filterUserId = isRequester ? user?.id : undefined;
+  const filterBranchId = isAdmin ? userRole?.branch_id : undefined;
+
+  const { data: tableData, isLoading: isTableLoading } = useTripTickets(
+    1,
+    100,
+    filterUserId,
+    filterBranchId
+  );
+  const { data: calendarData, isLoading: isCalendarLoading } =
+    useAllTripTickets(filterUserId, filterBranchId);
+  const { data: vehiclesData } = useVehicles(1, 1000);
+  const navigate = useNavigate();
+  const updateTripTicket = useUpdateTripTicket();
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [disapprovedReason, setDisapprovedReason] = useState('');
+  const [cancellingTicketId, setCancellingTicketId] = useState<string | null>(
+    null
+  );
+  const [adminCancelDialogOpen, setAdminCancelDialogOpen] = useState(false);
+  const [disapprovedDialogOpen, setDisapprovedDialogOpen] = useState(false);
+  const [fuelAllocationDialogOpen, setFuelAllocationDialogOpen] =
+    useState(false);
+  const [fuelAllocationData, setFuelAllocationData] = useState({
+    allocation_date: '',
+    allocation_trip_to: '',
+    allocation_purpose: '',
+    allocation_vehicle_id: '',
+    allocation_fuel_type: ''
+  });
+  const [pendingStatusChange, setPendingStatusChange] = useState<{
+    ticketId: string;
+    status: string;
+  } | null>(null);
+
+  const handleStatusChange = (
+    ticketId: string,
+    newStatus: string,
+    reason?: string,
+    fuelData?: Record<string, string>
+  ) => {
+    const updates: {
+      status: string;
+      cancellation_reason?: string;
+      disapproved_reason?: string;
+      allocation_date?: string;
+      allocation_trip_to?: string;
+      allocation_purpose?: string;
+      allocation_vehicle_id?: string;
+      allocation_fuel_type?: string;
+    } = { status: newStatus };
+    if (newStatus === TRIP_TICKET_STATUS.CANCELLED && reason) {
+      updates.cancellation_reason = reason;
+    }
+    if (newStatus === TRIP_TICKET_STATUS.DISAPPROVED && reason) {
+      updates.disapproved_reason = reason;
+    }
+    if (
+      newStatus === TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL &&
+      fuelData
+    ) {
+      updates.allocation_date = fuelData.allocation_date;
+      updates.allocation_trip_to = fuelData.allocation_trip_to;
+      updates.allocation_purpose = fuelData.allocation_purpose;
+      updates.allocation_vehicle_id = fuelData.allocation_vehicle_id;
+      updates.allocation_fuel_type = fuelData.allocation_fuel_type;
+    }
+    updateTripTicket.mutate(
+      {
+        id: ticketId,
+        updates
+      },
+      {
+        onSuccess: () => {
+          setCancellationReason('');
+          setDisapprovedReason('');
+          setCancellingTicketId(null);
+          setFuelAllocationData({
+            allocation_date: '',
+            allocation_trip_to: '',
+            allocation_purpose: '',
+            allocation_vehicle_id: '',
+            allocation_fuel_type: ''
+          });
+        }
+      }
+    );
   };
 
   const calendarEvents = useMemo(() => {
     if (!calendarData) return [];
     return calendarData.map((ticket) => {
-      // Parse the start_ts and end_ts properly
       const startDateTime = new Date(ticket.start_ts || new Date());
       const endDateTime = new Date(ticket.end_ts || new Date());
-      // Set end time to ensure it shows properly on calendar
       if (!ticket.end_ts) {
         endDateTime.setHours(23, 59, 59, 999);
       }
@@ -175,10 +254,60 @@ const TripTicketsPage = () => {
                                 value={
                                   ticket.status || 'pending_admin_approval'
                                 }
-                                onValueChange={(value) =>
-                                  handleStatusChange(ticket.id, value)
+                                onValueChange={(value) => {
+                                  if (value === TRIP_TICKET_STATUS.CANCELLED) {
+                                    setPendingStatusChange({
+                                      ticketId: ticket.id,
+                                      status: value
+                                    });
+                                    setAdminCancelDialogOpen(true);
+                                  } else if (
+                                    value === TRIP_TICKET_STATUS.DISAPPROVED
+                                  ) {
+                                    setPendingStatusChange({
+                                      ticketId: ticket.id,
+                                      status: value
+                                    });
+                                    setDisapprovedDialogOpen(true);
+                                  } else if (
+                                    value ===
+                                    TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL
+                                  ) {
+                                    setPendingStatusChange({
+                                      ticketId: ticket.id,
+                                      status: value
+                                    });
+                                    // Pre-populate fuel allocation data from ticket
+                                    const startDate = ticket.start_ts
+                                      ? ticket.start_ts.split('T')[0]
+                                      : '';
+                                    setFuelAllocationData({
+                                      allocation_date: startDate,
+                                      allocation_trip_to:
+                                        ticket.destination || '',
+                                      allocation_purpose: ticket.purpose || '',
+                                      allocation_vehicle_id:
+                                        ticket.vehicle_id || '',
+                                      allocation_fuel_type: ''
+                                    });
+                                    setFuelAllocationDialogOpen(true);
+                                  } else {
+                                    handleStatusChange(ticket.id, value);
+                                  }
+                                }}
+                                disabled={
+                                  updateTripTicket.isPending ||
+                                  ticket.status ===
+                                    TRIP_TICKET_STATUS.CANCELLED ||
+                                  ticket.status ===
+                                    TRIP_TICKET_STATUS.APPROVED ||
+                                  ticket.status ===
+                                    TRIP_TICKET_STATUS.DISAPPROVED ||
+                                  ticket.status ===
+                                    TRIP_TICKET_STATUS.COMPLETED ||
+                                  ticket.status ===
+                                    TRIP_TICKET_STATUS.IN_PROGRESS
                                 }
-                                disabled={updateTripTicket.isPending}
                               >
                                 <SelectTrigger className="w-[180px]">
                                   <SelectValue />
@@ -188,6 +317,7 @@ const TripTicketsPage = () => {
                                     value={
                                       TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL
                                     }
+                                    disabled
                                   >
                                     Pending Admin
                                   </SelectItem>
@@ -200,16 +330,19 @@ const TripTicketsPage = () => {
                                   </SelectItem>
                                   <SelectItem
                                     value={TRIP_TICKET_STATUS.APPROVED}
+                                    disabled
                                   >
                                     Approved
                                   </SelectItem>
                                   <SelectItem
                                     value={TRIP_TICKET_STATUS.IN_PROGRESS}
+                                    disabled
                                   >
                                     In Progress
                                   </SelectItem>
                                   <SelectItem
                                     value={TRIP_TICKET_STATUS.COMPLETED}
+                                    disabled
                                   >
                                     Completed
                                   </SelectItem>
@@ -248,55 +381,17 @@ const TripTicketsPage = () => {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {isAdmin ? (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() =>
-                                      navigate({
-                                        to: `/trip-tickets/${ticket.id}`
-                                      })
-                                    }
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        disabled={deleteTripTicket.isPending}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                          Are you sure?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          This action cannot be undone. This
-                                          will permanently delete the trip
-                                          ticket and remove the data from the
-                                          server.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                          Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                          onClick={() =>
-                                            deleteTripTicket.mutate(ticket.id)
-                                          }
-                                        >
-                                          Delete
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() =>
+                                    navigate({
+                                      to: `/trip-tickets/${ticket.id}`
+                                    })
+                                  }
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
                               ) : (
                                 <>
                                   <Button
@@ -311,7 +406,18 @@ const TripTicketsPage = () => {
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
-                                  <AlertDialog>
+                                  <AlertDialog
+                                    open={cancellingTicketId === ticket.id}
+                                    onOpenChange={(open) => {
+                                      if (open) {
+                                        setCancellingTicketId(ticket.id);
+                                        setCancellationReason('');
+                                      } else {
+                                        setCancellingTicketId(null);
+                                        setCancellationReason('');
+                                      }
+                                    }}
+                                  >
                                     <AlertDialogTrigger asChild>
                                       <Button
                                         variant="ghost"
@@ -331,21 +437,48 @@ const TripTicketsPage = () => {
                                           Cancel Trip Ticket
                                         </AlertDialogTitle>
                                         <AlertDialogDescription>
-                                          Are you sure you want to cancel this
-                                          trip ticket request?
+                                          Please provide a reason for cancelling
+                                          this trip ticket request.
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
+                                      <div className="py-4">
+                                        <Label
+                                          htmlFor="cancellation-reason"
+                                          className="mb-2 block"
+                                        >
+                                          Cancellation Reason *
+                                        </Label>
+                                        <Textarea
+                                          id="cancellation-reason"
+                                          placeholder="Enter reason for cancellation..."
+                                          value={cancellationReason}
+                                          onChange={(e) =>
+                                            setCancellationReason(
+                                              e.target.value
+                                            )
+                                          }
+                                          rows={4}
+                                          className="w-full"
+                                        />
+                                      </div>
                                       <AlertDialogFooter>
                                         <AlertDialogCancel>
                                           No, keep it
                                         </AlertDialogCancel>
                                         <AlertDialogAction
-                                          onClick={() =>
-                                            handleStatusChange(
-                                              ticket.id,
-                                              TRIP_TICKET_STATUS.CANCELLED
-                                            )
+                                          disabled={
+                                            !cancellationReason.trim() ||
+                                            updateTripTicket.isPending
                                           }
+                                          onClick={() => {
+                                            if (cancellationReason.trim()) {
+                                              handleStatusChange(
+                                                ticket.id,
+                                                TRIP_TICKET_STATUS.CANCELLED,
+                                                cancellationReason
+                                              );
+                                            }
+                                          }}
                                         >
                                           Yes, cancel request
                                         </AlertDialogAction>
@@ -375,6 +508,249 @@ const TripTicketsPage = () => {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Admin Cancellation Dialog */}
+      <AlertDialog
+        open={adminCancelDialogOpen}
+        onOpenChange={(open) => {
+          setAdminCancelDialogOpen(open);
+          if (!open) {
+            setPendingStatusChange(null);
+            setCancellationReason('');
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Trip Ticket</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please provide a reason for cancelling this trip ticket.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="admin-cancellation-reason" className="mb-2 block">
+              Cancellation Reason *
+            </Label>
+            <Textarea
+              id="admin-cancellation-reason"
+              placeholder="Enter reason for cancellation..."
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)}
+              rows={4}
+              className="w-full"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={
+                !cancellationReason.trim() || updateTripTicket.isPending
+              }
+              onClick={() => {
+                if (pendingStatusChange && cancellationReason.trim()) {
+                  handleStatusChange(
+                    pendingStatusChange.ticketId,
+                    pendingStatusChange.status,
+                    cancellationReason
+                  );
+                  setAdminCancelDialogOpen(false);
+                }
+              }}
+            >
+              Confirm Cancellation
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Disapproved Reason Dialog */}
+      <AlertDialog
+        open={disapprovedDialogOpen}
+        onOpenChange={(open) => {
+          setDisapprovedDialogOpen(open);
+          if (!open) {
+            setPendingStatusChange(null);
+            setDisapprovedReason('');
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disapprove Trip Ticket</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please provide a reason for disapproving this trip ticket.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="disapproved-reason" className="mb-2 block">
+              Disapproved Reason *
+            </Label>
+            <Textarea
+              id="disapproved-reason"
+              placeholder="Enter reason for disapproval"
+              value={disapprovedReason}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                setDisapprovedReason(e.target.value)
+              }
+              rows={4}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!disapprovedReason.trim() || updateTripTicket.isPending}
+              onClick={() => {
+                if (pendingStatusChange && disapprovedReason.trim()) {
+                  handleStatusChange(
+                    pendingStatusChange.ticketId,
+                    pendingStatusChange.status,
+                    disapprovedReason
+                  );
+                  setDisapprovedDialogOpen(false);
+                }
+              }}
+            >
+              Confirm Disapproval
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Fuel Allocation Dialog */}
+      <AlertDialog
+        open={fuelAllocationDialogOpen}
+        onOpenChange={(open) => {
+          setFuelAllocationDialogOpen(open);
+          if (!open) {
+            setPendingStatusChange(null);
+            setFuelAllocationData({
+              allocation_date: '',
+              allocation_trip_to: '',
+              allocation_purpose: '',
+              allocation_vehicle_id: '',
+              allocation_fuel_type: ''
+            });
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Fuel Allocation Details</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please provide fuel allocation details to submit for EVP
+              Operations approval.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="fuel-allocation-date" className="mb-2 block">
+                  Allocation Date *
+                </Label>
+                <Input
+                  id="fuel-allocation-date"
+                  type="date"
+                  value={fuelAllocationData.allocation_date}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fuel-allocation-trip-to" className="mb-2 block">
+                  Trip To *
+                </Label>
+                <Input
+                  id="fuel-allocation-trip-to"
+                  type="text"
+                  value={fuelAllocationData.allocation_trip_to}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="fuel-allocation-purpose" className="mb-2 block">
+                Purpose *
+              </Label>
+              <Textarea
+                id="fuel-allocation-purpose"
+                value={fuelAllocationData.allocation_purpose}
+                disabled
+                className="bg-muted"
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="fuel-allocation-vehicle" className="mb-2 block">
+                  Vehicle *
+                </Label>
+                <Input
+                  id="fuel-allocation-vehicle"
+                  type="text"
+                  value={(() => {
+                    const vehicle = vehiclesData?.data?.find(
+                      (v) => v.id === fuelAllocationData.allocation_vehicle_id
+                    );
+                    return vehicle
+                      ? `${vehicle.make} ${vehicle.model} (${vehicle.license_plate})`
+                      : fuelAllocationData.allocation_vehicle_id;
+                  })()}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fuel-allocation-type" className="mb-2 block">
+                  Fuel Type *
+                </Label>
+                <Select
+                  value={fuelAllocationData.allocation_fuel_type}
+                  onValueChange={(value) =>
+                    setFuelAllocationData((prev) => ({
+                      ...prev,
+                      allocation_fuel_type: value
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select fuel type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gasoline">Gasoline</SelectItem>
+                    <SelectItem value="diesel">Diesel</SelectItem>
+                    <SelectItem value="electric">Electric</SelectItem>
+                    <SelectItem value="hybrid">Hybrid</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={
+                !fuelAllocationData.allocation_fuel_type ||
+                updateTripTicket.isPending
+              }
+              onClick={() => {
+                if (pendingStatusChange) {
+                  handleStatusChange(
+                    pendingStatusChange.ticketId,
+                    pendingStatusChange.status,
+                    undefined,
+                    fuelAllocationData
+                  );
+                  setFuelAllocationDialogOpen(false);
+                }
+              }}
+            >
+              Submit for Fuel Allocation Approval
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

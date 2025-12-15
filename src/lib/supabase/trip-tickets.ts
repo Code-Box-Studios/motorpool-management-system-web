@@ -3,13 +3,27 @@ import type { TripTicket, NewTripTicket, UpdateTripTicket,  } from '../types';
 
 export const getTripTickets = async (
   page: number = 1,
-  limit: number = 10
+  limit: number = 10,
+  userId?: string,
+  branchId?: string
 ): Promise<{ data: TripTicket[]; count: number | null }> => {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
-  const { data, error, count } = await supabase
+  let query = supabase
     .from('trip_tickets')
-    .select('*', { count: 'exact' })
+    .select('*', { count: 'exact' });
+  
+  // Filter by requested_by if userId is provided (for requester role)
+  if (userId) {
+    query = query.eq('requested_by', userId);
+  }
+  
+  // Filter by branch_id if branchId is provided (for admin role)
+  if (branchId) {
+    query = query.eq('branch_id', branchId);
+  }
+  
+  const { data, error, count } = await query
     .order('updated_at', { ascending: false })
     .range(from, to);
   if (error) {
@@ -19,11 +33,22 @@ export const getTripTickets = async (
   return { data: data as TripTicket[], count };
 };
 
-export const getAllTripTickets = async (): Promise<TripTicket[]> => {
-  const { data, error } = await supabase
+export const getAllTripTickets = async (userId?: string, branchId?: string): Promise<TripTicket[]> => {
+  let query = supabase
     .from('trip_tickets')
-    .select('*')
-    .order('start_ts', { ascending: false });
+    .select('*');
+  
+  // Filter by requested_by if userId is provided (for requester role)
+  if (userId) {
+    query = query.eq('requested_by', userId);
+  }
+  
+  // Filter by branch_id if branchId is provided (for admin role)
+  if (branchId) {
+    query = query.eq('branch_id', branchId);
+  }
+  
+  const { data, error } = await query.order('start_ts', { ascending: false });
   if (error) {
     console.error('Error fetching all trip tickets:', error);
     throw error;
@@ -92,13 +117,29 @@ export const updateTripTicket = async (
     if (updates.post_trip_guard !== undefined) cleanedUpdates.post_trip_guard = updates.post_trip_guard === '' ? null : updates.post_trip_guard;
     if (updates.remarks !== undefined) cleanedUpdates.remarks = updates.remarks === '' ? null : updates.remarks;
     if (updates.status !== undefined) cleanedUpdates.status = updates.status;
+    if (updates.cancellation_reason !== undefined) cleanedUpdates.cancellation_reason = updates.cancellation_reason === '' ? null : updates.cancellation_reason;
+    if (updates.disapproved_reason !== undefined) cleanedUpdates.disapproved_reason = updates.disapproved_reason === '' ? null : updates.disapproved_reason;
     if (updates.destination !== undefined) cleanedUpdates.destination = updates.destination;
     if (updates.purpose !== undefined) cleanedUpdates.purpose = updates.purpose;
     if (updates.date_requested !== undefined) cleanedUpdates.date_requested = updates.date_requested;
-    if (updates.pickup_date_time !== undefined) cleanedUpdates.pickup_date_time = updates.pickup_date_time;
-    if (updates.return_date !== undefined) cleanedUpdates.return_date = updates.return_date;
+    if (updates.start_ts !== undefined) cleanedUpdates.start_ts = updates.start_ts;
+    if (updates.end_ts !== undefined) cleanedUpdates.end_ts = updates.end_ts;
     if (updates.prepared_by !== undefined) cleanedUpdates.prepared_by = updates.prepared_by;
     if (updates.branch_id !== undefined) cleanedUpdates.branch_id = updates.branch_id;
+    if (updates.office_id !== undefined) cleanedUpdates.office_id = updates.office_id === '' ? null : updates.office_id;
+    if (updates.office_head_id !== undefined) cleanedUpdates.office_head_id = updates.office_head_id === '' ? null : updates.office_head_id;
+    
+    // Handle participants array conversion
+    if (updates.participants !== undefined) {
+      if (typeof updates.participants === 'string') {
+        cleanedUpdates.participants = updates.participants
+          .split(',')
+          .map(p => p.trim())
+          .filter(p => p.length > 0);
+      } else {
+        cleanedUpdates.participants = updates.participants;
+      }
+    }
     
     if (updates.allocation_date !== undefined) cleanedUpdates.allocation_date = updates.allocation_date === '' ? null : updates.allocation_date;
     if (updates.allocation_trip_to !== undefined) cleanedUpdates.allocation_trip_to = updates.allocation_trip_to === '' ? null : updates.allocation_trip_to;

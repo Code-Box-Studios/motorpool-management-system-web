@@ -408,41 +408,58 @@ export function AddTripTicket() {
             <Controller
               name="start_ts"
               control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="start_ts">
-                    Start Date & Time *
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="start_ts"
-                    type="datetime-local"
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
+              render={({ field, fieldState }) => {
+                // Get today's date and time in local timezone as minimum
+                const now = new Date();
+                const minDateTime = new Date(
+                  now.getTime() - now.getTimezoneOffset() * 60000
+                )
+                  .toISOString()
+                  .slice(0, 16);
+
+                return (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="start_ts">
+                      Start Date & Time *
+                    </FieldLabel>
+                    <Input
+                      {...field}
+                      id="start_ts"
+                      type="datetime-local"
+                      min={minDateTime}
+                      aria-invalid={fieldState.invalid}
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                );
+              }}
             />
 
             <Controller
               name="end_ts"
               control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="end_ts">End Date & Time *</FieldLabel>
-                  <Input
-                    {...field}
-                    id="end_ts"
-                    type="datetime-local"
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
+              render={({ field, fieldState }) => {
+                // Get the start_ts value to set as minimum for end_ts
+                const startTs = form.watch('start_ts');
+
+                return (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="end_ts">End Date & Time *</FieldLabel>
+                    <Input
+                      {...field}
+                      id="end_ts"
+                      type="datetime-local"
+                      min={startTs || undefined}
+                      aria-invalid={fieldState.invalid}
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                );
+              }}
             />
           </div>
 
