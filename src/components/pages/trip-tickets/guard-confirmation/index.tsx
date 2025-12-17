@@ -30,7 +30,6 @@ export default function GuardConfirmationPage() {
   const { data: userRole } = useUserRole();
   const updateTripTicket = useUpdateTripTicket();
 
-  // Get guard's branch - validate it's a real UUID, not a placeholder
   const rawBranchId = userRole?.branch_id || user?.user_metadata?.branch_id;
   const isValidUUID = (str: string) => {
     const uuidRegex =
@@ -40,7 +39,6 @@ export default function GuardConfirmationPage() {
   const guardBranchId =
     rawBranchId && isValidUUID(rawBranchId) ? rawBranchId : undefined;
 
-  // Fetch trip tickets from guard's branch with approved or in_progress status
   const { data: tripTicketsData, isLoading } = useTripTickets(
     1,
     100,
@@ -48,7 +46,6 @@ export default function GuardConfirmationPage() {
     guardBranchId
   );
 
-  // Fetch vehicles and drivers for display
   const { data: vehiclesData } = useVehicles();
   const { data: driversData } = useDrivers();
 
@@ -76,14 +73,12 @@ export default function GuardConfirmationPage() {
     });
   };
 
-  // Filter for tickets that need guard confirmation
   const pendingConfirmation = tripTicketsData?.data?.filter(
     (ticket) =>
       ticket.status === TRIP_TICKET_STATUS.APPROVED ||
       ticket.status === TRIP_TICKET_STATUS.IN_PROGRESS
   );
 
-  // Helper functions to get vehicle and driver names
   const getVehicleName = (vehicleId: string) => {
     const vehicle = vehiclesData?.data?.find((v) => v.id === vehicleId);
     if (vehicle) {
@@ -146,6 +141,7 @@ export default function GuardConfirmationPage() {
                       <TableCell>
                         <Badge
                           variant={getStatusBadgeVariant(ticket.status || '')}
+                          className="capitalize"
                         >
                           {ticket.status?.replace(/_/g, ' ')}
                         </Badge>
@@ -164,14 +160,14 @@ export default function GuardConfirmationPage() {
                           : 'N/A'}
                       </TableCell>
                       <TableCell>
-                        {ticket.pre_trip_checked_by ? (
+                        {ticket.pre_trip_guard ? (
                           <CheckCircle className="h-5 w-5 text-green-500" />
                         ) : (
                           <XCircle className="h-5 w-5 text-gray-400" />
                         )}
                       </TableCell>
                       <TableCell>
-                        {ticket.post_trip_checked_by ? (
+                        {ticket.post_trip_guard ? (
                           <CheckCircle className="h-5 w-5 text-green-500" />
                         ) : (
                           <XCircle className="h-5 w-5 text-gray-400" />
@@ -179,7 +175,7 @@ export default function GuardConfirmationPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          {!ticket.pre_trip_checked_by &&
+                          {!ticket.pre_trip_guard &&
                             ticket.status === TRIP_TICKET_STATUS.APPROVED && (
                               <Button
                                 size="sm"
@@ -191,8 +187,8 @@ export default function GuardConfirmationPage() {
                                 Check Out
                               </Button>
                             )}
-                          {ticket.pre_trip_checked_by &&
-                            !ticket.post_trip_checked_by &&
+                          {ticket.pre_trip_guard &&
+                            !ticket.post_trip_guard &&
                             ticket.status ===
                               TRIP_TICKET_STATUS.IN_PROGRESS && (
                               <Button

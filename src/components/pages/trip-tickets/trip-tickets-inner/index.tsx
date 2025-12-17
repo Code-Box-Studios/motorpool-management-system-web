@@ -14,7 +14,7 @@ import { useNavigate, useParams } from '@tanstack/react-router';
 import { useDrivers } from '@/lib/query/drivers';
 import { useVehicles } from '@/lib/query/vehicles';
 import { useBranches } from '@/lib/query/shared';
-import { useAdmins } from '@/lib/query/user-management';
+import { useAdmins, useAllUsers } from '@/lib/query/user-management';
 import {
   Select,
   SelectContent,
@@ -35,12 +35,19 @@ const TripTicketsInner = () => {
   const { data: vehicles, isPending: vehiclesLoading } = useVehicles(1, 100);
   const { data: branches, isPending: branchesLoading } = useBranches();
   const { data: admins, isPending: adminsLoading } = useAdmins();
+  const { data: allUsers } = useAllUsers();
   const updateTripTicket = useUpdateTripTicket();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [participants, setParticipants] = useState<string[]>(['']);
 
   const form = useTripTicketUpdateForm();
+
+  const getGuardName = (guardId: string | undefined) => {
+    if (!guardId) return 'Not assigned';
+    const guard = allUsers?.find((user) => user.id === guardId);
+    return guard?.full_name || guardId;
+  };
 
   useEffect(() => {
     if (tripTicket) {
@@ -480,14 +487,20 @@ const TripTicketsInner = () => {
                   <FieldLabel htmlFor="pre_trip_guard">
                     Pre-Trip Guard
                   </FieldLabel>
-                  <Input
-                    {...field}
-                    id="pre_trip_guard"
-                    type="text"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter guard name"
-                    disabled={!isEditing}
-                  />
+                  {isEditing ? (
+                    <Input
+                      {...field}
+                      id="pre_trip_guard"
+                      type="text"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Enter guard name"
+                      disabled={!isEditing}
+                    />
+                  ) : (
+                    <div className="bg-muted rounded-md border px-3 py-2 text-sm">
+                      {getGuardName(field.value)}
+                    </div>
+                  )}
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}
@@ -502,14 +515,20 @@ const TripTicketsInner = () => {
                   <FieldLabel htmlFor="post_trip_guard">
                     Post-Trip Guard
                   </FieldLabel>
-                  <Input
-                    {...field}
-                    id="post_trip_guard"
-                    type="text"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter guard name"
-                    disabled={!isEditing}
-                  />
+                  {isEditing ? (
+                    <Input
+                      {...field}
+                      id="post_trip_guard"
+                      type="text"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Enter guard name"
+                      disabled={!isEditing}
+                    />
+                  ) : (
+                    <div className="bg-muted rounded-md border px-3 py-2 text-sm">
+                      {getGuardName(field.value)}
+                    </div>
+                  )}
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}

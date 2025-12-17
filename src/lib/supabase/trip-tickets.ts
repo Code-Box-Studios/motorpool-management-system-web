@@ -1,6 +1,11 @@
 import { supabase } from '.';
 import type { TripTicket, NewTripTicket, UpdateTripTicket,  } from '../types';
 
+// Extend UpdateTripTicket to allow allocation_liters as string for form handling
+type UpdateTripTicketWithStringLiters = Omit<UpdateTripTicket, 'allocation_liters'> & {
+  allocation_liters?: string | number | null;
+};
+
 export const getTripTickets = async (
   page: number = 1,
   limit: number = 10,
@@ -103,11 +108,11 @@ export const createTripTicket = async (
 
 export const updateTripTicket = async (
   id: string,
-  updates: UpdateTripTicket
+  updates: UpdateTripTicketWithStringLiters
 ): Promise<TripTicket> => {
   try {
     // Only include fields that are actually being updated
-    const cleanedUpdates: any = {};
+    const cleanedUpdates: Record<string, unknown> = {};
     
     if (updates.driver_id !== undefined) cleanedUpdates.driver_id = updates.driver_id === '' ? null : updates.driver_id;
     if (updates.vehicle_id !== undefined) cleanedUpdates.vehicle_id = updates.vehicle_id === '' ? null : updates.vehicle_id;
@@ -144,7 +149,13 @@ export const updateTripTicket = async (
     if (updates.allocation_purpose !== undefined) cleanedUpdates.allocation_purpose = updates.allocation_purpose === '' ? null : updates.allocation_purpose;
     if (updates.allocation_vehicle_id !== undefined) cleanedUpdates.allocation_vehicle_id = updates.allocation_vehicle_id === '' ? null : updates.allocation_vehicle_id;
     if (updates.allocation_fuel_type !== undefined) cleanedUpdates.allocation_fuel_type = updates.allocation_fuel_type === '' ? null : updates.allocation_fuel_type;
-    if (updates.allocation_liters !== undefined) cleanedUpdates.allocation_liters = updates.allocation_liters === '' ? null : updates.allocation_liters;
+    if (updates.allocation_liters !== undefined) {
+      if (typeof updates.allocation_liters === 'string') {
+        cleanedUpdates.allocation_liters = updates.allocation_liters === '' ? null : parseFloat(updates.allocation_liters);
+      } else {
+        cleanedUpdates.allocation_liters = updates.allocation_liters;
+      }
+    }
     if (updates.approved_by_admin !== undefined) cleanedUpdates.approved_by_admin = updates.approved_by_admin === '' ? null : updates.approved_by_admin;
     if (updates.allocation_approved_by_evp_operations !== undefined) cleanedUpdates.allocation_approved_by_evp_operations = updates.allocation_approved_by_evp_operations === '' ? null : updates.allocation_approved_by_evp_operations;
 
@@ -171,14 +182,20 @@ export const updateTripTicket = async (
       updates.allocation_approved_by_evp_operations !== undefined;
 
     if (hasAllocationUpdates) {
-      const fuelAllocationUpdates: any = {};
+      const fuelAllocationUpdates: Record<string, unknown> = {};
       
       if (updates.allocation_date !== undefined) fuelAllocationUpdates.date = updates.allocation_date === '' ? null : updates.allocation_date;
       if (updates.allocation_trip_to !== undefined) fuelAllocationUpdates.trip_to = updates.allocation_trip_to === '' ? null : updates.allocation_trip_to;
       if (updates.allocation_purpose !== undefined) fuelAllocationUpdates.purpose = updates.allocation_purpose === '' ? null : updates.allocation_purpose;
       if (updates.allocation_vehicle_id !== undefined) fuelAllocationUpdates.vehicle_id = updates.allocation_vehicle_id === '' ? null : updates.allocation_vehicle_id;
       if (updates.allocation_fuel_type !== undefined) fuelAllocationUpdates.fuel_type = updates.allocation_fuel_type === '' ? null : updates.allocation_fuel_type;
-      if (updates.allocation_liters !== undefined) fuelAllocationUpdates.liters = updates.allocation_liters === '' ? null : parseFloat(updates.allocation_liters);
+      if (updates.allocation_liters !== undefined) {
+        if (typeof updates.allocation_liters === 'string') {
+          fuelAllocationUpdates.liters = updates.allocation_liters === '' ? null : parseFloat(updates.allocation_liters);
+        } else {
+          fuelAllocationUpdates.liters = updates.allocation_liters;
+        }
+      }
       if (updates.approved_by_admin !== undefined) fuelAllocationUpdates.requested_by = updates.approved_by_admin === '' ? null : updates.approved_by_admin;
       if (updates.allocation_approved_by_evp_operations !== undefined) fuelAllocationUpdates.approved_by_evp_operations = updates.allocation_approved_by_evp_operations === '' ? null : updates.allocation_approved_by_evp_operations;
 

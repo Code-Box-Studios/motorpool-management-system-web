@@ -3,6 +3,11 @@ import { createTripTicket, updateTripTicket, deleteTripTicket } from '@/lib/supa
 import type { NewTripTicket, UpdateTripTicket } from '../types';
 import { toast } from 'sonner';
 
+// Extend UpdateTripTicket to allow allocation_liters as string for form handling
+type UpdateTripTicketWithStringLiters = Omit<UpdateTripTicket, 'allocation_liters'> & {
+  allocation_liters?: string | number | null;
+};
+
 export const useCreateTripTicket = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -25,7 +30,7 @@ export const useUpdateTripTicket = () => {
       updates
     }: {
       id: string;
-      updates: UpdateTripTicket;
+      updates: UpdateTripTicketWithStringLiters;
     }) => updateTripTicket(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trip_tickets'] });

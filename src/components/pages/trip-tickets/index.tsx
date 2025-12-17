@@ -432,7 +432,13 @@ const TripTicketsPage = () => {
                                         disabled={
                                           updateTripTicket.isPending ||
                                           ticket.status ===
-                                            TRIP_TICKET_STATUS.CANCELLED
+                                            TRIP_TICKET_STATUS.CANCELLED ||
+                                          ticket.status ===
+                                            TRIP_TICKET_STATUS.APPROVED ||
+                                          ticket.status ===
+                                            TRIP_TICKET_STATUS.IN_PROGRESS ||
+                                          ticket.status ===
+                                            TRIP_TICKET_STATUS.COMPLETED
                                         }
                                       >
                                         <X className="h-4 w-4" />

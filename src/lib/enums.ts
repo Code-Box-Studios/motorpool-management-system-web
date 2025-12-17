@@ -8,6 +8,7 @@ export const USER_ROLES = {
 
 export const VEHICLE_STATUS = {
   AVAILABLE: 'available',
+  UNAVAILABLE: 'unavailable',
   ON_TRIP: 'on_trip',
   OUT_OF_SERVICE: 'out_of_service',
   UNDER_MAINTENANCE: 'under_maintenance'
