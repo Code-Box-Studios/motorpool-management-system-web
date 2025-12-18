@@ -49,26 +49,28 @@ export function JobOrderInner() {
       adminsCount: admins?.length,
       hasAllUsers: !!allUsers,
       allUsersCount: allUsers?.length,
-      jobOrderValues: jobOrder ? {
-        vehicle_id: jobOrder.vehicle_id,
-        requested_by: jobOrder.requested_by,
-        assigned_mechanic: jobOrder.assigned_mechanic,
-        noted_by: jobOrder.noted_by,
-        approved_by: jobOrder.approved_by
-      } : null
+      jobOrderValues: jobOrder
+        ? {
+            vehicle_id: jobOrder.vehicle_id,
+            requested_by: jobOrder.requested_by,
+            assigned_mechanic: jobOrder.assigned_mechanic,
+            noted_by: jobOrder.noted_by,
+            approved_by: jobOrder.approved_by
+          }
+        : null
     });
 
     if (
-      jobOrder && 
-      drivers?.data && 
-      vehicles?.data && 
-      admins && 
+      jobOrder &&
+      drivers?.data &&
+      vehicles?.data &&
+      admins &&
       admins.length > 0 &&
-      allUsers && 
+      allUsers &&
       allUsers.length > 0
     ) {
       console.log('Resetting form with values');
-      
+
       const formatDate = (dateString: string | null) => {
         if (!dateString) return '';
         try {
@@ -77,13 +79,13 @@ export function JobOrderInner() {
           return '';
         }
       };
-      
+
       const formData = {
         vehicle_id: jobOrder.vehicle_id || '',
         branch_id: jobOrder.branch_id || '',
         incident_date: formatDate(jobOrder.incident_date),
         incident_details: jobOrder.incident_details || '',
-        date_of_request: formatDate(jobOrder.date_of_request),
+        date_of_request: formatDate(jobOrder.created_at),
         requested_by: jobOrder.requested_by || '',
         noted_by: jobOrder.noted_by || '',
         approved_by: jobOrder.approved_by || '',
@@ -95,7 +97,7 @@ export function JobOrderInner() {
         status: (jobOrder.status as JobOrderFormData['status']) || 'pending',
         remarks: jobOrder.remarks || ''
       };
-      
+
       console.log('Form data being set:', formData);
       form.reset(formData);
     }
@@ -145,18 +147,16 @@ export function JobOrderInner() {
               name="vehicle_id"
               control={form.control}
               render={({ field, fieldState }) => {
-                const vehicle = vehicles?.data?.find(v => v.id === field.value);
-                const displayValue = vehicle 
+                const vehicle = vehicles?.data?.find(
+                  (v) => v.id === field.value
+                );
+                const displayValue = vehicle
                   ? `${vehicle.make} ${vehicle.model} - ${vehicle.license_plate}`
                   : field.value || '';
                 return (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="vehicle_id">Vehicle *</FieldLabel>
-                    <Input
-                      value={displayValue}
-                      disabled
-                      readOnly
-                    />
+                    <Input value={displayValue} disabled readOnly />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -168,16 +168,12 @@ export function JobOrderInner() {
               name="branch_id"
               control={form.control}
               render={({ field, fieldState }) => {
-                const branch = branches?.find(b => b.id === field.value);
+                const branch = branches?.find((b) => b.id === field.value);
                 const displayValue = branch?.name || field.value || '';
                 return (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="branch_id">Branch *</FieldLabel>
-                    <Input
-                      value={displayValue}
-                      disabled
-                      readOnly
-                    />
+                    <Input value={displayValue} disabled readOnly />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -231,16 +227,14 @@ export function JobOrderInner() {
               name="requested_by"
               control={form.control}
               render={({ field, fieldState }) => {
-                const driver = drivers?.data?.find(d => d.id === field.value);
-                const displayValue = driver?.full_name || field.value || '';
+                const driver = drivers?.data?.find((d) => d.id === field.value);
+                const admin = admins?.find((a) => a.id === field.value);
+                const displayValue =
+                  driver?.full_name || admin?.full_name || field.value || '';
                 return (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="requested_by">Requested By</FieldLabel>
-                    <Input
-                      value={displayValue}
-                      disabled
-                      readOnly
-                    />
+                    <Input value={displayValue} disabled readOnly />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -252,16 +246,12 @@ export function JobOrderInner() {
               name="noted_by"
               control={form.control}
               render={({ field, fieldState }) => {
-                const admin = admins?.find(a => a.id === field.value);
+                const admin = admins?.find((a) => a.id === field.value);
                 const displayValue = admin?.full_name || field.value || '';
                 return (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="noted_by">Noted By</FieldLabel>
-                    <Input
-                      value={displayValue}
-                      disabled
-                      readOnly
-                    />
+                    <Input value={displayValue} disabled readOnly />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -273,16 +263,12 @@ export function JobOrderInner() {
               name="approved_by"
               control={form.control}
               render={({ field, fieldState }) => {
-                const user = allUsers?.find(u => u.id === field.value);
+                const user = allUsers?.find((u) => u.id === field.value);
                 const displayValue = user?.full_name || field.value || '';
                 return (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="approved_by">Approved By</FieldLabel>
-                    <Input
-                      value={displayValue}
-                      disabled
-                      readOnly
-                    />
+                    <Input value={displayValue} disabled readOnly />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -313,18 +299,14 @@ export function JobOrderInner() {
               name="assigned_mechanic"
               control={form.control}
               render={({ field, fieldState }) => {
-                const driver = drivers?.data?.find(d => d.id === field.value);
+                const driver = drivers?.data?.find((d) => d.id === field.value);
                 const displayValue = driver?.full_name || field.value || '';
                 return (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="assigned_mechanic">
                       Assigned Mechanic
                     </FieldLabel>
-                    <Input
-                      value={displayValue}
-                      disabled
-                      readOnly
-                    />
+                    <Input value={displayValue} disabled readOnly />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
