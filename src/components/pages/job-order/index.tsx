@@ -227,108 +227,109 @@ const JobOrdersPage = () => {
               )}
             </TabsContent>
             <TabsContent value="table" className="mt-6">
-          {isLoading ? (
-            <TableSkeleton />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Vehicle</TableHead>
-                  <TableHead>Incident Date</TableHead>
-                  <TableHead>Assigned Mechanic</TableHead>
-                  <TableHead>Target Date</TableHead>
-                  <TableHead>Repair Type</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data?.data && data.data.length > 0 ? (
-                  data.data.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell>
-                        <StatusBadge status={order.status || 'pending'} />
-                      </TableCell>
-                      <TableCell>
-                        {order.vehicles
-                          ? `${order.vehicles.make} ${order.vehicles.model} - ${order.vehicles.license_plate}`
-                          : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {new Date(order.incident_date).toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        {getDriverName(order.assigned_mechanic)}
-                      </TableCell>
-                      <TableCell>
-                        {order.target_date
-                          ? new Date(order.target_date).toLocaleString()
-                          : 'Not set'}
-                      </TableCell>
-                      <TableCell>
-                        {order.repair_done
-                          ? order.repair_done.charAt(0).toUpperCase() +
-                            order.repair_done.slice(1)
-                          : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          {isAdmin && order.status === 'pending' && (
-                            <NoteJobOrderModal
-                              drivers={drivers?.data}
-                              onSubmit={(data) =>
-                                handleNoteJobOrder(order.id, data)
-                              }
-                              isLoading={updateJobOrder.isPending}
-                              currentSparePartsUsed={
-                                Array.isArray(order.spare_parts_used)
-                                  ? order.spare_parts_used
-                                  : []
-                              }
-                            />
-                          )}
-                          {isEVP && order.status === 'assigned_mechanic' && (
-                            <ApproveJobOrderModal
-                              onSubmit={(data) =>
-                                handleApproveJobOrder(order.id, data)
-                              }
-                              isLoading={updateJobOrder.isPending}
-                            />
-                          )}
-                          {isAdmin && order.status === 'ongoing_repair' && (
-                            <CompleteRepairModal
-                              onSubmit={(data) =>
-                                handleCompleteRepair(order.id, data)
-                              }
-                              isLoading={updateJobOrder.isPending}
-                            />
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              navigate({ to: `/job-order/${order.id}` })
-                            }
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              {isLoading ? (
+                <TableSkeleton />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Vehicle</TableHead>
+                      <TableHead>Incident Date</TableHead>
+                      <TableHead>Assigned Mechanic</TableHead>
+                      <TableHead>Target Date</TableHead>
+                      <TableHead>Repair Type</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="text-muted-foreground py-8 text-center"
-                    >
-                      No data found
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
+                  </TableHeader>
+                  <TableBody>
+                    {data?.data && data.data.length > 0 ? (
+                      data.data.map((order) => (
+                        <TableRow key={order.id}>
+                          <TableCell>
+                            <StatusBadge status={order.status || 'pending'} />
+                          </TableCell>
+                          <TableCell>
+                            {order.vehicles
+                              ? `${order.vehicles.make} ${order.vehicles.model} - ${order.vehicles.license_plate}`
+                              : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(order.incident_date).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            {getDriverName(order.assigned_mechanic)}
+                          </TableCell>
+                          <TableCell>
+                            {order.target_date
+                              ? new Date(order.target_date).toLocaleString()
+                              : 'Not set'}
+                          </TableCell>
+                          <TableCell>
+                            {order.repair_done
+                              ? order.repair_done.charAt(0).toUpperCase() +
+                                order.repair_done.slice(1)
+                              : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              {isAdmin && order.status === 'pending' && (
+                                <NoteJobOrderModal
+                                  drivers={drivers?.data}
+                                  onSubmit={(data) =>
+                                    handleNoteJobOrder(order.id, data)
+                                  }
+                                  isLoading={updateJobOrder.isPending}
+                                  currentSparePartsUsed={
+                                    Array.isArray(order.spare_parts_used)
+                                      ? order.spare_parts_used
+                                      : []
+                                  }
+                                />
+                              )}
+                              {isEVP &&
+                                order.status === 'assigned_mechanic' && (
+                                  <ApproveJobOrderModal
+                                    onSubmit={(data) =>
+                                      handleApproveJobOrder(order.id, data)
+                                    }
+                                    isLoading={updateJobOrder.isPending}
+                                  />
+                                )}
+                              {isAdmin && order.status === 'ongoing_repair' && (
+                                <CompleteRepairModal
+                                  onSubmit={(data) =>
+                                    handleCompleteRepair(order.id, data)
+                                  }
+                                  isLoading={updateJobOrder.isPending}
+                                />
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  navigate({ to: `/job-order/${order.id}` })
+                                }
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className="text-muted-foreground py-8 text-center"
+                        >
+                          No data found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
