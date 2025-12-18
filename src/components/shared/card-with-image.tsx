@@ -26,7 +26,7 @@ const CardWithImage = ({
   primaryButtonText
 }: CardWithImageProps) => {
   return (
-    <Card className="pt-0">
+    <Card className="flex flex-col pt-0">
       <CardContent className="flex items-center justify-center rounded-t-2xl bg-white p-3 px-0">
         <img
           src={imageSrc ?? '/logo/mms-logo.png'}
@@ -34,11 +34,11 @@ const CardWithImage = ({
           className={cn('aspect-video h-40 rounded-t-xl object-contain')}
         />
       </CardContent>
-      <CardHeader>
+      <CardHeader className="grow">
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardFooter className="flex gap-3 max-sm:flex-col max-sm:items-stretch">
+      <CardFooter className="mt-auto flex gap-3 max-sm:flex-col max-sm:items-stretch">
         <Button className="w-full" onClick={primaryAction}>
           {primaryButtonText}
         </Button>
