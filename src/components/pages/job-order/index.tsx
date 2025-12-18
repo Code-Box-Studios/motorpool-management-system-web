@@ -30,18 +30,27 @@ import type { ApproveJobOrderData } from './job-order-inner/approve-job-order-mo
 import type { CompleteRepairData } from './job-order-inner/complete-repair-modal';
 import { Eye } from 'lucide-react';
 import { useUserRole } from '@/hooks/use-user-role';
+import { useAuth } from '@/hooks/use-auth';
 
 const JobOrdersPage = () => {
-  const { data, isLoading } = useJobOrders(1, 100);
-  const { data: drivers } = useDrivers(1, 1000);
+  const { user } = useAuth();
   const { data: userRole } = useUserRole();
+  const { data: drivers } = useDrivers(1, 1000);
   const updateJobOrder = useUpdateJobOrder();
   const navigate = useNavigate();
 
-  const isAdmin = userRole?.roles?.name?.toLowerCase() === 'admin';
-  const isEVP = userRole?.roles?.name?.toLowerCase() === 'evp_operations';
+  const isAdmin = userRole?.roles?.name === 'admin';
+  const isEVP = userRole?.roles?.name === 'evp_operations';
 
-  // Helper function to get driver name by ID
+  const shouldFilter = user?.id && !isAdmin && !isEVP;
+
+  const { data, isLoading } = useJobOrders(
+    1,
+    100,
+    shouldFilter ? user?.id : undefined,
+    shouldFilter ? 'driver' : undefined
+  );
+
   const getDriverName = (driverId: string | null) => {
     if (!driverId) return 'Not assigned';
     const driver = drivers?.data?.find((d) => d.id === driverId);
@@ -52,7 +61,6 @@ const JobOrdersPage = () => {
     const order = tableData?.data?.find((o) => o.id === orderId);
     if (!order) return;
 
-    // Remove vehicles relationship from the order object before updating
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { vehicles, ...orderWithoutRelations } = order;
 
@@ -78,7 +86,6 @@ const JobOrdersPage = () => {
     const order = tableData?.data?.find((o) => o.id === orderId);
     if (!order) return;
 
-    // Remove vehicles relationship from the order object before updating
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { vehicles, ...orderWithoutRelations } = order;
 
@@ -101,7 +108,6 @@ const JobOrdersPage = () => {
     const order = tableData?.data?.find((o) => o.id === orderId);
     if (!order) return;
 
-    // Remove vehicles relationship from the order object before updating
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { vehicles, ...orderWithoutRelations } = order;
 
@@ -145,6 +151,7 @@ const JobOrdersPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Status</TableHead>
+                  <TableHead>Vehicle</TableHead>
                   <TableHead>Incident Date</TableHead>
                   <TableHead>Assigned Mechanic</TableHead>
                   <TableHead>Target Date</TableHead>
@@ -160,14 +167,19 @@ const JobOrdersPage = () => {
                         <StatusBadge status={order.status || 'pending'} />
                       </TableCell>
                       <TableCell>
-                        {new Date(order.incident_date).toLocaleDateString()}
+                        {order.vehicles
+                          ? `${order.vehicles.make} ${order.vehicles.model} - ${order.vehicles.license_plate}`
+                          : 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(order.incident_date).toLocaleString()}
                       </TableCell>
                       <TableCell>
                         {getDriverName(order.assigned_mechanic)}
                       </TableCell>
                       <TableCell>
                         {order.target_date
-                          ? new Date(order.target_date).toLocaleDateString()
+                          ? new Date(order.target_date).toLocaleString()
                           : 'Not set'}
                       </TableCell>
                       <TableCell>
@@ -219,7 +231,7 @@ const JobOrdersPage = () => {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={7}
                       className="text-muted-foreground py-8 text-center"
                     >
                       No data found

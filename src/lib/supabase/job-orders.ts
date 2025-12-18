@@ -3,18 +3,28 @@ import type { JobOrder, NewJobOrder, UpdateJobOrder } from '../types';
 
 export const getJobOrders = async (
   page: number = 1,
-  limit: number = 10
+  limit: number = 10,
+  userId?: string,
+  userRole?: string
 ): Promise<{ data: any[]; count: number | null }> => {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
-  const { data, error, count } = await supabase
+
+  let query = supabase
     .from('job_orders')
     .select(`
       *,
       vehicles(id, make, model, license_plate)
     `, { count: 'exact' })
-    .order('updated_at', { ascending: false })
-    .range(from, to);
+    .order('updated_at', { ascending: false });
+
+  // Filter for non-admin/EVP users - they can only see job orders they requested or are assigned as mechanic
+  if (userId && userRole !== 'admin' && userRole !== 'evp_operations') {
+    query = query.or(`requested_by.eq.${userId},assigned_mechanic.eq.${userId}`);
+  }
+
+  const { data, error, count } = await query.range(from, to);
+
   if (error) {
     console.error('Error fetching job orders:', error);
     throw error;

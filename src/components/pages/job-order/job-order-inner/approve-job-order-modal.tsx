@@ -18,6 +18,7 @@ interface ApproveJobOrderModalProps {
 
 export interface ApproveJobOrderData {
   approved_by: string;
+  date_approved: string;
   status: 'ongoing_repair';
 }
 
@@ -30,6 +31,7 @@ export function ApproveJobOrderModal({
   const handleSubmit = () => {
     onSubmit({
       approved_by: user?.id || '',
+      date_approved: new Date().toISOString(),
       status: 'ongoing_repair'
     });
   };

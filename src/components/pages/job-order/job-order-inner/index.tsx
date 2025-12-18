@@ -41,6 +41,7 @@ export function JobOrderInner() {
   useEffect(() => {
     console.log('Data check:', {
       hasJobOrder: !!jobOrder,
+      jobOrder: jobOrder,
       hasDriversData: !!drivers?.data,
       driversCount: drivers?.data?.length,
       hasVehiclesData: !!vehicles?.data,
@@ -49,32 +50,25 @@ export function JobOrderInner() {
       adminsCount: admins?.length,
       hasAllUsers: !!allUsers,
       allUsersCount: allUsers?.length,
-      jobOrderValues: jobOrder
-        ? {
-            vehicle_id: jobOrder.vehicle_id,
-            requested_by: jobOrder.requested_by,
-            assigned_mechanic: jobOrder.assigned_mechanic,
-            noted_by: jobOrder.noted_by,
-            approved_by: jobOrder.approved_by
-          }
-        : null
+      isLoadingJobOrder,
+      isLoadingDrivers,
+      isLoadingVehicles,
+      isLoadingAdmins,
+      isLoadingUsers
     });
 
-    if (
-      jobOrder &&
-      drivers?.data &&
-      vehicles?.data &&
-      admins &&
-      admins.length > 0 &&
-      allUsers &&
-      allUsers.length > 0
-    ) {
+    if (jobOrder && drivers?.data && vehicles?.data && admins && allUsers) {
       console.log('Resetting form with values');
 
       const formatDate = (dateString: string | null) => {
         if (!dateString) return '';
         try {
-          return new Date(dateString).toISOString().split('T')[0];
+          const date = new Date(dateString);
+          if (dateString.includes('T')) {
+            return date.toISOString().slice(0, 16);
+          } else {
+            return dateString + 'T00:00';
+          }
         } catch {
           return '';
         }
@@ -101,7 +95,19 @@ export function JobOrderInner() {
       console.log('Form data being set:', formData);
       form.reset(formData);
     }
-  }, [jobOrder, drivers, vehicles, admins, allUsers, form]);
+  }, [
+    jobOrder,
+    drivers,
+    vehicles,
+    admins,
+    allUsers,
+    form,
+    isLoadingJobOrder,
+    isLoadingDrivers,
+    isLoadingVehicles,
+    isLoadingAdmins,
+    isLoadingUsers
+  ]);
 
   const onSubmit = (data: JobOrderFormData) => {
     updateJobOrderAction
@@ -192,7 +198,7 @@ export function JobOrderInner() {
                   <Input
                     {...field}
                     id="incident_date"
-                    type="date"
+                    type="datetime-local"
                     aria-invalid={fieldState.invalid}
                     disabled
                   />
@@ -213,7 +219,7 @@ export function JobOrderInner() {
                   <Input
                     {...field}
                     id="date_of_request"
-                    type="date"
+                    type="datetime-local"
                     aria-invalid={fieldState.invalid}
                     disabled
                   />
@@ -285,7 +291,7 @@ export function JobOrderInner() {
                   <Input
                     {...field}
                     id="date_approved"
-                    type="date"
+                    type="datetime-local"
                     aria-invalid={fieldState.invalid}
                     disabled
                   />
@@ -323,7 +329,7 @@ export function JobOrderInner() {
                   <Input
                     {...field}
                     id="target_date"
-                    type="date"
+                    type="datetime-local"
                     aria-invalid={fieldState.invalid}
                     disabled
                   />
@@ -363,6 +369,7 @@ export function JobOrderInner() {
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
+                    defaultValue={field.value}
                     disabled
                   >
                     <SelectTrigger>
@@ -391,6 +398,7 @@ export function JobOrderInner() {
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
+                    defaultValue={field.value}
                     disabled
                   >
                     <SelectTrigger>

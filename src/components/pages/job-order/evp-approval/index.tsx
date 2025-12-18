@@ -267,14 +267,14 @@ export default function EvpApprovalPage() {
                         <StatusBadge status={order.status || 'pending'} />
                       </TableCell>
                       <TableCell>
-                        {new Date(order.incident_date).toLocaleDateString()}
+                        {new Date(order.incident_date).toLocaleString()}
                       </TableCell>
                       <TableCell>
                         {getDriverName(order.assigned_mechanic)}
                       </TableCell>
                       <TableCell>
                         {order.target_date
-                          ? new Date(order.target_date).toLocaleDateString()
+                          ? new Date(order.target_date).toLocaleString()
                           : 'Not set'}
                       </TableCell>
                       <TableCell>
