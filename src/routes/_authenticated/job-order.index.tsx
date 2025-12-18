@@ -10,11 +10,11 @@ export const Route = createFileRoute('/_authenticated/job-order/')({
     icon: ClipboardList,
     group: 'Management',
     allowedRoles: [
-      USER_ROLES.admin
+      USER_ROLES.admin,
       // USER_ROLES.evp_operations,
       // USER_ROLES.security_guard,
       // USER_ROLES.requester,
-      // USER_ROLES.driver
+      USER_ROLES.driver
     ]
   }
 });
