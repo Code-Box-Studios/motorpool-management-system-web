@@ -23,6 +23,8 @@ import {
 import { JOB_ORDER_STATUS, REPAIR_DONE_TYPE } from '@/lib/enums';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect } from 'react';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { useSpareParts } from '@/lib/query/spare-parts';
 
 export function JobOrderInner() {
   const { id } = useParams({ strict: false });
@@ -34,6 +36,7 @@ export function JobOrderInner() {
   const { data: branches } = useBranches();
   const { data: admins, isLoading: isLoadingAdmins } = useAdmins();
   const { data: allUsers, isLoading: isLoadingUsers } = useAllUsers();
+  const { data: spareParts } = useSpareParts(1, 1000);
   const updateJobOrderAction = useUpdateJobOrderAction(id as string);
   const form = useJobOrderForm();
   const navigate = useNavigate();
@@ -89,7 +92,10 @@ export function JobOrderInner() {
         repair_done: jobOrder.repair_done || '',
         actual_date_of_release: formatDate(jobOrder.actual_date_of_release),
         status: (jobOrder.status as JobOrderFormData['status']) || 'pending',
-        remarks: jobOrder.remarks || ''
+        remarks: jobOrder.remarks || '',
+        spare_parts_used: Array.isArray(jobOrder.spare_parts_used)
+          ? jobOrder.spare_parts_used
+          : []
       };
 
       console.log('Form data being set:', formData);
@@ -221,6 +227,32 @@ export function JobOrderInner() {
                     id="date_of_request"
                     type="datetime-local"
                     aria-invalid={fieldState.invalid}
+                    disabled
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+            <Controller
+              name="spare_parts_used"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid} className="col-span-2">
+                  <FieldLabel htmlFor="spare_parts_used">
+                    Spare Parts Used
+                  </FieldLabel>
+                  <MultiSelect
+                    options={
+                      spareParts?.data?.map((part) => ({
+                        value: part.id,
+                        label: `${part.name}${part.brand ? ` - ${part.brand}` : ''}`
+                      })) || []
+                    }
+                    selected={field.value || []}
+                    onChange={field.onChange}
+                    placeholder="Select spare parts..."
                     disabled
                   />
                   {fieldState.invalid && (

@@ -1,4 +1,4 @@
-import { useJobOrders } from '@/lib/query/job-orders';
+import { useJobOrders, useAllJobOrders } from '@/lib/query/job-orders';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import { NoteJobOrderModal } from './job-order-inner/note-job-order-modal';
 import { ApproveJobOrderModal } from './job-order-inner/approve-job-order-modal';
@@ -31,6 +32,12 @@ import type { CompleteRepairData } from './job-order-inner/complete-repair-modal
 import { Eye } from 'lucide-react';
 import { useUserRole } from '@/hooks/use-user-role';
 import { useAuth } from '@/hooks/use-auth';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import type { EventClickArg } from '@fullcalendar/core';
+import { useMemo } from 'react';
 
 const JobOrdersPage = () => {
   const { user } = useAuth();
@@ -50,6 +57,55 @@ const JobOrdersPage = () => {
     shouldFilter ? user?.id : undefined,
     shouldFilter ? 'driver' : undefined
   );
+
+  const { data: calendarData, isLoading: isCalendarLoading } = useAllJobOrders(
+    shouldFilter ? user?.id : undefined,
+    shouldFilter ? 'driver' : undefined
+  );
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      pending: '#FFA500',
+      assigned_mechanic: '#3B82F6',
+      ongoing_repair: '#8B5CF6',
+      evp_approval: '#F59E0B',
+      completed: '#10B981'
+    };
+    return colors[status] || '#6B7280';
+  };
+
+  const calendarEvents = useMemo(() => {
+    if (!calendarData) return [];
+    return calendarData
+      .filter((order) => order.target_date)
+      .map((order) => {
+        const targetDate = new Date(order.target_date);
+        return {
+          id: order.id,
+          title: `${order.vehicles?.make || ''} ${order.vehicles?.model || ''} - ${order.status}`,
+          start: targetDate.toISOString(),
+          allDay: true,
+          backgroundColor: getStatusColor(order.status || 'pending'),
+          borderColor: getStatusColor(order.status || 'pending'),
+          extendedProps: {
+            vehicle: order.vehicles,
+            status: order.status,
+            repair_done: order.repair_done
+          }
+        };
+      });
+  }, [calendarData]);
+
+  const handleEventClick = (clickInfo: EventClickArg) => {
+    navigate({ to: `/job-order/${clickInfo.event.id}` });
+  };
+
+  const handleDateClick = (arg: { dateStr: string }) => {
+    navigate({
+      to: '/job-order/add-job-order',
+      search: { date: arg.dateStr }
+    });
+  };
 
   const getDriverName = (driverId: string | null) => {
     if (!driverId) return 'Not assigned';
@@ -144,6 +200,33 @@ const JobOrdersPage = () => {
           </CardAction>
         </CardHeader>
         <CardContent>
+          <Tabs defaultValue="calendar" className="w-full">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
+              <TabsTrigger value="table">Table</TabsTrigger>
+            </TabsList>
+            <TabsContent value="calendar" className="mt-6">
+              {isCalendarLoading ? (
+                <div>Loading calendar...</div>
+              ) : (
+                <FullCalendar
+                  plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                  initialView="dayGridMonth"
+                  headerToolbar={{
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                  }}
+                  events={calendarEvents}
+                  eventClick={handleEventClick}
+                  dateClick={handleDateClick}
+                  height="auto"
+                  editable={false}
+                  selectable={true}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="table" className="mt-6">
           {isLoading ? (
             <TableSkeleton />
           ) : (
@@ -197,6 +280,11 @@ const JobOrdersPage = () => {
                                 handleNoteJobOrder(order.id, data)
                               }
                               isLoading={updateJobOrder.isPending}
+                              currentSparePartsUsed={
+                                Array.isArray(order.spare_parts_used)
+                                  ? order.spare_parts_used
+                                  : []
+                              }
                             />
                           )}
                           {isEVP && order.status === 'assigned_mechanic' && (
@@ -241,6 +329,8 @@ const JobOrdersPage = () => {
               </TableBody>
             </Table>
           )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

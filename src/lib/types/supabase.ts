@@ -469,6 +469,7 @@ export type Database = {
           remarks: string | null
           repair_done: string | null
           requested_by: string | null
+          spare_parts_used: string[] | null
           status: string | null
           target_date: string | null
           updated_at: string | null
@@ -489,6 +490,7 @@ export type Database = {
           remarks?: string | null
           repair_done?: string | null
           requested_by?: string | null
+          spare_parts_used?: string[] | null
           status?: string | null
           target_date?: string | null
           updated_at?: string | null
@@ -509,6 +511,7 @@ export type Database = {
           remarks?: string | null
           repair_done?: string | null
           requested_by?: string | null
+          spare_parts_used?: string[] | null
           status?: string | null
           target_date?: string | null
           updated_at?: string | null

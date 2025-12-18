@@ -20,11 +20,14 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { useSpareParts } from '@/lib/query/spare-parts';
 
 interface NoteJobOrderModalProps {
   drivers: Array<{ id: string; full_name: string }> | undefined;
   onSubmit: (data: NoteJobOrderData) => void;
   isLoading: boolean;
+  currentSparePartsUsed?: string[];
 }
 
 export interface NoteJobOrderData {
@@ -32,21 +35,25 @@ export interface NoteJobOrderData {
   target_date: string;
   assigned_mechanic: string;
   noted_by: string;
+  spare_parts_used?: string[];
   status: 'assigned_mechanic';
 }
 
 export function NoteJobOrderModal({
   drivers,
   onSubmit,
-  isLoading
+  isLoading,
+  currentSparePartsUsed
 }: NoteJobOrderModalProps) {
   const { user } = useAuth();
+  const { data: spareParts } = useSpareParts(1, 1000);
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState<NoteJobOrderData>({
     date_of_request: '',
     target_date: '',
     assigned_mechanic: '',
     noted_by: user?.id || '',
+    spare_parts_used: currentSparePartsUsed || [],
     status: 'assigned_mechanic'
   });
   const [errors, setErrors] = useState<
@@ -86,9 +93,16 @@ export function NoteJobOrderModal({
         target_date: '',
         assigned_mechanic: '',
         noted_by: user?.id || '',
+        spare_parts_used: currentSparePartsUsed || [],
         status: 'assigned_mechanic'
       });
       setErrors({});
+    } else {
+      // Populate spare_parts_used when opening
+      setFormData((prev) => ({
+        ...prev,
+        spare_parts_used: currentSparePartsUsed || []
+      }));
     }
   };
 
@@ -175,6 +189,24 @@ export function NoteJobOrderModal({
             {errors.assigned_mechanic && (
               <FieldError errors={[{ message: errors.assigned_mechanic }]} />
             )}
+          </Field>
+
+          {/* Spare Parts Used */}
+          <Field className="col-span-2">
+            <FieldLabel htmlFor="spare_parts_used">Spare Parts Used</FieldLabel>
+            <MultiSelect
+              options={
+                spareParts?.data?.map((part) => ({
+                  value: part.id,
+                  label: `${part.name}${part.brand ? ` - ${part.brand}` : ''}`
+                })) || []
+              }
+              selected={formData.spare_parts_used || []}
+              onChange={(value) =>
+                setFormData({ ...formData, spare_parts_used: value })
+              }
+              placeholder="Select spare parts..."
+            />
           </Field>
         </div>
 

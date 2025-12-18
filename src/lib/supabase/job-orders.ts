@@ -32,6 +32,32 @@ export const getJobOrders = async (
   return { data: data as any[], count };
 };
 
+export const getAllJobOrders = async (
+  userId?: string,
+  userRole?: string
+): Promise<any[]> => {
+  let query = supabase
+    .from('job_orders')
+    .select(`
+      *,
+      vehicles(id, make, model, license_plate)
+    `)
+    .order('target_date', { ascending: true });
+
+  // Filter for non-admin/EVP users - they can only see job orders they requested or are assigned as mechanic
+  if (userId && userRole !== 'admin' && userRole !== 'evp_operations') {
+    query = query.or(`requested_by.eq.${userId},assigned_mechanic.eq.${userId}`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching all job orders:', error);
+    throw error;
+  }
+  return data as any[];
+};
+
 export const getJobOrderById = async (id: string): Promise<JobOrder> => {
   const { data, error } = await supabase
     .from('job_orders')

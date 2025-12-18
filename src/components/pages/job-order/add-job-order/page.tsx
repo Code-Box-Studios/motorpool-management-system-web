@@ -24,11 +24,14 @@ import { JOB_ORDER_STATUS } from '@/lib/enums';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useSpareParts } from '@/lib/query/spare-parts';
+import { MultiSelect } from '@/components/ui/multi-select';
 
 export function AddJobOrder() {
   const { data: vehicles } = useVehicles(1, 100);
   const { data: branches } = useBranches();
   const { data: allUsers } = useAllUsers();
+  const { data: spareParts } = useSpareParts(1, 1000);
   const addJobOrderAction = useAddJobOrderAction();
   const form = useJobOrderForm();
   const navigate = useNavigate();
@@ -154,6 +157,33 @@ export function AddJobOrder() {
                     aria-invalid={fieldState.invalid}
                     placeholder="Describe what happened..."
                     rows={4}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+
+            {/* Spare Parts Used */}
+            <Controller
+              name="spare_parts_used"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid} className="col-span-2">
+                  <FieldLabel htmlFor="spare_parts_used">
+                    Spare Parts Used
+                  </FieldLabel>
+                  <MultiSelect
+                    options={
+                      spareParts?.data?.map((part) => ({
+                        value: part.id,
+                        label: `${part.name}${part.brand ? ` - ${part.brand}` : ''}`
+                      })) || []
+                    }
+                    selected={field.value || []}
+                    onChange={field.onChange}
+                    placeholder="Select spare parts..."
                   />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
