@@ -18,6 +18,7 @@ import { Route as AuthenticatedVehiclesIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedUserManagementIndexRouteImport } from './routes/_authenticated/user-management.index'
 import { Route as AuthenticatedTripTicketsIndexRouteImport } from './routes/_authenticated/trip-tickets.index'
 import { Route as AuthenticatedToolsIndexRouteImport } from './routes/_authenticated/tools.index'
+import { Route as AuthenticatedSparePartsIndexRouteImport } from './routes/_authenticated/spare-parts.index'
 import { Route as AuthenticatedMaintenanceIndexRouteImport } from './routes/_authenticated/maintenance.index'
 import { Route as AuthenticatedJobOrderIndexRouteImport } from './routes/_authenticated/job-order.index'
 import { Route as AuthenticatedDriversIndexRouteImport } from './routes/_authenticated/drivers.index'
@@ -28,6 +29,8 @@ import { Route as AuthenticatedTripTicketsAddTripTicketRouteImport } from './rou
 import { Route as AuthenticatedTripTicketsIdRouteImport } from './routes/_authenticated/trip-tickets.$id'
 import { Route as AuthenticatedToolsAddToolsRouteImport } from './routes/_authenticated/tools.add-tools'
 import { Route as AuthenticatedToolsToolsIdRouteImport } from './routes/_authenticated/tools.$toolsId'
+import { Route as AuthenticatedSparePartsAddSparePartRouteImport } from './routes/_authenticated/spare-parts.add-spare-part'
+import { Route as AuthenticatedSparePartsSparePartIdRouteImport } from './routes/_authenticated/spare-parts.$sparePartId'
 import { Route as AuthenticatedMaintenanceAddMaintenanceRouteImport } from './routes/_authenticated/maintenance.add-maintenance'
 import { Route as AuthenticatedMaintenanceIdRouteImport } from './routes/_authenticated/maintenance.$id'
 import { Route as AuthenticatedJobOrderAddJobOrderRouteImport } from './routes/_authenticated/job-order.add-job-order'
@@ -80,6 +83,12 @@ const AuthenticatedToolsIndexRoute = AuthenticatedToolsIndexRouteImport.update({
   path: '/tools/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSparePartsIndexRoute =
+  AuthenticatedSparePartsIndexRouteImport.update({
+    id: '/spare-parts/',
+    path: '/spare-parts/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedMaintenanceIndexRoute =
   AuthenticatedMaintenanceIndexRouteImport.update({
     id: '/maintenance/',
@@ -140,6 +149,18 @@ const AuthenticatedToolsToolsIdRoute =
     path: '/tools/$toolsId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSparePartsAddSparePartRoute =
+  AuthenticatedSparePartsAddSparePartRouteImport.update({
+    id: '/spare-parts/add-spare-part',
+    path: '/spare-parts/add-spare-part',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSparePartsSparePartIdRoute =
+  AuthenticatedSparePartsSparePartIdRouteImport.update({
+    id: '/spare-parts/$sparePartId',
+    path: '/spare-parts/$sparePartId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedMaintenanceAddMaintenanceRoute =
   AuthenticatedMaintenanceAddMaintenanceRouteImport.update({
     id: '/maintenance/add-maintenance',
@@ -178,6 +199,8 @@ export interface FileRoutesByFullPath {
   '/job-order/add-job-order': typeof AuthenticatedJobOrderAddJobOrderRoute
   '/maintenance/$id': typeof AuthenticatedMaintenanceIdRoute
   '/maintenance/add-maintenance': typeof AuthenticatedMaintenanceAddMaintenanceRoute
+  '/spare-parts/$sparePartId': typeof AuthenticatedSparePartsSparePartIdRoute
+  '/spare-parts/add-spare-part': typeof AuthenticatedSparePartsAddSparePartRoute
   '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
   '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
@@ -188,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/drivers': typeof AuthenticatedDriversIndexRoute
   '/job-order': typeof AuthenticatedJobOrderIndexRoute
   '/maintenance': typeof AuthenticatedMaintenanceIndexRoute
+  '/spare-parts': typeof AuthenticatedSparePartsIndexRoute
   '/tools': typeof AuthenticatedToolsIndexRoute
   '/trip-tickets': typeof AuthenticatedTripTicketsIndexRoute
   '/user-management': typeof AuthenticatedUserManagementIndexRoute
@@ -202,6 +226,8 @@ export interface FileRoutesByTo {
   '/job-order/add-job-order': typeof AuthenticatedJobOrderAddJobOrderRoute
   '/maintenance/$id': typeof AuthenticatedMaintenanceIdRoute
   '/maintenance/add-maintenance': typeof AuthenticatedMaintenanceAddMaintenanceRoute
+  '/spare-parts/$sparePartId': typeof AuthenticatedSparePartsSparePartIdRoute
+  '/spare-parts/add-spare-part': typeof AuthenticatedSparePartsAddSparePartRoute
   '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
   '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
@@ -212,6 +238,7 @@ export interface FileRoutesByTo {
   '/drivers': typeof AuthenticatedDriversIndexRoute
   '/job-order': typeof AuthenticatedJobOrderIndexRoute
   '/maintenance': typeof AuthenticatedMaintenanceIndexRoute
+  '/spare-parts': typeof AuthenticatedSparePartsIndexRoute
   '/tools': typeof AuthenticatedToolsIndexRoute
   '/trip-tickets': typeof AuthenticatedTripTicketsIndexRoute
   '/user-management': typeof AuthenticatedUserManagementIndexRoute
@@ -229,6 +256,8 @@ export interface FileRoutesById {
   '/_authenticated/job-order/add-job-order': typeof AuthenticatedJobOrderAddJobOrderRoute
   '/_authenticated/maintenance/$id': typeof AuthenticatedMaintenanceIdRoute
   '/_authenticated/maintenance/add-maintenance': typeof AuthenticatedMaintenanceAddMaintenanceRoute
+  '/_authenticated/spare-parts/$sparePartId': typeof AuthenticatedSparePartsSparePartIdRoute
+  '/_authenticated/spare-parts/add-spare-part': typeof AuthenticatedSparePartsAddSparePartRoute
   '/_authenticated/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/_authenticated/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
   '/_authenticated/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
@@ -239,6 +268,7 @@ export interface FileRoutesById {
   '/_authenticated/drivers/': typeof AuthenticatedDriversIndexRoute
   '/_authenticated/job-order/': typeof AuthenticatedJobOrderIndexRoute
   '/_authenticated/maintenance/': typeof AuthenticatedMaintenanceIndexRoute
+  '/_authenticated/spare-parts/': typeof AuthenticatedSparePartsIndexRoute
   '/_authenticated/tools/': typeof AuthenticatedToolsIndexRoute
   '/_authenticated/trip-tickets/': typeof AuthenticatedTripTicketsIndexRoute
   '/_authenticated/user-management/': typeof AuthenticatedUserManagementIndexRoute
@@ -255,6 +285,8 @@ export interface FileRouteTypes {
     | '/job-order/add-job-order'
     | '/maintenance/$id'
     | '/maintenance/add-maintenance'
+    | '/spare-parts/$sparePartId'
+    | '/spare-parts/add-spare-part'
     | '/tools/$toolsId'
     | '/tools/add-tools'
     | '/trip-tickets/$id'
@@ -265,6 +297,7 @@ export interface FileRouteTypes {
     | '/drivers'
     | '/job-order'
     | '/maintenance'
+    | '/spare-parts'
     | '/tools'
     | '/trip-tickets'
     | '/user-management'
@@ -279,6 +312,8 @@ export interface FileRouteTypes {
     | '/job-order/add-job-order'
     | '/maintenance/$id'
     | '/maintenance/add-maintenance'
+    | '/spare-parts/$sparePartId'
+    | '/spare-parts/add-spare-part'
     | '/tools/$toolsId'
     | '/tools/add-tools'
     | '/trip-tickets/$id'
@@ -289,6 +324,7 @@ export interface FileRouteTypes {
     | '/drivers'
     | '/job-order'
     | '/maintenance'
+    | '/spare-parts'
     | '/tools'
     | '/trip-tickets'
     | '/user-management'
@@ -305,6 +341,8 @@ export interface FileRouteTypes {
     | '/_authenticated/job-order/add-job-order'
     | '/_authenticated/maintenance/$id'
     | '/_authenticated/maintenance/add-maintenance'
+    | '/_authenticated/spare-parts/$sparePartId'
+    | '/_authenticated/spare-parts/add-spare-part'
     | '/_authenticated/tools/$toolsId'
     | '/_authenticated/tools/add-tools'
     | '/_authenticated/trip-tickets/$id'
@@ -315,6 +353,7 @@ export interface FileRouteTypes {
     | '/_authenticated/drivers/'
     | '/_authenticated/job-order/'
     | '/_authenticated/maintenance/'
+    | '/_authenticated/spare-parts/'
     | '/_authenticated/tools/'
     | '/_authenticated/trip-tickets/'
     | '/_authenticated/user-management/'
@@ -392,6 +431,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedToolsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/spare-parts/': {
+      id: '/_authenticated/spare-parts/'
+      path: '/spare-parts'
+      fullPath: '/spare-parts'
+      preLoaderRoute: typeof AuthenticatedSparePartsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/maintenance/': {
       id: '/_authenticated/maintenance/'
       path: '/maintenance'
@@ -462,6 +508,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedToolsToolsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/spare-parts/add-spare-part': {
+      id: '/_authenticated/spare-parts/add-spare-part'
+      path: '/spare-parts/add-spare-part'
+      fullPath: '/spare-parts/add-spare-part'
+      preLoaderRoute: typeof AuthenticatedSparePartsAddSparePartRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/spare-parts/$sparePartId': {
+      id: '/_authenticated/spare-parts/$sparePartId'
+      path: '/spare-parts/$sparePartId'
+      fullPath: '/spare-parts/$sparePartId'
+      preLoaderRoute: typeof AuthenticatedSparePartsSparePartIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/maintenance/add-maintenance': {
       id: '/_authenticated/maintenance/add-maintenance'
       path: '/maintenance/add-maintenance'
@@ -507,6 +567,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedJobOrderAddJobOrderRoute: typeof AuthenticatedJobOrderAddJobOrderRoute
   AuthenticatedMaintenanceIdRoute: typeof AuthenticatedMaintenanceIdRoute
   AuthenticatedMaintenanceAddMaintenanceRoute: typeof AuthenticatedMaintenanceAddMaintenanceRoute
+  AuthenticatedSparePartsSparePartIdRoute: typeof AuthenticatedSparePartsSparePartIdRoute
+  AuthenticatedSparePartsAddSparePartRoute: typeof AuthenticatedSparePartsAddSparePartRoute
   AuthenticatedToolsToolsIdRoute: typeof AuthenticatedToolsToolsIdRoute
   AuthenticatedToolsAddToolsRoute: typeof AuthenticatedToolsAddToolsRoute
   AuthenticatedTripTicketsIdRoute: typeof AuthenticatedTripTicketsIdRoute
@@ -517,6 +579,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDriversIndexRoute: typeof AuthenticatedDriversIndexRoute
   AuthenticatedJobOrderIndexRoute: typeof AuthenticatedJobOrderIndexRoute
   AuthenticatedMaintenanceIndexRoute: typeof AuthenticatedMaintenanceIndexRoute
+  AuthenticatedSparePartsIndexRoute: typeof AuthenticatedSparePartsIndexRoute
   AuthenticatedToolsIndexRoute: typeof AuthenticatedToolsIndexRoute
   AuthenticatedTripTicketsIndexRoute: typeof AuthenticatedTripTicketsIndexRoute
   AuthenticatedUserManagementIndexRoute: typeof AuthenticatedUserManagementIndexRoute
@@ -531,6 +594,10 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMaintenanceIdRoute: AuthenticatedMaintenanceIdRoute,
   AuthenticatedMaintenanceAddMaintenanceRoute:
     AuthenticatedMaintenanceAddMaintenanceRoute,
+  AuthenticatedSparePartsSparePartIdRoute:
+    AuthenticatedSparePartsSparePartIdRoute,
+  AuthenticatedSparePartsAddSparePartRoute:
+    AuthenticatedSparePartsAddSparePartRoute,
   AuthenticatedToolsToolsIdRoute: AuthenticatedToolsToolsIdRoute,
   AuthenticatedToolsAddToolsRoute: AuthenticatedToolsAddToolsRoute,
   AuthenticatedTripTicketsIdRoute: AuthenticatedTripTicketsIdRoute,
@@ -543,6 +610,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDriversIndexRoute: AuthenticatedDriversIndexRoute,
   AuthenticatedJobOrderIndexRoute: AuthenticatedJobOrderIndexRoute,
   AuthenticatedMaintenanceIndexRoute: AuthenticatedMaintenanceIndexRoute,
+  AuthenticatedSparePartsIndexRoute: AuthenticatedSparePartsIndexRoute,
   AuthenticatedToolsIndexRoute: AuthenticatedToolsIndexRoute,
   AuthenticatedTripTicketsIndexRoute: AuthenticatedTripTicketsIndexRoute,
   AuthenticatedUserManagementIndexRoute: AuthenticatedUserManagementIndexRoute,

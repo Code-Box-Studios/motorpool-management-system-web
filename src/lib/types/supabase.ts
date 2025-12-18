@@ -530,13 +530,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "job_orders_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
-            referencedRelation: "drivers"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "job_orders_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
@@ -765,6 +758,39 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      spare_parts: {
+        Row: {
+          brand: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          image: string | null
+          name: string
+          quantity: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          brand?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image?: string | null
+          name: string
+          quantity?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          brand?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image?: string | null
+          name?: string
+          quantity?: number | null
+          updated_at?: string | null
         }
         Relationships: []
       }

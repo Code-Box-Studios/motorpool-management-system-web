@@ -64,6 +64,10 @@ export type MaintenanceStandard = Tables<'maintenance_standards'>;
 export type NewMaintenanceStandard = TablesInsert<'maintenance_standards'>;
 export type UpdateMaintenanceStandard = TablesUpdate<'maintenance_standards'>;
 
+export type SparePart = Tables<'spare_parts'>;
+export type NewSparePart = TablesInsert<'spare_parts'>;
+export type UpdateSparePart = TablesUpdate<'spare_parts'>;
+
 export type Tool = Tables<'tools'>;
 export type NewTool = TablesInsert<'tools'>;
 export type UpdateTool = TablesUpdate<'tools'>;
