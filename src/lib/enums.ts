@@ -43,10 +43,15 @@ export const TRIP_TICKET_STATUS = {
 
 export const JOB_ORDER_STATUS = {
   PENDING: 'pending',
-  APPROVED: 'approved',
-  IN_PROGRESS: 'in_progress',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled'
+  ASSIGNED_MECHANIC: 'assigned_mechanic',
+  ONGOING_REPAIR: 'ongoing_repair',
+  REPAIRED: 'repaired'
+} as const;
+
+export const REPAIR_DONE_TYPE = {
+  SIMPLE: 'simple',
+  COMPLEX: 'complex',
+  COMPOUND: 'compound'
 } as const;
 
 export const MAINTENANCE_TYPE = {

@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Play, Square } from 'lucide-react';
 import GuardConfirmationPage from '@/components/pages/trip-tickets/guard-confirmation';
-import EvpApprovalPage from '@/components/pages/trip-tickets/evp-approval';
+import EvpApprovalPage from '@/components/pages/job-order/evp-approval';
 import { useUserRole } from '@/hooks/use-user-role';
 import { USER_ROLES } from '@/lib/enums';
 

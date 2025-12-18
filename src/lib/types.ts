@@ -39,6 +39,15 @@ export type JobOrder = Tables<'job_orders'>;
 export type NewJobOrder = TablesInsert<'job_orders'>;
 export type UpdateJobOrder = TablesUpdate<'job_orders'>;
 
+export type JobOrderWithRelations = JobOrder & {
+  vehicles?: {
+    id: string;
+    make: string;
+    model: string;
+    license_plate: string;
+  } | null;
+};
+
 export type Maintenance = Tables<'maintenance'>;
 export type NewMaintenance = TablesInsert<'maintenance'>;
 export type UpdateMaintenance = TablesUpdate<'maintenance'>;

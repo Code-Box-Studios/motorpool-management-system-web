@@ -4,19 +4,22 @@ import type { JobOrder, NewJobOrder, UpdateJobOrder } from '../types';
 export const getJobOrders = async (
   page: number = 1,
   limit: number = 10
-): Promise<{ data: JobOrder[]; count: number | null }> => {
+): Promise<{ data: any[]; count: number | null }> => {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
   const { data, error, count } = await supabase
     .from('job_orders')
-    .select('*', { count: 'exact' })
+    .select(`
+      *,
+      vehicles(id, make, model, license_plate)
+    `, { count: 'exact' })
     .order('updated_at', { ascending: false })
     .range(from, to);
   if (error) {
     console.error('Error fetching job orders:', error);
     throw error;
   }
-  return { data: data as JobOrder[], count };
+  return { data: data as any[], count };
 };
 
 export const getJobOrderById = async (id: string): Promise<JobOrder> => {
@@ -44,16 +47,12 @@ export const createJobOrder = async (
       noted_by: jobOrder.noted_by === '' ? null : jobOrder.noted_by,
       assigned_mechanic: jobOrder.assigned_mechanic === '' ? null : jobOrder.assigned_mechanic,
       incident_details: jobOrder.incident_details === '' ? null : jobOrder.incident_details,
-      damage_info: jobOrder.damage_info === '' ? null : jobOrder.damage_info,
-      repair_plan: jobOrder.repair_plan === '' ? null : jobOrder.repair_plan,
       remarks: jobOrder.remarks === '' ? null : jobOrder.remarks,
       date_of_request: jobOrder.date_of_request === '' ? null : jobOrder.date_of_request,
       date_approved: jobOrder.date_approved === '' ? null : jobOrder.date_approved,
       target_date: jobOrder.target_date === '' ? null : jobOrder.target_date,
       actual_date_of_release: jobOrder.actual_date_of_release === '' ? null : jobOrder.actual_date_of_release,
       repair_done: jobOrder.repair_done ?? null,
-      job_descriptions: jobOrder.job_descriptions || null,
-      images: jobOrder.images || null,
       status: jobOrder.status || 'pending'
     };
 
@@ -88,8 +87,6 @@ export const updateJobOrder = async (
       noted_by: updates.noted_by === '' ? null : updates.noted_by,
       assigned_mechanic: updates.assigned_mechanic === '' ? null : updates.assigned_mechanic,
       incident_details: updates.incident_details === '' ? null : updates.incident_details,
-      damage_info: updates.damage_info === '' ? null : updates.damage_info,
-      repair_plan: updates.repair_plan === '' ? null : updates.repair_plan,
       remarks: updates.remarks === '' ? null : updates.remarks,
       date_of_request: updates.date_of_request === '' ? null : updates.date_of_request,
       date_approved: updates.date_approved === '' ? null : updates.date_approved,

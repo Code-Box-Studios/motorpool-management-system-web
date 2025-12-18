@@ -6,26 +6,24 @@ import { useCreateJobOrder } from '@/lib/mutation/job-orders';
 import type { NewJobOrder } from '@/lib/types';
 import { JOB_ORDER_STATUS } from '@/lib/enums';
 
+// Driver form - initial job order submission
 const jobOrderSchema = z.object({
   vehicle_id: z.string().uuid('Please select a vehicle'),
-  submitted_by: z.string().uuid('Submitted by is required'),
+  branch_id: z.string().uuid('Please select a branch'),
   incident_date: z.string().min(1, 'Incident date is required'),
   incident_details: z.string().optional(),
-  damage_info: z.string().optional(),
-  date_of_request: z.string().optional(),
+  remarks: z.string().optional(),
+  status: z.enum(Object.values(JOB_ORDER_STATUS) as [string, ...string[]]),
   requested_by: z.string().optional(),
   noted_by: z.string().optional(),
   approved_by: z.string().optional(),
-  date_approved: z.string().optional(),
-  assigned_mechanic: z.string().optional(),
-  repair_plan: z.string().optional(),
+  // Admin fields - not filled during initial creation
+  date_of_request: z.string().optional(),
   target_date: z.string().optional(),
-  repair_done: z.coerce.number().min(0, 'Repair done must be 0 or greater').optional(),
+  assigned_mechanic: z.string().optional(),
   actual_date_of_release: z.string().optional(),
-  status: z.enum(Object.values(JOB_ORDER_STATUS) as [string, ...string[]]),
-  remarks: z.string().optional(),
-  job_descriptions: z.array(z.string()).optional(),
-  images: z.array(z.string()).optional()
+  repair_done: z.string().optional(),
+  date_approved: z.string().optional()
 });
 
 export type JobOrderFormData = z.infer<typeof jobOrderSchema>;
@@ -35,24 +33,20 @@ export const useJobOrderForm = () => {
     resolver: zodResolver(jobOrderSchema),
     defaultValues: {
       vehicle_id: '',
-      submitted_by: '',
+      branch_id: '',
       incident_date: '',
       incident_details: '',
-      damage_info: '',
-      date_of_request: '',
+      remarks: '',
+      status: 'pending',
       requested_by: '',
       noted_by: '',
       approved_by: '',
-      date_approved: '',
-      assigned_mechanic: '',
-      repair_plan: '',
+      date_of_request: '',
       target_date: '',
-      repair_done: 0,
+      assigned_mechanic: '',
       actual_date_of_release: '',
-      status: 'pending',
-      remarks: '',
-      job_descriptions: [],
-      images: []
+      repair_done: '',
+      date_approved: ''
     }
   });
 };

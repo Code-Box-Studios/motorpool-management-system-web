@@ -71,10 +71,6 @@ export default function EvpApprovalPage() {
     return driver?.full_name || driverId;
   };
 
-  // Debug logging
-  console.log('Drivers data:', driversData?.data);
-  console.log('Job orders data:', jobOrdersData?.data);
-
   const handleApprove = (ticketId: string) => {
     setSelectedTicket(ticketId);
     setActionType('approve');
@@ -126,6 +122,10 @@ export default function EvpApprovalPage() {
     (order) => order.status === JOB_ORDER_STATUS.ASSIGNED_MECHANIC
   );
 
+  // Debug logging
+  console.log('All job orders:', jobOrdersData?.data);
+  console.log('Pending job orders:', pendingJobOrders);
+
   const handleApproveJobOrder = (
     orderId: string,
     data: ApproveJobOrderData
@@ -133,8 +133,12 @@ export default function EvpApprovalPage() {
     const order = jobOrdersData?.data?.find((o) => o.id === orderId);
     if (!order) return;
 
+    // Remove vehicles relationship from the order object before updating
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { vehicles, ...orderWithoutRelations } = order;
+
     const updatedData = {
-      ...order,
+      ...orderWithoutRelations,
       ...data
     };
 

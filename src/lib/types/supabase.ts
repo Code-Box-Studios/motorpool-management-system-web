@@ -254,7 +254,6 @@ export type Database = {
           disapproved_reason: string | null
           fuel_type: string
           id: string
-          km: number
           liters: number
           purpose: string
           requested_by: string
@@ -273,7 +272,6 @@ export type Database = {
           disapproved_reason?: string | null
           fuel_type: string
           id?: string
-          km: number
           liters: number
           purpose: string
           requested_by: string
@@ -292,7 +290,6 @@ export type Database = {
           disapproved_reason?: string | null
           fuel_type?: string
           id?: string
-          km?: number
           liters?: number
           purpose?: string
           requested_by?: string
@@ -461,22 +458,18 @@ export type Database = {
           actual_date_of_release: string | null
           approved_by: string | null
           assigned_mechanic: string | null
+          branch_id: string
           created_at: string | null
-          damage_info: string | null
           date_approved: string | null
           date_of_request: string | null
           id: string
-          images: string[] | null
-          incident_date: string
+          incident_date: string | null
           incident_details: string | null
-          job_descriptions: string[] | null
           noted_by: string | null
           remarks: string | null
-          repair_done: number | null
-          repair_plan: string | null
+          repair_done: string | null
           requested_by: string | null
           status: string | null
-          submitted_by: string
           target_date: string | null
           updated_at: string | null
           vehicle_id: string
@@ -485,22 +478,18 @@ export type Database = {
           actual_date_of_release?: string | null
           approved_by?: string | null
           assigned_mechanic?: string | null
+          branch_id: string
           created_at?: string | null
-          damage_info?: string | null
           date_approved?: string | null
           date_of_request?: string | null
           id?: string
-          images?: string[] | null
-          incident_date: string
+          incident_date?: string | null
           incident_details?: string | null
-          job_descriptions?: string[] | null
           noted_by?: string | null
           remarks?: string | null
-          repair_done?: number | null
-          repair_plan?: string | null
+          repair_done?: string | null
           requested_by?: string | null
           status?: string | null
-          submitted_by: string
           target_date?: string | null
           updated_at?: string | null
           vehicle_id: string
@@ -509,27 +498,30 @@ export type Database = {
           actual_date_of_release?: string | null
           approved_by?: string | null
           assigned_mechanic?: string | null
+          branch_id?: string
           created_at?: string | null
-          damage_info?: string | null
           date_approved?: string | null
           date_of_request?: string | null
           id?: string
-          images?: string[] | null
-          incident_date?: string
+          incident_date?: string | null
           incident_details?: string | null
-          job_descriptions?: string[] | null
           noted_by?: string | null
           remarks?: string | null
-          repair_done?: number | null
-          repair_plan?: string | null
+          repair_done?: string | null
           requested_by?: string | null
           status?: string | null
-          submitted_by?: string
           target_date?: string | null
           updated_at?: string | null
           vehicle_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_orders_assigned_mechanic_fkey"
+            columns: ["assigned_mechanic"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_orders_noted_by_fkey"
             columns: ["noted_by"]
@@ -828,7 +820,7 @@ export type Database = {
           allocation_approved_by_evp_operations: string | null
           allocation_date: string | null
           allocation_fuel_type: string | null
-          allocation_liters: number | null
+          allocation_liters: number
           allocation_purpose: string | null
           allocation_trip_to: string | null
           allocation_vehicle_id: string | null
@@ -869,7 +861,7 @@ export type Database = {
           allocation_approved_by_evp_operations?: string | null
           allocation_date?: string | null
           allocation_fuel_type?: string | null
-          allocation_liters?: number | null
+          allocation_liters?: number
           allocation_purpose?: string | null
           allocation_trip_to?: string | null
           allocation_vehicle_id?: string | null
@@ -910,7 +902,7 @@ export type Database = {
           allocation_approved_by_evp_operations?: string | null
           allocation_date?: string | null
           allocation_fuel_type?: string | null
-          allocation_liters?: number | null
+          allocation_liters?: number
           allocation_purpose?: string | null
           allocation_trip_to?: string | null
           allocation_vehicle_id?: string | null
@@ -1132,6 +1124,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vehicle_status_audit: {
+        Row: {
+          change_source: string | null
+          changed_by: string | null
+          created_at: string
+          full_row: Json | null
+          id: string
+          new_status: string | null
+          old_status: string | null
+          reason: string | null
+          txid: string | null
+          vehicle_id: string
+        }
+        Insert: {
+          change_source?: string | null
+          changed_by?: string | null
+          created_at?: string
+          full_row?: Json | null
+          id?: string
+          new_status?: string | null
+          old_status?: string | null
+          reason?: string | null
+          txid?: string | null
+          vehicle_id: string
+        }
+        Update: {
+          change_source?: string | null
+          changed_by?: string | null
+          created_at?: string
+          full_row?: Json | null
+          id?: string
+          new_status?: string | null
+          old_status?: string | null
+          reason?: string | null
+          txid?: string | null
+          vehicle_id?: string
+        }
+        Relationships: []
       }
       vehicles: {
         Row: {
