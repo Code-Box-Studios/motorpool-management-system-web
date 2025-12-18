@@ -150,6 +150,23 @@ export function JobOrderInner() {
           </div>
           <div className="grid grid-cols-2 gap-11">
             <Controller
+              name="branch_id"
+              control={form.control}
+              render={({ field, fieldState }) => {
+                const branch = branches?.find((b) => b.id === field.value);
+                const displayValue = branch?.name || field.value || '';
+                return (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="branch_id">Branch *</FieldLabel>
+                    <Input value={displayValue} disabled readOnly />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                );
+              }}
+            />
+            <Controller
               name="vehicle_id"
               control={form.control}
               render={({ field, fieldState }) => {
@@ -162,23 +179,6 @@ export function JobOrderInner() {
                 return (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="vehicle_id">Vehicle *</FieldLabel>
-                    <Input value={displayValue} disabled readOnly />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                );
-              }}
-            />
-            <Controller
-              name="branch_id"
-              control={form.control}
-              render={({ field, fieldState }) => {
-                const branch = branches?.find((b) => b.id === field.value);
-                const displayValue = branch?.name || field.value || '';
-                return (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="branch_id">Branch *</FieldLabel>
                     <Input value={displayValue} disabled readOnly />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
