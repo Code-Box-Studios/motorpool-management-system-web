@@ -16,6 +16,7 @@ import GuardConfirmationPage from '@/components/pages/trip-tickets/guard-confirm
 import EvpApprovalPage from '@/components/pages/job-order/evp-approval';
 import { useUserRole } from '@/hooks/use-user-role';
 import { USER_ROLES } from '@/lib/enums';
+import PredictiveMaintenance from './predictive-maintenance';
 
 // Davao City route coordinates
 const davaoCityRoute = [
@@ -133,6 +134,10 @@ const Dashboard = () => {
         <MetricCard title="Under Maintenance" value={5} />
         <MetricCard title="Waiting for Spare Parts" value={6} />
         <MetricCard title="Trips Completed" value={183} />
+      </div>
+
+      <div>
+        <PredictiveMaintenance />
       </div>
 
       <Card>
