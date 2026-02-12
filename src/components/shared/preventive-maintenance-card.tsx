@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Calendar, Gauge } from 'lucide-react';
 
-interface PredictiveMaintenanceCardProps {
+interface PreventiveMaintenanceCardProps {
   id: string;
   plateNumber: string;
   vehicleName: string;
@@ -13,7 +13,7 @@ interface PredictiveMaintenanceCardProps {
   reason: string;
 }
 
-export const PredictiveMaintenanceCard = ({
+export const PreventiveMaintenanceCard = ({
   plateNumber,
   vehicleName,
   mileage,
@@ -21,7 +21,7 @@ export const PredictiveMaintenanceCard = ({
   lastMaintenance,
   priority,
   reason
-}: PredictiveMaintenanceCardProps) => {
+}: PreventiveMaintenanceCardProps) => {
   return (
     <Card>
       <CardContent className="pt-6">

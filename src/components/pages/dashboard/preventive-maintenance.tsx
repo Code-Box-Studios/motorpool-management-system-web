@@ -8,7 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Typography } from '@/components/ui/typography';
 import { useNavigate } from '@tanstack/react-router';
-import { PredictiveMaintenanceCard } from '@/components/shared/predictive-maintenance-card';
+import { PreventiveMaintenanceCard } from '@/components/shared/preventive-maintenance-card';
 
 const vehiclesDueForMaintenance = [
   {
@@ -53,23 +53,22 @@ const vehiclesDueForMaintenance = [
   }
 ];
 
-interface PredictiveMaintenanceProps {
+interface PreventiveMaintenanceProps {
   showViewAll?: boolean;
 }
 
-const PredictiveMaintenance = ({
+const PreventiveMaintenance = ({
   showViewAll = true
-}: PredictiveMaintenanceProps) => {
+}: PreventiveMaintenanceProps) => {
   const navigate = useNavigate();
 
   const handleViewAll = () => {
     navigate({
       to: '/maintenance',
-      search: { tab: 'predictive' }
+      search: { tab: 'preventive' }
     });
   };
 
-  // Show only 4 items on dashboard, all items on maintenance page
   const displayedVehicles = showViewAll
     ? vehiclesDueForMaintenance.slice(0, 4)
     : vehiclesDueForMaintenance;
@@ -79,7 +78,7 @@ const PredictiveMaintenance = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>
-            Predictive Maintenance
+            Preventive Maintenance
             <Typography variant={'p-sm'} className="font-normal text-gray-500">
               Vehicles due for maintenance based on mileage and service
               intervals
@@ -95,7 +94,7 @@ const PredictiveMaintenance = ({
       <CardContent>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {displayedVehicles.map((vehicle) => (
-            <PredictiveMaintenanceCard
+            <PreventiveMaintenanceCard
               key={vehicle.id}
               id={vehicle.id}
               plateNumber={vehicle.plateNumber}
@@ -113,4 +112,4 @@ const PredictiveMaintenance = ({
   );
 };
 
-export default PredictiveMaintenance;
+export default PreventiveMaintenance;

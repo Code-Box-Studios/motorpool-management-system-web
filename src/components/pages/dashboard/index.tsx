@@ -16,7 +16,7 @@ import GuardConfirmationPage from '@/components/pages/trip-tickets/guard-confirm
 import EvpApprovalPage from '@/components/pages/job-order/evp-approval';
 import { useUserRole } from '@/hooks/use-user-role';
 import { USER_ROLES } from '@/lib/enums';
-import PredictiveMaintenance from './predictive-maintenance';
+import PreventiveMaintenance from './preventive-maintenance';
 
 // Davao City route coordinates
 const davaoCityRoute = [
@@ -137,7 +137,7 @@ const Dashboard = () => {
       </div>
 
       <div>
-        <PredictiveMaintenance />
+        <PreventiveMaintenance />
       </div>
 
       <Card>

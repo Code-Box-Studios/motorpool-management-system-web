@@ -39,7 +39,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
 import { useMemo, useState } from 'react';
-import PredictiveMaintenance from '../dashboard/predictive-maintenance';
+import PreventiveMaintenance from '../dashboard/preventive-maintenance';
 
 const MaintenancePage = () => {
   const { data: tableData, isLoading: isTableLoading } = useMaintenances(
@@ -94,7 +94,7 @@ const MaintenancePage = () => {
     <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
       <TabsList className="grid w-full max-w-2xl grid-cols-2">
         <TabsTrigger value="schedule">Schedule</TabsTrigger>
-        <TabsTrigger value="predictive">Predictive</TabsTrigger>
+          <TabsTrigger value="preventive">Preventive</TabsTrigger>
       </TabsList>
       <TabsContent value="schedule" className="mt-6">
         <Card>
@@ -278,8 +278,8 @@ const MaintenancePage = () => {
           </CardContent>
         </Card>
       </TabsContent>
-      <TabsContent value="predictive" className="mt-6">
-        <PredictiveMaintenance showViewAll={false} />
+      <TabsContent value="preventive" className="mt-6">
+        <PreventiveMaintenance showViewAll={false} />
       </TabsContent>
     </Tabs>
   );
