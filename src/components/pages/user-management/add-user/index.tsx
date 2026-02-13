@@ -17,6 +17,7 @@ import { useRoles } from '@/lib/query/roles';
 import { useBranches } from '@/lib/query/shared';
 import { useState } from 'react';
 import { TrashIcon } from 'lucide-react';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 export function AddUser() {
   const signUp = useSignUp();
@@ -24,16 +25,32 @@ export function AddUser() {
   const { data: roles } = useRoles();
   const { data: branches } = useBranches();
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<SignupFormData | null>(null);
 
   const onSubmit = async (data: SignupFormData) => {
-    signUp.mutate({
-      email: data.email,
-      password: data.password,
-      fullName: data.fullName,
-      role_id: data.role_id,
-      branch_id: data.branch_id,
-      avatarFile: data.avatar?.[0]
-    });
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmAdd = () => {
+    if (!pendingData) return;
+    signUp.mutate(
+      {
+        email: pendingData.email,
+        password: pendingData.password,
+        fullName: pendingData.fullName,
+        role_id: pendingData.role_id,
+        branch_id: pendingData.branch_id,
+        avatarFile: pendingData.avatar?.[0]
+      },
+      {
+        onSettled: () => {
+          setShowConfirm(false);
+          setPendingData(null);
+        }
+      }
+    );
   };
 
   return (
@@ -236,6 +253,17 @@ export function AddUser() {
           </Button>
         </Field>
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Create User Account"
+        description="Are you sure you want to create this user account?"
+        confirmLabel="Create Account"
+        loading={signUp.isPending}
+        onConfirm={handleConfirmAdd}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 }

@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/carousel';
 import { cn } from '@/lib/utils';
 import { Loading } from '@/components/ui/loader';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   const { data: vehicle } = useVehicle(vehicleId);
@@ -35,6 +36,10 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<UpdateVehicleFormData | null>(
+    null
+  );
 
   const form = useVehicleUpdateForm();
 
@@ -59,14 +64,21 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   }, [vehicle, branches, form]);
 
   const onSubmit = (data: UpdateVehicleFormData) => {
-    if (vehicle) {
-      const { newImages, ...updates } = data;
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmUpdate = () => {
+    if (vehicle && pendingData) {
+      const { newImages, ...updates } = pendingData;
       updateVehicle.mutate(
         { id: vehicle.id, updates, files: newImages || [], removedImages },
         {
           onSuccess: () => {
             setIsEditing(false);
             setRemovedImages([]);
+            setShowConfirm(false);
+            setPendingData(null);
             navigate({ to: '/vehicles' });
           }
         }
@@ -509,6 +521,17 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
           </Field>
         )}
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Update Vehicle"
+        description="Are you sure you want to save these changes to the vehicle details?"
+        confirmLabel="Update Vehicle"
+        loading={updateVehicle.isPending}
+        onConfirm={handleConfirmUpdate}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 };

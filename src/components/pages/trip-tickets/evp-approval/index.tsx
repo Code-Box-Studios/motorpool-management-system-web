@@ -41,6 +41,7 @@ import { Link } from '@tanstack/react-router';
 import StatusBadge from '@/components/shared/status-badge';
 import { ApproveJobOrderModal } from '@/components/pages/job-order/job-order-inner/approve-job-order-modal';
 import type { ApproveJobOrderData } from '@/components/pages/job-order/job-order-inner/approve-job-order-modal';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 export default function EvpApprovalPage() {
   const { user } = useAuth();
@@ -313,28 +314,19 @@ export default function EvpApprovalPage() {
       </Card>
 
       {/* Approve Confirmation Dialog */}
-      <AlertDialog
+      <ConfirmationModal
         open={actionType === 'approve'}
         onOpenChange={() => setActionType(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Approve Trip Ticket</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to approve this trip ticket? The requester
-              will be notified and the ticket will proceed to the next stage.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setActionType(null)}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={confirmApprove}>
-              Approve
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Approve Trip Ticket"
+        description="Are you sure you want to approve this trip ticket? The requester will be notified and the ticket will proceed to the next stage."
+        confirmLabel="Approve"
+        loading={updateTripTicket.isPending}
+        onConfirm={confirmApprove}
+        onCancel={() => {
+          setSelectedTicket(null);
+          setActionType(null);
+        }}
+      />
 
       {/* Disapprove Dialog */}
       <AlertDialog

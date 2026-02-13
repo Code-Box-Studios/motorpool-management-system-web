@@ -15,22 +15,35 @@ import {
 } from '@/components/ui/select';
 import { TOOL_STATUS } from '@/lib/enums';
 import { Textarea } from '@/components/ui/textarea';
+import { useState } from 'react';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 export function AddTool() {
   const { data: drivers } = useDrivers(1, 100);
   const addToolAction = useAddToolAction();
   const form = useToolForm();
   const navigate = useNavigate();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<ToolFormData | null>(null);
 
   const onSubmit = (data: ToolFormData) => {
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmAdd = () => {
+    if (!pendingData) return;
     addToolAction
-      .addTool(data)
+      .addTool(pendingData)
       .then(() => {
         form.reset();
+        setShowConfirm(false);
+        setPendingData(null);
         navigate({ to: '/tools' });
       })
       .catch((error) => {
         console.error('Error adding tool:', error);
+        setShowConfirm(false);
       });
   };
 
@@ -216,6 +229,17 @@ export function AddTool() {
           </Button>
         </Field>
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Add Tool"
+        description="Are you sure you want to add this tool?"
+        confirmLabel="Add Tool"
+        loading={addToolAction.isLoading}
+        onConfirm={handleConfirmAdd}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 }

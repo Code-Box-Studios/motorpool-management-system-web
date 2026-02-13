@@ -18,22 +18,35 @@ import {
 } from '@/components/ui/select';
 import { FUEL_TYPE, VEHICLE_STATUS } from '@/lib/enums';
 import { useBranches } from '@/lib/query/shared';
+import { useState } from 'react';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 export function AddVehicle() {
   const { data: branches } = useBranches();
   const addVehicleAction = useAddVehicleAction();
   const form = useVehicleForm();
   const navigate = useNavigate();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<VehicleFormData | null>(null);
 
   const onSubmit = (data: VehicleFormData) => {
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmAdd = () => {
+    if (!pendingData) return;
     addVehicleAction
-      .addVehicle(data)
+      .addVehicle(pendingData)
       .then(() => {
         form.reset();
+        setShowConfirm(false);
+        setPendingData(null);
         navigate({ to: '/vehicles' });
       })
       .catch((error) => {
         console.error('Error adding vehicle:', error);
+        setShowConfirm(false);
       });
   };
 
@@ -347,6 +360,17 @@ export function AddVehicle() {
           </Button>
         </Field>
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Add Vehicle"
+        description="Are you sure you want to add this vehicle?"
+        confirmLabel="Add Vehicle"
+        loading={addVehicleAction.isLoading}
+        onConfirm={handleConfirmAdd}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 }

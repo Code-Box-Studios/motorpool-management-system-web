@@ -20,6 +20,7 @@ import { TOOL_STATUS } from '@/lib/enums';
 import { TrashIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Loading } from '@/components/ui/loader';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 const ToolsInner = ({ toolId }: { toolId: string }) => {
   const { data: tool } = useTool(toolId);
@@ -28,6 +29,10 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [removeImage, setRemoveImage] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<UpdateToolFormData | null>(
+    null
+  );
 
   const form = useToolUpdateForm();
 
@@ -45,8 +50,13 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
   }, [tool, drivers, form]);
 
   const onSubmit = (data: UpdateToolFormData) => {
-    if (tool) {
-      const { newImage, ...updates } = data;
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmUpdate = () => {
+    if (tool && pendingData) {
+      const { newImage, ...updates } = pendingData;
       updateTool.mutate(
         {
           id: tool.id,
@@ -58,6 +68,8 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
           onSuccess: () => {
             setIsEditing(false);
             setRemoveImage(false);
+            setShowConfirm(false);
+            setPendingData(null);
             navigate({ to: '/tools' });
           }
         }
@@ -322,6 +334,17 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
           </Field>
         )}
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Update Tool"
+        description="Are you sure you want to save these changes to the tool?"
+        confirmLabel="Update Tool"
+        loading={updateTool.isPending}
+        onConfirm={handleConfirmUpdate}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 };

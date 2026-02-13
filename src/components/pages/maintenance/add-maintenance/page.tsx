@@ -19,22 +19,35 @@ import {
 } from '@/components/ui/select';
 import { MAINTENANCE_TYPE } from '@/lib/enums';
 import { Textarea } from '@/components/ui/textarea';
+import { useState } from 'react';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 export function AddMaintenance() {
   const { data: vehicles } = useVehicles(1, 100);
   const addMaintenanceAction = useAddMaintenanceAction();
   const form = useMaintenanceForm();
   const navigate = useNavigate();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<MaintenanceFormData | null>(null);
 
   const onSubmit = (data: MaintenanceFormData) => {
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmAdd = () => {
+    if (!pendingData) return;
     addMaintenanceAction
-      .addMaintenance(data)
+      .addMaintenance(pendingData)
       .then(() => {
         form.reset();
+        setShowConfirm(false);
+        setPendingData(null);
         navigate({ to: '/maintenance' });
       })
       .catch((error) => {
         console.error('Error adding maintenance:', error);
+        setShowConfirm(false);
       });
   };
 
@@ -213,6 +226,17 @@ export function AddMaintenance() {
           </Button>
         </Field>
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Create Maintenance Record"
+        description="Are you sure you want to create this maintenance record?"
+        confirmLabel="Create Maintenance"
+        loading={addMaintenanceAction.isLoading}
+        onConfirm={handleConfirmAdd}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 }

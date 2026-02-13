@@ -14,6 +14,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { TrashIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Loading } from '@/components/ui/loader';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
   const { data: sparePart } = useSparePart(sparePartId);
@@ -21,6 +22,9 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [removeImage, setRemoveImage] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] =
+    useState<UpdateSparePartFormData | null>(null);
 
   const form = useSparePartUpdateForm();
 
@@ -36,8 +40,13 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
   }, [sparePart, form]);
 
   const onSubmit = (data: UpdateSparePartFormData) => {
-    if (sparePart) {
-      const { newImage, ...updates } = data;
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmUpdate = () => {
+    if (sparePart && pendingData) {
+      const { newImage, ...updates } = pendingData;
       updateSparePart.mutate(
         {
           id: sparePart.id,
@@ -49,6 +58,8 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
           onSuccess: () => {
             setIsEditing(false);
             setRemoveImage(false);
+            setShowConfirm(false);
+            setPendingData(null);
             navigate({ to: '/spare-parts' });
           }
         }
@@ -235,6 +246,17 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
           </Field>
         )}
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Update Spare Part"
+        description="Are you sure you want to save these changes to the spare part?"
+        confirmLabel="Update Spare Part"
+        loading={updateSparePart.isPending}
+        onConfirm={handleConfirmUpdate}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 };

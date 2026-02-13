@@ -25,6 +25,7 @@ import {
 import { FUEL_TYPE, TRIP_TICKET_STATUS } from '@/lib/enums';
 import { Textarea } from '@/components/ui/textarea';
 import { Loading } from '@/components/ui/loader';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 const TripTicketsInner = () => {
   const { id } = useParams({ from: '/_authenticated/trip-tickets/$id' });
@@ -40,6 +41,9 @@ const TripTicketsInner = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [participants, setParticipants] = useState<string[]>(['']);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] =
+    useState<UpdateTripTicketFormData | null>(null);
 
   const form = useTripTicketUpdateForm();
 
@@ -104,11 +108,15 @@ const TripTicketsInner = () => {
   }, [tripTicket, form]);
 
   const onSubmit = (data: UpdateTripTicketFormData) => {
-    if (tripTicket) {
-      // Convert participants string to array
-      const updates = { ...data } as Record<string, unknown>;
-      if (data.participants) {
-        updates.participants = data.participants
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmUpdate = () => {
+    if (tripTicket && pendingData) {
+      const updates = { ...pendingData } as Record<string, unknown>;
+      if (pendingData.participants) {
+        updates.participants = pendingData.participants
           .split(',')
           .map((p) => p.trim())
           .filter((p) => p.length > 0);
@@ -122,6 +130,8 @@ const TripTicketsInner = () => {
         {
           onSuccess: () => {
             setIsEditing(false);
+            setShowConfirm(false);
+            setPendingData(null);
             navigate({ to: '/trip-tickets' });
           }
         }
@@ -896,6 +906,17 @@ const TripTicketsInner = () => {
           </Field>
         )}
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Update Trip Ticket"
+        description="Are you sure you want to save these changes to the trip ticket?"
+        confirmLabel="Update Trip Ticket"
+        loading={updateTripTicket.isPending}
+        onConfirm={handleConfirmUpdate}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 };

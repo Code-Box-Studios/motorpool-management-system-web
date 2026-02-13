@@ -4,6 +4,7 @@ import { useDrivers } from '@/lib/query/drivers';
 import { useUpdateTripTicket } from '@/lib/mutation/trip-tickets';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
+import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -24,11 +25,16 @@ import { Badge } from '@/components/ui/badge';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import { CheckCircle, XCircle } from 'lucide-react';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 export default function GuardConfirmationPage() {
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
   const updateTripTicket = useUpdateTripTicket();
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'check-out' | 'check-in';
+    ticketId: string;
+  } | null>(null);
 
   const rawBranchId = userRole?.branch_id || user?.user_metadata?.branch_id;
   const isValidUUID = (str: string) => {
@@ -50,27 +56,42 @@ export default function GuardConfirmationPage() {
   const { data: driversData } = useDrivers();
 
   const handlePreTripConfirmation = (ticketId: string) => {
-    updateTripTicket.mutate({
-      id: ticketId,
-      updates: {
-        pre_trip_guard: user?.id,
-        pre_trip_checked_by: user?.id,
-        pre_trip_checked_at: new Date().toISOString(),
-        status: TRIP_TICKET_STATUS.IN_PROGRESS
-      }
-    });
+    setConfirmAction({ type: 'check-out', ticketId });
   };
 
   const handlePostTripConfirmation = (ticketId: string) => {
-    updateTripTicket.mutate({
-      id: ticketId,
-      updates: {
-        post_trip_guard: user?.id,
-        post_trip_checked_by: user?.id,
-        post_trip_checked_at: new Date().toISOString(),
-        status: TRIP_TICKET_STATUS.COMPLETED
-      }
-    });
+    setConfirmAction({ type: 'check-in', ticketId });
+  };
+
+  const handleConfirmAction = () => {
+    if (!confirmAction) return;
+    if (confirmAction.type === 'check-out') {
+      updateTripTicket.mutate(
+        {
+          id: confirmAction.ticketId,
+          updates: {
+            pre_trip_guard: user?.id,
+            pre_trip_checked_by: user?.id,
+            pre_trip_checked_at: new Date().toISOString(),
+            status: TRIP_TICKET_STATUS.IN_PROGRESS
+          }
+        },
+        { onSettled: () => setConfirmAction(null) }
+      );
+    } else {
+      updateTripTicket.mutate(
+        {
+          id: confirmAction.ticketId,
+          updates: {
+            post_trip_guard: user?.id,
+            post_trip_checked_by: user?.id,
+            post_trip_checked_at: new Date().toISOString(),
+            status: TRIP_TICKET_STATUS.COMPLETED
+          }
+        },
+        { onSettled: () => setConfirmAction(null) }
+      );
+    }
   };
 
   const pendingConfirmation = tripTicketsData?.data?.filter(
@@ -221,6 +242,29 @@ export default function GuardConfirmationPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmationModal
+        open={!!confirmAction}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+        title={
+          confirmAction?.type === 'check-out'
+            ? 'Confirm Check Out'
+            : 'Confirm Check In'
+        }
+        description={
+          confirmAction?.type === 'check-out'
+            ? 'Are you sure you want to check out this vehicle? The trip status will be set to In Progress.'
+            : 'Are you sure you want to check in this vehicle? The trip status will be set to Completed.'
+        }
+        confirmLabel={
+          confirmAction?.type === 'check-out' ? 'Check Out' : 'Check In'
+        }
+        loading={updateTripTicket.isPending}
+        onConfirm={handleConfirmAction}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { useDriverForm, type DriverFormData } from '../add-driver/action';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { FormSkeleton } from '@/components/shared/skeleton/form-skeleton';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import { Typography } from '@/components/ui/typography';
 import {
   Select,
@@ -25,6 +26,8 @@ export function DriverDetails({ id }: { id: string }) {
   const updateDriver = useUpdateDriver();
   const form = useDriverForm();
   const [isEditing, setIsEditing] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<DriverFormData | null>(null);
 
   useEffect(() => {
     if (driver) {
@@ -49,14 +52,23 @@ export function DriverDetails({ id }: { id: string }) {
   }, [driver, form]);
 
   const onSubmit = (data: DriverFormData) => {
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmUpdate = () => {
+    if (!pendingData) return;
     updateDriver.mutate(
-      { id, updates: data },
+      { id, updates: pendingData },
       {
         onSuccess: () => {
           setIsEditing(false);
+          setShowConfirm(false);
+          setPendingData(null);
         },
         onError: (error) => {
           toast.error(`Failed to update driver: ${error.message}`);
+          setShowConfirm(false);
         }
       }
     );
@@ -309,6 +321,17 @@ export function DriverDetails({ id }: { id: string }) {
           </Field>
         )}
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Update Driver"
+        description="Are you sure you want to save these changes to the driver details?"
+        confirmLabel="Save Details"
+        loading={updateDriver.isPending}
+        onConfirm={handleConfirmUpdate}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 }

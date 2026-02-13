@@ -10,21 +10,34 @@ import {
 } from './action';
 import { useNavigate } from '@tanstack/react-router';
 import { Textarea } from '@/components/ui/textarea';
+import { useState } from 'react';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 export function AddSparePart() {
   const addSparePartAction = useAddSparePartAction();
   const form = useSparePartForm();
   const navigate = useNavigate();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<SparePartFormData | null>(null);
 
   const onSubmit = (data: SparePartFormData) => {
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmAdd = () => {
+    if (!pendingData) return;
     addSparePartAction
-      .addSparePart(data)
+      .addSparePart(pendingData)
       .then(() => {
         form.reset();
+        setShowConfirm(false);
+        setPendingData(null);
         navigate({ to: '/spare-parts' });
       })
       .catch((error) => {
         console.error('Error adding spare part:', error);
+        setShowConfirm(false);
       });
   };
 
@@ -159,6 +172,17 @@ export function AddSparePart() {
           </Button>
         </Field>
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Add Spare Part"
+        description="Are you sure you want to add this spare part?"
+        confirmLabel="Add Spare Part"
+        loading={addSparePartAction.isLoading}
+        onConfirm={handleConfirmAdd}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 }

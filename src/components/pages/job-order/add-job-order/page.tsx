@@ -26,6 +26,8 @@ import { useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useSpareParts } from '@/lib/query/spare-parts';
 import { MultiSelect } from '@/components/ui/multi-select';
+import { useState } from 'react';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 export function AddJobOrder() {
   const { data: vehicles } = useVehicles(1, 100);
@@ -36,6 +38,8 @@ export function AddJobOrder() {
   const form = useJobOrderForm();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<JobOrderFormData | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -45,14 +49,23 @@ export function AddJobOrder() {
   }, [user, form]);
 
   const onSubmit = (data: JobOrderFormData) => {
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmAdd = () => {
+    if (!pendingData) return;
     addJobOrderAction
-      .addJobOrder(data)
+      .addJobOrder(pendingData)
       .then(() => {
         form.reset();
+        setShowConfirm(false);
+        setPendingData(null);
         navigate({ to: '/job-order' });
       })
       .catch((error) => {
         console.error('Error adding job order:', error);
+        setShowConfirm(false);
       });
   };
 
@@ -289,6 +302,17 @@ export function AddJobOrder() {
           </div>
         </Field>
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Create Job Order"
+        description="Are you sure you want to create this job order?"
+        confirmLabel="Create Job Order"
+        loading={addJobOrderAction.isLoading}
+        onConfirm={handleConfirmAdd}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 }

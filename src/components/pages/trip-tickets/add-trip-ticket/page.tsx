@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 export function AddTripTicket() {
   const { data: drivers, isLoading: driversLoading } = useDrivers(1, 100);
@@ -39,6 +40,8 @@ export function AddTripTicket() {
 
   // State for managing participants list
   const [participants, setParticipants] = useState<string[]>(['']);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<TripTicketFormData | null>(null);
 
   // Get user's branch for filtering
   const userBranchId = userRole?.branch_id || user?.user_metadata?.branch_id;
@@ -58,14 +61,23 @@ export function AddTripTicket() {
   }, [user, form]);
 
   const onSubmit = (data: TripTicketFormData) => {
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmAdd = () => {
+    if (!pendingData) return;
     addTripTicketAction
-      .addTripTicket(data)
+      .addTripTicket(pendingData)
       .then(() => {
         form.reset();
+        setShowConfirm(false);
+        setPendingData(null);
         navigate({ to: '/trip-tickets' });
       })
       .catch((error) => {
         console.error('Error adding trip ticket:', error);
+        setShowConfirm(false);
       });
   };
 
@@ -521,6 +533,17 @@ export function AddTripTicket() {
           </Button>
         </div>
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Submit Trip Ticket"
+        description="Are you sure you want to submit this trip ticket request?"
+        confirmLabel="Submit Request"
+        loading={addTripTicketAction.isLoading}
+        onConfirm={handleConfirmAdd}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 }

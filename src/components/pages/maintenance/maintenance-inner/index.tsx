@@ -21,6 +21,8 @@ import {
 import { MAINTENANCE_TYPE } from '@/lib/enums';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect } from 'react';
+import { ConfirmationModal } from '@/components/shared/confirmation-modal';
+import { useState } from 'react';
 
 export function MaintenanceInner() {
   const { id } = useParams({ from: '/_authenticated/maintenance/$id' });
@@ -31,6 +33,10 @@ export function MaintenanceInner() {
   const updateMaintenanceAction = useUpdateMaintenanceAction(id as string);
   const form = useMaintenanceForm();
   const navigate = useNavigate();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<MaintenanceFormData | null>(
+    null
+  );
 
   useEffect(() => {
     if (maintenance) {
@@ -48,19 +54,28 @@ export function MaintenanceInner() {
   }, [maintenance, form]);
 
   const onSubmit = (data: MaintenanceFormData) => {
+    setPendingData(data);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmUpdate = () => {
+    if (!pendingData) return;
     const transformedData = {
-      ...data,
-      cost: data.cost === '' ? null : Number(data.cost),
-      mileage: data.mileage === '' ? null : Number(data.mileage),
-      next_due: data.next_due === '' ? null : data.next_due
+      ...pendingData,
+      cost: pendingData.cost === '' ? null : Number(pendingData.cost),
+      mileage: pendingData.mileage === '' ? null : Number(pendingData.mileage),
+      next_due: pendingData.next_due === '' ? null : pendingData.next_due
     };
     updateMaintenanceAction
       .updateMaintenanceAction(transformedData)
       .then(() => {
+        setShowConfirm(false);
+        setPendingData(null);
         navigate({ to: '/maintenance' });
       })
       .catch((error) => {
         console.error('Error updating maintenance:', error);
+        setShowConfirm(false);
       });
   };
 
@@ -250,6 +265,17 @@ export function MaintenanceInner() {
           </Button>
         </Field>
       </form>
+
+      <ConfirmationModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title="Update Maintenance Record"
+        description="Are you sure you want to save these changes to the maintenance record?"
+        confirmLabel="Update Maintenance"
+        loading={updateMaintenanceAction.isLoading}
+        onConfirm={handleConfirmUpdate}
+        onCancel={() => setPendingData(null)}
+      />
     </div>
   );
 }
