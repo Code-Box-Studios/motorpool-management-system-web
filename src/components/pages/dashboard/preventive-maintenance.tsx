@@ -9,6 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Typography } from '@/components/ui/typography';
 import { useNavigate } from '@tanstack/react-router';
 import { PreventiveMaintenanceCard } from '@/components/shared/preventive-maintenance-card';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from '@/components/ui/tooltip';
+import { Info } from 'lucide-react';
 
 const vehiclesDueForMaintenance = [
   {
@@ -78,7 +85,36 @@ const PreventiveMaintenance = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>
-            Preventive Maintenance
+            <div className="flex items-center gap-2">
+              <span>Preventive Maintenance</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="text-primary h-4 w-4 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm">
+                    <div className="space-y-1">
+                      <p className="mb-2 text-sm font-semibold">
+                        Preventive Maintenance Schedule
+                      </p>
+                      <p className="text-xs">• Every 6 months - Oil change</p>
+                      <p className="text-xs">
+                        • Every 3 years - Coolant replacement
+                      </p>
+                      <p className="text-xs">
+                        • Every 6 years (maximum) - Tire replacement
+                      </p>
+                      <p className="text-xs">
+                        • As needed based on usage - Brake inspection
+                      </p>
+                      <p className="text-xs">
+                        • Every 100,000 miles - Belt replacement
+                      </p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <Typography variant={'p-sm'} className="font-normal text-gray-500">
               Vehicles due for maintenance based on mileage and service
               intervals
