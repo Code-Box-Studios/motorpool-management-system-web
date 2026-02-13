@@ -40,6 +40,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
 import { useMemo, useState } from 'react';
 import PreventiveMaintenance from '../dashboard/preventive-maintenance';
+import PredictiveMaintenance from '../dashboard/predictive-maintenance';
 
 const MaintenancePage = () => {
   const { data: tableData, isLoading: isTableLoading } = useMaintenances(
@@ -92,9 +93,10 @@ const MaintenancePage = () => {
 
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-      <TabsList className="grid w-full max-w-2xl grid-cols-2">
+      <TabsList className="grid w-full max-w-2xl grid-cols-3">
         <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="preventive">Preventive</TabsTrigger>
+        <TabsTrigger value="preventive">Preventive</TabsTrigger>
+        <TabsTrigger value="predictive">Predictive</TabsTrigger>
       </TabsList>
       <TabsContent value="schedule" className="mt-6">
         <Card>
@@ -280,6 +282,9 @@ const MaintenancePage = () => {
       </TabsContent>
       <TabsContent value="preventive" className="mt-6">
         <PreventiveMaintenance showViewAll={false} />
+      </TabsContent>
+      <TabsContent value="predictive" className="mt-6">
+        <PredictiveMaintenance showViewAll={false} />
       </TabsContent>
     </Tabs>
   );

@@ -17,6 +17,7 @@ import EvpApprovalPage from '@/components/pages/job-order/evp-approval';
 import { useUserRole } from '@/hooks/use-user-role';
 import { USER_ROLES } from '@/lib/enums';
 import PreventiveMaintenance from './preventive-maintenance';
+import PredictiveMaintenance from './predictive-maintenance';
 
 // Davao City route coordinates
 const davaoCityRoute = [
@@ -136,8 +137,9 @@ const Dashboard = () => {
         <MetricCard title="Trips Completed" value={183} />
       </div>
 
-      <div>
+      <div className="grid h-full grid-cols-2 gap-5">
         <PreventiveMaintenance />
+        <PredictiveMaintenance />
       </div>
 
       <Card>

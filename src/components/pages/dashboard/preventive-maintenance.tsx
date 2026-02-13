@@ -76,12 +76,20 @@ const PreventiveMaintenance = ({
     });
   };
 
+  const highPriorityByOldest = [...vehiclesDueForMaintenance]
+    .filter((v) => v.priority === 'high')
+    .sort(
+      (a, b) =>
+        new Date(a.lastMaintenance).getTime() -
+        new Date(b.lastMaintenance).getTime()
+    );
+
   const displayedVehicles = showViewAll
-    ? vehiclesDueForMaintenance.slice(0, 4)
+    ? highPriorityByOldest.slice(0, 2)
     : vehiclesDueForMaintenance;
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>
@@ -128,7 +136,9 @@ const PreventiveMaintenance = ({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div
+          className={`grid gap-4 ${showViewAll ? 'grid-cols-1 md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-4'}`}
+        >
           {displayedVehicles.map((vehicle) => (
             <PreventiveMaintenanceCard
               key={vehicle.id}

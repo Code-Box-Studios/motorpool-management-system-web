@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Calendar, Gauge } from 'lucide-react';
+import { AlertTriangle, Calendar, Gauge, TrendingUp } from 'lucide-react';
 
 interface PreventiveMaintenanceCardProps {
   id: string;
@@ -11,6 +11,7 @@ interface PreventiveMaintenanceCardProps {
   lastMaintenance: string;
   priority: 'high' | 'medium' | 'low';
   reason: string;
+  predictedSchedule?: string;
 }
 
 export const PreventiveMaintenanceCard = ({
@@ -20,7 +21,8 @@ export const PreventiveMaintenanceCard = ({
   maintenanceDue,
   lastMaintenance,
   priority,
-  reason
+  reason,
+  predictedSchedule
 }: PreventiveMaintenanceCardProps) => {
   return (
     <Card>
@@ -56,11 +58,20 @@ export const PreventiveMaintenanceCard = ({
                 {new Date(lastMaintenance).toLocaleDateString()}
               </span>
             </div>
+            {predictedSchedule && (
+              <div className="flex items-start gap-2 text-sm">
+                <TrendingUp className="h-4 w-4 text-blue-500" />
+                <span className="text-muted-foreground">Parts:</span>
+                <span className="font-medium">{predictedSchedule}</span>
+              </div>
+            )}
           </div>
 
-          <div className="border-t pt-2">
-            <p className="text-muted-foreground text-sm italic">{reason}</p>
-          </div>
+          {!predictedSchedule && (
+            <div className="border-t pt-2">
+              <p className="text-muted-foreground text-sm italic">{reason}</p>
+            </div>
+          )}
 
           <div className="h-2 w-full rounded-full bg-gray-200">
             <div
