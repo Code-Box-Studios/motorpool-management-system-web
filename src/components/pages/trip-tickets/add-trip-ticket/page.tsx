@@ -41,7 +41,9 @@ export function AddTripTicket() {
   // State for managing participants list
   const [participants, setParticipants] = useState<string[]>(['']);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [pendingData, setPendingData] = useState<TripTicketFormData | null>(null);
+  const [pendingData, setPendingData] = useState<TripTicketFormData | null>(
+    null
+  );
 
   // Get user's branch for filtering
   const userBranchId = userRole?.branch_id || user?.user_metadata?.branch_id;

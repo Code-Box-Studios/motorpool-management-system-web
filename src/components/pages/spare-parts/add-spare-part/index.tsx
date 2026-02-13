@@ -18,7 +18,9 @@ export function AddSparePart() {
   const form = useSparePartForm();
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
-  const [pendingData, setPendingData] = useState<SparePartFormData | null>(null);
+  const [pendingData, setPendingData] = useState<SparePartFormData | null>(
+    null
+  );
 
   const onSubmit = (data: SparePartFormData) => {
     setPendingData(data);

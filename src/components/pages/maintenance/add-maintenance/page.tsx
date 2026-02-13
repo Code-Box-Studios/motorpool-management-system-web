@@ -28,7 +28,9 @@ export function AddMaintenance() {
   const form = useMaintenanceForm();
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
-  const [pendingData, setPendingData] = useState<MaintenanceFormData | null>(null);
+  const [pendingData, setPendingData] = useState<MaintenanceFormData | null>(
+    null
+  );
 
   const onSubmit = (data: MaintenanceFormData) => {
     setPendingData(data);
