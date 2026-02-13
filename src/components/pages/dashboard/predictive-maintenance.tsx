@@ -172,6 +172,7 @@ const PredictiveMaintenance = ({
                   'Predicted next: ',
                   ''
                 )}
+                predictedDate={vehicle.predictedDate}
               />
             ))}
           </div>

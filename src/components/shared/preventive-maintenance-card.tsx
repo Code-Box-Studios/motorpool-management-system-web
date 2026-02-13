@@ -12,6 +12,7 @@ interface PreventiveMaintenanceCardProps {
   priority: 'high' | 'medium' | 'low';
   reason: string;
   predictedSchedule?: string;
+  predictedDate?: string;
 }
 
 export const PreventiveMaintenanceCard = ({
@@ -22,7 +23,8 @@ export const PreventiveMaintenanceCard = ({
   lastMaintenance,
   priority,
   reason,
-  predictedSchedule
+  predictedSchedule,
+  predictedDate
 }: PreventiveMaintenanceCardProps) => {
   return (
     <Card>
@@ -65,6 +67,15 @@ export const PreventiveMaintenanceCard = ({
                 <span className="font-medium">{predictedSchedule}</span>
               </div>
             )}
+            {predictedDate && (
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="text-muted-foreground h-4 w-4" />
+                <span className="text-muted-foreground">Predicted:</span>
+                <span className="font-medium">
+                  {new Date(predictedDate).toLocaleDateString()}
+                </span>
+              </div>
+            )}
           </div>
 
           {!predictedSchedule && (
@@ -73,16 +84,18 @@ export const PreventiveMaintenanceCard = ({
             </div>
           )}
 
-          <div className="h-2 w-full rounded-full bg-gray-200">
-            <div
-              className={`h-2 rounded-full ${
-                priority === 'high' ? 'bg-red-500' : 'bg-orange-500'
-              }`}
-              style={{
-                width: `${(mileage / maintenanceDue) * 100}%`
-              }}
-            ></div>
-          </div>
+          {!predictedSchedule && (
+            <div className="h-2 w-full rounded-full bg-gray-200">
+              <div
+                className={`h-2 rounded-full ${
+                  priority === 'high' ? 'bg-red-500' : 'bg-orange-500'
+                }`}
+                style={{
+                  width: `${(mileage / maintenanceDue) * 100}%`
+                }}
+              ></div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
