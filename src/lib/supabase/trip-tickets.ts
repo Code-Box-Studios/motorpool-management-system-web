@@ -1,4 +1,5 @@
 import { supabase } from '.';
+import QRCode from 'qrcode';
 import type { TripTicket, NewTripTicket, UpdateTripTicket,  } from '../types';
 
 // Extend UpdateTripTicket to allow allocation_liters as string for form handling
@@ -6,11 +7,43 @@ type UpdateTripTicketWithStringLiters = Omit<UpdateTripTicket, 'allocation_liter
   allocation_liters?: string | number | null;
 };
 
+const uploadTripTicketQrCode = async (tripTicketId: string): Promise<string> => {
+  const qrSvg = await QRCode.toString(tripTicketId, {
+    type: 'svg',
+    margin: 1,
+    width: 256
+  });
+
+  const svgBlob = new Blob([qrSvg], {
+    type: 'image/svg+xml;charset=utf-8'
+  });
+
+  const filePath = `trip-tickets/qr/${tripTicketId}.svg`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('um-mms')
+    .upload(filePath, svgBlob, {
+      contentType: 'image/svg+xml',
+      upsert: true
+    });
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from('um-mms')
+    .getPublicUrl(filePath);
+
+  return publicUrlData.publicUrl;
+};
+
 export const getTripTickets = async (
   page: number = 1,
   limit: number = 10,
   userId?: string,
-  branchId?: string
+  branchId?: string,
+  driverId?: string
 ): Promise<{ data: TripTicket[]; count: number | null }> => {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
@@ -26,6 +59,11 @@ export const getTripTickets = async (
   // Filter by branch_id if branchId is provided (for admin role)
   if (branchId) {
     query = query.eq('branch_id', branchId);
+  }
+
+  // Filter by driver_id if driverId is provided (for driver role)
+  if (driverId) {
+    query = query.eq('driver_id', driverId);
   }
   
   const { data, error, count } = await query
@@ -99,7 +137,31 @@ export const createTripTicket = async (
       throw error;
     }
 
-    return data as TripTicket;
+    const createdTripTicket = data as TripTicket;
+
+    try {
+      const qrPath = await uploadTripTicketQrCode(createdTripTicket.id);
+
+      const { data: updatedTripTicket, error: qrUpdateError } = await supabase
+        .from('trip_tickets')
+        .update({
+          qr_id: createdTripTicket.id,
+          qr_path: qrPath
+        })
+        .eq('id', createdTripTicket.id)
+        .select()
+        .single();
+
+      if (qrUpdateError) {
+        throw qrUpdateError;
+      }
+
+      return updatedTripTicket as TripTicket;
+    } catch (qrError) {
+      console.error('Error creating/uploading trip ticket QR code:', qrError);
+      return createdTripTicket;
+    }
+
   } catch (error) {
     console.error('Error in createTripTicket:', error);
     throw error;
@@ -131,6 +193,8 @@ export const updateTripTicket = async (
     if (updates.branch_id !== undefined) cleanedUpdates.branch_id = updates.branch_id;
     if (updates.office_id !== undefined) cleanedUpdates.office_id = updates.office_id === '' ? null : updates.office_id;
     if (updates.office_head_id !== undefined) cleanedUpdates.office_head_id = updates.office_head_id === '' ? null : updates.office_head_id;
+    if (updates.qr_id !== undefined) cleanedUpdates.qr_id = updates.qr_id === '' ? null : updates.qr_id;
+    if (updates.qr_path !== undefined) cleanedUpdates.qr_path = updates.qr_path === '' ? null : updates.qr_path;
     
     // Handle participants array conversion
     if (updates.participants !== undefined) {

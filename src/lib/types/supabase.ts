@@ -879,6 +879,8 @@ export type Database = {
           pre_trip_guard: string | null
           prepared_by: string
           purpose: string
+          qr_id: string | null
+          qr_path: string | null
           remarks: string | null
           requested_by: string | null
           start_ts: string | null
@@ -920,6 +922,8 @@ export type Database = {
           pre_trip_guard?: string | null
           prepared_by: string
           purpose: string
+          qr_id?: string | null
+          qr_path?: string | null
           remarks?: string | null
           requested_by?: string | null
           start_ts?: string | null
@@ -961,6 +965,8 @@ export type Database = {
           pre_trip_guard?: string | null
           prepared_by?: string
           purpose?: string
+          qr_id?: string | null
+          qr_path?: string | null
           remarks?: string | null
           requested_by?: string | null
           start_ts?: string | null

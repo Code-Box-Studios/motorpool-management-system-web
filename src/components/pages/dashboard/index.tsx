@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Play, Square } from 'lucide-react';
 import GuardConfirmationPage from '@/components/pages/trip-tickets/guard-confirmation';
+import DriverDashboard from '@/components/pages/trip-tickets/driver-dashboard';
 import EvpApprovalPage from '@/components/pages/job-order/evp-approval';
 import { useUserRole } from '@/hooks/use-user-role';
 import { USER_ROLES } from '@/lib/enums';
@@ -118,6 +119,11 @@ const Dashboard = () => {
   // If user is EVP Operations, show the approval page
   if (userRoleName === USER_ROLES.evp_operations) {
     return <EvpApprovalPage />;
+  }
+
+  // If user is driver, show only assigned trip tickets dashboard
+  if (userRoleName === USER_ROLES.driver) {
+    return <DriverDashboard />;
   }
 
   if (gpsLoading) {

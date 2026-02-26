@@ -26,6 +26,7 @@ import { FUEL_TYPE, TRIP_TICKET_STATUS } from '@/lib/enums';
 import { Textarea } from '@/components/ui/textarea';
 import { Loading } from '@/components/ui/loader';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
+import QRCode from 'react-qr-code';
 
 const TripTicketsInner = () => {
   const { id } = useParams({ from: '/_authenticated/trip-tickets/$id' });
@@ -145,6 +146,25 @@ const TripTicketsInner = () => {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Trip Ticket Details</h1>
+      </div>
+
+      <div className="mb-6 flex flex-col gap-4 rounded-lg border p-4">
+        {/* <h2 className="text-lg font-semibold">Trip Ticket QR Code</h2> */}
+        <div className="bg-background w-fit rounded-md border p-3">
+          <QRCode value={tripTicket.id} size={160} />
+        </div>
+        {/* <div className="flex flex-wrap items-center gap-3">
+          {tripTicket.qr_path ? (
+            <a
+              href={tripTicket.qr_path}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm underline"
+            >
+              View Uploaded QR
+            </a>
+          ) : null}
+        </div> */}
       </div>
 
       <form

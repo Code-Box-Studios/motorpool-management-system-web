@@ -51,6 +51,56 @@ export const signUp = async (
   });
   if (error) throw error as AuthError;
   if (!data.user) throw new Error('No user data returned');
+
+  const userId = data.user.id;
+
+  const { error: profileUpsertError } = await supabase.from('user_profiles').upsert(
+    {
+      id: userId,
+      full_name: fullName,
+      email,
+      branch_id: branchId,
+      avatar_url: avatarUrl || null
+    },
+    { onConflict: 'id' }
+  );
+
+  if (profileUpsertError) {
+    console.error('Error upserting user profile during sign up:', profileUpsertError);
+  }
+
+  const { error: userRoleUpsertError } = await supabase.from('user_roles').upsert(
+    {
+      user_id: userId,
+      role_id: roleId,
+      role: roleData.name,
+      branch_id: branchId,
+      avatar_url: avatarUrl || null
+    },
+    { onConflict: 'user_id' }
+  );
+
+  if (userRoleUpsertError) {
+    console.error('Error upserting user role during sign up:', userRoleUpsertError);
+  }
+
+  if (roleData.name === 'driver') {
+    const { error: driverUpsertError } = await supabase.from('drivers').upsert(
+      {
+        id: userId,
+        full_name: fullName,
+        email,
+        branch_id: branchId,
+        status: 'Active'
+      },
+      { onConflict: 'id' }
+    );
+
+    if (driverUpsertError) {
+      console.error('Error upserting driver during sign up:', driverUpsertError);
+    }
+  }
+
   return { user: data.user, session: data.session };
 };
 

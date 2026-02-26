@@ -6,26 +6,29 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
 import { useState } from 'react';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog';
+import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import { CheckCircle, XCircle } from 'lucide-react';
-import { ConfirmationModal } from '@/components/shared/confirmation-modal';
+import { Scanner } from '@yudiel/react-qr-scanner';
+import { toast } from 'sonner';
 
 export default function GuardConfirmationPage() {
   const { user } = useAuth();
@@ -35,6 +38,9 @@ export default function GuardConfirmationPage() {
     type: 'check-out' | 'check-in';
     ticketId: string;
   } | null>(null);
+  const [isQrVerified, setIsQrVerified] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const [scanError, setScanError] = useState('');
 
   const rawBranchId = userRole?.branch_id || user?.user_metadata?.branch_id;
   const isValidUUID = (str: string) => {
@@ -56,15 +62,56 @@ export default function GuardConfirmationPage() {
   const { data: driversData } = useDrivers();
 
   const handlePreTripConfirmation = (ticketId: string) => {
+    setIsQrVerified(false);
+    setCameraError('');
+    setScanError('');
     setConfirmAction({ type: 'check-out', ticketId });
   };
 
   const handlePostTripConfirmation = (ticketId: string) => {
+    setIsQrVerified(false);
+    setCameraError('');
+    setScanError('');
     setConfirmAction({ type: 'check-in', ticketId });
   };
 
-  const handleConfirmAction = () => {
+  const closeQrDialog = () => {
+    setConfirmAction(null);
+    setIsQrVerified(false);
+    setCameraError('');
+    setScanError('');
+  };
+
+  const handleScanResult = (detectedCodes: Array<{ rawValue?: string }>) => {
+    if (!confirmAction || isQrVerified || !detectedCodes.length) return;
+
+    const scannedId = (detectedCodes[0]?.rawValue || '').trim().toLowerCase();
+    const expectedId = confirmAction.ticketId.trim().toLowerCase();
+
+    if (!scannedId) return;
+
+    if (scannedId !== expectedId) {
+      setScanError('Scanned QR code does not match the selected trip ticket.');
+      return;
+    }
+
+    setScanError('');
+    setCameraError('');
+    setIsQrVerified(true);
+    toast.success('QR verified. You can proceed.');
+  };
+
+  const handleConfirmAction = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
     if (!confirmAction) return;
+
+    if (!isQrVerified) {
+      setScanError('Scan a valid QR code using the camera before continuing.');
+      return;
+    }
+
+    setScanError('');
+
     if (confirmAction.type === 'check-out') {
       updateTripTicket.mutate(
         {
@@ -76,7 +123,7 @@ export default function GuardConfirmationPage() {
             status: TRIP_TICKET_STATUS.IN_PROGRESS
           }
         },
-        { onSettled: () => setConfirmAction(null) }
+        { onSettled: closeQrDialog }
       );
     } else {
       updateTripTicket.mutate(
@@ -89,7 +136,7 @@ export default function GuardConfirmationPage() {
             status: TRIP_TICKET_STATUS.COMPLETED
           }
         },
-        { onSettled: () => setConfirmAction(null) }
+        { onSettled: closeQrDialog }
       );
     }
   };
@@ -141,130 +188,175 @@ export default function GuardConfirmationPage() {
           {isLoading ? (
             <TableSkeleton />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Destination</TableHead>
-                  <TableHead>Vehicle</TableHead>
-                  <TableHead>Driver</TableHead>
-                  <TableHead>Start Date</TableHead>
-                  <TableHead>End Date</TableHead>
-                  <TableHead>Pre-Trip</TableHead>
-                  <TableHead>Post-Trip</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pendingConfirmation && pendingConfirmation.length > 0 ? (
-                  pendingConfirmation.map((ticket) => (
-                    <TableRow key={ticket.id}>
-                      <TableCell>
+            <div className="grid gap-4 md:grid-cols-2">
+              {pendingConfirmation && pendingConfirmation.length > 0 ? (
+                pendingConfirmation.map((ticket) => (
+                  <Card key={ticket.id}>
+                    <CardHeader className="gap-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <CardTitle className="text-base">
+                          {ticket.destination}
+                        </CardTitle>
                         <Badge
                           variant={getStatusBadgeVariant(ticket.status || '')}
                           className="capitalize"
                         >
                           {ticket.status?.replace(/_/g, ' ')}
                         </Badge>
-                      </TableCell>
-                      <TableCell>{ticket.destination}</TableCell>
-                      <TableCell>{getVehicleName(ticket.vehicle_id)}</TableCell>
-                      <TableCell>{getDriverName(ticket.driver_id)}</TableCell>
-                      <TableCell>
-                        {ticket.start_ts
-                          ? new Date(ticket.start_ts).toLocaleString()
-                          : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {ticket.end_ts
-                          ? new Date(ticket.end_ts).toLocaleString()
-                          : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {ticket.pre_trip_guard ? (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-gray-400" />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {ticket.post_trip_guard ? (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-gray-400" />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          {!ticket.pre_trip_guard &&
-                            ticket.status === TRIP_TICKET_STATUS.APPROVED && (
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  handlePreTripConfirmation(ticket.id)
-                                }
-                                disabled={updateTripTicket.isPending}
-                              >
-                                Check Out
-                              </Button>
-                            )}
-                          {ticket.pre_trip_guard &&
-                            !ticket.post_trip_guard &&
-                            ticket.status ===
-                              TRIP_TICKET_STATUS.IN_PROGRESS && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() =>
-                                  handlePostTripConfirmation(ticket.id)
-                                }
-                                disabled={updateTripTicket.isPending}
-                              >
-                                Check In
-                              </Button>
-                            )}
+                      </div>
+                      <CardDescription className="break-all">
+                        Trip Ticket ID: {ticket.id}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid gap-2 text-sm">
+                        <p>
+                          <strong>Vehicle:</strong>{' '}
+                          {getVehicleName(ticket.vehicle_id)}
+                        </p>
+                        <p>
+                          <strong>Driver:</strong>{' '}
+                          {getDriverName(ticket.driver_id)}
+                        </p>
+                        <p>
+                          <strong>Start:</strong>{' '}
+                          {ticket.start_ts
+                            ? new Date(ticket.start_ts).toLocaleString()
+                            : 'N/A'}
+                        </p>
+                        <p>
+                          <strong>End:</strong>{' '}
+                          {ticket.end_ts
+                            ? new Date(ticket.end_ts).toLocaleString()
+                            : 'N/A'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-6 text-sm">
+                        <div className="flex items-center gap-2">
+                          {ticket.pre_trip_guard ? (
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <XCircle className="h-5 w-5 text-gray-400" />
+                          )}
+                          <span>Pre-Trip</span>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={9}
-                      className="text-muted-foreground text-center"
-                    >
-                      No trip tickets pending confirmation
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                        <div className="flex items-center gap-2">
+                          {ticket.post_trip_guard ? (
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <XCircle className="h-5 w-5 text-gray-400" />
+                          )}
+                          <span>Post-Trip</span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        {!ticket.pre_trip_guard &&
+                          ticket.status === TRIP_TICKET_STATUS.APPROVED && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                handlePreTripConfirmation(ticket.id)
+                              }
+                              disabled={updateTripTicket.isPending}
+                            >
+                              Check Out
+                            </Button>
+                          )}
+                        {ticket.pre_trip_guard &&
+                          !ticket.post_trip_guard &&
+                          ticket.status === TRIP_TICKET_STATUS.IN_PROGRESS && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() =>
+                                handlePostTripConfirmation(ticket.id)
+                              }
+                              disabled={updateTripTicket.isPending}
+                            >
+                              Check In
+                            </Button>
+                          )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <div className="text-muted-foreground py-8 text-center md:col-span-2">
+                  No trip tickets pending confirmation
+                </div>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
 
-      <ConfirmationModal
+      <AlertDialog
         open={!!confirmAction}
         onOpenChange={(open) => {
-          if (!open) setConfirmAction(null);
+          if (!open) closeQrDialog();
         }}
-        title={
-          confirmAction?.type === 'check-out'
-            ? 'Confirm Check Out'
-            : 'Confirm Check In'
-        }
-        description={
-          confirmAction?.type === 'check-out'
-            ? 'Are you sure you want to check out this vehicle? The trip status will be set to In Progress.'
-            : 'Are you sure you want to check in this vehicle? The trip status will be set to Completed.'
-        }
-        confirmLabel={
-          confirmAction?.type === 'check-out' ? 'Check Out' : 'Check In'
-        }
-        loading={updateTripTicket.isPending}
-        onConfirm={handleConfirmAction}
-        onCancel={() => setConfirmAction(null)}
-      />
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.type === 'check-out'
+                ? 'Scan QR for Check Out'
+                : 'Scan QR for Check In'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Use the camera to scan the driver QR code for this trip.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-2">
+            <div className="overflow-hidden rounded-md border">
+              <Scanner
+                constraints={{ facingMode: 'environment' }}
+                onScan={handleScanResult}
+                onError={(error) => {
+                  console.error('QR camera error:', error);
+                  setCameraError(
+                    'Unable to access camera. Please allow camera permission.'
+                  );
+                }}
+                styles={{ container: { width: '100%' } }}
+              />
+            </div>
+            {isQrVerified ? (
+              <p className="text-sm text-green-600">
+                QR verified. Ready to continue.
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-xs">
+                Point the camera at the driver QR code.
+              </p>
+            )}
+            {cameraError ? (
+              <p className="text-sm text-red-500">{cameraError}</p>
+            ) : null}
+            {scanError ? (
+              <p className="text-sm text-red-500">{scanError}</p>
+            ) : null}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={updateTripTicket.isPending}
+              onClick={closeQrDialog}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={updateTripTicket.isPending || !isQrVerified}
+              onClick={handleConfirmAction}
+            >
+              {confirmAction?.type === 'check-out' ? 'Check Out' : 'Check In'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
