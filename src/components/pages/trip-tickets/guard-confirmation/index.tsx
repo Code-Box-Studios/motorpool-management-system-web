@@ -41,6 +41,12 @@ export default function GuardConfirmationPage() {
   const [isQrVerified, setIsQrVerified] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [scanError, setScanError] = useState('');
+  const extractUuid = (value: string) => {
+    const match = value
+      .toLowerCase()
+      .match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);
+    return match?.[0] || null;
+  };
 
   const rawBranchId = userRole?.branch_id || user?.user_metadata?.branch_id;
   const isValidUUID = (str: string) => {
@@ -85,10 +91,20 @@ export default function GuardConfirmationPage() {
   const handleScanResult = (detectedCodes: Array<{ rawValue?: string }>) => {
     if (!confirmAction || isQrVerified || !detectedCodes.length) return;
 
-    const scannedId = (detectedCodes[0]?.rawValue || '').trim().toLowerCase();
-    const expectedId = confirmAction.ticketId.trim().toLowerCase();
+    const rawScannedValue = (detectedCodes[0]?.rawValue || '').trim();
+    const scannedId = extractUuid(rawScannedValue);
+    const expectedId =
+      extractUuid(confirmAction.ticketId) ||
+      confirmAction.ticketId.trim().toLowerCase();
 
-    if (!scannedId) return;
+    if (!rawScannedValue) return;
+
+    if (!scannedId) {
+      setScanError(
+        'Scanned QR code is invalid. Please scan a valid trip ticket QR.'
+      );
+      return;
+    }
 
     if (scannedId !== expectedId) {
       setScanError('Scanned QR code does not match the selected trip ticket.');
