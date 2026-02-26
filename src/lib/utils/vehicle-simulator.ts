@@ -46,7 +46,7 @@ class VehicleSimulator {
   private vehicleId: string;
   private route: Array<{ lat: number; lng: number }>;
   private currentIndex: number = 0;
-  private intervalId: number | null = null;
+  private intervalId: NodeJS.Timeout | null = null;
   private speed: number;
   private loop: boolean;
   private isRunning: boolean = false;
