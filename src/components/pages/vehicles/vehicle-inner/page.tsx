@@ -28,6 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Loading } from '@/components/ui/loader';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
+import { VehicleMaintenanceInsights } from './vehicle-maintenance-insights';
 
 const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   const { data: vehicle } = useVehicle(vehicleId);
@@ -532,6 +533,8 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
         onConfirm={handleConfirmUpdate}
         onCancel={() => setPendingData(null)}
       />
+
+      <VehicleMaintenanceInsights vehicleId={vehicleId} />
     </div>
   );
 };

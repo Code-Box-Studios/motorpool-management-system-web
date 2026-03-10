@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Calendar, Gauge, TrendingUp } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
 
 interface PreventiveMaintenanceCardProps {
   id: string;
@@ -16,6 +17,7 @@ interface PreventiveMaintenanceCardProps {
 }
 
 export const PreventiveMaintenanceCard = ({
+  id,
   plateNumber,
   vehicleName,
   mileage,
@@ -28,11 +30,17 @@ export const PreventiveMaintenanceCard = ({
 }: PreventiveMaintenanceCardProps) => {
   return (
     <Card>
-      <CardContent className="pt-6">
+      <CardContent>
         <div className="space-y-3">
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="text-lg font-semibold">{vehicleName}</h3>
+              <Link
+                to="/vehicles/$vehicleId"
+                params={{ vehicleId: id }}
+                className="text-lg font-semibold hover:underline"
+              >
+                {vehicleName}
+              </Link>
               <p className="text-muted-foreground text-sm">{plateNumber}</p>
             </div>
             <Badge variant={priority === 'high' ? 'destructive' : 'default'}>

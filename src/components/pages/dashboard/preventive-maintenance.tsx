@@ -16,49 +16,9 @@ import {
   TooltipTrigger
 } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
-
-const vehiclesDueForMaintenance = [
-  {
-    id: '1',
-    plateNumber: 'ABC-1234',
-    vehicleName: 'Toyota Hilux',
-    mileage: 48500,
-    maintenanceDue: 50000,
-    lastMaintenance: '2025-11-15',
-    priority: 'high' as const,
-    reason: 'Approaching 50,000 km service interval'
-  },
-  {
-    id: '2',
-    plateNumber: 'XYZ-5678',
-    vehicleName: 'Mitsubishi L300',
-    mileage: 29800,
-    maintenanceDue: 30000,
-    lastMaintenance: '2025-10-20',
-    priority: 'high' as const,
-    reason: 'Scheduled 30,000 km maintenance due'
-  },
-  {
-    id: '3',
-    plateNumber: 'DEF-9012',
-    vehicleName: 'Isuzu D-Max',
-    mileage: 23400,
-    maintenanceDue: 25000,
-    lastMaintenance: '2025-12-01',
-    priority: 'medium' as const,
-    reason: 'Preventive maintenance approaching'
-  },
-  {
-    id: '4',
-    plateNumber: 'GHI-3456',
-    vehicleName: 'Ford Ranger',
-    mileage: 19200,
-    maintenanceDue: 20000,
-    lastMaintenance: '2025-11-28',
-    priority: 'medium' as const,
-    reason: '20,000 km service approaching'
-  }
-];
+import { usePredictiveMaintenanceData } from '@/lib/query/analytics';
+import { getNextMaintenanceDueMileage } from '@/lib/utils/predictive-maintenance';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface PreventiveMaintenanceProps {
   showViewAll?: boolean;
@@ -68,6 +28,7 @@ const PreventiveMaintenance = ({
   showViewAll = true
 }: PreventiveMaintenanceProps) => {
   const navigate = useNavigate();
+  const { data: predictions, isLoading } = usePredictiveMaintenanceData();
 
   const handleViewAll = () => {
     navigate({
@@ -75,6 +36,32 @@ const PreventiveMaintenance = ({
       search: { tab: 'preventive' }
     });
   };
+
+  // Map predictions to preventive maintenance view:
+  // show vehicles approaching their next maintenance due mileage
+  const vehiclesDueForMaintenance = (predictions ?? []).map((v) => {
+    const maintenanceDue = getNextMaintenanceDueMileage(v.mileage);
+    const kmRemaining = maintenanceDue - v.mileage;
+    let reason: string;
+    if (kmRemaining <= 0) {
+      reason = `Overdue for ${maintenanceDue.toLocaleString()} km service`;
+    } else if (kmRemaining <= 500) {
+      reason = `Approaching ${maintenanceDue.toLocaleString()} km service interval`;
+    } else {
+      reason = `${kmRemaining.toLocaleString()} km until next scheduled service`;
+    }
+
+    return {
+      id: v.vehicleId,
+      plateNumber: v.licensePlate,
+      vehicleName: v.vehicleName,
+      mileage: v.mileage,
+      maintenanceDue,
+      lastMaintenance: v.lastMaintenanceDate ?? 'N/A',
+      priority: v.priority,
+      reason
+    };
+  });
 
   const highPriorityByOldest = [...vehiclesDueForMaintenance]
     .filter((v) => v.priority === 'high')
@@ -136,23 +123,37 @@ const PreventiveMaintenance = ({
         </div>
       </CardHeader>
       <CardContent>
-        <div
-          className={`grid gap-4 ${showViewAll ? 'grid-cols-1 md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-4'}`}
-        >
-          {displayedVehicles.map((vehicle) => (
-            <PreventiveMaintenanceCard
-              key={vehicle.id}
-              id={vehicle.id}
-              plateNumber={vehicle.plateNumber}
-              vehicleName={vehicle.vehicleName}
-              mileage={vehicle.mileage}
-              maintenanceDue={vehicle.maintenanceDue}
-              lastMaintenance={vehicle.lastMaintenance}
-              priority={vehicle.priority}
-              reason={vehicle.reason}
-            />
-          ))}
-        </div>
+        {isLoading ? (
+          <div
+            className={`grid gap-4 ${showViewAll ? 'grid-cols-1 md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-4'}`}
+          >
+            {Array.from({ length: showViewAll ? 2 : 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-48 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : displayedVehicles.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No vehicles currently due for preventive maintenance.
+          </p>
+        ) : (
+          <div
+            className={`grid gap-4 ${showViewAll ? 'grid-cols-1 md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-4'}`}
+          >
+            {displayedVehicles.map((vehicle) => (
+              <PreventiveMaintenanceCard
+                key={vehicle.id}
+                id={vehicle.id}
+                plateNumber={vehicle.plateNumber}
+                vehicleName={vehicle.vehicleName}
+                mileage={vehicle.mileage}
+                maintenanceDue={vehicle.maintenanceDue}
+                lastMaintenance={vehicle.lastMaintenance}
+                priority={vehicle.priority}
+                reason={vehicle.reason}
+              />
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

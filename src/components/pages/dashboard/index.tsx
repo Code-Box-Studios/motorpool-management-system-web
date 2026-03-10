@@ -19,6 +19,10 @@ import { useUserRole } from '@/hooks/use-user-role';
 import { USER_ROLES } from '@/lib/enums';
 import PreventiveMaintenance from './preventive-maintenance';
 import PredictiveMaintenance from './predictive-maintenance';
+import {
+  useVehicleStatusCounts,
+  useCompletedTripsCount
+} from '@/lib/query/analytics';
 
 // Davao City route coordinates
 const davaoCityRoute = [
@@ -37,6 +41,8 @@ const Dashboard = () => {
   const { data: vehiclesData } = useVehicles(1, 100);
   const insertGps = useInsertGpsData();
   const { data: userRole } = useUserRole();
+  const { data: statusCounts } = useVehicleStatusCounts();
+  const { data: completedTrips } = useCompletedTripsCount();
 
   const [isDemoRunning, setIsDemoRunning] = useState(false);
   const [currentRouteIndex, setCurrentRouteIndex] = useState(0);
@@ -137,10 +143,16 @@ const Dashboard = () => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-5">
-        <MetricCard title="Available Vehicles" value={11} />
-        <MetricCard title="Under Maintenance" value={5} />
-        <MetricCard title="Waiting for Spare Parts" value={6} />
-        <MetricCard title="Trips Completed" value={183} />
+        <MetricCard
+          title="Available Vehicles"
+          value={statusCounts?.available ?? 0}
+        />
+        <MetricCard
+          title="Under Maintenance"
+          value={statusCounts?.underMaintenance ?? 0}
+        />
+        <MetricCard title="On Trip" value={statusCounts?.onTrip ?? 0} />
+        <MetricCard title="Trips Completed" value={completedTrips ?? 0} />
       </div>
 
       <div className="grid h-full grid-cols-2 gap-5">
