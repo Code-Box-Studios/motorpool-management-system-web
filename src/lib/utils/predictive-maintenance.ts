@@ -1,8 +1,11 @@
 /**
  * Predictive Maintenance Risk Scoring Algorithm
  *
- * Implements a rule-based risk scoring system inspired by the Random Forest
- * classifier from mms_randomforest.py. Uses the same features:
+ * Loads a trained Random Forest model from public/ml/rf_maintenance_model.json
+ * and runs real inference in the browser. Falls back to a rule-based
+ * approximation if the model file is not available.
+ *
+ * Features (same as mms_randomforest.py):
  * - KM_SINCE_LAST_MAINT: kilometers driven since last maintenance
  * - AVG_DAILY_KM: average daily kilometers driven
  * - MAINT_FREQ_12M: maintenance frequency in the last 12 months
@@ -25,30 +28,102 @@ export interface VehicleRiskAssessment {
   reason: string;
 }
 
-// Feature weights derived from typical Random Forest feature importances
-// for vehicle maintenance prediction
-const WEIGHTS = {
+// ─── Random Forest JSON Model Types ─────────────────────────────────
+
+interface TreeLeaf {
+  probs: number[]; // [P(no_fail), P(fail)]
+}
+
+interface TreeNode {
+  feature: string;
+  threshold: number;
+  left: TreeNode | TreeLeaf;
+  right: TreeNode | TreeLeaf;
+}
+
+interface RFModel {
+  features: string[];
+  n_estimators: number;
+  classes: number[];
+  feature_importances: Record<string, number>;
+  trees: (TreeNode | TreeLeaf)[];
+}
+
+// ─── Model Loading ──────────────────────────────────────────────────
+
+let cachedModel: RFModel | null = null;
+let modelLoadAttempted = false;
+
+async function loadModel(): Promise<RFModel | null> {
+  if (cachedModel) return cachedModel;
+  if (modelLoadAttempted) return null;
+
+  modelLoadAttempted = true;
+  try {
+    const response = await fetch('/ml/rf_maintenance_model.json');
+    if (!response.ok) return null;
+    cachedModel = (await response.json()) as RFModel;
+    return cachedModel;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Traverse a single decision tree to get failure probability.
+ */
+function predictTree(
+  node: TreeNode | TreeLeaf,
+  features: Record<string, number>
+): number {
+  if ('probs' in node) {
+    return node.probs[1] ?? 0;
+  }
+  const value = features[node.feature] ?? 0;
+  return value <= node.threshold
+    ? predictTree(node.left, features)
+    : predictTree(node.right, features);
+}
+
+/**
+ * Run the full Random Forest: average failure probability across all trees.
+ */
+function predictRandomForest(
+  model: RFModel,
+  features: Record<string, number>
+): number {
+  const probabilities = model.trees.map((tree) => predictTree(tree, features));
+  return probabilities.reduce((sum, p) => sum + p, 0) / probabilities.length;
+}
+
+// ─── Fallback Weights (used when model JSON is not available) ───────
+
+const FALLBACK_WEIGHTS = {
   kmSinceLastMaint: 0.45,
   avgDailyKm: 0.30,
   maintFreq12m: 0.25
 };
 
-// Thresholds for risk classification
 const RISK_THRESHOLDS = {
   high: 0.65,
   medium: 0.40
 };
 
-// Default maintenance interval in km if no schedule exists
 const DEFAULT_MAINT_INTERVAL_KM = 5000;
 
-/**
- * Compute predictive maintenance risk for a vehicle based on its maintenance history.
- */
-export function computeVehicleRisk(
+// ─── Feature Extraction ────────────────────────────────────────────
+
+interface ExtractedFeatures {
+  kmSinceLastMaint: number;
+  avgDailyKm: number;
+  maintFreq12m: number;
+  lastMaint: Maintenance | undefined;
+}
+
+function extractFeatures(
   vehicle: Vehicle,
   maintenanceRecords: Maintenance[]
-): VehicleRiskAssessment {
+): ExtractedFeatures {
   const vehicleMaintenances = maintenanceRecords
     .filter((m) => m.vehicle_id === vehicle.id)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -57,12 +132,10 @@ export function computeVehicleRisk(
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-  // Feature 1: KM since last maintenance
   const lastMaint = vehicleMaintenances[0];
   const lastMaintMileage = lastMaint?.mileage ?? 0;
   const kmSinceLastMaint = Math.max(0, vehicle.mileage - lastMaintMileage);
 
-  // Feature 2: Average daily KM (estimated from maintenance history)
   let avgDailyKm = 0;
   if (vehicleMaintenances.length >= 2) {
     const oldest = vehicleMaintenances[vehicleMaintenances.length - 1];
@@ -85,33 +158,53 @@ export function computeVehicleRisk(
     avgDailyKm = kmSinceLastMaint / daysSinceLast;
   }
 
-  // Feature 3: Maintenance frequency in last 12 months
   const maintFreq12m = vehicleMaintenances.filter(
     (m) => new Date(m.date) >= oneYearAgo
   ).length;
 
-  // Normalize features to 0–1 scale
-  const normKmSinceLastMaint = Math.min(
-    kmSinceLastMaint / DEFAULT_MAINT_INTERVAL_KM,
-    2.0
-  ) / 2.0;
+  return { kmSinceLastMaint, avgDailyKm, maintFreq12m, lastMaint };
+}
 
-  // Avg daily km: 0–100+ km/day → 0–1
-  const normAvgDailyKm = Math.min(avgDailyKm / 100, 1.0);
+// ─── Scoring ────────────────────────────────────────────────────────
 
-  // Maintenance frequency: inverse — fewer maintenances = higher risk
-  // 0 maintenances → 1.0 risk, 6+ → 0.0
-  const normMaintFreq = Math.max(0, 1 - maintFreq12m / 6);
+function fallbackScore(features: ExtractedFeatures): number {
+  const normKm =
+    Math.min(features.kmSinceLastMaint / DEFAULT_MAINT_INTERVAL_KM, 2.0) / 2.0;
+  const normDaily = Math.min(features.avgDailyKm / 100, 1.0);
+  const normFreq = Math.max(0, 1 - features.maintFreq12m / 6);
 
-  // Weighted risk score
-  const riskScore =
-    WEIGHTS.kmSinceLastMaint * normKmSinceLastMaint +
-    WEIGHTS.avgDailyKm * normAvgDailyKm +
-    WEIGHTS.maintFreq12m * normMaintFreq;
+  return (
+    FALLBACK_WEIGHTS.kmSinceLastMaint * normKm +
+    FALLBACK_WEIGHTS.avgDailyKm * normDaily +
+    FALLBACK_WEIGHTS.maintFreq12m * normFreq
+  );
+}
+
+/**
+ * Compute predictive maintenance risk for a vehicle.
+ * Uses the trained RF model if available, otherwise falls back to rule-based scoring.
+ */
+export function computeVehicleRisk(
+  vehicle: Vehicle,
+  maintenanceRecords: Maintenance[],
+  model?: RFModel | null
+): VehicleRiskAssessment {
+  const features = extractFeatures(vehicle, maintenanceRecords);
+
+  let riskScore: number;
+
+  if (model) {
+    riskScore = predictRandomForest(model, {
+      KM_SINCE_LAST_MAINT: features.kmSinceLastMaint,
+      AVG_DAILY_KM: features.avgDailyKm,
+      MAINT_FREQ_12M: features.maintFreq12m
+    });
+  } else {
+    riskScore = fallbackScore(features);
+  }
 
   const clampedScore = Math.min(Math.max(riskScore, 0), 1);
 
-  // Classify priority
   let priority: 'high' | 'medium' | 'low';
   if (clampedScore >= RISK_THRESHOLDS.high) {
     priority = 'high';
@@ -121,18 +214,21 @@ export function computeVehicleRisk(
     priority = 'low';
   }
 
-  // Predict failure date based on remaining KM at current rate
-  const remainingKm = Math.max(0, DEFAULT_MAINT_INTERVAL_KM - kmSinceLastMaint);
+  const remainingKm = Math.max(
+    0,
+    DEFAULT_MAINT_INTERVAL_KM - features.kmSinceLastMaint
+  );
   const daysUntilDue =
-    avgDailyKm > 0 ? Math.ceil(remainingKm / avgDailyKm) : 30;
+    features.avgDailyKm > 0
+      ? Math.ceil(remainingKm / features.avgDailyKm)
+      : 30;
   const predictedDate = new Date();
   predictedDate.setDate(predictedDate.getDate() + daysUntilDue);
 
-  // Generate reason based on dominant risk factor
   const reason = generateReason(
-    kmSinceLastMaint,
-    avgDailyKm,
-    maintFreq12m,
+    features.kmSinceLastMaint,
+    features.avgDailyKm,
+    features.maintFreq12m,
     vehicle.mileage
   );
 
@@ -141,12 +237,12 @@ export function computeVehicleRisk(
     licensePlate: vehicle.license_plate,
     vehicleName: `${vehicle.make} ${vehicle.model}`,
     mileage: vehicle.mileage,
-    kmSinceLastMaint,
-    avgDailyKm: Math.round(avgDailyKm * 10) / 10,
-    maintFreq12m,
+    kmSinceLastMaint: features.kmSinceLastMaint,
+    avgDailyKm: Math.round(features.avgDailyKm * 10) / 10,
+    maintFreq12m: features.maintFreq12m,
     riskScore: Math.round(clampedScore * 100),
     priority,
-    lastMaintenanceDate: lastMaint?.date ?? null,
+    lastMaintenanceDate: features.lastMaint?.date ?? null,
     predictedFailureDate: predictedDate.toISOString().split('T')[0],
     reason
   };
@@ -207,13 +303,15 @@ function generateReason(
 
 /**
  * Compute risk assessments for all vehicles and return sorted by risk.
+ * Loads the trained RF model if available in public/ml/rf_maintenance_model.json.
  */
-export function computeFleetRiskAssessments(
+export async function computeFleetRiskAssessments(
   vehicles: Vehicle[],
   maintenanceRecords: Maintenance[]
-): VehicleRiskAssessment[] {
+): Promise<VehicleRiskAssessment[]> {
+  const model = await loadModel();
   return vehicles
-    .map((v) => computeVehicleRisk(v, maintenanceRecords))
+    .map((v) => computeVehicleRisk(v, maintenanceRecords, model))
     .sort((a, b) => b.riskScore - a.riskScore);
 }
 
