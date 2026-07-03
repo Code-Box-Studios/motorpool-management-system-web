@@ -153,9 +153,10 @@ type, maintenance type.
   `lib/supabase/auth.ts` (no live UI consumers) are removed, not ported.
 - Middleware: `requireAuth` (verifies JWT, attaches `req.user`),
   `requireRole(...roles)` (403 on mismatch). Every domain router mounts
-  `requireAuth` **except**: `/auth/login`, `/auth/refresh`, `POST /gps/ingest`
-  (device-key auth, §10), and the `/uploads` static route (public read,
-  non-sensitive images).
+  `requireAuth` **except**: `/auth/login`, `/auth/refresh`, `/auth/logout`
+  (cookie-only — a user with an expired access token must still be able to
+  log out), `POST /gps/ingest` (device-key auth, §10), and the `/uploads`
+  static route (public read, non-sensitive images).
 - **Role guards are derived from actual data consumers, not from the FE's
   route `staticData.allowedRoles`** — the guard/EVP/driver dashboards all
   render inside `/dashboard` but read trip tickets, vehicles, drivers, and job
@@ -357,7 +358,9 @@ pending ──note(admin)──▶ assigned_mechanic ──approve(evp_operation
 
 - `multer` disk storage → `apps/api/uploads/<domain>/<timestamped-name>`;
   path stored in DB (relative), served by `express.static` at `/uploads`
-  (public read; images are non-sensitive).
+  (public read; images are non-sensitive) with
+  `Cross-Origin-Resource-Policy: cross-origin` so the cross-origin FE can
+  embed the images despite helmet's same-origin default.
 - Applies to: vehicle images (multi), spare-part image, tool image, user
   avatar. Size limit 5 MB, mimetype allowlist (jpeg/png/webp).
 - `uploads/` is gitignored; a Docker volume/persistent disk in deployment.
