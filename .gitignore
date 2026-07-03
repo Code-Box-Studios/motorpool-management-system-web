@@ -6,3 +6,8 @@ dist/
 !.env.example
 apps/api/uploads/
 .tanstack/
+
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
