@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { hashPassword } from '../lib/password.js';
+import { signAccessToken } from '../lib/jwt.js';
 
 interface CreateTestUserOptions {
   email?: string;
@@ -37,4 +38,19 @@ export async function createTestUser(opts: CreateTestUserOptions = {}) {
     }
   });
   return { user: { id: user.id, email: user.email }, password };
+}
+
+// Bearer header for an arbitrary identity — no login round-trip needed.
+export function authHeader(
+  userId: string,
+  email: string,
+  role: string,
+  branchId: string | null = null
+): string {
+  return `Bearer ${signAccessToken({ sub: userId, email, role, branchId })}`;
+}
+
+// Create a test branch for integration tests.
+export async function createTestBranch(name = 'Test Branch') {
+  return prisma.branch.create({ data: { name, location: 'Testville' } });
 }
