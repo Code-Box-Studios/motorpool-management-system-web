@@ -1,73 +1,54 @@
-# React + TypeScript + Vite
+# Motorpool Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A pnpm-workspace monorepo for managing a motorpool: vehicles, drivers, trip tickets, fuel allocation, maintenance, and GPS tracking.
 
-Currently, two official plugins are available:
+## Monorepo layout
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+| Path              | Description                                                          |
+| ------------------ | --------------------------------------------------------------------- |
+| `apps/web`         | React (Vite) frontend, port `5173`. Currently talks directly to Supabase — the Express API migration below is in progress. |
+| `apps/api`         | Express + Prisma backend skeleton, port `3000`.                      |
+| `packages/shared`  | Shared domain enums/types consumed by both apps.                     |
+| `tools/`           | Standalone tooling (firmware, ML) outside the pnpm workspace apps.   |
 
-## React Compiler
+## Prerequisites
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js `>=20`
+- [pnpm](https://pnpm.io/)
+- Docker (for the local Postgres database)
 
-## Expanding the ESLint configuration
+## Quickstart
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+docker compose up -d           # start Postgres
+pnpm install                   # install workspace dependencies
+pnpm db:migrate && pnpm db:seed  # apply migrations and seed demo data
+pnpm dev                       # run api + web together
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- API: http://localhost:3000 (health check at `/api/health`)
+- Web: http://localhost:5173 (falls back to the next free port, e.g. `5174`, if taken)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Seeded accounts
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+The seed script (`pnpm db:seed`) creates one user per role, all with the password `Password123!`:
+
+| Email                          | Role            |
+| ------------------------------- | --------------- |
+| `admin@mms.local`               | Admin           |
+| `security_guard@mms.local`      | Security Guard  |
+| `evp_operations@mms.local`      | EVP Operations  |
+| `driver@mms.local`              | Driver          |
+| `requester@mms.local`           | Requester       |
+
+## Backend migration
+
+The frontend is being migrated from talking to Supabase directly to talking to the `apps/api` Express backend. See the design spec at [`docs/superpowers/specs/2026-07-03-express-backend-migration-design.md`](docs/superpowers/specs/2026-07-03-express-backend-migration-design.md) for scope and rollout plan.
+
+## Other scripts
+
+```bash
+pnpm build   # build shared, api, and web
+pnpm test    # run tests where present (currently apps/api)
+pnpm lint    # lint where present
 ```

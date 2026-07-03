@@ -3,13 +3,20 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev": "echo \"use: pnpm --filter @mms/web dev / pnpm --filter @mms/api dev (root pnpm dev wired in Task 7)\"",
+    "dev": "concurrently -n api,web -c blue,green \"pnpm --filter @mms/api dev\" \"pnpm --filter @mms/web dev\"",
     "build": "pnpm -r build",
-    "lint": "pnpm -r lint"
+    "test": "pnpm -r --if-present test",
+    "lint": "pnpm -r --if-present lint",
+    "db:up": "docker compose up -d",
+    "db:migrate": "pnpm --filter @mms/api db:migrate",
+    "db:seed": "pnpm --filter @mms/api db:seed"
   },
   "devDependencies": {
+    "concurrently": "^10.0.3",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.7.1"
   }
