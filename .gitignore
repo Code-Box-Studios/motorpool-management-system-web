@@ -5,6 +5,7 @@ dist/
 .env.*
 !.env.example
 apps/api/uploads/
+apps/api/uploads-test/
 .tanstack/
 
 .vscode/*

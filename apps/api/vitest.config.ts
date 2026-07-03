@@ -3,6 +3,19 @@ import { config as loadEnv } from 'dotenv';
 
 loadEnv({ path: '.env' });
 
+const testDatabaseUrl = process.env.TEST_DATABASE_URL;
+if (!testDatabaseUrl) {
+  throw new Error('TEST_DATABASE_URL is not set in apps/api/.env');
+}
+
 export default defineConfig({
-  test: { environment: 'node', include: ['src/**/*.test.ts'] }
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
+    globalSetup: './src/test/global-setup.ts',
+    // Tests get the TEST database; the app code reads DATABASE_URL as usual.
+    env: { DATABASE_URL: testDatabaseUrl, UPLOADS_DIR: 'uploads-test' },
+    // Suites share one database — never run files in parallel.
+    fileParallelism: false
+  }
 });
