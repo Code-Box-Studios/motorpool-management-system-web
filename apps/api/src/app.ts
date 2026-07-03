@@ -23,6 +23,17 @@ export function createApp(): express.Express {
     res.json({ status: 'ok' });
   });
 
+  app.use(
+    '/uploads',
+    (_req, res, next) => {
+      // Images must be embeddable by the cross-origin FE (spec §9);
+      // helmet's default CORP: same-origin would block them.
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      next();
+    },
+    express.static(config.uploadsDir)
+  );
+
   app.use('/api/auth', authRouter);
 
   // Domain routers mount here in later plans.
