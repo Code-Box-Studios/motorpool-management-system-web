@@ -11,6 +11,7 @@
     "gen-types": "npx supabase gen types typescript --project-id doqnjmvimxkunvnjzzhq --schema public > src/lib/types/supabase.ts"
   },
   "dependencies": {
+    "@mms/shared": "workspace:*",
     "@fullcalendar/core": "^6.1.19",
     "@fullcalendar/daygrid": "^6.1.19",
     "@fullcalendar/interaction": "^6.1.19",

@@ -35,6 +35,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.65.0(react@19.2.0))
+      '@mms/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@radix-ui/react-alert-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -201,6 +204,16 @@ importers:
       vite:
         specifier: ^7.1.7
         version: 7.1.12(@types/node@24.9.2)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)
+
+  packages/shared:
+    dependencies:
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
 
 packages:
 
