@@ -835,7 +835,7 @@ model MaintenanceCompletionLog {
   vehicleMaintenanceTrackingId String   @map("vehicle_maintenance_tracking_id") @db.Uuid
   completedById                String   @map("completed_by") @db.Uuid
   completedDate                DateTime @default(now()) @map("completed_date")
-  completedMileage             Int
+  completedMileage             Int      @map("completed_mileage")
   notes                        String?
 
   tracking    VehicleMaintenanceTracking @relation(fields: [vehicleMaintenanceTrackingId], references: [id], onDelete: Cascade)
