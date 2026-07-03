@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
-import { AppError } from '../lib/errors';
+import { AppError } from '../lib/errors.js';
 
 // Central error mapper: AppError -> its status, ZodError -> 400,
 // anything else -> 500 with a generic message (spec §12).

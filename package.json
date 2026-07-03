@@ -7,10 +7,12 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "concurrently -n api,web -c blue,green \"pnpm --filter @mms/api dev\" \"pnpm --filter @mms/web dev\"",
+    "predev": "pnpm --filter @mms/shared build",
+    "dev": "concurrently -n shared,api,web -c yellow,blue,green \"pnpm --filter @mms/shared dev\" \"pnpm --filter @mms/api dev\" \"pnpm --filter @mms/web dev\"",
     "build": "pnpm -r build",
     "test": "pnpm -r --if-present test",
     "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
     "db:up": "docker compose up -d",
     "db:migrate": "pnpm --filter @mms/api db:migrate",
     "db:seed": "pnpm --filter @mms/api db:seed"

@@ -2,8 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
-import { config } from './config';
-import { errorHandler } from './middleware/error-handler';
+import { config } from './config.js';
+import { errorHandler } from './middleware/error-handler.js';
 
 // App factory so tests can mount a fresh instance without listening.
 export function createApp(): express.Express {

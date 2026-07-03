@@ -22,6 +22,7 @@ A pnpm-workspace monorepo for managing a motorpool: vehicles, drivers, trip tick
 ```bash
 docker compose up -d           # start Postgres
 pnpm install                   # install workspace dependencies
+cp apps/api/.env.example apps/api/.env  # copy env config (defaults match the local Docker setup)
 pnpm db:migrate && pnpm db:seed  # apply migrations and seed demo data
 pnpm dev                       # run api + web together
 ```
