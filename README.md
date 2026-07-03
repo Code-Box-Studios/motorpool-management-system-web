@@ -42,6 +42,33 @@ The seed script (`pnpm db:seed`) creates one user per role, all with the passwor
 | `driver@mms.local`              | Driver          |
 | `requester@mms.local`           | Requester       |
 
+## API
+
+### Auth endpoints
+
+| Endpoint                | Description                                                              |
+| ------------------------ | -------------------------------------------------------------------------- |
+| `POST /api/auth/login`   | Authenticate with `email` + `password`; returns an access token + user.  |
+| `POST /api/auth/refresh` | Exchange the refresh cookie for a new access token (rotates the cookie). |
+| `POST /api/auth/logout`  | Revoke the current refresh token and clear the cookie.                   |
+| `GET /api/auth/me`       | Return the authenticated user (requires `Authorization: Bearer <token>`).|
+
+Login and refresh set an httpOnly `mms_refresh` cookie (7-day expiry) and return a short-lived (15-minute) access token in the response body — send it as `Authorization: Bearer <accessToken>` on subsequent requests.
+
+### Static uploads
+
+Files under `UPLOADS_DIR` are served at `/uploads/*`.
+
+### Environment variables
+
+In addition to `DATABASE_URL`, `PORT`, and `CORS_ORIGIN`, `apps/api/.env` needs:
+
+| Variable          | Description                                                                 |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `JWT_SECRET`       | Secret used to sign access tokens (min 32 chars).                           |
+| `COOKIE_SAMESITE`  | `lax` for local/same-site dev; set to `none` for cross-site deploys (e.g. Vercel FE ↔ Railway API) — this also forces `Secure` on the cookie. |
+| `UPLOADS_DIR`      | Directory uploaded files are written to and served from (`/uploads/*`).     |
+
 ## Backend migration
 
 The frontend is being migrated from talking to Supabase directly to talking to the `apps/api` Express backend. See the design spec at [`docs/superpowers/specs/2026-07-03-express-backend-migration-design.md`](docs/superpowers/specs/2026-07-03-express-backend-migration-design.md) for scope and rollout plan.
