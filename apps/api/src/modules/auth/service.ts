@@ -2,8 +2,9 @@ import type { AuthUser } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { signAccessToken } from '../../lib/jwt.js';
 import { verifyPassword } from '../../lib/password.js';
+import { prisma } from '../../lib/prisma.js';
 import { findUserByEmail, findUserById, type UserWithRole } from './repository.js';
-import { issueRefreshToken } from './tokens.js';
+import { hashToken, issueRefreshToken } from './tokens.js';
 
 interface AuthResult {
   accessToken: string;
@@ -59,6 +60,42 @@ export async function me(userId: string): Promise<AuthUser> {
   }
   const role = assertUsable(user);
   return toAuthUser(user, role);
+}
+
+export async function refresh(presentedToken: string): Promise<AuthResult> {
+  const stored = await prisma.refreshToken.findUnique({
+    where: { tokenHash: hashToken(presentedToken) },
+    include: { user: { include: { userRole: { include: { role: true } } } } }
+  });
+  if (!stored) {
+    throw new AppError(401, 'UNAUTHORIZED', 'Invalid refresh token');
+  }
+  if (stored.revokedAt !== null) {
+    // Reuse of a rotated/revoked token = possible theft: kill the family (spec §4.1).
+    await prisma.refreshToken.updateMany({
+      where: { userId: stored.userId, revokedAt: null },
+      data: { revokedAt: new Date() }
+    });
+    throw new AppError(401, 'UNAUTHORIZED', 'Refresh token reuse detected');
+  }
+  if (stored.expiresAt < new Date()) {
+    // Plain expiry is not reuse — this session ends, others stay alive.
+    throw new AppError(401, 'UNAUTHORIZED', 'Refresh token expired');
+  }
+  await prisma.refreshToken.update({
+    where: { id: stored.id },
+    data: { revokedAt: new Date() }
+  });
+  const role = assertUsable(stored.user);
+  return issuePair(stored.user, role);
+}
+
+export async function logout(presentedToken: string | undefined): Promise<void> {
+  if (!presentedToken) return;
+  await prisma.refreshToken.updateMany({
+    where: { tokenHash: hashToken(presentedToken), revokedAt: null },
+    data: { revokedAt: new Date() }
+  });
 }
 
 export { assertUsable, issuePair, toAuthUser };
