@@ -82,12 +82,33 @@ export async function refresh(presentedToken: string): Promise<AuthResult> {
     // Plain expiry is not reuse — this session ends, others stay alive.
     throw new AppError(401, 'UNAUTHORIZED', 'Refresh token expired');
   }
-  await prisma.refreshToken.update({
-    where: { id: stored.id },
+  // Atomically claim the token: only one concurrent presentation of the same
+  // valid token can win this conditional update. The loser observes
+  // count === 0 (someone else already revoked it) and is treated as reuse.
+  const claimed = await prisma.refreshToken.updateMany({
+    where: { id: stored.id, revokedAt: null },
     data: { revokedAt: new Date() }
   });
+  if (claimed.count === 0) {
+    await prisma.refreshToken.updateMany({
+      where: { userId: stored.userId, revokedAt: null },
+      data: { revokedAt: new Date() }
+    });
+    throw new AppError(401, 'UNAUTHORIZED', 'Refresh token reuse detected');
+  }
   const role = assertUsable(stored.user);
-  return issuePair(stored.user, role);
+  try {
+    return await issuePair(stored.user, role);
+  } catch (err) {
+    // The claim already revoked the old token; if minting its replacement
+    // fails, undo the claim so the caller isn't stranded without any valid
+    // refresh token.
+    await prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: null }
+    });
+    throw err;
+  }
 }
 
 export async function logout(presentedToken: string | undefined): Promise<void> {

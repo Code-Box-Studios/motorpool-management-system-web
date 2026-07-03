@@ -40,6 +40,14 @@ describe('upload infrastructure', () => {
     expect(existsSync(onDisk)).toBe(true);
   });
 
+  it('derives the stored extension from the validated mimetype, not the client filename', async () => {
+    const res = await request(buildApp())
+      .post('/upload')
+      .attach('image', PNG, { filename: 'evil.html', contentType: 'image/png' });
+    expect(res.status).toBe(200);
+    expect(res.body.path).toMatch(/\.png$/);
+  });
+
   it('rejects a disallowed mimetype with 400 INVALID_FILE_TYPE', async () => {
     const res = await request(buildApp())
       .post('/upload')

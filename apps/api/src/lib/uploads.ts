@@ -8,6 +8,15 @@ import { AppError } from './errors.js';
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
+// Maps a validated mimetype to its on-disk extension — NEVER trust the
+// client-supplied filename/extension (it can be spoofed to smuggle in an
+// .html file that express.static would serve as same-origin text/html).
+const EXTENSION_BY_MIME: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp'
+};
+
 // Multer instance persisting files to <UPLOADS_DIR>/<domain>/ (spec §9).
 export function createUploader(domain: string): multer.Multer {
   const dir = path.join(config.uploadsDir, domain);
@@ -16,7 +25,9 @@ export function createUploader(domain: string): multer.Multer {
     storage: multer.diskStorage({
       destination: dir,
       filename: (_req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase();
+        // '.bin' is unreachable after fileFilter rejects unknown mimetypes;
+        // it only satisfies noUncheckedIndexedAccess.
+        const ext = EXTENSION_BY_MIME[file.mimetype] ?? '.bin';
         cb(null, `${Date.now()}-${randomBytes(6).toString('hex')}${ext}`);
       }
     }),

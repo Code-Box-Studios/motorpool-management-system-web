@@ -51,6 +51,16 @@ describe('POST /api/auth/refresh', () => {
     expect(retry.status).toBe(401);
   });
 
+  it('allows only one winner when the same token is refreshed concurrently', async () => {
+    const cookie = await loginAndGetCookie();
+    const [a, b] = await Promise.all([
+      request(app).post('/api/auth/refresh').set('Cookie', cookie),
+      request(app).post('/api/auth/refresh').set('Cookie', cookie)
+    ]);
+    const statuses = [a.status, b.status].sort();
+    expect(statuses).toEqual([200, 401]);
+  });
+
   it('rejects a missing cookie with 401', async () => {
     const res = await request(app).post('/api/auth/refresh');
     expect(res.status).toBe(401);

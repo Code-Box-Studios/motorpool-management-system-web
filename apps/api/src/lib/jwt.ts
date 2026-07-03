@@ -24,7 +24,7 @@ export function signAccessToken(payload: AccessTokenPayload): string {
 export function verifyAccessToken(token: string): AccessTokenPayload {
   let decoded: string | jwt.JwtPayload;
   try {
-    decoded = jwt.verify(token, config.jwtSecret);
+    decoded = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] });
   } catch {
     throw new AppError(401, 'UNAUTHORIZED', 'Invalid or expired token');
   }
