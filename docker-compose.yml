@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mms
+      POSTGRES_PASSWORD: mms
+      POSTGRES_DB: mms
+    ports:
+      - '5432:5432'
+    volumes:
+      - mms_pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql
+volumes:
+  mms_pgdata:

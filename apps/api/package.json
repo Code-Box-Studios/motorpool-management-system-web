@@ -1,0 +1,40 @@
+{
+  "name": "@mms/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio"
+  },
+  "prisma": { "seed": "tsx prisma/seed.ts" },
+  "dependencies": {
+    "@mms/shared": "workspace:*",
+    "@prisma/client": "^6.3.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "helmet": "^8.0.0",
+    "pino": "^9.5.0",
+    "pino-http": "^10.3.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.9.2",
+    "@types/supertest": "^6.0.2",
+    "pino-pretty": "^13.0.0",
+    "prisma": "^6.3.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "~5.9.3",
+    "vitest": "^3.0.0"
+  }
+}
