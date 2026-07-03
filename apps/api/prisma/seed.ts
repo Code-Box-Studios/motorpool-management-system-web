@@ -8,8 +8,11 @@ async function main() {
   const passwordHash = await bcrypt.hash('Password123!', 12);
 
   // Roles
-  const roleNames = ['admin', 'security_guard', 'evp_operations', 'driver', 'requester'];
-  const roles: Record<string, { id: string }> = {};
+  // `as const` gives roleNames a literal-union element type, so lookups keyed by it
+  // below resolve to known properties (not an index signature) under noUncheckedIndexedAccess.
+  const roleNames = ['admin', 'security_guard', 'evp_operations', 'driver', 'requester'] as const;
+  type RoleName = (typeof roleNames)[number];
+  const roles = {} as Record<RoleName, { id: string }>;
   for (const name of roleNames) {
     roles[name] = await prisma.role.upsert({
       where: { name },
@@ -44,7 +47,7 @@ async function main() {
   await prisma.departmentOffice.update({ where: { id: office.id }, data: { headId: head.id } });
 
   // One user per role (+ linked driver row for the driver-role user)
-  const users: Record<string, { id: string }> = {};
+  const users = {} as Record<RoleName, { id: string }>;
   for (const name of roleNames) {
     const user = await prisma.user.upsert({
       where: { email: `${name}@mms.local` },
@@ -125,7 +128,9 @@ async function main() {
         data: {
           name,
           status: i === 0 ? 'borrowed' : 'available',
-          borrowedById: i === 0 ? drivers[1].id : undefined,
+          // Indices below are always in bounds (fixed-length specs seeded just above),
+          // so a non-null assertion is safe under noUncheckedIndexedAccess.
+          borrowedById: i === 0 ? drivers[1]!.id : undefined,
           borrowedDate: i === 0 ? new Date('2026-06-20') : undefined,
           estimatedReturnDate: i === 0 ? new Date('2026-07-20') : undefined
         }
@@ -168,11 +173,11 @@ async function main() {
   const hasAllocation = new Set<TripTicketStatus>(['pending_fuel_allocation_approval', 'approved', 'in_progress', 'completed']);
   if ((await prisma.tripTicket.count()) === 0) {
     for (const [i, status] of statuses.entries()) {
-      const vehicle = vehicles[i % vehicles.length];
+      const vehicle = vehicles[i % vehicles.length]!;
       const guarded = status === 'in_progress' || status === 'completed';
       await prisma.tripTicket.create({
         data: {
-          branchId: mainBranch.id, driverId: drivers[i % drivers.length].id, vehicleId: vehicle.id,
+          branchId: mainBranch.id, driverId: drivers[i % drivers.length]!.id, vehicleId: vehicle.id,
           officeId: office.id, officeHeadId: head.id,
           destination: `Destination ${i + 1}`, purpose: `Official business ${i + 1}`,
           dateRequested: new Date('2026-06-01'), participants: ['Staff A', 'Staff B'],
@@ -210,16 +215,16 @@ async function main() {
     for (const [i, status] of joStatuses.entries()) {
       await prisma.jobOrder.create({
         data: {
-          vehicleId: vehicles[3].id, branchId: mainBranch.id, status,
+          vehicleId: vehicles[3]!.id, branchId: mainBranch.id, status,
           incidentDate: new Date('2026-06-10'), incidentDetails: `Brake issue ${i + 1}`,
           requestedById: users.requester.id,
           notedById: status === 'pending' ? undefined : users.admin.id,
-          assignedMechanicId: status === 'pending' ? undefined : drivers[4].id,
+          assignedMechanicId: status === 'pending' ? undefined : drivers[4]!.id,
           dateOfRequest: status === 'pending' ? undefined : new Date('2026-06-11'),
           targetDate: status === 'pending' ? undefined : new Date('2026-06-25'),
           approvedById: status === 'ongoing_repair' ? users.evp_operations.id : undefined,
           dateApproved: status === 'ongoing_repair' ? new Date('2026-06-12') : undefined,
-          spareParts: status === 'pending' ? undefined : { create: [{ sparePartId: parts[2].id, quantity: 2 }] }
+          spareParts: status === 'pending' ? undefined : { create: [{ sparePartId: parts[2]!.id, quantity: 2 }] }
         }
       });
     }
@@ -229,7 +234,7 @@ async function main() {
   if ((await prisma.gpsData.count()) === 0) {
     const base = { lat: 14.5995, lng: 120.9842 };
     const rows = [];
-    for (const [v, vehicle] of [vehicles[2], vehicles[0]].entries()) {
+    for (const [v, vehicle] of [vehicles[2]!, vehicles[0]!].entries()) {
       for (let i = 0; i < 25; i++) {
         rows.push({
           vehicleId: vehicle.id,
