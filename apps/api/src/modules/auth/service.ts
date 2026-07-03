@@ -97,18 +97,11 @@ export async function refresh(presentedToken: string): Promise<AuthResult> {
     throw new AppError(401, 'UNAUTHORIZED', 'Refresh token reuse detected');
   }
   const role = assertUsable(stored.user);
-  try {
-    return await issuePair(stored.user, role);
-  } catch (err) {
-    // The claim already revoked the old token; if minting its replacement
-    // fails, undo the claim so the caller isn't stranded without any valid
-    // refresh token.
-    await prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: null }
-    });
-    throw err;
-  }
+  // No rollback if issuance fails: un-revoking the claimed token could
+  // resurrect a token a concurrent family-revocation just killed. A failed
+  // issuance (rare infra error) simply ends this session — the user logs in
+  // again. Fail closed.
+  return issuePair(stored.user, role);
 }
 
 export async function logout(presentedToken: string | undefined): Promise<void> {
