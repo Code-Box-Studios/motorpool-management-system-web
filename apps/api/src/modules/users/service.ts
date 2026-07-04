@@ -1,3 +1,4 @@
+import { USER_ROLES } from '@mms/shared';
 import type { ChangePasswordBody, CreateUserBody, UpdateUserBody, UserResponse, UsersListQuery } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
@@ -46,7 +47,7 @@ export async function create(
   // instead of colliding with the drivers.email unique constraint; if it's
   // already linked to another login, that's a conflict. One transaction.
   const existingDriver =
-    role.name === 'driver'
+    role.name === USER_ROLES.driver
       ? await prisma.driver.findUnique({ where: { email: body.email } })
       : null;
   if (existingDriver && existingDriver.userId !== null) {
@@ -67,7 +68,7 @@ export async function create(
       },
       include: userInclude
     });
-    if (role.name === 'driver') {
+    if (role.name === USER_ROLES.driver) {
       if (existingDriver) {
         await tx.driver.update({
           where: { id: existingDriver.id },
@@ -134,7 +135,7 @@ export async function changePassword(
   targetId: string,
   body: ChangePasswordBody
 ): Promise<void> {
-  if (actor.id !== targetId && actor.role !== 'admin') {
+  if (actor.id !== targetId && actor.role !== USER_ROLES.admin) {
     throw new AppError(403, 'FORBIDDEN', 'You may only change your own password');
   }
   const target = await findUserById(targetId);

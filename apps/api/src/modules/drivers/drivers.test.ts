@@ -2,7 +2,7 @@ import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { prisma } from '../../lib/prisma.js';
-import { authHeader, createTestUser } from '../../test/factories.js';
+import { authHeader, createTestBranch, createTestUser } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
 
 const app = createApp();
@@ -91,6 +91,43 @@ describe('drivers module', () => {
       .send({ email: 'dupe@test.local', fullName: 'Dupe Two' });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('EMAIL_TAKEN');
+  });
+
+  it('rejects deleting a driver referenced by a trip ticket with 409 CONFLICT', async () => {
+    const header = await adminHeader();
+    const branch = await createTestBranch();
+    const driver = await prisma.driver.create({
+      data: { email: 'busy@test.local', fullName: 'Busy Driver', status: 'active' }
+    });
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        make: 'Toyota',
+        model: 'Hiace',
+        year: 2020,
+        vin: 'VIN-0000-0001',
+        licensePlate: 'ABC-123',
+        capacity: 12,
+        fuelType: 'diesel',
+        mileage: 10000,
+        insuranceExpiry: new Date('2027-01-01'),
+        registrationExpiry: new Date('2027-01-01')
+      }
+    });
+    await prisma.tripTicket.create({
+      data: {
+        branchId: branch.id,
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        destination: 'Manila',
+        purpose: 'Delivery run',
+        dateRequested: new Date('2026-07-01'),
+        preparedBy: 'Ops Desk'
+      }
+    });
+
+    const res = await request(app).delete(`/api/drivers/${driver.id}`).set('Authorization', header);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('CONFLICT');
   });
 
   it('scopes driver-role callers to their own row (spec §5 matrix)', async () => {

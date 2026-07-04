@@ -1,3 +1,4 @@
+import { USER_ROLES } from '@mms/shared';
 import type { CreateDriverBody, PaginationQuery, UpdateDriverBody } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
@@ -7,14 +8,14 @@ import { findDriverByEmail, findDriverById, listDrivers } from './repository.js'
 
 export async function list(query: PaginationQuery, actor: AuthenticatedUser) {
   // Driver-role callers are scoped to their own row (spec §5 matrix).
-  const onlyUserId = actor.role === 'driver' ? actor.id : undefined;
+  const onlyUserId = actor.role === USER_ROLES.driver ? actor.id : undefined;
   return listDrivers(toSkipTake(query), onlyUserId);
 }
 
 export async function getById(id: string, actor: AuthenticatedUser) {
   const driver = await findDriverById(id);
   // Not-found masking: a driver probing someone else's id learns nothing.
-  if (!driver || (actor.role === 'driver' && driver.userId !== actor.id)) {
+  if (!driver || (actor.role === USER_ROLES.driver && driver.userId !== actor.id)) {
     throw new AppError(404, 'NOT_FOUND', 'Driver not found');
   }
   return driver;

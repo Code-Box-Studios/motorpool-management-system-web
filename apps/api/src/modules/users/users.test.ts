@@ -77,7 +77,7 @@ describe('POST /api/users', () => {
   });
 
   it('links an existing unlinked personnel record instead of duplicating it', async () => {
-    const { header } = await adminHeader();
+    const { header, admin } = await adminHeader();
     const driverRole = await prisma.role.upsert({
       where: { name: 'driver' },
       update: {},
@@ -99,15 +99,20 @@ describe('POST /api/users', () => {
     const linked = await prisma.driver.findUnique({ where: { id: personnel.id } });
     expect(linked?.userId).toBe(res.body.id);
 
-    // a second login for the same (now linked) driver email must conflict
+    // a login attempt for a driver email already linked to a user must conflict,
+    // even though no users-table row shares that email (the driver's own row does)
+    const alreadyLinkedDriver = await prisma.driver.create({
+      data: { email: 'linked@test.local', fullName: 'Linked Driver', status: 'active', userId: admin.id }
+    });
     const again = await request(app)
       .post('/api/users')
       .set('Authorization', header)
-      .field('email', 'vet2@test.local')
+      .field('email', alreadyLinkedDriver.email)
       .field('password', 'Password123!')
-      .field('fullName', 'V2')
+      .field('fullName', 'Someone Else')
       .field('roleId', driverRole.id);
-    expect(again.status).toBe(201); // different email — fine, creates its own row
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe('EMAIL_TAKEN');
   });
 
   it('does not create a driver row for non-driver roles', async () => {
