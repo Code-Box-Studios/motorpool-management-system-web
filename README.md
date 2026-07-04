@@ -55,6 +55,43 @@ The seed script (`pnpm db:seed`) creates one user per role, all with the passwor
 
 Login and refresh set an httpOnly `mms_refresh` cookie (7-day expiry) and return a short-lived (15-minute) access token in the response body — send it as `Authorization: Bearer <accessToken>` on subsequent requests.
 
+### Reference endpoints
+
+Read-only lookups, any authenticated role, name-ascending.
+
+| Endpoint               | Description                                          |
+| ----------------------- | ------------------------------------------------------ |
+| `GET /api/roles`        | List roles.                                           |
+| `GET /api/branches`     | List branches.                                        |
+| `GET /api/offices`      | List department offices; embeds `head`.               |
+| `GET /api/office-heads` | List office heads.                                    |
+
+### User endpoints
+
+| Endpoint                         | Description                                                                                   |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `GET /api/users`                 | List users (any authenticated role); optional `?role=` filter (e.g. `?role=admin`).            |
+| `POST /api/users`                 | Create a user (admin). Multipart form; optional `avatar` file field. Creating a `driver`-role user also creates (or links, if a matching personnel record already exists) a row in `/api/drivers`. |
+| `PATCH /api/users/:id`            | Update a user (admin). Multipart form; optional `avatar` file field.                          |
+| `PATCH /api/users/:id/password`   | Change a password: the user themselves (requires `currentPassword`) or an admin acting on another user (no `currentPassword` needed). Revokes all of that user's refresh tokens. |
+| `DELETE /api/users/:id`           | Delete a user (admin). 400 `CANNOT_DELETE_SELF` if targeting your own account.                 |
+
+### Driver endpoints
+
+CRUD over driver personnel records. `userId` is `null` unless the driver was created via `POST /api/users` with `roleId` set to the driver role.
+
+| Endpoint                  | Description                                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------------------------ |
+| `GET /api/drivers`         | List drivers (any authenticated role). A caller with the `driver` role only sees their own record. |
+| `GET /api/drivers/:id`     | Fetch a driver by id (same per-role scoping; a foreign id 404s rather than 403s).             |
+| `POST /api/drivers`        | Create a driver (admin).                                                                     |
+| `PATCH /api/drivers/:id`   | Update a driver (admin).                                                                      |
+| `DELETE /api/drivers/:id`  | Delete a driver (admin).                                                                      |
+
+### Pagination convention
+
+Every list endpoint above returns `{ data, count }`, where `count` is the total matching row count (not the page size). Pass `?page` (1-indexed) and `?limit` to paginate; omit both query params to get the full result set in one response.
+
 ### Static uploads
 
 Files under `UPLOADS_DIR` are served at `/uploads/*`.
