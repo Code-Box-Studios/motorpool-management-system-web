@@ -6,6 +6,7 @@ import { pinoHttp } from 'pino-http';
 import { config } from './config.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { authRouter } from './modules/auth/router.js';
+import { driversRouter } from './modules/drivers/router.js';
 import { referenceRouter } from './modules/reference/router.js';
 import { usersRouter } from './modules/users/router.js';
 
@@ -39,6 +40,7 @@ export function createApp(): express.Express {
   app.use('/api/auth', authRouter);
   app.use('/api', referenceRouter);
   app.use('/api/users', usersRouter);
+  app.use('/api/drivers', driversRouter);
 
   // Domain routers mount here in later plans.
 
