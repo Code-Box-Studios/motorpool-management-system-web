@@ -1,9 +1,10 @@
-import type { CreateUserBody, UserResponse, UsersListQuery } from '@mms/shared';
+import type { ChangePasswordBody, CreateUserBody, UpdateUserBody, UserResponse, UsersListQuery } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
-import { hashPassword } from '../../lib/password.js';
+import { hashPassword, verifyPassword } from '../../lib/password.js';
 import { prisma } from '../../lib/prisma.js';
-import { findUserByEmail, listUsers, userInclude, type UserRow } from './repository.js';
+import type { AuthenticatedUser } from '../../middleware/require-auth.js';
+import { findUserByEmail, findUserById, listUsers, userInclude, type UserRow } from './repository.js';
 
 // Maps a Prisma user row (with its role join) to the API response shape.
 export function toUserResponse(user: UserRow): UserResponse {
@@ -87,4 +88,99 @@ export async function create(
     return user;
   });
   return toUserResponse(created);
+}
+
+// Updates a user's profile fields and (optionally) role; admin only.
+export async function update(
+  id: string,
+  body: UpdateUserBody,
+  avatarPath: string | null
+): Promise<UserResponse> {
+  const existing = await findUserById(id);
+  if (!existing) throw new AppError(404, 'NOT_FOUND', 'User not found');
+  if (body.roleId) {
+    const role = await prisma.role.findUnique({ where: { id: body.roleId } });
+    if (!role) throw new AppError(400, 'INVALID_ROLE', 'Unknown role');
+  }
+  const updated = await prisma.$transaction(async (tx) => {
+    if (body.roleId) {
+      // upsert: a role-less user (403 NO_ROLE on login) must be repairable here
+      await tx.userRole.upsert({
+        where: { userId: id },
+        update: { roleId: body.roleId },
+        create: { userId: id, roleId: body.roleId }
+      });
+    }
+    return tx.user.update({
+      where: { id },
+      data: {
+        fullName: body.fullName,
+        status: body.status,
+        branchId: body.branchId,
+        phone: body.phone,
+        address: body.address,
+        ...(avatarPath ? { avatarUrl: avatarPath } : {})
+      },
+      include: userInclude
+    });
+  });
+  return toUserResponse(updated);
+}
+
+// Changes a user's password; self-change requires currentPassword, admin
+// changing another user's password does not. Revokes all live refresh tokens.
+export async function changePassword(
+  actor: AuthenticatedUser,
+  targetId: string,
+  body: ChangePasswordBody
+): Promise<void> {
+  if (actor.id !== targetId && actor.role !== 'admin') {
+    throw new AppError(403, 'FORBIDDEN', 'You may only change your own password');
+  }
+  const target = await findUserById(targetId);
+  if (!target) throw new AppError(404, 'NOT_FOUND', 'User not found');
+
+  // Changing YOUR OWN password always requires the current one — admins
+  // included (a hijacked admin session must not be able to lock out the
+  // owner). Only admin-changes-ANOTHER-user skips it. NOT 401: the FE client
+  // treats 401 as an expired access token and would force a logout loop.
+  if (actor.id === targetId) {
+    if (!body.currentPassword || !(await verifyPassword(body.currentPassword, target.passwordHash))) {
+      throw new AppError(400, 'INVALID_CURRENT_PASSWORD', 'Current password is incorrect');
+    }
+  }
+  const passwordHash = await hashPassword(body.newPassword);
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: targetId }, data: { passwordHash } }),
+    // Force re-login everywhere: a changed password invalidates all sessions.
+    prisma.refreshToken.updateMany({
+      where: { userId: targetId, revokedAt: null },
+      data: { revokedAt: new Date() }
+    })
+  ]);
+}
+
+// Deletes a user; admins cannot delete their own account, and users
+// referenced by RESTRICT FKs surface as a domain conflict instead of a 500.
+export async function remove(actor: AuthenticatedUser, id: string): Promise<void> {
+  if (actor.id === id) {
+    throw new AppError(400, 'CANNOT_DELETE_SELF', 'You cannot delete your own account');
+  }
+  const existing = await findUserById(id);
+  if (!existing) throw new AppError(404, 'NOT_FOUND', 'User not found');
+  try {
+    await prisma.user.delete({ where: { id } });
+  } catch (err) {
+    // Required FKs (fuel_allocations.requested_by, completion logs) RESTRICT
+    // deletion — surface a domain error instead of a 500.
+    if (
+      err !== null &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code: string }).code === 'P2003'
+    ) {
+      throw new AppError(409, 'USER_IN_USE', 'User is referenced by existing records; deactivate instead');
+    }
+    throw err;
+  }
 }

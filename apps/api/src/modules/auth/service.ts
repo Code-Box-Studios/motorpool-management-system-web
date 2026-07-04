@@ -44,9 +44,17 @@ async function issuePair(user: UserWithRole, role: string): Promise<AuthResult> 
   };
 }
 
+// A valid bcrypt hash of a throwaway string; used so unknown emails still
+// cost one bcrypt compare (timing-side-channel hardening).
+const DUMMY_PASSWORD_HASH = '$2a$12$4Ep/qTHS1MLtUTIPsu9NDe0vF99wuwmYd2qnCaeEmoWfBkc2KM/Ty';
+
 export async function login(email: string, password: string): Promise<AuthResult> {
   const user = await findUserByEmail(email);
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+  if (!user) {
+    await verifyPassword(password, DUMMY_PASSWORD_HASH);
+    throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
+  }
+  if (!(await verifyPassword(password, user.passwordHash))) {
     throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
   }
   const role = assertUsable(user);

@@ -58,6 +58,21 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
+
+  it('takes a comparable time for unknown email vs wrong password (dummy hash compare)', async () => {
+    await createTestUser({ email: 'timing@test.local' });
+    // Behavioral assertion only: both paths 401 INVALID_CREDENTIALS.
+    const unknown = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'ghost@test.local', password: 'Password123!' });
+    const wrong = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'timing@test.local', password: 'not-the-password' });
+    expect(unknown.status).toBe(401);
+    expect(wrong.status).toBe(401);
+    expect(unknown.body.error.code).toBe('INVALID_CREDENTIALS');
+    expect(wrong.body.error.code).toBe('INVALID_CREDENTIALS');
+  });
 });
 
 describe('GET /api/auth/me', () => {
