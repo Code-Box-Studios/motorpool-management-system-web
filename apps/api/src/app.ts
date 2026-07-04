@@ -7,6 +7,7 @@ import { config } from './config.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { authRouter } from './modules/auth/router.js';
 import { referenceRouter } from './modules/reference/router.js';
+import { usersRouter } from './modules/users/router.js';
 
 // App factory so tests can mount a fresh instance without listening.
 export function createApp(): express.Express {
@@ -37,6 +38,7 @@ export function createApp(): express.Express {
 
   app.use('/api/auth', authRouter);
   app.use('/api', referenceRouter);
+  app.use('/api/users', usersRouter);
 
   // Domain routers mount here in later plans.
 
