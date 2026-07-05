@@ -467,6 +467,7 @@ model VehicleMaintenanceTracking {
   scheduleItem MaintenanceScheduleItem    @relation(fields: [maintenanceScheduleItemId], references: [id])
   completionLogs MaintenanceCompletionLog[]
 
+  @@unique([vehicleId, maintenanceScheduleItemId])
   @@map("vehicle_maintenance_tracking")
 }
 

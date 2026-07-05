@@ -119,4 +119,22 @@ describe('vehicle maintenance tracking', () => {
       .send({ maintenanceStandardId: standard.id });
     expect(driverAssign.status).toBe(403);
   });
+
+  it('does not create a duplicate tracking row when the unique key already exists', async () => {
+    const a = await admin();
+    const { vehicle, standard } = await vehicleWithStandard();
+    await request(app)
+      .post(`/api/vehicles/${vehicle.id}/maintenance-tracking`)
+      .set('Authorization', a.header)
+      .send({ maintenanceStandardId: standard.id });
+    const before = await prisma.vehicleMaintenanceTracking.count({ where: { vehicleId: vehicle.id } });
+    // Re-assign: no new rows, and no crash from the unique constraint.
+    const again = await request(app)
+      .post(`/api/vehicles/${vehicle.id}/maintenance-tracking`)
+      .set('Authorization', a.header)
+      .send({ maintenanceStandardId: standard.id });
+    expect(again.status).toBe(201);
+    expect(again.body.count).toBe(0);
+    expect(await prisma.vehicleMaintenanceTracking.count({ where: { vehicleId: vehicle.id } })).toBe(before);
+  });
 });

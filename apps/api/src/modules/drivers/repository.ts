@@ -20,3 +20,9 @@ export async function listDrivers(
   ]);
   return { data, count };
 }
+
+// The driver row linked to a login — used to scope job-order visibility to the
+// caller's assigned repairs (spec §6).
+export function findDriverByUserId(userId: string) {
+  return prisma.driver.findUnique({ where: { userId } });
+}
