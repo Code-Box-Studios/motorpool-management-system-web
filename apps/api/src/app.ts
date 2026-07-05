@@ -9,6 +9,7 @@ import { authRouter } from './modules/auth/router.js';
 import { driversRouter } from './modules/drivers/router.js';
 import { referenceRouter } from './modules/reference/router.js';
 import { usersRouter } from './modules/users/router.js';
+import { vehiclesRouter } from './modules/vehicles/router.js';
 
 // App factory so tests can mount a fresh instance without listening.
 export function createApp(): express.Express {
@@ -41,6 +42,7 @@ export function createApp(): express.Express {
   app.use('/api', referenceRouter);
   app.use('/api/users', usersRouter);
   app.use('/api/drivers', driversRouter);
+  app.use('/api/vehicles', vehiclesRouter);
 
   // Domain routers mount here in later plans.
 
