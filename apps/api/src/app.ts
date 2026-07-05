@@ -9,6 +9,7 @@ import { authRouter } from './modules/auth/router.js';
 import { driversRouter } from './modules/drivers/router.js';
 import { referenceRouter } from './modules/reference/router.js';
 import { sparePartsRouter } from './modules/spare-parts/router.js';
+import { toolsRouter } from './modules/tools/router.js';
 import { usersRouter } from './modules/users/router.js';
 import { vehiclesRouter } from './modules/vehicles/router.js';
 
@@ -45,6 +46,7 @@ export function createApp(): express.Express {
   app.use('/api/drivers', driversRouter);
   app.use('/api/vehicles', vehiclesRouter);
   app.use('/api/spare-parts', sparePartsRouter);
+  app.use('/api/tools', toolsRouter);
 
   // Domain routers mount here in later plans.
 
