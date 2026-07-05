@@ -3,3 +3,7 @@ export * from './contracts/auth.js';
 export * from './contracts/common.js';
 export * from './contracts/users.js';
 export * from './contracts/drivers.js';
+export * from './contracts/vehicles.js';
+export * from './contracts/maintenance.js';
+export * from './contracts/spare-parts.js';
+export * from './contracts/tools.js';

@@ -74,3 +74,22 @@ export const DRIVER_STATUS_DISPLAY: Record<
   inactive: 'Inactive',
   on_trip: 'On Trip'
 };
+
+// Schedule-item interval kind. Descriptive/UI-only — the next-due computation
+// branches on the truthiness of interval_mileage / interval_months, NOT on this
+// (faithful to the FE's real behavior). See modules/maintenance/next-due.ts.
+export const INTERVAL_TYPE = {
+  MILEAGE: 'mileage',
+  TIME: 'time',
+  BOTH: 'both'
+} as const;
+
+// Maintenance-tracking display status. Only 'pending' and 'completed' are ever
+// persisted; 'due_soon' and 'overdue' are DERIVED on read (spec §6, ported from
+// the FE's computeTrackingStatus).
+export const TRACKING_STATUS = {
+  PENDING: 'pending',
+  DUE_SOON: 'due_soon',
+  OVERDUE: 'overdue',
+  COMPLETED: 'completed'
+} as const;
