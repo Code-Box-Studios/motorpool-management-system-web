@@ -176,4 +176,23 @@ describe('POST /api/users', () => {
       .field('roleId', '00000000-0000-4000-8000-00000000dead');
     expect(res.status).toBe(403);
   });
+
+  it('stores an uploaded avatar path on the created user', async () => {
+    const { header } = await adminHeader();
+    const role = await prisma.role.upsert({
+      where: { name: 'requester' },
+      update: {},
+      create: { name: 'requester' }
+    });
+    const res = await request(app)
+      .post('/api/users')
+      .set('Authorization', header)
+      .field('email', 'avatar@test.local')
+      .field('password', 'Password123!')
+      .field('fullName', 'Avatar User')
+      .field('roleId', role.id)
+      .attach('avatar', Buffer.from('fakepng'), { filename: 'me.png', contentType: 'image/png' });
+    expect(res.status).toBe(201);
+    expect(res.body.avatarUrl).toMatch(/^\/uploads\/avatars\/.+\.png$/);
+  });
 });

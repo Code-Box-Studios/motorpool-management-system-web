@@ -88,6 +88,70 @@ CRUD over driver personnel records. `userId` is `null` unless the driver was cre
 | `PATCH /api/drivers/:id`   | Update a driver (admin).                                                                      |
 | `DELETE /api/drivers/:id`  | Delete a driver (admin).                                                                      |
 
+### Vehicle endpoints
+
+| Endpoint                  | Description                                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------------------------ |
+| `GET /api/vehicles`        | List vehicles (any authenticated role, spec §5).                                             |
+| `GET /api/vehicles/:id`    | Fetch a vehicle by id (any authenticated role).                                               |
+| `POST /api/vehicles`       | Create a vehicle (admin). Multipart form; optional `images` file field (multiple, up to 10). |
+| `PATCH /api/vehicles/:id`  | Update a vehicle (admin). Multipart form; optional `images` file field — new uploads are added to the existing set minus any `removedImages`. Writes a `vehicle_status_audit` row when `status` changes. |
+| `DELETE /api/vehicles/:id` | Delete a vehicle (admin). 409 `VEHICLE_IN_USE` if referenced by a maintenance/tracking row.   |
+
+### Spare-parts endpoints
+
+| Endpoint                     | Description                                                              |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| `GET /api/spare-parts`        | List spare parts, newest-first (any role except `security_guard`).      |
+| `GET /api/spare-parts/:id`    | Fetch a spare part by id (same role gate).                              |
+| `POST /api/spare-parts`       | Create a spare part (admin). Multipart form; optional `image` file field. |
+| `PATCH /api/spare-parts/:id`  | Update a spare part (admin). Multipart form; optional `image` file field. |
+| `DELETE /api/spare-parts/:id` | Delete a spare part (admin).                                             |
+
+### Tool endpoints
+
+| Endpoint                | Description                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `GET /api/tools`         | List tools, newest-first (any role except `security_guard`).                                 |
+| `GET /api/tools/:id`     | Fetch a tool by id (same role gate).                                                          |
+| `POST /api/tools`        | Create a tool (admin). Multipart form; optional `image` file field.                          |
+| `PATCH /api/tools/:id`   | Update a tool (admin). Multipart form; optional `image` file field. Also used to borrow/return: set `status`, `borrowedById`, `borrowedDate`, `estimatedReturnDate` to record a borrow, or clear them (empty string coerces to `null`) to record a return. |
+| `DELETE /api/tools/:id`  | Delete a tool (admin).                                                                        |
+
+### Maintenance endpoints (service history)
+
+| Endpoint                       | Description                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `GET /api/maintenance`           | List maintenance records, date-desc (any role except `security_guard`); optional `?vehicleId=` filter. |
+| `GET /api/maintenance/:id`       | Fetch a maintenance record by id (same role gate).                                            |
+| `POST /api/maintenance`          | Create a maintenance record (admin). `nextDue` is manually entered, not computed.              |
+| `PATCH /api/maintenance/:id`     | Update a maintenance record (admin).                                                           |
+| `DELETE /api/maintenance/:id`    | Delete a maintenance record (admin).                                                           |
+
+### Maintenance-standards endpoints
+
+| Endpoint                                             | Description                                                                    |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `GET /api/maintenance-standards`                       | List maintenance standards, each embedding its `scheduleItems` (any role except `security_guard`). |
+| `GET /api/maintenance-standards/:id`                   | Fetch a standard by id, with its schedule items (same role gate).             |
+| `POST /api/maintenance-standards`                      | Create a standard (admin), optionally with a nested `scheduleItems` array.     |
+| `PATCH /api/maintenance-standards/:id`                 | Update a standard's `name`/`description` (admin).                             |
+| `DELETE /api/maintenance-standards/:id`                | Delete a standard, cascading its schedule items (admin).                      |
+| `POST /api/maintenance-standards/:id/schedule-items`   | Add a schedule item to a standard (admin): `taskName`, `intervalType` (`mileage`/`time`), and the matching `intervalMileage`/`intervalMonths`. |
+| `DELETE /api/maintenance-standards/schedule-items/:itemId` | Remove a single schedule item (admin).                                     |
+
+### Maintenance-tracking endpoints
+
+Per-vehicle rows tracking each schedule item's next-due mileage/date, derived from a standard assigned to that vehicle.
+
+| Endpoint                                            | Description                                                                                     |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `GET /api/vehicles/:id/maintenance-tracking`            | List tracking rows for a vehicle, each with a derived `displayStatus` (`pending`/`due_soon`/`overdue`/`completed`, from the 30-day / 500 km thresholds), sorted overdue-first (any role except `security_guard`). |
+| `POST /api/vehicles/:id/maintenance-tracking`           | Assign a `maintenanceStandardId` to a vehicle (admin); seeds one tracking row per schedule item. |
+| `POST /api/maintenance-tracking/:id/complete`           | Complete a tracking row (admin): pass `completedMileage` (+ optional `notes`); logs the completion and recomputes `next_due` (`anchor + interval` — months via calendar `setMonth`, mileage additive). |
+
+Read-access note: maintenance, spare-parts, and tools list/detail endpoints are readable by every role **except** `security_guard` (that role's dashboard doesn't surface them); vehicles remain readable by any authenticated role. All writes across these modules stay admin-only.
+
 ### Pagination convention
 
 Every list endpoint above returns `{ data, count }`, where `count` is the total matching row count (not the page size). Pass `?page` (1-indexed) and `?limit` to paginate; omit both query params to get the full result set in one response.
