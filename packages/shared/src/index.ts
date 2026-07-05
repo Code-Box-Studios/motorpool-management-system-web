@@ -7,3 +7,5 @@ export * from './contracts/vehicles.js';
 export * from './contracts/maintenance.js';
 export * from './contracts/spare-parts.js';
 export * from './contracts/tools.js';
+export * from './contracts/trip-tickets.js';
+export * from './contracts/job-orders.js';
