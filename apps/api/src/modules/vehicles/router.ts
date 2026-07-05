@@ -1,9 +1,11 @@
 import { Router } from 'express';
-import { USER_ROLES, createVehicleBodySchema, updateVehicleBodySchema } from '@mms/shared';
+import { USER_ROLES, assignTrackingBodySchema, createVehicleBodySchema, updateVehicleBodySchema } from '@mms/shared';
+import { INVENTORY_READ_ROLES } from '../../lib/access.js';
 import { createUploader } from '../../lib/uploads.js';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { requireRole } from '../../middleware/require-role.js';
 import { validateBody } from '../../middleware/validate.js';
+import * as trackingController from '../maintenance/tracking.controller.js';
 import * as controller from './controller.js';
 
 const imageUpload = createUploader('vehicles');
@@ -28,3 +30,15 @@ vehiclesRouter.patch(
   controller.update
 );
 vehiclesRouter.delete('/:id', requireRole(USER_ROLES.admin), controller.remove);
+
+vehiclesRouter.get(
+  '/:id/maintenance-tracking',
+  requireRole(...INVENTORY_READ_ROLES),
+  trackingController.listForVehicle
+);
+vehiclesRouter.post(
+  '/:id/maintenance-tracking',
+  requireRole(USER_ROLES.admin),
+  validateBody(assignTrackingBodySchema),
+  trackingController.assign
+);

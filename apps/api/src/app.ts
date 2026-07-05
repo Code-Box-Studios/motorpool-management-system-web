@@ -11,6 +11,7 @@ import { referenceRouter } from './modules/reference/router.js';
 import { sparePartsRouter } from './modules/spare-parts/router.js';
 import { maintenanceRouter } from './modules/maintenance/router.js';
 import { standardsRouter } from './modules/maintenance/standards.router.js';
+import { trackingRouter } from './modules/maintenance/tracking.router.js';
 import { toolsRouter } from './modules/tools/router.js';
 import { usersRouter } from './modules/users/router.js';
 import { vehiclesRouter } from './modules/vehicles/router.js';
@@ -51,6 +52,7 @@ export function createApp(): express.Express {
   app.use('/api/tools', toolsRouter);
   app.use('/api/maintenance', maintenanceRouter);
   app.use('/api/maintenance-standards', standardsRouter);
+  app.use('/api/maintenance-tracking', trackingRouter);
 
   // Domain routers mount here in later plans.
 
