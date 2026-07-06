@@ -18,3 +18,11 @@ export async function disapprove(req: Request, res: Response): Promise<void> {
 export async function cancel(req: Request, res: Response): Promise<void> {
   res.json(await transitions.cancel(requireIdParam(req), requireUser(req), (req.body as ReasonBody).reason));
 }
+
+export async function checkOut(req: Request, res: Response): Promise<void> {
+  res.json(await transitions.checkOut(requireIdParam(req), requireUser(req)));
+}
+
+export async function checkIn(req: Request, res: Response): Promise<void> {
+  res.json(await transitions.checkIn(requireIdParam(req), requireUser(req)));
+}

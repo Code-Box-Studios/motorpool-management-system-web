@@ -25,3 +25,6 @@ tripTicketsRouter.post('/:id/approve', requireRole(USER_ROLES.admin), validateBo
 tripTicketsRouter.post('/:id/approve-evp', requireRole(USER_ROLES.evp_operations), transitionsController.approveEvp);
 tripTicketsRouter.post('/:id/disapprove', requireRole(USER_ROLES.admin, USER_ROLES.evp_operations), validateBody(reasonBodySchema), transitionsController.disapprove);
 tripTicketsRouter.post('/:id/cancel', requireRole(USER_ROLES.admin, USER_ROLES.requester), validateBody(reasonBodySchema), transitionsController.cancel);
+
+tripTicketsRouter.post('/:id/check-out', requireRole(USER_ROLES.security_guard), transitionsController.checkOut);
+tripTicketsRouter.post('/:id/check-in', requireRole(USER_ROLES.security_guard), transitionsController.checkIn);

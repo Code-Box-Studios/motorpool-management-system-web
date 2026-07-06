@@ -2,6 +2,7 @@ import type { ApproveTripTicketBody } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
+import { changeVehicleStatus } from '../vehicles/status.js';
 import { findTripTicketById } from './repository.js';
 
 // Loads the ticket and asserts its current status is in the allowed-from set.
@@ -79,6 +80,52 @@ export async function cancel(id: string, actor: AuthenticatedUser, reason: strin
   await prisma.$transaction(async (tx) => {
     await tx.tripTicket.update({ where: { id }, data: { status: 'cancelled', cancellationReason: reason } });
     await tx.fuelAllocation.updateMany({ where: { tripTicketId: id }, data: { status: 'cancelled' } });
+  });
+  return findTripTicketById(id);
+}
+
+// security_guard check-out → in_progress; records the pre-trip guard and flips
+// the vehicle available→on_trip (skipped+logged if it isn't available).
+export async function checkOut(id: string, actor: AuthenticatedUser) {
+  const ticket = await loadInState(id, ['approved']);
+  await prisma.$transaction(async (tx) => {
+    await tx.tripTicket.update({
+      where: { id },
+      data: {
+        status: 'in_progress',
+        preTripGuardId: actor.id,
+        preTripCheckedById: actor.id,
+        preTripCheckedAt: new Date()
+      }
+    });
+    await changeVehicleStatus(tx, ticket.vehicleId, 'on_trip', {
+      changedBy: actor.id,
+      source: 'trip_check_out',
+      expectedFrom: 'available'
+    });
+  });
+  return findTripTicketById(id);
+}
+
+// security_guard check-in → completed; records the post-trip guard and flips
+// the vehicle on_trip→available (skipped+logged if it isn't on_trip).
+export async function checkIn(id: string, actor: AuthenticatedUser) {
+  const ticket = await loadInState(id, ['in_progress']);
+  await prisma.$transaction(async (tx) => {
+    await tx.tripTicket.update({
+      where: { id },
+      data: {
+        status: 'completed',
+        postTripGuardId: actor.id,
+        postTripCheckedById: actor.id,
+        postTripCheckedAt: new Date()
+      }
+    });
+    await changeVehicleStatus(tx, ticket.vehicleId, 'available', {
+      changedBy: actor.id,
+      source: 'trip_check_in',
+      expectedFrom: 'on_trip'
+    });
   });
   return findTripTicketById(id);
 }
