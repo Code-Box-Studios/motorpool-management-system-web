@@ -193,7 +193,7 @@ Read-access note: maintenance, spare-parts, and tools list/detail endpoints are 
 | `GET /api/gps/latest`     | Newest GPS point per vehicle, joined with a flattened vehicle summary (`make`/`model`/`licensePlate`/`status`). Admin/EVP Operations only. |
 | `GET /api/gps/history`    | GPS history for one vehicle: `?vehicleId=` (required), optional `?tripId=`, `?from=`, `?to=`, `?limit=` (default 500, max 5000). Admin/EVP Operations only. |
 
-`POST /api/gps/ingest` is device-authenticated, not user-authenticated: it requires an `x-device-api-key` header matching `GPS_DEVICE_API_KEY` and is **fail-closed** — if that env var is unset, every request 401s (there's no way to accidentally leave ingest open).
+`POST /api/gps/ingest` is device-authenticated, not user-authenticated: it requires an `x-device-api-key` header matching `GPS_DEVICE_API_KEY` and is **fail-closed** — if that env var is unset, every request fails with `500 GPS_NOT_CONFIGURED`; a missing or mismatched header when the key IS set returns `401 INVALID_DEVICE_KEY`. There's no way to accidentally leave ingest open.
 
 ### Analytics endpoints
 
@@ -222,7 +222,7 @@ In addition to `DATABASE_URL`, `PORT`, and `CORS_ORIGIN`, `apps/api/.env` needs:
 | `JWT_SECRET`       | Secret used to sign access tokens (min 32 chars).                           |
 | `COOKIE_SAMESITE`  | `lax` for local/same-site dev; set to `none` for cross-site deploys (e.g. Vercel FE ↔ Railway API) — this also forces `Secure` on the cookie. |
 | `UPLOADS_DIR`      | Directory uploaded files are written to and served from (`/uploads/*`).     |
-| `GPS_DEVICE_API_KEY` | Shared secret GPS devices send as `x-device-api-key` on `POST /api/gps/ingest`. Unset means ingest is closed (every request 401s), not open. |
+| `GPS_DEVICE_API_KEY` | Shared secret GPS devices send as `x-device-api-key` on `POST /api/gps/ingest`. Unset means ingest is closed (every request `500 GPS_NOT_CONFIGURED`), not open. |
 
 ## Backend migration
 
