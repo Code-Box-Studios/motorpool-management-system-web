@@ -14,6 +14,7 @@ import { standardsRouter } from './modules/maintenance/standards.router.js';
 import { trackingRouter } from './modules/maintenance/tracking.router.js';
 import { jobOrdersRouter } from './modules/job-orders/router.js';
 import { gpsRouter } from './modules/gps/router.js';
+import { analyticsRouter } from './modules/analytics/router.js';
 import { toolsRouter } from './modules/tools/router.js';
 import { tripTicketsRouter } from './modules/trip-tickets/router.js';
 import { usersRouter } from './modules/users/router.js';
@@ -59,6 +60,7 @@ export function createApp(): express.Express {
   app.use('/api/trip-tickets', tripTicketsRouter);
   app.use('/api/job-orders', jobOrdersRouter);
   app.use('/api/gps', gpsRouter);
+  app.use('/api/analytics', analyticsRouter);
 
   // Domain routers mount here in later plans.
 
