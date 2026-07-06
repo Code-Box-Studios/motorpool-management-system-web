@@ -66,8 +66,12 @@ export async function completeRepair(id: string, actor: AuthenticatedUser, body:
   }
   const releaseDate = body.actualDateOfRelease ?? new Date();
   await prisma.$transaction(async (tx) => {
-    await tx.jobOrder.update({
-      where: { id },
+    // Conditional write: only flips rows still in ongoing_repair. Under concurrent
+    // double-submit, the loser's updateMany blocks on the row lock, re-evaluates
+    // the WHERE against the winner's committed status, matches 0, and aborts here
+    // — before the decrement loop runs — preventing a double decrement.
+    const flipped = await tx.jobOrder.updateMany({
+      where: { id, status: 'ongoing_repair' },
       data: {
         status: 'repaired',
         repairDone: body.repairDone,
@@ -75,6 +79,9 @@ export async function completeRepair(id: string, actor: AuthenticatedUser, body:
         actualDateOfRelease: releaseDate
       }
     });
+    if (flipped.count === 0) {
+      throw new AppError(409, 'INVALID_TRANSITION', `Not allowed from status ${order.status}`);
+    }
     // Decrement inventory per noted part (spec §6.2 — NEW behavior). Intentionally
     // NO stock floor: a physically-completed repair is never blocked on inventory
     // math, and clamping would hide over-use. A negative quantity is an accepted

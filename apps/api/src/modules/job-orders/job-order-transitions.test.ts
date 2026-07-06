@@ -80,4 +80,21 @@ describe('job-order transitions', () => {
     expect(await prisma.maintenance.count({ where: { vehicleId: vehicle.id } })).toBe(1);
     expect((await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })).status).toBe('available');
   });
+
+  it('complete-repair: concurrent double-submit decrements spare-parts inventory exactly once', async () => {
+    const { vehicle, mechanic, part, order } = await scaffold('available');
+    const { user: admin } = await createTestUser({ email: 'a@test.local', role: 'admin' });
+    const adminH = authHeader(admin.id, admin.email, 'admin');
+    await request(app).post(`/api/job-orders/${order.id}/note`).set('Authorization', adminH).send({ assignedMechanicId: mechanic.id, spareParts: [{ sparePartId: part.id, quantity: 3 }] });
+    const { user: evp } = await createTestUser({ email: 'e@test.local', role: 'evp_operations' });
+    await request(app).post(`/api/job-orders/${order.id}/approve`).set('Authorization', authHeader(evp.id, evp.email, 'evp_operations')).send({});
+
+    const fire = () =>
+      request(app).post(`/api/job-orders/${order.id}/complete-repair`).set('Authorization', adminH).send({ repairDone: 'simple', remarks: 'Done', actualDateOfRelease: '2026-08-05' });
+    const [first, second] = await Promise.all([fire(), fire()]);
+    const statuses = [first.status, second.status].sort();
+    expect(statuses).toEqual([200, 409]);
+    expect((await prisma.sparePart.findUniqueOrThrow({ where: { id: part.id } })).quantity).toBe(7); // 10 - 3, not 4
+    expect(await prisma.maintenance.count({ where: { vehicleId: vehicle.id } })).toBe(1);
+  });
 });
