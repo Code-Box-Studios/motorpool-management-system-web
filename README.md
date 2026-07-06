@@ -98,6 +98,22 @@ CRUD over driver personnel records. `userId` is `null` unless the driver was cre
 | `PATCH /api/vehicles/:id`  | Update a vehicle (admin). Multipart form; optional `images` file field — new uploads are added to the existing set minus any `removedImages`. Writes a `vehicle_status_audit` row when `status` changes. |
 | `DELETE /api/vehicles/:id` | Delete a vehicle (admin). 409 `VEHICLE_IN_USE` if referenced by a maintenance/tracking row.   |
 
+### Trip-ticket endpoints
+
+| Endpoint                              | Description                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `GET /api/trip-tickets`               | List trip tickets, most recent start time first (`startTs` desc; any authenticated role). Optional `?requestedBy=`, `?branchId=`, `?driverId=`, `?status=` filters. A `requester` caller only sees tickets they submitted; a `driver` caller only sees tickets assigned to their linked driver record (via `drivers.userId`) — filters narrow within that scope, they can't widen it. |
+| `GET /api/trip-tickets/:id`           | Fetch a trip ticket by id (same per-role scoping as list; an out-of-scope id 404s rather than 403s). |
+| `POST /api/trip-tickets`              | Create a trip ticket (any authenticated role); always born `pending_admin_approval` — status is never client-chosen. |
+| `PATCH /api/trip-tickets/:id`         | Update a trip ticket (its own requester, or admin); only while still `pending_admin_approval`. |
+| `DELETE /api/trip-tickets/:id`        | Delete a trip ticket (admin). Its fuel allocation cascades.                                   |
+| `POST /api/trip-tickets/:id/approve`  | Admin approve: `pending_admin_approval` → `pending_fuel_allocation_approval`. Body carries the fuel-allocation fields (`liters`, `fuelType`, `date`, `purpose`, `tripTo`) — this is where the fuel allocation is created, embedded on the ticket (`status: pending`). |
+| `POST /api/trip-tickets/:id/approve-evp` | EVP Operations approve: `pending_fuel_allocation_approval` → `approved`; stamps the fuel allocation `approved` + `approvedByEvpId`. |
+| `POST /api/trip-tickets/:id/disapprove` | Admin (from either pending state) or EVP Operations (from `pending_fuel_allocation_approval` only); body requires `reason`. Mirrors `disapproved` onto the fuel allocation if one exists. |
+| `POST /api/trip-tickets/:id/cancel`   | Owning requester or admin, from either pending state; body requires `reason`. Mirrors `cancelled` onto the fuel allocation if one exists. |
+| `POST /api/trip-tickets/:id/check-out` | Security guard: `approved` → `in_progress`; records the pre-trip guard + timestamp and flips the vehicle `available` → `on_trip`. |
+| `POST /api/trip-tickets/:id/check-in` | Security guard: `in_progress` → `completed`; records the post-trip guard + timestamp and flips the vehicle `on_trip` → `available`. |
+
 ### Spare-parts endpoints
 
 | Endpoint                     | Description                                                              |
@@ -117,6 +133,23 @@ CRUD over driver personnel records. `userId` is `null` unless the driver was cre
 | `POST /api/tools`        | Create a tool (admin). Multipart form; optional `image` file field.                          |
 | `PATCH /api/tools/:id`   | Update a tool (admin). Multipart form; optional `image` file field. Also used to borrow/return: set `status`, `borrowedById`, `borrowedDate`, `estimatedReturnDate` to record a borrow, or clear them (empty string coerces to `null`) to record a return. |
 | `DELETE /api/tools/:id`  | Delete a tool (admin).                                                                        |
+
+### Job-order endpoints
+
+Repair workflow for a vehicle: request → note (assign mechanic + spare parts) → EVP approve → complete repair.
+
+| Endpoint                                | Description                                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `GET /api/job-orders`                   | List job orders, target-date ascending (`targetDate` asc); admin, requester, evp_operations, and driver roles — **not** security_guard, which gets a 403 on the whole router. Optional `?status=` filter. Admin/EVP see all; other roles see only orders they requested or that are assigned to their linked driver record (via `drivers.userId`). |
+| `GET /api/job-orders/:id`               | Fetch a job order by id (same role gate + scoping; an out-of-scope id 404s rather than 403s). |
+| `POST /api/job-orders`                  | Create a job order (admin/requester/evp_operations/driver); always born `pending`.            |
+| `PATCH /api/job-orders/:id`             | Update a job order (admin); only while still `pending`.                                       |
+| `DELETE /api/job-orders/:id`            | Delete a job order (admin). Its spare-parts join rows cascade.                                 |
+| `POST /api/job-orders/:id/note`         | Admin note: `pending` → `assigned_mechanic`. Assigns a mechanic and replaces the job order's spare-parts join rows (`sparePartId` + `quantity`) with the noted set; flips the vehicle `available` → `under_maintenance`. |
+| `POST /api/job-orders/:id/approve`      | EVP Operations approve: `assigned_mechanic` → `ongoing_repair`.                               |
+| `POST /api/job-orders/:id/complete-repair` | Admin complete-repair: `ongoing_repair` → `repaired`. Decrements each noted spare part's inventory `quantity` by the noted amount (no stock floor — intentionally allowed to go negative as a reconciliation signal), writes a `repair`-type maintenance history row, and flips the vehicle `under_maintenance` → `available`. |
+
+Transition note (applies to both trip-tickets and job-orders above): every transition verb is server-enforced — calling it from a status outside its allowed-from set 409s `INVALID_TRANSITION`, and calling it as the wrong role 403s. Trip-ticket `check-out`/`check-in` and job-order `note`/`complete-repair` are the points that also flip the vehicle's `status`.
 
 ### Maintenance endpoints (service history)
 
