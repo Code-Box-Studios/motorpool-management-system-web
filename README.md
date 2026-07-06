@@ -185,6 +185,26 @@ Per-vehicle rows tracking each schedule item's next-due mileage/date, derived fr
 
 Read-access note: maintenance, spare-parts, and tools list/detail endpoints are readable by every role **except** `security_guard` (that role's dashboard doesn't surface them); vehicles remain readable by any authenticated role. All writes across these modules stay admin-only.
 
+### GPS endpoints
+
+| Endpoint                | Description                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `POST /api/gps/ingest`    | Ingest a GPS point (device auth — see below, **not** a user JWT). Body: `vehicleId`, optional `tripId`, `latitude`, `longitude`, optional `speed`/`heading`/`engineStatus`. Inserts the `gps_data` row and updates the vehicle's denormalized `latitude`/`longitude`/`lastLocationUpdate`, atomically. |
+| `GET /api/gps/latest`     | Newest GPS point per vehicle, joined with a flattened vehicle summary (`make`/`model`/`licensePlate`/`status`). Admin/EVP Operations only. |
+| `GET /api/gps/history`    | GPS history for one vehicle: `?vehicleId=` (required), optional `?tripId=`, `?from=`, `?to=`, `?limit=` (default 500, max 5000). Admin/EVP Operations only. |
+
+`POST /api/gps/ingest` is device-authenticated, not user-authenticated: it requires an `x-device-api-key` header matching `GPS_DEVICE_API_KEY` and is **fail-closed** — if that env var is unset, every request 401s (there's no way to accidentally leave ingest open).
+
+### Analytics endpoints
+
+| Endpoint                                    | Description                                                                                  |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `GET /api/analytics/dashboard`                | Fleet status counts (`available`, `underMaintenance`, `onTrip`, `outOfService`, `total`) plus `completedTrips`. Returns a bare object, not `{ data, count }`. |
+| `GET /api/analytics/predictive-maintenance`   | Per-vehicle risk assessment (`riskScore`, `priority`, `usedFallback`, plus the mileage/maintenance features used), highest-risk first. Falls back to a rule-based score if the ML model can't produce one. |
+| `GET /api/analytics/association-rules`        | Spare-parts association rules mined from job-order history (Apriori); optional `?vehicleType=` filters job orders to a vehicle make first. |
+
+GPS reads (`/gps/latest`, `/gps/history`) and all analytics endpoints are restricted to the `admin` and `evp_operations` roles.
+
 ### Pagination convention
 
 Every list endpoint above returns `{ data, count }`, where `count` is the total matching row count (not the page size). Pass `?page` (1-indexed) and `?limit` to paginate; omit both query params to get the full result set in one response.
@@ -202,6 +222,7 @@ In addition to `DATABASE_URL`, `PORT`, and `CORS_ORIGIN`, `apps/api/.env` needs:
 | `JWT_SECRET`       | Secret used to sign access tokens (min 32 chars).                           |
 | `COOKIE_SAMESITE`  | `lax` for local/same-site dev; set to `none` for cross-site deploys (e.g. Vercel FE ↔ Railway API) — this also forces `Secure` on the cookie. |
 | `UPLOADS_DIR`      | Directory uploaded files are written to and served from (`/uploads/*`).     |
+| `GPS_DEVICE_API_KEY` | Shared secret GPS devices send as `x-device-api-key` on `POST /api/gps/ingest`. Unset means ingest is closed (every request 401s), not open. |
 
 ## Backend migration
 
