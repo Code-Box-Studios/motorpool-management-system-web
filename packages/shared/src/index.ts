@@ -9,3 +9,5 @@ export * from './contracts/spare-parts.js';
 export * from './contracts/tools.js';
 export * from './contracts/trip-tickets.js';
 export * from './contracts/job-orders.js';
+export * from './contracts/gps.js';
+export * from './contracts/analytics.js';

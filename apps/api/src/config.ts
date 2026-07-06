@@ -8,7 +8,11 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   JWT_SECRET: z.string().min(32),
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).optional(),
-  UPLOADS_DIR: z.string().default('uploads')
+  UPLOADS_DIR: z.string().default('uploads'),
+  // Device-ingest secret. Validated/known at boot but intentionally NOT exposed
+  // on `config` — the gps device-key middleware reads process.env live so tests
+  // can toggle it per case (spec §10, fail-closed).
+  GPS_DEVICE_API_KEY: z.string().optional()
 });
 
 const env = envSchema.parse(process.env);
