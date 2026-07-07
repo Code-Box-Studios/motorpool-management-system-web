@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createTool, updateTool } from '@/lib/supabase/tools';
+import { createTool, updateTool } from '@/lib/api/tools';
 import type { NewTool, UpdateTool } from '../types';
 
 export const useCreateTool = () => {

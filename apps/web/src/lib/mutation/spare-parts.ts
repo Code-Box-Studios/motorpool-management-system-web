@@ -3,7 +3,7 @@ import {
   createSparePart,
   updateSparePart,
   deleteSparePart
-} from '@/lib/supabase/spare-parts';
+} from '@/lib/api/spare-parts';
 import type { NewSparePart, UpdateSparePart } from '@/lib/types';
 import { toast } from 'sonner';
 
