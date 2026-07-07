@@ -288,9 +288,12 @@ const TripTicketsPage = () => {
                                       status: value
                                     });
                                     // Pre-populate fuel allocation data from ticket
+                                    // Fall back to today when the ticket has no
+                                    // start_ts, so the required approve `date`
+                                    // is never sent empty (server rejects '').
                                     const startDate = ticket.start_ts
                                       ? ticket.start_ts.split('T')[0]
-                                      : '';
+                                      : new Date().toISOString().split('T')[0];
                                     setFuelAllocationData({
                                       allocation_date: startDate,
                                       allocation_trip_to:
@@ -773,7 +776,7 @@ const TripTicketsPage = () => {
             <AlertDialogAction
               disabled={
                 !fuelAllocationData.allocation_fuel_type ||
-                !fuelAllocationData.allocation_liters ||
+                !(Number(fuelAllocationData.allocation_liters) > 0) ||
                 approveTripTicket.isPending
               }
               onClick={() => {

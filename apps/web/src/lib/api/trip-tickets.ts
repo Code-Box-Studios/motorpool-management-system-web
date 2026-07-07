@@ -73,7 +73,7 @@ function toSnake(t: TripTicketApiResponse): TripTicket {
     office_head_id: t.officeHeadId ?? null,
     destination: t.destination,
     purpose: t.purpose,
-    date_requested: t.dateRequested,
+    date_requested: t.dateRequested.slice(0, 10), // @db.Date -> YYYY-MM-DD for <input type="date">/display
     participants: t.participants ?? [],
     participants_count: t.participantsCount ?? null,
     prepared_by: t.preparedBy,
@@ -95,7 +95,7 @@ function toSnake(t: TripTicketApiResponse): TripTicket {
     created_at: t.createdAt,
     updated_at: t.updatedAt,
     // Denormalized allocation_* flattened from the fuelAllocation embed:
-    allocation_date: fa?.date ?? null,
+    allocation_date: fa?.date ? fa.date.slice(0, 10) : null, // @db.Date -> YYYY-MM-DD
     allocation_trip_to: fa?.tripTo ?? null,
     allocation_purpose: fa?.purpose ?? null,
     allocation_vehicle_id: fa?.vehicleId ?? null,
