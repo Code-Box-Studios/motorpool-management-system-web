@@ -251,7 +251,7 @@ export function NoteJobOrderModal({
                         onChange={(e) =>
                           handleQuantityChange(
                             sparePartId,
-                            Math.max(1, Number(e.target.value) || 1)
+                            Math.max(1, Math.floor(Number(e.target.value)) || 1)
                           )
                         }
                       />

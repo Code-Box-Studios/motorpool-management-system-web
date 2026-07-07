@@ -216,7 +216,7 @@ const JobOrdersPage = () => {
                               : 'N/A'}
                           </TableCell>
                           <TableCell>
-                            {new Date(order.incident_date || new Date()).toLocaleString()}
+                            {order.incident_date ? new Date(order.incident_date).toLocaleString() : 'N/A'}
                           </TableCell>
                           <TableCell>
                             {getDriverName(order.assigned_mechanic)}

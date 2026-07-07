@@ -17,6 +17,7 @@ export const useCreateJobOrder = () => {
     mutationFn: (jobOrder: NewJobOrder) => createJobOrder(jobOrder),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job_orders'] });
+      queryClient.invalidateQueries({ queryKey: ['all_job_orders'] });
       toast.success('Job order created successfully!');
     },
     onError: (error: ApiError) => {
@@ -31,6 +32,7 @@ export const useUpdateJobOrder = () => {
     mutationFn: ({ id, updates }: { id: string; updates: Record<string, unknown> }) => updateJobOrder(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job_orders'] });
+      queryClient.invalidateQueries({ queryKey: ['all_job_orders'] });
       toast.success('Job order updated successfully!');
     },
     onError: (error: ApiError) => {
@@ -45,6 +47,7 @@ export const useDeleteJobOrder = () => {
     mutationFn: (id: string) => deleteJobOrder(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job_orders'] });
+      queryClient.invalidateQueries({ queryKey: ['all_job_orders'] });
       toast.success('Job order deleted successfully!');
     },
     onError: (error: ApiError) => {
@@ -57,6 +60,7 @@ export const useDeleteJobOrder = () => {
 // every transition hook below.
 const invalidateJobOrder = (queryClient: ReturnType<typeof useQueryClient>, id: string) => {
   queryClient.invalidateQueries({ queryKey: ['job_orders'] });
+  queryClient.invalidateQueries({ queryKey: ['all_job_orders'] }); // calendar view
   queryClient.invalidateQueries({ queryKey: ['job_order', id] });
 };
 
