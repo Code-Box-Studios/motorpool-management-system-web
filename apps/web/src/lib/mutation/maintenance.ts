@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createMaintenance, updateMaintenance, deleteMaintenance } from '@/lib/supabase/maintenance';
+import { createMaintenance, updateMaintenance, deleteMaintenance } from '@/lib/api/maintenance';
 import type { NewMaintenance, UpdateMaintenance } from '../types';
 import { toast } from 'sonner';
 

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getMaintenances, getAllMaintenances, getMaintenanceById } from '@/lib/supabase/maintenance';
+import { getMaintenances, getAllMaintenances, getMaintenanceById } from '@/lib/api/maintenance';
 
 export const useMaintenances = (page: number = 1, limit: number = 10) => {
   return useQuery({
