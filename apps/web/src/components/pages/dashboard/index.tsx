@@ -99,13 +99,12 @@ const Dashboard = () => {
       const speed = 30 + Math.random() * 20;
 
       insertGps.mutate({
-        vehicle_id: demoVehicleId,
-        trip_id: null,
+        vehicleId: demoVehicleId,
         latitude: currentPosition.lat,
         longitude: currentPosition.lng,
         speed,
         heading,
-        engine_status: 'on'
+        engineStatus: 'on'
       });
 
       setCurrentRouteIndex(nextIndex);

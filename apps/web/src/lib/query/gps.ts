@@ -1,30 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getLatestGpsData, insertGpsData, getGpsDataByVehicle, subscribeToGpsUpdates } from '../supabase/gps';
-import { useEffect } from 'react';
+import { getLatestGpsData, getGpsDataByVehicle, insertGpsData } from '@/lib/api/gps';
 
+// Poll the newest GPS point per vehicle every 5s for the live tracking map.
 export const useLatestGpsData = () => {
-  const queryClient = useQueryClient();
-
-  const query = useQuery({
+  return useQuery({
     queryKey: ['gps-data', 'latest'],
     queryFn: getLatestGpsData,
-    refetchInterval: 5000 
+    refetchInterval: 5000
   });
-
-  useEffect(() => {
-    const channel = subscribeToGpsUpdates((payload) => {
-      console.log('GPS update received:', payload);
-      queryClient.invalidateQueries({ queryKey: ['gps-data'] });
-    });
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [queryClient]);
-
-  return query;
 };
 
+// Fetch the last 100 GPS points recorded for a single vehicle.
 export const useGpsDataByVehicle = (vehicleId: string) => {
   return useQuery({
     queryKey: ['gps-data', 'vehicle', vehicleId],
@@ -33,6 +19,7 @@ export const useGpsDataByVehicle = (vehicleId: string) => {
   });
 };
 
+// Simulate a device GPS ping (dashboard demo), invalidating gps-data on success.
 export const useInsertGpsData = () => {
   const queryClient = useQueryClient();
 

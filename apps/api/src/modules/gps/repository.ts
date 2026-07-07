@@ -40,18 +40,22 @@ export interface LatestGpsRow {
   model: string;
   licensePlate: string;
   status: string;
+  mileage: number;
+  fuelType: string;
 }
 
 export function latestPerVehicle() {
   // Alias snake_case DB columns to camelCase so /gps/latest matches the shape
   // every other endpoint (Prisma) returns — double-quoted identifiers preserve
   // case in Postgres. Unmapped columns (latitude/longitude/speed/heading/make/
-  // model/status) need no alias.
+  // model/status/mileage) need no alias; fuel_type has no @map on the Prisma
+  // model despite the DB column being snake_case, so it needs an explicit alias.
   return prisma.$queryRaw<LatestGpsRow[]>`
     SELECT DISTINCT ON (g.vehicle_id)
       g.gps_id AS "id", g.vehicle_id AS "vehicleId", g.latitude, g.longitude,
       g.speed, g.heading, g.engine_status AS "engineStatus", g.created_at AS "createdAt",
-      v.make, v.model, v.license_plate AS "licensePlate", v.status
+      v.make, v.model, v.license_plate AS "licensePlate", v.status, v.mileage,
+      v.fuel_type AS "fuelType"
     FROM gps_data g
     JOIN vehicles v ON v.id = g.vehicle_id
     WHERE g.vehicle_id IS NOT NULL

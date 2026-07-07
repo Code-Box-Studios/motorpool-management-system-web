@@ -75,6 +75,10 @@ describe('gps module', () => {
     expect(res.body.data[0]).toHaveProperty('id');
     expect(res.body.data[0]).toHaveProperty('vehicleId', v.id);
     expect(res.body.data[0]).toHaveProperty('createdAt');
+    // mileage/fuelType are joined for the FE's nested vehicles.mileage/fuel_type
+    // (both required on GpsDataWithVehicle — see apps/web lib/api/gps.ts).
+    expect(res.body.data[0]).toHaveProperty('mileage', 1000);
+    expect(res.body.data[0]).toHaveProperty('fuelType', 'diesel');
   });
 
   it('GET /gps/latest 403 for non-admin/non-evp roles', async () => {
