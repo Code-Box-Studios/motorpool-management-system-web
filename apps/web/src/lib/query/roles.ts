@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getRoles, getRoleById } from '../supabase/roles';
+import { getRoles, getRoleById } from '../api/roles';
 
 export const useRoles = () => {
   return useQuery({

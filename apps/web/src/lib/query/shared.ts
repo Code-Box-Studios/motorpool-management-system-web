@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getAllBranches } from "../supabase/shared";
+import { getAllBranches } from "../api/shared";
 
 export const useBranches = () => {
   return useQuery({

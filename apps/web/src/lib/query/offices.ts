@@ -1,32 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { getDepartmentOffices, getOfficeHeads } from '@/lib/api/offices';
 
 export const useDepartmentOffices = () => {
   return useQuery({
     queryKey: ['departmentOffices'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('department_offices')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
-      return data;
-    }
+    queryFn: getDepartmentOffices
   });
 };
 
 export const useOfficeHeads = () => {
   return useQuery({
     queryKey: ['officeHeads'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('office_heads')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
-      return data;
-    }
+    queryFn: getOfficeHeads
   });
 };
