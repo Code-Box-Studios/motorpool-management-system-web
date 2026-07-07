@@ -4,23 +4,29 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FieldDescription, FieldGroup } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { useSignIn } from '@/lib/mutation/auth';
+import { useAuth } from '@/hooks/use-auth';
+import { ApiError } from '@/lib/api/client';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Controller } from 'react-hook-form';
 import { useNavigate } from '@tanstack/react-router';
+import { toast } from 'sonner';
 import { useLoginForm, type LoginFormData } from './action';
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<'div'>) {
-  const signInMutation = useSignIn();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const form = useLoginForm();
 
   const handleSubmit = async (data: LoginFormData) => {
-    await signInMutation.mutateAsync(data);
-    navigate({ to: '/' });
+    try {
+      await login(data.email, data.password);
+      navigate({ to: '/' });
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : 'Login failed');
+    }
   };
 
   return (
@@ -87,10 +93,10 @@ export function LoginForm({
               <Button
                 type="submit"
                 form="login-form"
-                disabled={signInMutation.isPending}
+                disabled={form.formState.isSubmitting}
                 className="w-full"
               >
-                {signInMutation.isPending ? 'Signing in...' : 'Sign In'}
+                {form.formState.isSubmitting ? 'Signing in...' : 'Sign In'}
               </Button>
             </Field>
 

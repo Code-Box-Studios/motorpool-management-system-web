@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import type { Session, User } from '@supabase/supabase-js';
+import { getCurrentUser, signIn, signOut } from '@/lib/api/auth';
+import { onAuthFailure, setAccessToken } from '@/lib/api/client';
+import type { AppUser } from '@/lib/types';
 import { AuthContext, type AuthContextType } from '../context/auth-context';
 import { Loading } from '../ui/loader';
 
@@ -9,51 +10,36 @@ type AuthProviderProps = {
 };
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('AuthProvider: Initializing auth state');
-
-    const getInitialSession = async () => {
-      console.log('AuthProvider: Getting initial session');
-      const {
-        data: { session },
-        error
-      } = await supabase.auth.getSession();
-      if (error) {
-        console.error('AuthProvider: Error getting session:', error);
-      } else {
-        console.log('AuthProvider: Session retrieved:', session);
-        setSession(session);
-        setUser(session?.user ?? null);
-      }
-      setLoading(false);
-      console.log('AuthProvider: Loading set to false');
-    };
-
-    getInitialSession();
-
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('AuthProvider: Auth state changed:', event, session);
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    // If a silent refresh fails mid-session, drop auth (guards route to /login).
+    onAuthFailure(() => {
+      setAccessToken(null);
+      setUser(null);
     });
-
-    return () => {
-      console.log('AuthProvider: Cleaning up subscription');
-      subscription.unsubscribe();
-    };
+    getCurrentUser()
+      .then((u) => setUser(u))
+      .finally(() => setLoading(false));
   }, []);
+
+  // login/logout live on the context (no side-effect-in-render hack). The login
+  // form calls auth.login(...); the user menu calls auth.logout().
+  const login: AuthContextType['login'] = async (email, password) => {
+    setUser(await signIn(email, password)); // signIn also sets the in-memory token
+  };
+  const logout: AuthContextType['logout'] = async () => {
+    await signOut();
+    setUser(null);
+  };
 
   const value: AuthContextType = {
     user,
-    session,
-    loading
+    session: user ? { authenticated: true } : null,
+    loading,
+    login,
+    logout
   };
 
   if (loading) {

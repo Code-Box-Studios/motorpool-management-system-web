@@ -6,19 +6,17 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/use-auth';
-import { useSignOut } from '@/lib/mutation/auth';
 import { Typography } from '../ui/typography';
 
 const UserAvatar = () => {
-  const { user } = useAuth();
-  const signOut = useSignOut();
+  const { user, logout } = useAuth();
 
   const getInitials = (email: string) => {
     return email.split('@')[0].slice(0, 2).toUpperCase();
   };
 
-  const handleLogout = () => {
-    signOut.mutate();
+  const handleLogout = async () => {
+    await logout();
   };
 
   if (!user) return null;
