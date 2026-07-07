@@ -111,20 +111,25 @@ export type UpdateRole = TablesUpdate<'roles'>;
 
 export type AppRole = Enums<'app_role'>;
 
-/**
- * User metadata type for Supabase auth user_metadata
- */
-export interface UserMetadata {
-  full_name?: string;
-  role?: string; // Role name (e.g., 'admin', 'driver')
-  role_id?: string; // Role UUID
-  branch_id?: string; // Branch UUID
-  avatar_url?: string | null;
+// Replaces @supabase/supabase-js User — the app's synthetic auth user shape.
+export interface AppUser {
+  id: string;
+  email: string;
+  user_metadata: {
+    full_name?: string;
+    role?: string;
+    role_id?: string;
+    branch_id?: string | null;
+    avatar_url?: string | null;
+  };
 }
+
+/**
+ * User metadata type for the app's auth user_metadata
+ */
+export type UserMetadata = AppUser['user_metadata'];
 
 /**
  * Extended User type with properly typed user_metadata
  */
-export interface ExtendedUser extends Omit<import('@supabase/supabase-js').User, 'user_metadata'> {
-  user_metadata?: UserMetadata;
-} 
+export type ExtendedUser = AppUser; 
