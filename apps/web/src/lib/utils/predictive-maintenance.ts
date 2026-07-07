@@ -55,14 +55,18 @@ function buildReason(kmSinceLastMaint: number, avgDailyKm: number, maintFreq12m:
 export function buildAssessmentFromApi(apiRow: RiskAssessment): VehicleRiskAssessment {
   const { kmSinceLastMaint, avgDailyKm, maintFreq12m } = apiRow;
 
-  const daysSinceLastMaint = avgDailyKm > 0 ? Math.round(kmSinceLastMaint / avgDailyKm) : null;
+  // These are usage-rate ESTIMATES (the API returns no raw dates). Clamp them to
+  // a plausible service window so a very-low-usage vehicle (tiny avgDailyKm) can't
+  // surface an absurd date like a ~20-year-old "Last Service".
+  const daysSinceLastMaint =
+    avgDailyKm > 0 ? Math.min(Math.round(kmSinceLastMaint / avgDailyKm), 730) : null;
   const lastMaintenanceDate =
     daysSinceLastMaint !== null
       ? new Date(Date.now() - daysSinceLastMaint * MS_PER_DAY).toISOString().split('T')[0]
       : null;
 
   const remainingKm = Math.max(0, DEFAULT_MAINT_INTERVAL_KM - kmSinceLastMaint);
-  const daysUntilDue = avgDailyKm > 0 ? Math.ceil(remainingKm / avgDailyKm) : 30;
+  const daysUntilDue = avgDailyKm > 0 ? Math.min(Math.ceil(remainingKm / avgDailyKm), 365) : 30;
   const predictedFailureDate = new Date(Date.now() + daysUntilDue * MS_PER_DAY).toISOString().split('T')[0];
 
   return {
