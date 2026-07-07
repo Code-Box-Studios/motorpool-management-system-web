@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Controller } from 'react-hook-form';
 import { useVehicleUpdateForm, type UpdateVehicleFormData } from './actions';
+import type { UpdateVehicle } from '@/lib/types';
 import { useVehicle } from '@/lib/query/vehicles';
 import { useUpdateVehicle } from '@/lib/mutation/vehicles';
 import { useNavigate } from '@tanstack/react-router';
@@ -53,7 +54,7 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
         license_plate: vehicle.license_plate,
         vin: vehicle.vin,
         status: vehicle.status,
-        branch: vehicle.branch || '',
+        branchId: vehicle.branch || '',
         fuel_type: vehicle.fuel_type || '',
         mileage: vehicle.mileage,
         insurance_expiry: vehicle.insurance_expiry,
@@ -71,7 +72,11 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
 
   const handleConfirmUpdate = () => {
     if (vehicle && pendingData) {
-      const { newImages, ...updates } = pendingData;
+      // The form field is `branchId` (a branch UUID from the <Select>), but
+      // the FE's Vehicle row type (and what the adapter sends on) names the
+      // column `branch` -- map it explicitly so the value actually reaches the API.
+      const { newImages, branchId, ...rest } = pendingData;
+      const updates: Omit<UpdateVehicle, 'images'> = { ...rest, branch: branchId };
       updateVehicle.mutate(
         { id: vehicle.id, updates, files: newImages || [], removedImages },
         {
@@ -340,11 +345,11 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
             )}
             {isEditing ? (
               <Controller
-                name="branch"
+                name="branchId"
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="branch">Branch *</FieldLabel>
+                    <FieldLabel htmlFor="branchId">Branch *</FieldLabel>
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}

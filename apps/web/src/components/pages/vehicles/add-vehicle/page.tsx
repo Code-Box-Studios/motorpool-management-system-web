@@ -198,11 +198,11 @@ export function AddVehicle() {
               )}
             />
             <Controller
-              name="branch"
+              name="branchId"
               control={form.control}
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="branch">Branch *</FieldLabel>
+                  <FieldLabel htmlFor="branchId">Branch *</FieldLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a branch" />

@@ -13,7 +13,7 @@ const vehicleSchema = z.object({
   license_plate: z.string().min(1, 'License plate is required'),
   vin: z.string().min(1, 'VIN is required'),
   status: z.enum(Object.values(VEHICLE_STATUS) as [string, ...string[]]),
-  branch: z.string().min(1, 'Branch is required'),
+  branchId: z.string().uuid('Branch is required'),
   fuel_type: z.enum(Object.values(FUEL_TYPE) as [string, ...string[]]),
   mileage: z.coerce.number().min(0, 'Mileage must be non-negative'),
   insurance_expiry: z.string().min(1, 'Insurance expiry is required'),
@@ -33,7 +33,7 @@ export const useVehicleForm = () => {
       license_plate: '',
       vin: '',
       status: 'available',
-      branch: '',
+      branchId: '',
       fuel_type: '',
       mileage: 0,
       insurance_expiry: '',
@@ -49,8 +49,12 @@ export const useAddVehicleAction = () => {
   const createVehicle = useCreateVehicle();
 
   const addVehicle = async (data: VehicleFormData) => {
-    const { images, ...vehicle } = data;
-    await createVehicle.mutateAsync({ vehicle: vehicle as Omit<NewVehicle, 'images'>, files: images || [] }); 
+    // The form field is `branchId` (a branch UUID from the <Select>), but the
+    // FE's Vehicle row type (and what the adapter sends on) names the column
+    // `branch` -- map it explicitly so the value actually reaches the API.
+    const { images, branchId, ...rest } = data;
+    const vehicle: Omit<NewVehicle, 'images'> = { ...rest, branch: branchId };
+    await createVehicle.mutateAsync({ vehicle, files: images || [] });
   };
 
   return { addVehicle, isLoading: createVehicle.isPending };

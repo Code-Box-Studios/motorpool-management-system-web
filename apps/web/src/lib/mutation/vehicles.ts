@@ -1,6 +1,6 @@
 // src/lib/mutation/vehicles.ts
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createVehicle, updateVehicle } from '@/lib/supabase/vehicles';
+import { createVehicle, updateVehicle } from '@/lib/api/vehicles';
 import type { NewVehicle, UpdateVehicle } from '../types'; // Updated imports
 
 export const useCreateVehicle = () => {
