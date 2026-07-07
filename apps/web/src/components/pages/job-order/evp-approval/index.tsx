@@ -5,7 +5,7 @@ import {
   useDisapproveTripTicket
 } from '@/lib/mutation/trip-tickets';
 import { useJobOrders } from '@/lib/query/job-orders';
-import { useUpdateJobOrder } from '@/lib/mutation/job-orders';
+import { useApproveJobOrder } from '@/lib/mutation/job-orders';
 import { useDrivers } from '@/lib/query/drivers';
 import {
   Card,
@@ -42,13 +42,12 @@ import { CheckCircle, XCircle, Eye } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import StatusBadge from '@/components/shared/status-badge';
 import { ApproveJobOrderModal } from '@/components/pages/job-order/job-order-inner/approve-job-order-modal';
-import type { ApproveJobOrderData } from '@/components/pages/job-order/job-order-inner/approve-job-order-modal';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 export default function EvpApprovalPage() {
   const approveEvpTripTicket = useApproveEvpTripTicket();
   const disapproveTripTicket = useDisapproveTripTicket();
-  const updateJobOrder = useUpdateJobOrder();
+  const approveJobOrder = useApproveJobOrder();
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'disapprove' | null>(
     null
@@ -120,30 +119,10 @@ export default function EvpApprovalPage() {
   console.log('All job orders:', jobOrdersData?.data);
   console.log('Pending job orders:', pendingJobOrders);
 
-  const handleApproveJobOrder = (
-    orderId: string,
-    data: ApproveJobOrderData
-  ) => {
-    const order = jobOrdersData?.data?.find((o) => o.id === orderId);
-    if (!order) return;
-
-    // Remove vehicles relationship from the order object before updating
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { vehicles, ...orderWithoutRelations } = order;
-
-    const updatedData = {
-      ...orderWithoutRelations,
-      ...data
-    };
-
-    updateJobOrder
-      .mutateAsync({
-        id: orderId,
-        updates: updatedData
-      })
-      .catch((error) => {
-        console.error('Error approving job order:', error);
-      });
+  const handleApproveJobOrder = (orderId: string) => {
+    approveJobOrder.mutateAsync({ id: orderId }).catch((error) => {
+      console.error('Error approving job order:', error);
+    });
   };
 
   return (
@@ -261,7 +240,7 @@ export default function EvpApprovalPage() {
                         <StatusBadge status={order.status || 'pending'} />
                       </TableCell>
                       <TableCell>
-                        {new Date(order.incident_date).toLocaleString()}
+                        {new Date(order.incident_date || new Date()).toLocaleString()}
                       </TableCell>
                       <TableCell>
                         {getDriverName(order.assigned_mechanic)}
@@ -285,10 +264,8 @@ export default function EvpApprovalPage() {
                             </Link>
                           </Button>
                           <ApproveJobOrderModal
-                            onSubmit={(data) =>
-                              handleApproveJobOrder(order.id, data)
-                            }
-                            isLoading={updateJobOrder.isPending}
+                            onSubmit={() => handleApproveJobOrder(order.id)}
+                            isLoading={approveJobOrder.isPending}
                           />
                         </div>
                       </TableCell>

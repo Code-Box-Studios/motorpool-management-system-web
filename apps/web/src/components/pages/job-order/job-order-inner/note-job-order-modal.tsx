@@ -19,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { useAuth } from '@/hooks/use-auth';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { useSpareParts } from '@/lib/query/spare-parts';
 
@@ -30,13 +29,34 @@ interface NoteJobOrderModalProps {
   currentSparePartsUsed?: string[];
 }
 
+// Body shape for `useNoteJobOrder` (POST /job-orders/:id/note) — spare parts
+// are now `{sparePartId, quantity}` pairs instead of the old ids-only array.
 export interface NoteJobOrderData {
-  date_of_request: string;
-  target_date: string;
-  assigned_mechanic: string;
-  noted_by: string;
-  spare_parts_used?: string[];
-  status: 'assigned_mechanic';
+  assignedMechanicId: string;
+  dateOfRequest: string;
+  targetDate: string;
+  spareParts: { sparePartId: string; quantity: number }[];
+}
+
+// Internal form state: the MultiSelect only tracks selected ids, so
+// per-part quantities are kept in a side map keyed by sparePartId.
+interface NoteJobOrderFormState {
+  dateOfRequest: string;
+  targetDate: string;
+  assignedMechanicId: string;
+  selectedSpareParts: string[];
+  quantities: Record<string, number>;
+}
+
+// Builds a fresh form state, defaulting every pre-selected part's quantity to 1.
+function buildInitialState(initialParts: string[]): NoteJobOrderFormState {
+  return {
+    dateOfRequest: '',
+    targetDate: '',
+    assignedMechanicId: '',
+    selectedSpareParts: initialParts,
+    quantities: Object.fromEntries(initialParts.map((id) => [id, 1]))
+  };
 }
 
 export function NoteJobOrderModal({
@@ -45,32 +65,26 @@ export function NoteJobOrderModal({
   isLoading,
   currentSparePartsUsed
 }: NoteJobOrderModalProps) {
-  const { user } = useAuth();
   const { data: spareParts } = useSpareParts(1, 1000);
   const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState<NoteJobOrderData>({
-    date_of_request: '',
-    target_date: '',
-    assigned_mechanic: '',
-    noted_by: user?.id || '',
-    spare_parts_used: currentSparePartsUsed || [],
-    status: 'assigned_mechanic'
-  });
+  const [formData, setFormData] = useState<NoteJobOrderFormState>(() =>
+    buildInitialState(currentSparePartsUsed || [])
+  );
   const [errors, setErrors] = useState<
-    Partial<Record<keyof NoteJobOrderData, string>>
+    Partial<Record<'dateOfRequest' | 'targetDate' | 'assignedMechanicId', string>>
   >({});
 
   const validateForm = () => {
-    const newErrors: Partial<Record<keyof NoteJobOrderData, string>> = {};
+    const newErrors: typeof errors = {};
 
-    if (!formData.date_of_request) {
-      newErrors.date_of_request = 'Vehicle Date Accepted is required';
+    if (!formData.dateOfRequest) {
+      newErrors.dateOfRequest = 'Vehicle Date Accepted is required';
     }
-    if (!formData.target_date) {
-      newErrors.target_date = 'Target Date of Repair is required';
+    if (!formData.targetDate) {
+      newErrors.targetDate = 'Target Date of Repair is required';
     }
-    if (!formData.assigned_mechanic) {
-      newErrors.assigned_mechanic = 'Assigned Mechanic is required';
+    if (!formData.assignedMechanicId) {
+      newErrors.assignedMechanicId = 'Assigned Mechanic is required';
     }
 
     setErrors(newErrors);
@@ -78,32 +92,41 @@ export function NoteJobOrderModal({
   };
 
   const handleSubmit = () => {
-    if (validateForm()) {
-      onSubmit({ ...formData, noted_by: user?.id || '' });
-      setOpen(false);
-    }
+    if (!validateForm()) return;
+    onSubmit({
+      assignedMechanicId: formData.assignedMechanicId,
+      dateOfRequest: formData.dateOfRequest,
+      targetDate: formData.targetDate,
+      spareParts: formData.selectedSpareParts.map((sparePartId) => ({
+        sparePartId,
+        quantity: formData.quantities[sparePartId] ?? 1
+      }))
+    });
+    setOpen(false);
   };
 
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
-    if (!newOpen) {
-      // Reset form when closing
-      setFormData({
-        date_of_request: '',
-        target_date: '',
-        assigned_mechanic: '',
-        noted_by: user?.id || '',
-        spare_parts_used: currentSparePartsUsed || [],
-        status: 'assigned_mechanic'
-      });
-      setErrors({});
-    } else {
-      // Populate spare_parts_used when opening
-      setFormData((prev) => ({
-        ...prev,
-        spare_parts_used: currentSparePartsUsed || []
-      }));
-    }
+    // Reset (or re-populate the current spare parts) every time the dialog toggles.
+    setFormData(buildInitialState(currentSparePartsUsed || []));
+    setErrors({});
+  };
+
+  // Keeps the quantities map in sync with the MultiSelect's selection,
+  // defaulting any newly-selected part's quantity to 1.
+  const handleSparePartsChange = (selected: string[]) => {
+    setFormData((prev) => ({
+      ...prev,
+      selectedSpareParts: selected,
+      quantities: Object.fromEntries(selected.map((id) => [id, prev.quantities[id] ?? 1]))
+    }));
+  };
+
+  const handleQuantityChange = (sparePartId: string, quantity: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      quantities: { ...prev.quantities, [sparePartId]: quantity }
+    }));
   };
 
   return (
@@ -124,46 +147,46 @@ export function NoteJobOrderModal({
 
         <div className="grid grid-cols-2 gap-4 py-4">
           {/* Vehicle Date Accepted */}
-          <Field data-invalid={!!errors.date_of_request}>
+          <Field data-invalid={!!errors.dateOfRequest}>
             <FieldLabel htmlFor="date_of_request">
               Vehicle Date Accepted *
             </FieldLabel>
             <Input
               id="date_of_request"
               type="datetime-local"
-              value={formData.date_of_request}
+              value={formData.dateOfRequest}
               onChange={(e) =>
-                setFormData({ ...formData, date_of_request: e.target.value })
+                setFormData({ ...formData, dateOfRequest: e.target.value })
               }
-              aria-invalid={!!errors.date_of_request}
+              aria-invalid={!!errors.dateOfRequest}
             />
-            {errors.date_of_request && (
-              <FieldError errors={[{ message: errors.date_of_request }]} />
+            {errors.dateOfRequest && (
+              <FieldError errors={[{ message: errors.dateOfRequest }]} />
             )}
           </Field>
 
           {/* Target Date of Repair */}
-          <Field data-invalid={!!errors.target_date}>
+          <Field data-invalid={!!errors.targetDate}>
             <FieldLabel htmlFor="target_date">
               Target Date of Repair *
             </FieldLabel>
             <Input
               id="target_date"
               type="datetime-local"
-              value={formData.target_date}
+              value={formData.targetDate}
               onChange={(e) =>
-                setFormData({ ...formData, target_date: e.target.value })
+                setFormData({ ...formData, targetDate: e.target.value })
               }
-              aria-invalid={!!errors.target_date}
+              aria-invalid={!!errors.targetDate}
             />
-            {errors.target_date && (
-              <FieldError errors={[{ message: errors.target_date }]} />
+            {errors.targetDate && (
+              <FieldError errors={[{ message: errors.targetDate }]} />
             )}
           </Field>
 
           {/* Assigned Mechanic */}
           <Field
-            data-invalid={!!errors.assigned_mechanic}
+            data-invalid={!!errors.assignedMechanicId}
             className="col-span-2"
           >
             <FieldLabel htmlFor="assigned_mechanic">
@@ -171,9 +194,9 @@ export function NoteJobOrderModal({
             </FieldLabel>
             <Select
               onValueChange={(value) =>
-                setFormData({ ...formData, assigned_mechanic: value })
+                setFormData({ ...formData, assignedMechanicId: value })
               }
-              value={formData.assigned_mechanic}
+              value={formData.assignedMechanicId}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select mechanic" />
@@ -186,8 +209,8 @@ export function NoteJobOrderModal({
                 ))}
               </SelectContent>
             </Select>
-            {errors.assigned_mechanic && (
-              <FieldError errors={[{ message: errors.assigned_mechanic }]} />
+            {errors.assignedMechanicId && (
+              <FieldError errors={[{ message: errors.assignedMechanicId }]} />
             )}
           </Field>
 
@@ -201,13 +224,43 @@ export function NoteJobOrderModal({
                   label: `${part.name}${part.brand ? ` - ${part.brand}` : ''}`
                 })) || []
               }
-              selected={formData.spare_parts_used || []}
-              onChange={(value) =>
-                setFormData({ ...formData, spare_parts_used: value })
-              }
+              selected={formData.selectedSpareParts}
+              onChange={handleSparePartsChange}
               placeholder="Select spare parts..."
             />
           </Field>
+
+          {/* Per-part quantity (default 1) */}
+          {formData.selectedSpareParts.length > 0 && (
+            <Field className="col-span-2">
+              <FieldLabel>Quantities</FieldLabel>
+              <div className="flex flex-col gap-2">
+                {formData.selectedSpareParts.map((sparePartId) => {
+                  const part = spareParts?.data?.find((p) => p.id === sparePartId);
+                  return (
+                    <div key={sparePartId} className="flex items-center gap-3">
+                      <span className="flex-1 text-sm">
+                        {part?.name || sparePartId}
+                      </span>
+                      <Input
+                        type="number"
+                        min={1}
+                        step={1}
+                        className="w-24"
+                        value={formData.quantities[sparePartId] ?? 1}
+                        onChange={(e) =>
+                          handleQuantityChange(
+                            sparePartId,
+                            Math.max(1, Number(e.target.value) || 1)
+                          )
+                        }
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </Field>
+          )}
         </div>
 
         <AlertDialogFooter>

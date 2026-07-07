@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getJobOrders, getJobOrderById, getAllJobOrders } from '@/lib/supabase/job-orders';
+import { getJobOrders, getJobOrderById, getAllJobOrders } from '@/lib/api/job-orders';
 
 export const useJobOrders = (page: number = 1, limit: number = 10, userId?: string, userRole?: string) => {
   return useQuery({

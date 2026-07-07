@@ -25,9 +25,12 @@ import { NoteJobOrderModal } from './job-order-inner/note-job-order-modal';
 import { ApproveJobOrderModal } from './job-order-inner/approve-job-order-modal';
 import { CompleteRepairModal } from './job-order-inner/complete-repair-modal';
 import { useDrivers } from '@/lib/query/drivers';
-import { useUpdateJobOrder } from '@/lib/mutation/job-orders';
+import {
+  useNoteJobOrder,
+  useApproveJobOrder,
+  useCompleteRepair
+} from '@/lib/mutation/job-orders';
 import type { NoteJobOrderData } from './job-order-inner/note-job-order-modal';
-import type { ApproveJobOrderData } from './job-order-inner/approve-job-order-modal';
 import type { CompleteRepairData } from './job-order-inner/complete-repair-modal';
 import { Eye } from 'lucide-react';
 import { useUserRole } from '@/hooks/use-user-role';
@@ -43,7 +46,9 @@ const JobOrdersPage = () => {
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
   const { data: drivers } = useDrivers(1, 1000);
-  const updateJobOrder = useUpdateJobOrder();
+  const noteJobOrder = useNoteJobOrder();
+  const approveJobOrder = useApproveJobOrder();
+  const completeRepair = useCompleteRepair();
   const navigate = useNavigate();
 
   const isAdmin = userRole?.roles?.name === 'admin';
@@ -79,7 +84,7 @@ const JobOrdersPage = () => {
     return calendarData
       .filter((order) => order.target_date)
       .map((order) => {
-        const targetDate = new Date(order.target_date);
+        const targetDate = new Date(order.target_date || new Date());
         return {
           id: order.id,
           title: `${order.vehicles?.make || ''} ${order.vehicles?.model || ''} - ${order.status}`,
@@ -114,75 +119,31 @@ const JobOrdersPage = () => {
   };
 
   const handleNoteJobOrder = (orderId: string, data: NoteJobOrderData) => {
-    const order = tableData?.data?.find((o) => o.id === orderId);
-    if (!order) return;
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { vehicles, ...orderWithoutRelations } = order;
-
-    const updatedData = {
-      ...orderWithoutRelations,
-      ...data
-    };
-
-    updateJobOrder
-      .mutateAsync({
-        id: orderId,
-        updates: updatedData
-      })
+    noteJobOrder
+      .mutateAsync({ id: orderId, ...data })
       .catch((error) => {
         console.error('Error noting job order:', error);
       });
   };
 
-  const handleApproveJobOrder = (
-    orderId: string,
-    data: ApproveJobOrderData
-  ) => {
-    const order = tableData?.data?.find((o) => o.id === orderId);
-    if (!order) return;
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { vehicles, ...orderWithoutRelations } = order;
-
-    const updatedData = {
-      ...orderWithoutRelations,
-      ...data
-    };
-
-    updateJobOrder
-      .mutateAsync({
-        id: orderId,
-        updates: updatedData
-      })
-      .catch((error) => {
-        console.error('Error approving job order:', error);
-      });
+  const handleApproveJobOrder = (orderId: string) => {
+    approveJobOrder.mutateAsync({ id: orderId }).catch((error) => {
+      console.error('Error approving job order:', error);
+    });
   };
 
   const handleCompleteRepair = (orderId: string, data: CompleteRepairData) => {
-    const order = tableData?.data?.find((o) => o.id === orderId);
-    if (!order) return;
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { vehicles, ...orderWithoutRelations } = order;
-
-    const updatedData = {
-      ...orderWithoutRelations,
-      ...data
-    };
-
-    updateJobOrder
+    completeRepair
       .mutateAsync({
         id: orderId,
-        updates: updatedData
+        repairDone: data.repairDone,
+        remarks: data.remarks || undefined,
+        actualDateOfRelease: data.actualDateOfRelease || undefined
       })
       .catch((error) => {
         console.error('Error completing repair:', error);
       });
   };
-
-  const tableData = data;
 
   return (
     <div>
@@ -255,7 +216,7 @@ const JobOrdersPage = () => {
                               : 'N/A'}
                           </TableCell>
                           <TableCell>
-                            {new Date(order.incident_date).toLocaleString()}
+                            {new Date(order.incident_date || new Date()).toLocaleString()}
                           </TableCell>
                           <TableCell>
                             {getDriverName(order.assigned_mechanic)}
@@ -279,7 +240,7 @@ const JobOrdersPage = () => {
                                   onSubmit={(data) =>
                                     handleNoteJobOrder(order.id, data)
                                   }
-                                  isLoading={updateJobOrder.isPending}
+                                  isLoading={noteJobOrder.isPending}
                                   currentSparePartsUsed={
                                     Array.isArray(order.spare_parts_used)
                                       ? order.spare_parts_used
@@ -290,10 +251,10 @@ const JobOrdersPage = () => {
                               {isEVP &&
                                 order.status === 'assigned_mechanic' && (
                                   <ApproveJobOrderModal
-                                    onSubmit={(data) =>
-                                      handleApproveJobOrder(order.id, data)
+                                    onSubmit={() =>
+                                      handleApproveJobOrder(order.id)
                                     }
-                                    isLoading={updateJobOrder.isPending}
+                                    isLoading={approveJobOrder.isPending}
                                   />
                                 )}
                               {isAdmin && order.status === 'ongoing_repair' && (
@@ -301,7 +262,7 @@ const JobOrdersPage = () => {
                                   onSubmit={(data) =>
                                     handleCompleteRepair(order.id, data)
                                   }
-                                  isLoading={updateJobOrder.isPending}
+                                  isLoading={completeRepair.isPending}
                                 />
                               )}
                               <Button

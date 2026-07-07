@@ -27,11 +27,12 @@ interface CompleteRepairModalProps {
   isLoading: boolean;
 }
 
+// Body shape for `useCompleteRepair` (POST /job-orders/:id/complete-repair) —
+// status is dropped, the transition owns it server-side.
 export interface CompleteRepairData {
-  actual_date_of_release: string;
-  repair_done: string;
+  actualDateOfRelease: string;
+  repairDone: string;
   remarks: string;
-  status: 'repaired';
 }
 
 export function CompleteRepairModal({
@@ -40,10 +41,9 @@ export function CompleteRepairModal({
 }: CompleteRepairModalProps) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState<CompleteRepairData>({
-    actual_date_of_release: '',
-    repair_done: '',
-    remarks: '',
-    status: 'repaired'
+    actualDateOfRelease: '',
+    repairDone: '',
+    remarks: ''
   });
   const [errors, setErrors] = useState<
     Partial<Record<keyof CompleteRepairData, string>>
@@ -60,7 +60,7 @@ export function CompleteRepairModal({
         .slice(0, 16);
       setFormData((prev) => ({
         ...prev,
-        actual_date_of_release: localDateTime
+        actualDateOfRelease: localDateTime
       }));
     }
   }, [open]);
@@ -68,11 +68,11 @@ export function CompleteRepairModal({
   const validateForm = () => {
     const newErrors: Partial<Record<keyof CompleteRepairData, string>> = {};
 
-    if (!formData.actual_date_of_release) {
-      newErrors.actual_date_of_release = 'Vehicle Date of Release is required';
+    if (!formData.actualDateOfRelease) {
+      newErrors.actualDateOfRelease = 'Vehicle Date of Release is required';
     }
-    if (!formData.repair_done) {
-      newErrors.repair_done = 'Repair Done type is required';
+    if (!formData.repairDone) {
+      newErrors.repairDone = 'Repair Done type is required';
     }
 
     setErrors(newErrors);
@@ -91,10 +91,9 @@ export function CompleteRepairModal({
     if (!newOpen) {
       // Reset form when closing
       setFormData({
-        actual_date_of_release: '',
-        repair_done: '',
-        remarks: '',
-        status: 'repaired'
+        actualDateOfRelease: '',
+        repairDone: '',
+        remarks: ''
       });
       setErrors({});
     }
@@ -117,37 +116,37 @@ export function CompleteRepairModal({
 
         <div className="grid gap-4 py-4">
           {/* Vehicle Date of Release */}
-          <Field data-invalid={!!errors.actual_date_of_release}>
+          <Field data-invalid={!!errors.actualDateOfRelease}>
             <FieldLabel htmlFor="actual_date_of_release">
               Vehicle Date of Release *
             </FieldLabel>
             <Input
               id="actual_date_of_release"
               type="datetime-local"
-              value={formData.actual_date_of_release}
+              value={formData.actualDateOfRelease}
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  actual_date_of_release: e.target.value
+                  actualDateOfRelease: e.target.value
                 })
               }
-              aria-invalid={!!errors.actual_date_of_release}
+              aria-invalid={!!errors.actualDateOfRelease}
             />
-            {errors.actual_date_of_release && (
+            {errors.actualDateOfRelease && (
               <FieldError
-                errors={[{ message: errors.actual_date_of_release }]}
+                errors={[{ message: errors.actualDateOfRelease }]}
               />
             )}
           </Field>
 
           {/* Repair Done */}
-          <Field data-invalid={!!errors.repair_done}>
+          <Field data-invalid={!!errors.repairDone}>
             <FieldLabel htmlFor="repair_done">Repair Done *</FieldLabel>
             <Select
               onValueChange={(value) =>
-                setFormData({ ...formData, repair_done: value })
+                setFormData({ ...formData, repairDone: value })
               }
-              value={formData.repair_done}
+              value={formData.repairDone}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select type" />
@@ -160,8 +159,8 @@ export function CompleteRepairModal({
                 ))}
               </SelectContent>
             </Select>
-            {errors.repair_done && (
-              <FieldError errors={[{ message: errors.repair_done }]} />
+            {errors.repairDone && (
+              <FieldError errors={[{ message: errors.repairDone }]} />
             )}
           </Field>
 

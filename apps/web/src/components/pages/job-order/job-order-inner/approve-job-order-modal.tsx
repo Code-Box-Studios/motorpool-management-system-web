@@ -1,32 +1,22 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/use-auth';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 interface ApproveJobOrderModalProps {
-  onSubmit: (data: ApproveJobOrderData) => void;
+  onSubmit: () => void;
   isLoading: boolean;
 }
 
-export interface ApproveJobOrderData {
-  approved_by: string;
-  date_approved: string;
-  status: 'ongoing_repair';
-}
-
+// evp_operations: POST /job-orders/:id/approve takes no body — the server
+// records the approver + timestamp, so this modal is a pure confirmation.
 export function ApproveJobOrderModal({
   onSubmit,
   isLoading
 }: ApproveJobOrderModalProps) {
-  const { user } = useAuth();
   const [open, setOpen] = useState(false);
 
   const handleConfirm = () => {
-    onSubmit({
-      approved_by: user?.id || '',
-      date_approved: new Date().toISOString(),
-      status: 'ongoing_repair'
-    });
+    onSubmit();
     setOpen(false);
   };
 
