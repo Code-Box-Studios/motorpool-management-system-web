@@ -149,22 +149,9 @@ const TripTicketsInner = () => {
       </div>
 
       <div className="mb-6 flex flex-col gap-4 rounded-lg border p-4">
-        {/* <h2 className="text-lg font-semibold">Trip Ticket QR Code</h2> */}
         <div className="bg-background w-fit rounded-md border p-3">
           <QRCode value={tripTicket.id} size={160} />
         </div>
-        {/* <div className="flex flex-wrap items-center gap-3">
-          {tripTicket.qr_path ? (
-            <a
-              href={tripTicket.qr_path}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm underline"
-            >
-              View Uploaded QR
-            </a>
-          ) : null}
-        </div> */}
       </div>
 
       <form
@@ -342,49 +329,19 @@ const TripTicketsInner = () => {
                 />
               </Field>
             )}
-            {isEditing ? (
-              <Controller
-                name="status"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="status">Status</FieldLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!isEditing}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.values(TRIP_TICKET_STATUS).map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {status
-                              .replace(/_/g, ' ')
-                              .replace(/\b\w/g, (l) => l.toUpperCase())}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
+            {/* Status is read-only here — real status changes only happen via
+                the dedicated admin/evp/guard transition screens (§8), never a
+                plain PATCH from this form. */}
+            <Field>
+              <FieldLabel>Status</FieldLabel>
+              <Input
+                value={(tripTicket.status || 'pending')
+                  .replace(/_/g, ' ')
+                  .replace(/\b\w/g, (l) => l.toUpperCase())}
+                disabled
+                className="bg-muted"
               />
-            ) : (
-              <Field>
-                <FieldLabel>Status</FieldLabel>
-                <Input
-                  value={(tripTicket.status || 'pending')
-                    .replace(/_/g, ' ')
-                    .replace(/\b\w/g, (l) => l.toUpperCase())}
-                  disabled
-                  className="bg-muted"
-                />
-              </Field>
-            )}
+            </Field>
             {isEditing ? (
               <Controller
                 name="requested_by"

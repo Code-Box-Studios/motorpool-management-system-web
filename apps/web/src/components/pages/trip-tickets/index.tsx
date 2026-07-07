@@ -39,7 +39,11 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
 import { useMemo, useState } from 'react';
-import { useUpdateTripTicket } from '@/lib/mutation/trip-tickets';
+import {
+  useApproveTripTicket,
+  useDisapproveTripTicket,
+  useCancelTripTicket
+} from '@/lib/mutation/trip-tickets';
 import { Eye, X } from 'lucide-react';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import {
@@ -76,7 +80,9 @@ const TripTicketsPage = () => {
     useAllTripTickets(filterUserId, filterBranchId);
   const { data: vehiclesData } = useVehicles(1, 1000);
   const navigate = useNavigate();
-  const updateTripTicket = useUpdateTripTicket();
+  const approveTripTicket = useApproveTripTicket();
+  const disapproveTripTicket = useDisapproveTripTicket();
+  const cancelTripTicket = useCancelTripTicket();
   const [cancellationReason, setCancellationReason] = useState('');
   const [disapprovedReason, setDisapprovedReason] = useState('');
   const [cancellingTicketId, setCancellingTicketId] = useState<string | null>(
@@ -99,63 +105,61 @@ const TripTicketsPage = () => {
     status: string;
   } | null>(null);
 
+  // Shared cleanup for the three status-change dialogs below (fuel allocation,
+  // disapproval, cancellation) once their transition mutation succeeds.
+  const resetStatusChangeDialogs = () => {
+    setCancellationReason('');
+    setDisapprovedReason('');
+    setCancellingTicketId(null);
+    setFuelAllocationData({
+      allocation_date: '',
+      allocation_trip_to: '',
+      allocation_purpose: '',
+      allocation_vehicle_id: '',
+      allocation_fuel_type: '',
+      allocation_liters: ''
+    });
+  };
+
+  // Routes an admin status change to the matching transition mutation — the
+  // trip ticket status is no longer PATCH-able (§8), each transition is its
+  // own endpoint.
   const handleStatusChange = (
     ticketId: string,
     newStatus: string,
     reason?: string,
     fuelData?: Record<string, string>
   ) => {
-    const updates: {
-      status: string;
-      cancellation_reason?: string;
-      disapproved_reason?: string;
-      approved_by_admin?: string;
-      allocation_date?: string;
-      allocation_trip_to?: string;
-      allocation_purpose?: string;
-      allocation_vehicle_id?: string;
-      allocation_fuel_type?: string;
-      allocation_liters?: string;
-    } = { status: newStatus };
     if (newStatus === TRIP_TICKET_STATUS.CANCELLED && reason) {
-      updates.cancellation_reason = reason;
+      cancelTripTicket.mutate(
+        { id: ticketId, reason },
+        { onSuccess: resetStatusChangeDialogs }
+      );
+      return;
     }
     if (newStatus === TRIP_TICKET_STATUS.DISAPPROVED && reason) {
-      updates.disapproved_reason = reason;
+      disapproveTripTicket.mutate(
+        { id: ticketId, reason },
+        { onSuccess: resetStatusChangeDialogs }
+      );
+      return;
     }
     if (
       newStatus === TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL &&
       fuelData
     ) {
-      updates.approved_by_admin = user?.id;
-      updates.allocation_date = fuelData.allocation_date;
-      updates.allocation_trip_to = fuelData.allocation_trip_to;
-      updates.allocation_purpose = fuelData.allocation_purpose;
-      updates.allocation_vehicle_id = fuelData.allocation_vehicle_id;
-      updates.allocation_fuel_type = fuelData.allocation_fuel_type;
-      updates.allocation_liters = fuelData.allocation_liters;
+      approveTripTicket.mutate(
+        {
+          id: ticketId,
+          liters: Number(fuelData.allocation_liters),
+          fuelType: fuelData.allocation_fuel_type,
+          date: fuelData.allocation_date,
+          purpose: fuelData.allocation_purpose,
+          tripTo: fuelData.allocation_trip_to
+        },
+        { onSuccess: resetStatusChangeDialogs }
+      );
     }
-    updateTripTicket.mutate(
-      {
-        id: ticketId,
-        updates
-      },
-      {
-        onSuccess: () => {
-          setCancellationReason('');
-          setDisapprovedReason('');
-          setCancellingTicketId(null);
-          setFuelAllocationData({
-            allocation_date: '',
-            allocation_trip_to: '',
-            allocation_purpose: '',
-            allocation_vehicle_id: '',
-            allocation_fuel_type: '',
-            allocation_liters: ''
-          });
-        }
-      }
-    );
   };
 
   const calendarEvents = useMemo(() => {
@@ -303,7 +307,9 @@ const TripTicketsPage = () => {
                                   }
                                 }}
                                 disabled={
-                                  updateTripTicket.isPending ||
+                                  approveTripTicket.isPending ||
+                                  disapproveTripTicket.isPending ||
+                                  cancelTripTicket.isPending ||
                                   ticket.status ===
                                     TRIP_TICKET_STATUS.CANCELLED ||
                                   ticket.status ===
@@ -430,11 +436,13 @@ const TripTicketsPage = () => {
                                         variant="ghost"
                                         size="icon"
                                         disabled={
-                                          updateTripTicket.isPending ||
+                                          cancelTripTicket.isPending ||
                                           ticket.status ===
                                             TRIP_TICKET_STATUS.CANCELLED ||
                                           ticket.status ===
                                             TRIP_TICKET_STATUS.APPROVED ||
+                                          ticket.status ===
+                                            TRIP_TICKET_STATUS.DISAPPROVED ||
                                           ticket.status ===
                                             TRIP_TICKET_STATUS.IN_PROGRESS ||
                                           ticket.status ===
@@ -481,7 +489,7 @@ const TripTicketsPage = () => {
                                         <AlertDialogAction
                                           disabled={
                                             !cancellationReason.trim() ||
-                                            updateTripTicket.isPending
+                                            cancelTripTicket.isPending
                                           }
                                           onClick={() => {
                                             if (cancellationReason.trim()) {
@@ -557,7 +565,7 @@ const TripTicketsPage = () => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               disabled={
-                !cancellationReason.trim() || updateTripTicket.isPending
+                !cancellationReason.trim() || cancelTripTicket.isPending
               }
               onClick={() => {
                 if (pendingStatusChange && cancellationReason.trim()) {
@@ -611,7 +619,7 @@ const TripTicketsPage = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={!disapprovedReason.trim() || updateTripTicket.isPending}
+              disabled={!disapprovedReason.trim() || disapproveTripTicket.isPending}
               onClick={() => {
                 if (pendingStatusChange && disapprovedReason.trim()) {
                   handleStatusChange(
@@ -766,7 +774,7 @@ const TripTicketsPage = () => {
               disabled={
                 !fuelAllocationData.allocation_fuel_type ||
                 !fuelAllocationData.allocation_liters ||
-                updateTripTicket.isPending
+                approveTripTicket.isPending
               }
               onClick={() => {
                 if (pendingStatusChange) {

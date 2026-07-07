@@ -1,7 +1,10 @@
 import { useTripTickets } from '@/lib/query/trip-tickets';
 import { useVehicles } from '@/lib/query/vehicles';
 import { useDrivers } from '@/lib/query/drivers';
-import { useUpdateTripTicket } from '@/lib/mutation/trip-tickets';
+import {
+  useCheckOutTripTicket,
+  useCheckInTripTicket
+} from '@/lib/mutation/trip-tickets';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
 import { useState } from 'react';
@@ -33,7 +36,8 @@ import { toast } from 'sonner';
 export default function GuardConfirmationPage() {
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
-  const updateTripTicket = useUpdateTripTicket();
+  const checkOutTripTicket = useCheckOutTripTicket();
+  const checkInTripTicket = useCheckInTripTicket();
   const [confirmAction, setConfirmAction] = useState<{
     type: 'check-out' | 'check-in';
     ticketId: string;
@@ -129,29 +133,13 @@ export default function GuardConfirmationPage() {
     setScanError('');
 
     if (confirmAction.type === 'check-out') {
-      updateTripTicket.mutate(
-        {
-          id: confirmAction.ticketId,
-          updates: {
-            pre_trip_guard: user?.id,
-            pre_trip_checked_by: user?.id,
-            pre_trip_checked_at: new Date().toISOString(),
-            status: TRIP_TICKET_STATUS.IN_PROGRESS
-          }
-        },
+      checkOutTripTicket.mutate(
+        { id: confirmAction.ticketId },
         { onSettled: closeQrDialog }
       );
     } else {
-      updateTripTicket.mutate(
-        {
-          id: confirmAction.ticketId,
-          updates: {
-            post_trip_guard: user?.id,
-            post_trip_checked_by: user?.id,
-            post_trip_checked_at: new Date().toISOString(),
-            status: TRIP_TICKET_STATUS.COMPLETED
-          }
-        },
+      checkInTripTicket.mutate(
+        { id: confirmAction.ticketId },
         { onSettled: closeQrDialog }
       );
     }
@@ -275,7 +263,7 @@ export default function GuardConfirmationPage() {
                               onClick={() =>
                                 handlePreTripConfirmation(ticket.id)
                               }
-                              disabled={updateTripTicket.isPending}
+                              disabled={checkOutTripTicket.isPending}
                             >
                               Check Out
                             </Button>
@@ -289,7 +277,7 @@ export default function GuardConfirmationPage() {
                               onClick={() =>
                                 handlePostTripConfirmation(ticket.id)
                               }
-                              disabled={updateTripTicket.isPending}
+                              disabled={checkInTripTicket.isPending}
                             >
                               Check In
                             </Button>
@@ -359,13 +347,17 @@ export default function GuardConfirmationPage() {
 
           <AlertDialogFooter>
             <AlertDialogCancel
-              disabled={updateTripTicket.isPending}
+              disabled={checkOutTripTicket.isPending || checkInTripTicket.isPending}
               onClick={closeQrDialog}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              disabled={updateTripTicket.isPending || !isQrVerified}
+              disabled={
+                checkOutTripTicket.isPending ||
+                checkInTripTicket.isPending ||
+                !isQrVerified
+              }
               onClick={handleConfirmAction}
             >
               {confirmAction?.type === 'check-out' ? 'Check Out' : 'Check In'}

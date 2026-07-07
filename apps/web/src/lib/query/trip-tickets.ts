@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getTripTickets, getTripTicketById, getAllTripTickets } from '@/lib/supabase/trip-tickets';
+import { getTripTickets, getTripTicketById, getAllTripTickets } from '@/lib/api/trip-tickets';
 
 export const useTripTickets = (
   page: number = 1,

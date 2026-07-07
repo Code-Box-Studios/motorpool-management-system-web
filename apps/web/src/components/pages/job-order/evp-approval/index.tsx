@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useTripTickets } from '@/lib/query/trip-tickets';
-import { useUpdateTripTicket } from '@/lib/mutation/trip-tickets';
+import {
+  useApproveEvpTripTicket,
+  useDisapproveTripTicket
+} from '@/lib/mutation/trip-tickets';
 import { useJobOrders } from '@/lib/query/job-orders';
 import { useUpdateJobOrder } from '@/lib/mutation/job-orders';
 import { useDrivers } from '@/lib/query/drivers';
-import { useAuth } from '@/hooks/use-auth';
 import {
   Card,
   CardContent,
@@ -44,8 +46,8 @@ import type { ApproveJobOrderData } from '@/components/pages/job-order/job-order
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 
 export default function EvpApprovalPage() {
-  const { user } = useAuth();
-  const updateTripTicket = useUpdateTripTicket();
+  const approveEvpTripTicket = useApproveEvpTripTicket();
+  const disapproveTripTicket = useDisapproveTripTicket();
   const updateJobOrder = useUpdateJobOrder();
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'disapprove' | null>(
@@ -85,13 +87,7 @@ export default function EvpApprovalPage() {
 
   const confirmApprove = () => {
     if (selectedTicket) {
-      updateTripTicket.mutate({
-        id: selectedTicket,
-        updates: {
-          status: TRIP_TICKET_STATUS.APPROVED,
-          allocation_approved_by_evp_operations: user?.id
-        }
-      });
+      approveEvpTripTicket.mutate({ id: selectedTicket });
       setSelectedTicket(null);
       setActionType(null);
     }
@@ -99,12 +95,9 @@ export default function EvpApprovalPage() {
 
   const confirmDisapprove = () => {
     if (selectedTicket && disapprovedReason.trim()) {
-      updateTripTicket.mutate({
+      disapproveTripTicket.mutate({
         id: selectedTicket,
-        updates: {
-          status: TRIP_TICKET_STATUS.DISAPPROVED,
-          disapproved_reason: disapprovedReason
-        }
+        reason: disapprovedReason
       });
       setSelectedTicket(null);
       setActionType(null);
@@ -203,7 +196,7 @@ export default function EvpApprovalPage() {
                           <Button
                             size="sm"
                             onClick={() => handleApprove(ticket.id)}
-                            disabled={updateTripTicket.isPending}
+                            disabled={approveEvpTripTicket.isPending}
                           >
                             <CheckCircle className="mr-1 h-4 w-4" />
                             Approve
@@ -212,7 +205,7 @@ export default function EvpApprovalPage() {
                             size="sm"
                             variant="destructive"
                             onClick={() => handleDisapprove(ticket.id)}
-                            disabled={updateTripTicket.isPending}
+                            disabled={disapproveTripTicket.isPending}
                           >
                             <XCircle className="mr-1 h-4 w-4" />
                             Disapprove
@@ -324,7 +317,7 @@ export default function EvpApprovalPage() {
         title="Approve Trip Ticket"
         description="Are you sure you want to approve this trip ticket? The requester will be notified and the ticket will proceed to the next stage."
         confirmLabel="Approve"
-        loading={updateTripTicket.isPending}
+        loading={approveEvpTripTicket.isPending}
         onConfirm={confirmApprove}
         onCancel={() => {
           setSelectedTicket(null);
