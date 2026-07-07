@@ -6,6 +6,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/use-auth';
+import { toast } from 'sonner';
 import { Typography } from '../ui/typography';
 
 const UserAvatar = () => {
@@ -16,7 +17,11 @@ const UserAvatar = () => {
   };
 
   const handleLogout = async () => {
-    await logout();
+    try {
+      await logout();
+    } catch {
+      toast.error('Logout failed');
+    }
   };
 
   if (!user) return null;

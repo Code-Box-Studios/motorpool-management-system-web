@@ -104,10 +104,12 @@ async function raw(path: string, opts: RequestOpts): Promise<Response> {
 export async function apiRequest<T>(path: string, opts: RequestOpts = {}): Promise<T> {
   let res = await raw(path, opts);
 
-  // Only treat a 401 as an EXPIRED access token when we actually hold one. On a
-  // fresh login (no token yet) a 401 is a real INVALID_CREDENTIALS — don't fire
-  // a spurious refresh or mask it as "Session expired".
-  if (res.status === 401 && !opts.skipRefresh && accessToken !== null) {
+  // A 401 here means "no valid access token" — either it expired, or (on
+  // boot, after a hard refresh) we never had one in memory to begin with.
+  // Either way, attempt a cookie-based refresh before giving up. The login
+  // call itself passes skipRefresh so a real INVALID_CREDENTIALS isn't
+  // masked as "Session expired".
+  if (res.status === 401 && !opts.skipRefresh) {
     const ok = await refreshOnce();
     if (ok) {
       res = await raw(path, opts); // retry once with the new token

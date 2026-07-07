@@ -1,5 +1,5 @@
 import type { AuthUser } from '@mms/shared';
-import { api, setAccessToken, toAssetUrl } from './client.js';
+import { api, apiRequest, setAccessToken, toAssetUrl } from './client.js';
 import type { AppUser } from '../types';
 
 // Maps the API's AuthUser (camelCase) into the FE's AppUser shape so
@@ -23,8 +23,14 @@ interface LoginResponse {
 }
 
 // Logs in against the API, stores the in-memory access token, and returns the FE user shape.
+// Uses skipRefresh so a wrong-password 401 surfaces as a real error instead of
+// being masked as "Session expired" by the client's refresh-on-401 gate.
 export async function signIn(email: string, password: string): Promise<AppUser> {
-  const res = await api.post<LoginResponse>('/auth/login', { email, password });
+  const res = await apiRequest<LoginResponse>('/auth/login', {
+    method: 'POST',
+    json: { email, password },
+    skipRefresh: true
+  });
   setAccessToken(res.accessToken);
   return toAppUser(res.user);
 }
