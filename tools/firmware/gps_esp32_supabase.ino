@@ -1,23 +1,23 @@
 /**
- * GPS Tracker with ESP32 + Supabase Integration
- * 
+ * GPS Tracker with ESP32 + MMS API Integration
+ *
  * This is the ESP32 version of gpsTst.ino that sends GPS data
- * to the Supabase Edge Function (gps-ingest) via HTTP POST.
- * 
+ * to the MMS API's GPS ingest endpoint (POST /api/gps/ingest) via HTTP POST.
+ *
  * Hardware:
  *   - ESP32 development board
  *   - NEO-6M GPS module (TX → GPIO 16, RX → GPIO 17)
- * 
+ *
  * Dependencies (install via Arduino Library Manager):
  *   - TinyGPSPlus by Mikal Hart
  *   - ArduinoJson by Benoit Blanchon
  *   - WiFi (built-in ESP32)
  *   - HTTPClient (built-in ESP32)
- * 
+ *
  * Setup:
  *   1. Update WIFI_SSID and WIFI_PASSWORD
- *   2. Update SUPABASE_URL with your Supabase project URL
- *   3. Update DEVICE_API_KEY with the key set in Supabase Edge Function secrets
+ *   2. Update API_URL with your MMS API host (e.g. https://your-api.example.com/api/gps/ingest)
+ *   3. Update DEVICE_API_KEY with the key set in the API's GPS_DEVICE_API_KEY env var
  *   4. Update VEHICLE_ID with the UUID of the vehicle this tracker is installed on
  */
 
@@ -30,11 +30,11 @@
 const char* WIFI_SSID     = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
-// Supabase Edge Function endpoint
-const char* SUPABASE_URL  = "https://YOUR_PROJECT.supabase.co/functions/v1/gps-ingest";
+// MMS API GPS ingest endpoint
+const char* API_URL       = "https://YOUR_API_HOST/api/gps/ingest";
 const char* DEVICE_API_KEY = "YOUR_DEVICE_API_KEY";
 
-// Vehicle UUID from the vehicles table in Supabase
+// Vehicle UUID from the vehicles table in the API's Postgres database
 const char* VEHICLE_ID    = "YOUR_VEHICLE_UUID";
 
 // GPS update interval in milliseconds (default: 5 seconds)
@@ -57,7 +57,7 @@ void setup() {
   
   pinMode(LED_BUILTIN, OUTPUT);
   
-  Serial.println("GPS + Supabase Tracker v1.0");
+  Serial.println("GPS + MMS API Tracker v1.0");
   Serial.println("Connecting to WiFi...");
   
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -94,7 +94,7 @@ void loop() {
     Serial.printf("Fix: lat=%.6f lng=%.6f spd=%.1f hdg=%.1f sats=%d\n",
                   lat, lng, speed, heading, sats);
     
-    // Send to Supabase
+    // Send to API
     if (WiFi.status() == WL_CONNECTED) {
       sendGpsData(lat, lng, speed, heading);
       lastSendTime = millis();
@@ -110,18 +110,18 @@ void loop() {
 // ==================== SEND GPS DATA ====================
 void sendGpsData(float latitude, float longitude, float speed, float heading) {
   HTTPClient http;
-  http.begin(SUPABASE_URL);
+  http.begin(API_URL);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("x-device-api-key", DEVICE_API_KEY);
-  
-  // Build JSON payload
+
+  // Build JSON payload (camelCase — matches the API's ingestGpsBodySchema)
   JsonDocument doc;
-  doc["vehicle_id"]    = VEHICLE_ID;
-  doc["latitude"]      = latitude;
-  doc["longitude"]     = longitude;
-  doc["speed"]         = speed;
-  doc["heading"]       = heading;
-  doc["engine_status"] = "on";
+  doc["vehicleId"]    = VEHICLE_ID;
+  doc["latitude"]     = latitude;
+  doc["longitude"]    = longitude;
+  doc["speed"]        = speed;
+  doc["heading"]      = heading;
+  doc["engineStatus"] = "on";
   
   String payload;
   serializeJson(doc, payload);

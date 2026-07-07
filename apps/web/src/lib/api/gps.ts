@@ -1,7 +1,7 @@
 // src/lib/api/gps.ts
 import { api, apiRequest, ApiError } from './client.js';
 
-// FE-facing shape (mirrors the pre-cutover lib/supabase/gps.ts type so
+// FE-facing shape (mirrors the pre-cutover Supabase gps type so
 // consumers like VehicleMap/useLatestGpsData are unaffected): snake_case,
 // with the vehicle summary nested under `vehicles`. GET /gps/latest returns
 // a FLAT camelCase row (joined, no trip); this adapter nests it.
