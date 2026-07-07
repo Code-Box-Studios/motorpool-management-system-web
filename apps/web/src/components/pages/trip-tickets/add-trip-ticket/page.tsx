@@ -299,7 +299,7 @@ export function AddTripTicket() {
                         drivers.data
                           .filter((driver) => {
                             // Filter by active status
-                            if (driver.status !== 'Active') return false;
+                            if (driver.status !== 'active') return false;
                             // Filter by user's branch (for both requesters and admins)
                             if (
                               userBranchId &&

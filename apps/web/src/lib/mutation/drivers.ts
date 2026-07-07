@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { createDriver, updateDriver, deleteDriver } from '../supabase/drivers';
-import type { AuthError } from '@supabase/supabase-js';
-import type { NewDriver, UpdateDriver } from '../types'; 
+import { createDriver, updateDriver, deleteDriver } from '../api/drivers';
+import type { ApiError } from '../api/client';
+import type { NewDriver, UpdateDriver } from '../types';
 
 export const useCreateDriver = () => {
   const queryClient = useQueryClient();
@@ -27,7 +27,7 @@ export const useCreateDriver = () => {
       toast.success('Driver created successfully!');
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
     },
-    onError: (error: AuthError) => {
+    onError: (error: ApiError) => {
       toast.error(`Driver creation failed: ${error?.message ?? String(error)}`);
     }
   });

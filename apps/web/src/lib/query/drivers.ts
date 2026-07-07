@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getDriverById, getDrivers } from '../supabase/drivers';
+import { getDriverById, getDrivers } from '../api/drivers';
 
 export const useDrivers = (page: number = 1, limit: number = 10) => {
   return useQuery({

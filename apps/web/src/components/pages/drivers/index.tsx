@@ -21,6 +21,16 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Typography } from '@/components/ui/typography';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { DRIVER_STATUS_DISPLAY } from '@mms/shared';
+
+// Renders the DB's lowercase driver status (active/inactive/on_trip) as its
+// display label; falls back to the raw value for anything unrecognized.
+function driverStatusLabel(status: string | null): string {
+  if (status && status in DRIVER_STATUS_DISPLAY) {
+    return DRIVER_STATUS_DISPLAY[status as keyof typeof DRIVER_STATUS_DISPLAY];
+  }
+  return status ?? '';
+}
 
 const Drivers = () => {
   const [page, setPage] = useState(1);
@@ -77,7 +87,7 @@ const Drivers = () => {
                       >
                         <TableCell>{driver.full_name}</TableCell>
                         <TableCell>{driver.license_number}</TableCell>
-                        <TableCell>{driver.status}</TableCell>
+                        <TableCell>{driverStatusLabel(driver.status)}</TableCell>
                       </TableRow>
                     ))
                   ) : (

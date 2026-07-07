@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import { DRIVER_STATUS_DB } from '@/lib/enums';
 
 export const driverSchema = z.object({
   full_name: z.string().min(1, 'Full name is required'),
@@ -16,7 +17,7 @@ export const driverSchema = z.object({
   emergency_contact_name: z.string().optional(),
   emergency_contact_phone: z.string().optional(),
   hire_date: z.string().optional(),
-  status: z.string().min(1),
+  status: z.enum([...DRIVER_STATUS_DB] as [string, ...string[]]),
   notes: z.string().optional()
 });
 
@@ -28,7 +29,7 @@ export const useDriverForm = () => {
     defaultValues: {
       full_name: '',
       license_number: '',
-      status: 'Active'
+      status: 'active'
     }
   });
 };

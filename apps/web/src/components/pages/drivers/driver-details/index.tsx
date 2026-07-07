@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { DRIVER_STATUS } from '@/lib/enums';
+import { DRIVER_STATUS_DB, DRIVER_STATUS_DISPLAY } from '@/lib/enums';
 
 export function DriverDetails({ id }: { id: string }) {
   const { data: driver, isLoading } = useDriver(id);
@@ -45,7 +45,7 @@ export function DriverDetails({ id }: { id: string }) {
         emergency_contact_name: driver.emergency_contact_name || '',
         emergency_contact_phone: driver.emergency_contact_phone || '',
         hire_date: driver.hire_date || '',
-        status: driver.status || 'Active',
+        status: driver.status || 'active',
         notes: driver.notes || ''
       });
     }
@@ -253,9 +253,9 @@ export function DriverDetails({ id }: { id: string }) {
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      {DRIVER_STATUS.map((status) => (
+                      {DRIVER_STATUS_DB.map((status) => (
                         <SelectItem key={status} value={status}>
-                          {status}
+                          {DRIVER_STATUS_DISPLAY[status]}
                         </SelectItem>
                       ))}
                     </SelectContent>

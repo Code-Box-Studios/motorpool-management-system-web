@@ -259,7 +259,7 @@ const TripTicketsInner = () => {
                           drivers?.data
                             ?.filter(
                               (driver) =>
-                                driver.status === 'Active' ||
+                                driver.status === 'active' ||
                                 driver.id === tripTicket.driver_id
                             )
                             .map((driver) => (
