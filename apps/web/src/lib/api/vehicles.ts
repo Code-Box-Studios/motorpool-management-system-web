@@ -1,5 +1,5 @@
 // src/lib/api/vehicles.ts
-import { api, toAssetUrl } from './client.js';
+import { api, toAssetUrl, toRelativeAssetPath } from './client.js';
 import { getAllBranches } from './shared.js';
 import type { Vehicle, VehicleWithBranch, NewVehicle, UpdateVehicle } from '../types';
 import type { VehicleResponse } from '@mms/shared';
@@ -36,8 +36,8 @@ function toSnake(v: VehicleResponse): Vehicle {
     images: v.images.map((u) => toAssetUrl(u) ?? u),
     branch: v.branchId ?? '',
     maintenance_standard_id: v.maintenanceStandardId ?? null,
-    insurance_expiry: p.insuranceExpiry,
-    registration_expiry: p.registrationExpiry,
+    insurance_expiry: p.insuranceExpiry.slice(0, 10), // @db.Date -> YYYY-MM-DD for <input type="date">
+    registration_expiry: p.registrationExpiry.slice(0, 10),
     created_at: p.createdAt,
     updated_at: p.updatedAt
   };
@@ -102,6 +102,8 @@ export async function updateVehicle(
   removedImages: string[] = []
 ): Promise<Vehicle> {
   const fd = vehicleFormData(updates, files);
-  for (const url of removedImages) fd.append('removedImages', url);
+  // removedImages arrive as rendered absolute URLs (toAssetUrl); the API matches
+  // them against the RELATIVE stored path, so strip the base back off first.
+  for (const url of removedImages) fd.append('removedImages', toRelativeAssetPath(url));
   return toSnake(await api.patchForm<VehicleResponse>(`/vehicles/${id}`, fd));
 }

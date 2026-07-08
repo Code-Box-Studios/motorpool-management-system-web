@@ -37,6 +37,7 @@ export const useSignUp = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allUsers'] });
+      queryClient.invalidateQueries({ queryKey: ['admins'] }); // used for name resolution
     },
     onError: (error) => {
       toast.error(`Sign up failed: ${error.message}`);

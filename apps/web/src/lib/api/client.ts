@@ -41,6 +41,13 @@ export function toAssetUrl(path: string | null | undefined): string | null {
   return path.startsWith('/uploads') ? `${BASE_URL}${path}` : path;
 }
 
+// Inverse of toAssetUrl: turn a rendered absolute /uploads URL back into the
+// relative path the API stores and matches against (e.g. for removedImages —
+// the server filters vehicle.images by the relative path, not the absolute URL).
+export function toRelativeAssetPath(url: string): string {
+  return url.startsWith(BASE_URL) ? url.slice(BASE_URL.length) : url;
+}
+
 // A single shared in-flight refresh promise so concurrent 401s (e.g. the 5s GPS
 // poll + page queries) don't race the rotating refresh token (spec §8).
 let refreshPromise: Promise<boolean> | null = null;

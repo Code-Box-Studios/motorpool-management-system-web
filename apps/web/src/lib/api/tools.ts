@@ -28,8 +28,8 @@ function toSnake(t: ToolApiResponse): Tool {
     status: t.status,
     image: toAssetUrl(t.image),
     borrowed_by: t.borrowedById,
-    borrowed_date: t.borrowedDate,
-    estimated_return_date: t.estimatedReturnDate,
+    borrowed_date: t.borrowedDate ? t.borrowedDate.slice(0, 10) : null, // @db.Date -> YYYY-MM-DD for <input type="date">
+    estimated_return_date: t.estimatedReturnDate ? t.estimatedReturnDate.slice(0, 10) : null,
     created_at: t.createdAt,
     updated_at: t.updatedAt
   };

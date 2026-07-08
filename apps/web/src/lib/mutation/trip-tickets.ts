@@ -67,6 +67,10 @@ export const useDeleteTripTicket = () => {
 const invalidateTripTicket = (queryClient: ReturnType<typeof useQueryClient>, id: string) => {
   queryClient.invalidateQueries({ queryKey: ['trip_tickets'] });
   queryClient.invalidateQueries({ queryKey: ['trip_ticket', id] });
+  // check-out/check-in flip the vehicle's status (available <-> on_trip) and a
+  // completed trip changes the dashboard counts, so refresh those views too.
+  queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+  queryClient.invalidateQueries({ queryKey: ['analytics'] });
 };
 
 // admin: submits the fuel-allocation details, moving the ticket to

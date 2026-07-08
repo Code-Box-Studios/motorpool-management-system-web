@@ -62,6 +62,13 @@ const invalidateJobOrder = (queryClient: ReturnType<typeof useQueryClient>, id: 
   queryClient.invalidateQueries({ queryKey: ['job_orders'] });
   queryClient.invalidateQueries({ queryKey: ['all_job_orders'] }); // calendar view
   queryClient.invalidateQueries({ queryKey: ['job_order', id] });
+  // Transitions mutate other domains server-side (note -> vehicle under_maintenance;
+  // complete-repair -> spare-part stock decrement + new maintenance row + vehicle
+  // back to available), so refresh those views + the dashboard metrics too.
+  queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+  queryClient.invalidateQueries({ queryKey: ['maintenances'] });
+  queryClient.invalidateQueries({ queryKey: ['spare_parts'] });
+  queryClient.invalidateQueries({ queryKey: ['analytics'] });
 };
 
 // admin: notes the job order — assigns a mechanic, schedule dates, and the

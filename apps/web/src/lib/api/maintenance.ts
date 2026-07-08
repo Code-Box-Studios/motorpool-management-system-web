@@ -24,10 +24,10 @@ function toSnake(m: MaintenanceApiResponse): Maintenance {
     id: m.id,
     vehicle_id: m.vehicleId,
     type: m.type,
-    date: m.date,
+    date: m.date.slice(0, 10), // @db.Date -> YYYY-MM-DD for <input type="date">
     cost: m.cost,
     mileage: m.mileage,
-    next_due: m.nextDue,
+    next_due: m.nextDue ? m.nextDue.slice(0, 10) : null,
     description: m.description,
     created_at: m.createdAt,
     updated_at: m.updatedAt
