@@ -197,6 +197,19 @@ Read-access note: maintenance, spare-parts, and tools list/detail endpoints are 
 
 `POST /api/gps/ingest` is device-authenticated, not user-authenticated: it requires an `x-device-api-key` header matching `GPS_DEVICE_API_KEY` and is **fail-closed** — if that env var is unset, every request fails with `500 GPS_NOT_CONFIGURED`; a missing or mismatched header when the key IS set returns `401 INVALID_DEVICE_KEY`. There's no way to accidentally leave ingest open.
 
+### Tracker-device endpoints
+
+Registry mapping physical trackers (by IMEI) to vehicles. Management is admin-only; `resolve` is device-key authenticated (used by the GPS gateway, not the browser).
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /api/tracker-devices` | List devices (admin); optional `?vehicleId=`, `?status=`. Returns `{ data, count }`. |
+| `GET /api/tracker-devices/:id` | Fetch a device (admin). |
+| `POST /api/tracker-devices` | Register a device (admin): `imei` (required), `vehicleId?`, `label?`, `simNumber?`, `status?`, `notes?`. 409 `IMEI_TAKEN` on a duplicate IMEI. |
+| `PATCH /api/tracker-devices/:id` | Update/reassign a device (admin). |
+| `DELETE /api/tracker-devices/:id` | Delete a device (admin). |
+| `GET /api/tracker-devices/resolve?deviceId=` | **Device-key auth** (`x-device-api-key`). Resolves a reported IMEI to `{ vehicleId }` for an `active`, assigned device and stamps `lastSeenAt`; 404 for unknown/inactive/unassigned; 401/500 mirror the GPS ingest device-auth behaviour. |
+
 ### Analytics endpoints
 
 | Endpoint                                    | Description                                                                                  |
