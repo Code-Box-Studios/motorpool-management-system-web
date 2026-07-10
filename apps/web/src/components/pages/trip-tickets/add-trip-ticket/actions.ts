@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCreateTripTicket } from '@/lib/mutation/trip-tickets';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
+import type { NewTripTicket } from '@/lib/types';
 
 const tripTicketSchema = z.object({
   // Requester info (auto-filled)
@@ -75,7 +76,7 @@ export const useAddTripTicketAction = () => {
       participants: data.participants.split(',').map(p => p.trim()).filter(p => p.length > 0)
     };
     
-    await createTripTicket.mutateAsync(tripTicketData as any);
+    await createTripTicket.mutateAsync(tripTicketData as NewTripTicket);
   };
 
   return { addTripTicket, isLoading: createTripTicket.isPending };
