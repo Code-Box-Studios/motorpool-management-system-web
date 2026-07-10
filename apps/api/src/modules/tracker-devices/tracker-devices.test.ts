@@ -174,6 +174,27 @@ describe('tracker-devices module (CRUD)', () => {
     expect(second.status).toBe(201);
   });
 
+  it('allows editing an active, assigned device without 409ing against itself', async () => {
+    const auth = await adminAuth();
+    const vehicle = await makeVehicle('VIN-TD-6', 'TD-0006');
+    const device = await request(app)
+      .post('/api/tracker-devices')
+      .set('Authorization', auth)
+      .send({ imei: '355000000000010', vehicleId: vehicle.id });
+    expect(device.status).toBe(201);
+
+    // Re-saving the same active+assigned device (label only) must not trip the
+    // one-active-per-vehicle guard against the device's own row.
+    const patched = await request(app)
+      .patch(`/api/tracker-devices/${device.body.id}`)
+      .set('Authorization', auth)
+      .send({ label: 'Renamed in place' });
+    expect(patched.status).toBe(200);
+    expect(patched.body.label).toBe('Renamed in place');
+    expect(patched.body.vehicleId).toBe(vehicle.id);
+    expect(patched.body.status).toBe('active');
+  });
+
   it('filters the list by status', async () => {
     const auth = await adminAuth();
     const active = await request(app)
