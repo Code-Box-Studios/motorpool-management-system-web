@@ -15,9 +15,26 @@ export async function getById(id: string) {
   return device;
 }
 
+// Rejects assigning a second ACTIVE tracker to a vehicle that already has one.
+async function assertVehicleFree(vehicleId: string, excludeDeviceId?: string): Promise<void> {
+  const existing = await prisma.trackerDevice.findFirst({
+    where: {
+      vehicleId,
+      status: 'active',
+      ...(excludeDeviceId ? { id: { not: excludeDeviceId } } : {})
+    }
+  });
+  if (existing) {
+    throw new AppError(409, 'VEHICLE_HAS_ACTIVE_DEVICE', 'Vehicle already has an active tracker');
+  }
+}
+
 export async function create(body: CreateTrackerDeviceBody) {
   if (await findTrackerDeviceByImei(body.imei)) {
     throw new AppError(409, 'IMEI_TAKEN', 'A device with this IMEI already exists');
+  }
+  if (body.status === 'active' && body.vehicleId) {
+    await assertVehicleFree(body.vehicleId);
   }
   return prisma.trackerDevice.create({ data: body });
 }
@@ -28,6 +45,11 @@ export async function update(id: string, body: UpdateTrackerDeviceBody) {
   if (body.imei && body.imei !== existing.imei) {
     const clash = await findTrackerDeviceByImei(body.imei);
     if (clash) throw new AppError(409, 'IMEI_TAKEN', 'A device with this IMEI already exists');
+  }
+  const nextStatus = body.status ?? existing.status;
+  const nextVehicleId = body.vehicleId !== undefined ? body.vehicleId : existing.vehicleId;
+  if (nextStatus === 'active' && nextVehicleId) {
+    await assertVehicleFree(nextVehicleId, id);
   }
   return prisma.trackerDevice.update({ where: { id }, data: body });
 }

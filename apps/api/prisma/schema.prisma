@@ -579,6 +579,7 @@ model TrackerDevice {
   vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
 
   @@index([vehicleId])
+  // NOTE: partial unique index tracker_devices_active_vehicle_unique (vehicle_id WHERE status='active') is added via migration, not expressible in Prisma schema.
   @@map("tracker_devices")
 }
 
