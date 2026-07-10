@@ -16,6 +16,7 @@ import { jobOrdersRouter } from './modules/job-orders/router.js';
 import { gpsRouter } from './modules/gps/router.js';
 import { analyticsRouter } from './modules/analytics/router.js';
 import { toolsRouter } from './modules/tools/router.js';
+import { trackerDevicesRouter } from './modules/tracker-devices/router.js';
 import { tripTicketsRouter } from './modules/trip-tickets/router.js';
 import { usersRouter } from './modules/users/router.js';
 import { vehiclesRouter } from './modules/vehicles/router.js';
@@ -52,6 +53,7 @@ export function createApp(): express.Express {
   app.use('/api/users', usersRouter);
   app.use('/api/drivers', driversRouter);
   app.use('/api/vehicles', vehiclesRouter);
+  app.use('/api/tracker-devices', trackerDevicesRouter);
   app.use('/api/spare-parts', sparePartsRouter);
   app.use('/api/tools', toolsRouter);
   app.use('/api/maintenance', maintenanceRouter);
