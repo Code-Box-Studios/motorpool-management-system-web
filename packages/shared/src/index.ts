@@ -11,3 +11,4 @@ export * from './contracts/trip-tickets.js';
 export * from './contracts/job-orders.js';
 export * from './contracts/gps.js';
 export * from './contracts/analytics.js';
+export * from './contracts/tracker-devices.js';

@@ -93,3 +93,10 @@ export const TRACKING_STATUS = {
   OVERDUE: 'overdue',
   COMPLETED: 'completed'
 } as const;
+
+// Tracker device lifecycle. Only `active` devices resolve to a vehicle for ingest.
+export const TRACKER_DEVICE_STATUS = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  DECOMMISSIONED: 'decommissioned'
+} as const;
