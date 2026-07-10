@@ -22,6 +22,7 @@ const TABLES = [
   'geofence_area',
   'vehicle_status_audit',
   'drivers',
+  'tracker_devices',
   'vehicles',
   'department_offices',
   'office_heads',

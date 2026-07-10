@@ -87,6 +87,12 @@ enum BorrowRequestStatus {
   returned
 }
 
+enum TrackerDeviceStatus {
+  active
+  inactive
+  decommissioned
+}
+
 // ---------- Auth (spec §4.1) ----------
 
 model User {
@@ -243,6 +249,7 @@ model Vehicle {
   maintenanceTracking VehicleMaintenanceTracking[]
   gpsData             GpsData[]
   statusAudits        VehicleStatusAudit[]
+  trackerDevices      TrackerDevice[]
 
   @@map("vehicles")
 }
@@ -555,6 +562,24 @@ model GpsData {
 
   @@index([vehicleId, createdAt(sort: Desc)])
   @@map("gps_data")
+}
+
+model TrackerDevice {
+  id         String              @id @default(uuid()) @db.Uuid
+  imei       String              @unique
+  vehicleId  String?             @map("vehicle_id") @db.Uuid
+  label      String?
+  simNumber  String?             @map("sim_number")
+  status     TrackerDeviceStatus @default(active)
+  lastSeenAt DateTime?           @map("last_seen_at")
+  notes      String?
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
+
+  @@index([vehicleId])
+  @@map("tracker_devices")
 }
 
 model GeofenceArea {
