@@ -82,3 +82,73 @@ describe('tracker-devices module (CRUD)', () => {
     expect(missing.status).toBe(404);
   });
 });
+
+describe('tracker-devices resolve (device auth)', () => {
+  beforeEach(truncateAll);
+
+  const KEY = 'test-device-key';
+  async function seedDevice(overrides: { status?: string; withVehicle?: boolean } = {}) {
+    const vehicle = overrides.withVehicle
+      ? await prisma.vehicle.create({
+          data: {
+            make: 'M', model: 'M', year: 2022, vin: `VIN-${Math.random()}`, licensePlate: `P-${Math.random()}`,
+            capacity: 4, fuelType: 'diesel', mileage: 0, insuranceExpiry: new Date('2027-01-01'),
+            registrationExpiry: new Date('2027-01-01')
+          }
+        })
+      : null;
+    const device = await prisma.trackerDevice.create({
+      data: { imei: 'RESOLVE-1', status: (overrides.status ?? 'active') as 'active', vehicleId: vehicle?.id ?? null }
+    });
+    return { device, vehicle };
+  }
+
+  it('500s when the device key is not configured (fail closed)', async () => {
+    delete process.env.GPS_DEVICE_API_KEY;
+    const res = await request(app).get('/api/tracker-devices/resolve?deviceId=RESOLVE-1');
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe('GPS_NOT_CONFIGURED');
+  });
+
+  it('401s a missing/wrong device key', async () => {
+    process.env.GPS_DEVICE_API_KEY = KEY;
+    const res = await request(app)
+      .get('/api/tracker-devices/resolve?deviceId=RESOLVE-1')
+      .set('x-device-api-key', 'wrong');
+    expect(res.status).toBe(401);
+  });
+
+  it('resolves an active, assigned device to its vehicle and stamps lastSeenAt', async () => {
+    process.env.GPS_DEVICE_API_KEY = KEY;
+    const { device, vehicle } = await seedDevice({ withVehicle: true });
+    const res = await request(app)
+      .get('/api/tracker-devices/resolve?deviceId=RESOLVE-1')
+      .set('x-device-api-key', KEY);
+    expect(res.status).toBe(200);
+    expect(res.body.vehicleId).toBe(vehicle!.id);
+    const after = await prisma.trackerDevice.findUnique({ where: { id: device.id } });
+    expect(after?.lastSeenAt).not.toBeNull();
+  });
+
+  it('404s an unknown IMEI, an inactive device, and an unassigned device', async () => {
+    process.env.GPS_DEVICE_API_KEY = KEY;
+    const unknown = await request(app)
+      .get('/api/tracker-devices/resolve?deviceId=NOPE')
+      .set('x-device-api-key', KEY);
+    expect(unknown.status).toBe(404);
+
+    await seedDevice({ status: 'inactive', withVehicle: true });
+    const inactive = await request(app)
+      .get('/api/tracker-devices/resolve?deviceId=RESOLVE-1')
+      .set('x-device-api-key', KEY);
+    expect(inactive.status).toBe(404);
+
+    await prisma.trackerDevice.deleteMany();
+    await seedDevice({ withVehicle: false });
+    const unassigned = await request(app)
+      .get('/api/tracker-devices/resolve?deviceId=RESOLVE-1')
+      .set('x-device-api-key', KEY);
+    expect(unassigned.status).toBe(404);
+    expect(unassigned.body.error.code).toBe('NO_VEHICLE_ASSIGNED');
+  });
+});
