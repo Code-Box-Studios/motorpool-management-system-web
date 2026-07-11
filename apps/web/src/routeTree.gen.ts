@@ -17,6 +17,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedVehiclesIndexRouteImport } from './routes/_authenticated/vehicles.index'
 import { Route as AuthenticatedUserManagementIndexRouteImport } from './routes/_authenticated/user-management.index'
 import { Route as AuthenticatedTripTicketsIndexRouteImport } from './routes/_authenticated/trip-tickets.index'
+import { Route as AuthenticatedTrackerDevicesIndexRouteImport } from './routes/_authenticated/tracker-devices.index'
 import { Route as AuthenticatedToolsIndexRouteImport } from './routes/_authenticated/tools.index'
 import { Route as AuthenticatedSparePartsIndexRouteImport } from './routes/_authenticated/spare-parts.index'
 import { Route as AuthenticatedMaintenanceIndexRouteImport } from './routes/_authenticated/maintenance.index'
@@ -27,6 +28,8 @@ import { Route as AuthenticatedVehiclesVehicleIdRouteImport } from './routes/_au
 import { Route as AuthenticatedUserManagementAddUserRouteImport } from './routes/_authenticated/user-management.add-user'
 import { Route as AuthenticatedTripTicketsAddTripTicketRouteImport } from './routes/_authenticated/trip-tickets.add-trip-ticket'
 import { Route as AuthenticatedTripTicketsIdRouteImport } from './routes/_authenticated/trip-tickets.$id'
+import { Route as AuthenticatedTrackerDevicesAddDeviceRouteImport } from './routes/_authenticated/tracker-devices.add-device'
+import { Route as AuthenticatedTrackerDevicesDeviceIdRouteImport } from './routes/_authenticated/tracker-devices.$deviceId'
 import { Route as AuthenticatedToolsAddToolsRouteImport } from './routes/_authenticated/tools.add-tools'
 import { Route as AuthenticatedToolsToolsIdRouteImport } from './routes/_authenticated/tools.$toolsId'
 import { Route as AuthenticatedSparePartsAddSparePartRouteImport } from './routes/_authenticated/spare-parts.add-spare-part'
@@ -76,6 +79,12 @@ const AuthenticatedTripTicketsIndexRoute =
   AuthenticatedTripTicketsIndexRouteImport.update({
     id: '/trip-tickets/',
     path: '/trip-tickets/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedTrackerDevicesIndexRoute =
+  AuthenticatedTrackerDevicesIndexRouteImport.update({
+    id: '/tracker-devices/',
+    path: '/tracker-devices/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedToolsIndexRoute = AuthenticatedToolsIndexRouteImport.update({
@@ -135,6 +144,18 @@ const AuthenticatedTripTicketsIdRoute =
   AuthenticatedTripTicketsIdRouteImport.update({
     id: '/trip-tickets/$id',
     path: '/trip-tickets/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedTrackerDevicesAddDeviceRoute =
+  AuthenticatedTrackerDevicesAddDeviceRouteImport.update({
+    id: '/tracker-devices/add-device',
+    path: '/tracker-devices/add-device',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedTrackerDevicesDeviceIdRoute =
+  AuthenticatedTrackerDevicesDeviceIdRouteImport.update({
+    id: '/tracker-devices/$deviceId',
+    path: '/tracker-devices/$deviceId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedToolsAddToolsRoute =
@@ -203,6 +224,8 @@ export interface FileRoutesByFullPath {
   '/spare-parts/add-spare-part': typeof AuthenticatedSparePartsAddSparePartRoute
   '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
+  '/tracker-devices/$deviceId': typeof AuthenticatedTrackerDevicesDeviceIdRoute
+  '/tracker-devices/add-device': typeof AuthenticatedTrackerDevicesAddDeviceRoute
   '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
   '/trip-tickets/add-trip-ticket': typeof AuthenticatedTripTicketsAddTripTicketRoute
   '/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
@@ -213,6 +236,7 @@ export interface FileRoutesByFullPath {
   '/maintenance': typeof AuthenticatedMaintenanceIndexRoute
   '/spare-parts': typeof AuthenticatedSparePartsIndexRoute
   '/tools': typeof AuthenticatedToolsIndexRoute
+  '/tracker-devices': typeof AuthenticatedTrackerDevicesIndexRoute
   '/trip-tickets': typeof AuthenticatedTripTicketsIndexRoute
   '/user-management': typeof AuthenticatedUserManagementIndexRoute
   '/vehicles': typeof AuthenticatedVehiclesIndexRoute
@@ -230,6 +254,8 @@ export interface FileRoutesByTo {
   '/spare-parts/add-spare-part': typeof AuthenticatedSparePartsAddSparePartRoute
   '/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
+  '/tracker-devices/$deviceId': typeof AuthenticatedTrackerDevicesDeviceIdRoute
+  '/tracker-devices/add-device': typeof AuthenticatedTrackerDevicesAddDeviceRoute
   '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
   '/trip-tickets/add-trip-ticket': typeof AuthenticatedTripTicketsAddTripTicketRoute
   '/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
@@ -240,6 +266,7 @@ export interface FileRoutesByTo {
   '/maintenance': typeof AuthenticatedMaintenanceIndexRoute
   '/spare-parts': typeof AuthenticatedSparePartsIndexRoute
   '/tools': typeof AuthenticatedToolsIndexRoute
+  '/tracker-devices': typeof AuthenticatedTrackerDevicesIndexRoute
   '/trip-tickets': typeof AuthenticatedTripTicketsIndexRoute
   '/user-management': typeof AuthenticatedUserManagementIndexRoute
   '/vehicles': typeof AuthenticatedVehiclesIndexRoute
@@ -260,6 +287,8 @@ export interface FileRoutesById {
   '/_authenticated/spare-parts/add-spare-part': typeof AuthenticatedSparePartsAddSparePartRoute
   '/_authenticated/tools/$toolsId': typeof AuthenticatedToolsToolsIdRoute
   '/_authenticated/tools/add-tools': typeof AuthenticatedToolsAddToolsRoute
+  '/_authenticated/tracker-devices/$deviceId': typeof AuthenticatedTrackerDevicesDeviceIdRoute
+  '/_authenticated/tracker-devices/add-device': typeof AuthenticatedTrackerDevicesAddDeviceRoute
   '/_authenticated/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
   '/_authenticated/trip-tickets/add-trip-ticket': typeof AuthenticatedTripTicketsAddTripTicketRoute
   '/_authenticated/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
@@ -270,6 +299,7 @@ export interface FileRoutesById {
   '/_authenticated/maintenance/': typeof AuthenticatedMaintenanceIndexRoute
   '/_authenticated/spare-parts/': typeof AuthenticatedSparePartsIndexRoute
   '/_authenticated/tools/': typeof AuthenticatedToolsIndexRoute
+  '/_authenticated/tracker-devices/': typeof AuthenticatedTrackerDevicesIndexRoute
   '/_authenticated/trip-tickets/': typeof AuthenticatedTripTicketsIndexRoute
   '/_authenticated/user-management/': typeof AuthenticatedUserManagementIndexRoute
   '/_authenticated/vehicles/': typeof AuthenticatedVehiclesIndexRoute
@@ -289,6 +319,8 @@ export interface FileRouteTypes {
     | '/spare-parts/add-spare-part'
     | '/tools/$toolsId'
     | '/tools/add-tools'
+    | '/tracker-devices/$deviceId'
+    | '/tracker-devices/add-device'
     | '/trip-tickets/$id'
     | '/trip-tickets/add-trip-ticket'
     | '/user-management/add-user'
@@ -299,6 +331,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/spare-parts'
     | '/tools'
+    | '/tracker-devices'
     | '/trip-tickets'
     | '/user-management'
     | '/vehicles'
@@ -316,6 +349,8 @@ export interface FileRouteTypes {
     | '/spare-parts/add-spare-part'
     | '/tools/$toolsId'
     | '/tools/add-tools'
+    | '/tracker-devices/$deviceId'
+    | '/tracker-devices/add-device'
     | '/trip-tickets/$id'
     | '/trip-tickets/add-trip-ticket'
     | '/user-management/add-user'
@@ -326,6 +361,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/spare-parts'
     | '/tools'
+    | '/tracker-devices'
     | '/trip-tickets'
     | '/user-management'
     | '/vehicles'
@@ -345,6 +381,8 @@ export interface FileRouteTypes {
     | '/_authenticated/spare-parts/add-spare-part'
     | '/_authenticated/tools/$toolsId'
     | '/_authenticated/tools/add-tools'
+    | '/_authenticated/tracker-devices/$deviceId'
+    | '/_authenticated/tracker-devices/add-device'
     | '/_authenticated/trip-tickets/$id'
     | '/_authenticated/trip-tickets/add-trip-ticket'
     | '/_authenticated/user-management/add-user'
@@ -355,6 +393,7 @@ export interface FileRouteTypes {
     | '/_authenticated/maintenance/'
     | '/_authenticated/spare-parts/'
     | '/_authenticated/tools/'
+    | '/_authenticated/tracker-devices/'
     | '/_authenticated/trip-tickets/'
     | '/_authenticated/user-management/'
     | '/_authenticated/vehicles/'
@@ -422,6 +461,13 @@ declare module '@tanstack/react-router' {
       path: '/trip-tickets'
       fullPath: '/trip-tickets'
       preLoaderRoute: typeof AuthenticatedTripTicketsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tracker-devices/': {
+      id: '/_authenticated/tracker-devices/'
+      path: '/tracker-devices'
+      fullPath: '/tracker-devices'
+      preLoaderRoute: typeof AuthenticatedTrackerDevicesIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/tools/': {
@@ -492,6 +538,20 @@ declare module '@tanstack/react-router' {
       path: '/trip-tickets/$id'
       fullPath: '/trip-tickets/$id'
       preLoaderRoute: typeof AuthenticatedTripTicketsIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tracker-devices/add-device': {
+      id: '/_authenticated/tracker-devices/add-device'
+      path: '/tracker-devices/add-device'
+      fullPath: '/tracker-devices/add-device'
+      preLoaderRoute: typeof AuthenticatedTrackerDevicesAddDeviceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tracker-devices/$deviceId': {
+      id: '/_authenticated/tracker-devices/$deviceId'
+      path: '/tracker-devices/$deviceId'
+      fullPath: '/tracker-devices/$deviceId'
+      preLoaderRoute: typeof AuthenticatedTrackerDevicesDeviceIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/tools/add-tools': {
@@ -571,6 +631,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSparePartsAddSparePartRoute: typeof AuthenticatedSparePartsAddSparePartRoute
   AuthenticatedToolsToolsIdRoute: typeof AuthenticatedToolsToolsIdRoute
   AuthenticatedToolsAddToolsRoute: typeof AuthenticatedToolsAddToolsRoute
+  AuthenticatedTrackerDevicesDeviceIdRoute: typeof AuthenticatedTrackerDevicesDeviceIdRoute
+  AuthenticatedTrackerDevicesAddDeviceRoute: typeof AuthenticatedTrackerDevicesAddDeviceRoute
   AuthenticatedTripTicketsIdRoute: typeof AuthenticatedTripTicketsIdRoute
   AuthenticatedTripTicketsAddTripTicketRoute: typeof AuthenticatedTripTicketsAddTripTicketRoute
   AuthenticatedUserManagementAddUserRoute: typeof AuthenticatedUserManagementAddUserRoute
@@ -581,6 +643,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMaintenanceIndexRoute: typeof AuthenticatedMaintenanceIndexRoute
   AuthenticatedSparePartsIndexRoute: typeof AuthenticatedSparePartsIndexRoute
   AuthenticatedToolsIndexRoute: typeof AuthenticatedToolsIndexRoute
+  AuthenticatedTrackerDevicesIndexRoute: typeof AuthenticatedTrackerDevicesIndexRoute
   AuthenticatedTripTicketsIndexRoute: typeof AuthenticatedTripTicketsIndexRoute
   AuthenticatedUserManagementIndexRoute: typeof AuthenticatedUserManagementIndexRoute
   AuthenticatedVehiclesIndexRoute: typeof AuthenticatedVehiclesIndexRoute
@@ -600,6 +663,10 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedSparePartsAddSparePartRoute,
   AuthenticatedToolsToolsIdRoute: AuthenticatedToolsToolsIdRoute,
   AuthenticatedToolsAddToolsRoute: AuthenticatedToolsAddToolsRoute,
+  AuthenticatedTrackerDevicesDeviceIdRoute:
+    AuthenticatedTrackerDevicesDeviceIdRoute,
+  AuthenticatedTrackerDevicesAddDeviceRoute:
+    AuthenticatedTrackerDevicesAddDeviceRoute,
   AuthenticatedTripTicketsIdRoute: AuthenticatedTripTicketsIdRoute,
   AuthenticatedTripTicketsAddTripTicketRoute:
     AuthenticatedTripTicketsAddTripTicketRoute,
@@ -612,6 +679,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMaintenanceIndexRoute: AuthenticatedMaintenanceIndexRoute,
   AuthenticatedSparePartsIndexRoute: AuthenticatedSparePartsIndexRoute,
   AuthenticatedToolsIndexRoute: AuthenticatedToolsIndexRoute,
+  AuthenticatedTrackerDevicesIndexRoute: AuthenticatedTrackerDevicesIndexRoute,
   AuthenticatedTripTicketsIndexRoute: AuthenticatedTripTicketsIndexRoute,
   AuthenticatedUserManagementIndexRoute: AuthenticatedUserManagementIndexRoute,
   AuthenticatedVehiclesIndexRoute: AuthenticatedVehiclesIndexRoute,

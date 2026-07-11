@@ -21,6 +21,12 @@ const getBadgeVariant = (status: string) => {
       return 'to_be_repaired';
     case 'borrowed':
       return 'borrowed';
+    case 'active':
+      return 'available';
+    case 'inactive':
+      return 'not_available';
+    case 'decommissioned':
+      return 'to_be_repaired';
     default:
       return 'default';
   }
