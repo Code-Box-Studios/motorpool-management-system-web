@@ -109,6 +109,7 @@ On the left is a menu, organised into three groups: **Management**, **Assets**, 
 | Vehicles | Assets | ✅ | — | — | — | — |
 | Spare Parts | Assets | ✅ | — | — | — | — |
 | Tools | Assets | ✅ | — | — | — | ✅ |
+| Trackers | Settings | ✅ | — | — | — | — |
 | User Management | Settings | ✅ | — | — | — | — |
 
 A few things to notice:
@@ -334,6 +335,19 @@ The dashboard for Admins (and requesters) includes a **real-time map** of the fl
 - **Who can see live tracking.** The detailed GPS views (latest positions and history) are limited to **Admins and EVP Operations**.
 - **Security.** The device feed is locked down: only authorised GPS devices can send positions, using a secret key. If that key isn't configured, the feed is **closed by default** — it's never accidentally left open.
 
+### 12.1 Tracker device registry (Admins)
+
+Behind the live map is a registry of the physical GPS units. Admins manage it from the **Trackers** screen (under *Settings* in the menu):
+
+- **Register a device.** Record a tracker by its **IMEI**, with an optional label, SIM number, lifecycle status, and free-text notes. A device may be left **unassigned** (a spare) or tied to a vehicle at registration.
+- **Assign / replace.** A device can be assigned to a vehicle. A vehicle may have **at most one _active_ tracker** at a time — the system blocks a second active assignment, so replacing a unit means deactivating or decommissioning the old one first.
+- **Lifecycle status.** Each device is *active*, *inactive*, or *decommissioned*. Only *active* devices feed live positions.
+- **Online / offline.** Separately from lifecycle status, each device shows an **online/offline** indicator derived from how recently it last reported in (within the last few minutes = online).
+- **Decommission / delete.** Devices can be decommissioned (kept for history) or deleted outright.
+- **On the vehicle page.** A vehicle's detail page shows a read-only **GPS Tracker** panel with its assigned device's IMEI, status, and connectivity (Admins only).
+
+**Who can manage trackers.** The Trackers registry is **Admin-only**, end to end (menu, pages, and API).
+
 ---
 
 ## 13. Analytics and smart insights
@@ -375,6 +389,7 @@ Admins manage all accounts from the **User Management** screen.
 | **Spare Parts** | Manage | View | View | — | View |
 | **Tools** | Manage; borrow/return | View | View | — | View |
 | **GPS live tracking + Analytics** | Full | — | Full | — | — |
+| **Tracker device registry** | Manage | — | — | — | — |
 | **User Management** | Manage | — | — | — | — |
 
 > The **menu** you see (Section 4) is narrower than this table on purpose — it surfaces only the areas each role actually works in day to day, even where they technically have view access to more.
