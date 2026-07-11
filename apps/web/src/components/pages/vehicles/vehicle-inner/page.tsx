@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { Loading } from '@/components/ui/loader';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import { VehicleMaintenanceInsights } from './vehicle-maintenance-insights';
+import { VehicleTrackerSummary } from './vehicle-tracker-summary';
 
 const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   const { data: vehicle } = useVehicle(vehicleId);
@@ -540,6 +541,7 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
       />
 
       <VehicleMaintenanceInsights vehicleId={vehicleId} />
+      <VehicleTrackerSummary vehicleId={vehicleId} />
     </div>
   );
 };
