@@ -17,3 +17,6 @@ apps/web/e2e/screenshots/
 !.vscode/extensions.json
 .idea/
 .DS_Store
+
+apps/gps-gateway/captures/
+apps/gps-gateway/dist/
