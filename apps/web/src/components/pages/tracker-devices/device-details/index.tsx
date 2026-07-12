@@ -1,8 +1,8 @@
 // src/components/pages/tracker-devices/device-details/index.tsx
 import { useEffect, useState } from 'react';
 import { Controller } from 'react-hook-form';
-import { useNavigate } from '@tanstack/react-router';
-import { Button } from '@/components/ui/button';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   FieldGroup,
   Field,
@@ -23,12 +23,18 @@ import StatusBadge from '@/components/shared/status-badge';
 import { DeviceOnlineIndicator } from '@/components/shared/device-online-indicator';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import { TRACKER_DEVICE_STATUS } from '@mms/shared';
+import { cn } from '@/lib/utils';
+import {
+  titleize,
+  vehicleLabel,
+  assignedVehicleLabel
+} from '@/lib/utils/tracker-devices';
 import { useTrackerDevice } from '@/lib/query/tracker-devices';
 import {
   useUpdateTrackerDevice,
   useDeleteTrackerDevice
 } from '@/lib/mutation/tracker-devices';
-import { useVehicles } from '@/lib/query/vehicles';
+import { useVehicle, useVehicles } from '@/lib/query/vehicles';
 import {
   useTrackerDeviceForm,
   toUpdateBody,
@@ -37,12 +43,14 @@ import {
   type TrackerDeviceFormData
 } from '../action';
 
-// Titleize a status enum value ('active' -> 'Active').
-const titleize = (s: string) => s.replace(/\b\w/g, (l) => l.toUpperCase());
-
 const TrackerDeviceInner = ({ deviceId }: { deviceId: string }) => {
-  const { data: device } = useTrackerDevice(deviceId);
+  const { data: device, isLoading, error } = useTrackerDevice(deviceId);
   const { data: vehicles, isPending: vehiclesLoading } = useVehicles(1, 200);
+  // The assigned vehicle is read by id, not reverse-looked-up in the paginated
+  // list above — that list can't be trusted to contain it (page size, shared cache).
+  const { data: assignedVehicle, isLoading: assignedVehicleLoading } = useVehicle(
+    device?.vehicleId ?? ''
+  );
   const updateDevice = useUpdateTrackerDevice();
   const deleteDevice = useDeleteTrackerDevice();
   const navigate = useNavigate();
@@ -55,9 +63,11 @@ const TrackerDeviceInner = ({ deviceId }: { deviceId: string }) => {
 
   const form = useTrackerDeviceForm();
 
+  // Hydrate the form from the server row — but never while the user is editing,
+  // or a background refetch (e.g. on window focus) would wipe their in-progress edit.
   useEffect(() => {
-    if (device) form.reset(toFormValues(device));
-  }, [device, form]);
+    if (device && !isEditing) form.reset(toFormValues(device));
+  }, [device, isEditing, form]);
 
   const onSubmit = (data: TrackerDeviceFormData) => {
     setPendingData(data);
@@ -86,12 +96,31 @@ const TrackerDeviceInner = ({ deviceId }: { deviceId: string }) => {
     });
   };
 
-  if (!device || vehiclesLoading) return <Loading />;
+  if (isLoading || vehiclesLoading) return <Loading />;
 
-  const assignedVehicle = vehicles?.data?.find((v) => v.id === device.vehicleId);
-  const assignedLabel = assignedVehicle
-    ? `${assignedVehicle.make} ${assignedVehicle.model} — ${assignedVehicle.license_plate}`
-    : 'Unassigned';
+  // A 404 (stale bookmark, device deleted elsewhere, hand-typed URL) or any load
+  // failure must land somewhere — not spin forever on the loader.
+  if (error || !device) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-16 text-center">
+        <h1 className="text-2xl font-bold">Tracker device not found</h1>
+        <p className="text-muted-foreground">
+          {error
+            ? `Error loading device: ${error.message}`
+            : 'This device no longer exists or the link is invalid.'}
+        </p>
+        <Link to="/tracker-devices" className={cn(buttonVariants())}>
+          Back to Tracker Devices
+        </Link>
+      </div>
+    );
+  }
+
+  const assignedLabel = assignedVehicleLabel(
+    device.vehicleId,
+    assignedVehicle,
+    assignedVehicleLoading
+  );
 
   return (
     <div>
@@ -235,7 +264,7 @@ const TrackerDeviceInner = ({ deviceId }: { deviceId: string }) => {
                         </SelectItem>
                         {vehicles?.data?.map((v) => (
                           <SelectItem key={v.id} value={v.id}>
-                            {v.make} {v.model} — {v.license_plate}
+                            {vehicleLabel(v)}
                           </SelectItem>
                         ))}
                       </SelectContent>

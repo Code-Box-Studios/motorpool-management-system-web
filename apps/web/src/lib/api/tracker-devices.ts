@@ -25,7 +25,7 @@ export interface TrackerDeviceListParams {
   page?: number;
   limit?: number;
   vehicleId?: string;
-  status?: string;
+  status?: TrackerDevice['status'];
 }
 
 // Fetch tracker devices (API sorts updatedAt desc). Filters + pagination are

@@ -22,15 +22,13 @@ import { TRACKER_DEVICE_STATUS } from '@mms/shared';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import { useCreateTrackerDevice } from '@/lib/mutation/tracker-devices';
 import { useVehicles } from '@/lib/query/vehicles';
+import { titleize, vehicleLabel } from '@/lib/utils/tracker-devices';
 import {
   useTrackerDeviceForm,
   toCreateBody,
   UNASSIGNED_VEHICLE,
   type TrackerDeviceFormData
 } from '../action';
-
-// Titleize a status enum value ('active' -> 'Active').
-const titleize = (s: string) => s.replace(/\b\w/g, (l) => l.toUpperCase());
 
 export function AddTrackerDevice() {
   const navigate = useNavigate();
@@ -167,7 +165,7 @@ export function AddTrackerDevice() {
                       </SelectItem>
                       {vehicles?.data?.map((v) => (
                         <SelectItem key={v.id} value={v.id}>
-                          {v.make} {v.model} — {v.license_plate}
+                          {vehicleLabel(v)}
                         </SelectItem>
                       ))}
                     </SelectContent>

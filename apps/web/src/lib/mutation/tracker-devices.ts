@@ -49,8 +49,11 @@ export const useDeleteTrackerDevice = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteTrackerDevice(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       toast.success('Tracker device deleted successfully!');
+      // Drop the detail query outright — the row is hard-deleted, so leaving it
+      // to the prefix invalidation below would only refetch a guaranteed 404.
+      queryClient.removeQueries({ queryKey: ['tracker-devices', id] });
       queryClient.invalidateQueries({ queryKey: ['tracker-devices'] });
     },
     onError: (error: ApiError) => {

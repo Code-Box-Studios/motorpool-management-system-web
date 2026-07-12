@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useVehicleTrackerDevice } from '@/lib/query/tracker-devices';
 import { useUserRole } from '@/hooks/use-user-role';
 import { USER_ROLES } from '@/lib/enums';
+import { TRACKER_DEVICE_STATUS } from '@mms/shared';
 
 interface VehicleTrackerSummaryProps {
   vehicleId: string;
@@ -41,7 +42,8 @@ export const VehicleTrackerSummary = ({
   }
 
   const device =
-    data?.data?.find((d) => d.status === 'active') ?? data?.data?.[0];
+    data?.data?.find((d) => d.status === TRACKER_DEVICE_STATUS.ACTIVE) ??
+    data?.data?.[0];
 
   return (
     <div className="mt-8 space-y-4">

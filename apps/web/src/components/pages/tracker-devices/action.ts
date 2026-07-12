@@ -14,7 +14,9 @@ import type { TrackerDevice } from '@/lib/api/tracker-devices';
 export const UNASSIGNED_VEHICLE = 'unassigned';
 
 export const trackerDeviceSchema = z.object({
-  imei: z.string().min(1, 'IMEI is required'),
+  // Trim first: a whitespace-only IMEI must fail here (inline field error), not
+  // trim to "" downstream and come back as a confusing server 400.
+  imei: z.string().trim().min(1, 'IMEI is required'),
   label: z.string().optional(),
   simNumber: z.string().optional(),
   status: z.nativeEnum(TRACKER_DEVICE_STATUS),
