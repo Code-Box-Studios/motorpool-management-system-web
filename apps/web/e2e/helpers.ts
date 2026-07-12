@@ -73,6 +73,17 @@ export async function apiPost(
   return { ok: r.ok(), status: r.status(), body };
 }
 
+// Hard-deletes a row via the API. Specs use this to tear down anything they
+// create, so repeated runs don't accumulate junk in the shared dev database.
+export async function apiDelete(
+  request: APIRequestContext,
+  path: string,
+  token: string
+): Promise<{ ok: boolean; status: number }> {
+  const r = await request.delete(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  return { ok: r.ok(), status: r.status() };
+}
+
 // Unwraps a paginated `{ data, count }` response (or a bare array) into a row list.
 export function listData(res: unknown): Record<string, unknown>[] {
   if (res && typeof res === 'object' && Array.isArray((res as { data?: unknown }).data)) {

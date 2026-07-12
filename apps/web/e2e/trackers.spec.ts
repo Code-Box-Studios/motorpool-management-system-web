@@ -1,11 +1,46 @@
 import { test, expect } from '@playwright/test';
-import { login, shot, CREDENTIALS, apiLogin, apiGet, listData } from './helpers';
+import {
+  login,
+  shot,
+  CREDENTIALS,
+  apiLogin,
+  apiGet,
+  apiDelete,
+  listData
+} from './helpers';
+
+// A well-formed uuid that is not a real device — used to prove the dynamic
+// detail route is role-gated before it ever queries the API.
+const UNKNOWN_DEVICE_ID = '00000000-0000-4000-8000-000000000000';
+
+// IMEIs this spec registered; torn down after each test so runs don't pile up
+// permanent rows in the shared dev database. Resolved to ids at teardown time
+// so a test that fails *after* creating still cleans up after itself.
+const registeredImeis: string[] = [];
+
+test.afterEach(async ({ request }) => {
+  const imeis = registeredImeis.splice(0);
+  if (!imeis.length) return;
+
+  const admin = await apiLogin(request, CREDENTIALS.admin);
+  const devices = listData(
+    await apiGet(request, '/api/tracker-devices?limit=100', admin.token)
+  );
+
+  for (const imei of imeis) {
+    const id = devices.find((d) => d.imei === imei)?.id;
+    if (typeof id === 'string') {
+      await apiDelete(request, `/api/tracker-devices/${id}`, admin.token);
+    }
+  }
+});
 
 test('admin registers a tracker device and it appears in the list', async ({
   page,
   request
 }) => {
   const imei = `E2E${Date.now()}`;
+  registeredImeis.push(imei);
 
   await login(page, 'admin');
 
@@ -50,7 +85,7 @@ test('admin registers a tracker device and it appears in the list', async ({
   ).toBeTruthy();
 });
 
-test('non-admin cannot see or reach the Trackers page', async ({ page }) => {
+test('non-admin cannot see or reach the Trackers pages', async ({ page }) => {
   await login(page, 'driver');
 
   // Not surfaced in the sidebar for drivers.
@@ -61,4 +96,19 @@ test('non-admin cannot see or reach the Trackers page', async ({ page }) => {
   // Direct navigation is redirected to the dashboard by the auth guard.
   await page.goto('/tracker-devices');
   await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+
+  // The register sub-route is gated too — the form must never render.
+  await page.goto('/tracker-devices/add-device');
+  await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+  await expect(
+    page.getByRole('heading', { name: 'Register Tracker Device' })
+  ).toHaveCount(0);
+
+  // ...as is the dynamic detail sub-route (which the pathname-keyed auth guard
+  // structurally cannot match). Any id works: the gate runs before the fetch.
+  await page.goto(`/tracker-devices/${UNKNOWN_DEVICE_ID}`);
+  await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+  await expect(page.getByRole('heading', { name: 'Tracker Device' })).toHaveCount(
+    0
+  );
 });
