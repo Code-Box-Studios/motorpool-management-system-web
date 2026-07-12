@@ -1,0 +1,18 @@
+[Unit]
+Description=MMS GPS Gateway (SinoTrack ST-901 / H02)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mms/gps-gateway
+EnvironmentFile=/opt/mms/gps-gateway/.env
+ExecStart=/usr/bin/node dist/main.js
+Restart=always
+RestartSec=5
+User=mms
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

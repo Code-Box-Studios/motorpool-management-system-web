@@ -330,6 +330,7 @@ The workshop's tools, each with a status: **available**, **borrowed**, **under m
 The dashboard for Admins (and requesters) includes a **real-time map** of the fleet, centred on the Davao region.
 
 - **Where the dots come from.** Vehicles fitted with GPS devices continuously report their position (latitude, longitude, speed, heading, and whether the engine is on). Each report updates the vehicle's last-known location and drops a point on its trail.
+- **The physical trackers.** Vehicles are fitted with **SinoTrack ST-901** GPS trackers (2G). Each one reports over the mobile network to a small **gateway** service, which looks up which vehicle that tracker belongs to (from the Trackers registry) and feeds its position into the system. If a tracker isn't registered — or isn't assigned to a vehicle — its reports are ignored.
 - **What the map shows.** The **latest** position of each vehicle, with a quick summary (make, model, plate, status). Full location **history** for a vehicle can also be reviewed.
 - **The "Start Demo" button.** For demonstrations, the dashboard can simulate a vehicle driving a set route through Davao City — the marker updates every few seconds with fresh coordinates, speed, heading, and engine status. "Stop Demo" ends the simulation.
 - **Who can see live tracking.** The detailed GPS views (latest positions and history) are limited to **Admins and EVP Operations**.

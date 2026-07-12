@@ -10,6 +10,7 @@ A pnpm-workspace monorepo for managing a motorpool: vehicles, drivers, trip tick
 | ------------------ | --------------------------------------------------------------------- |
 | `apps/web`         | React (Vite) frontend, port `5173`. Currently talks directly to Supabase — the Express API migration below is in progress. |
 | `apps/api`         | Express + Prisma backend skeleton, port `3000`.                      |
+| `apps/gps-gateway` | TCP service that decodes SinoTrack ST-901 (H02) frames and forwards them to `POST /api/gps/ingest`. See its own README. |
 | `packages/shared`  | Shared domain enums/types consumed by both apps.                     |
 | `tools/`           | Standalone tooling (firmware, ML) outside the pnpm workspace apps.   |
 
@@ -196,6 +197,10 @@ Read-access note: maintenance, spare-parts, and tools list/detail endpoints are 
 | `GET /api/gps/history`    | GPS history for one vehicle: `?vehicleId=` (required), optional `?tripId=`, `?from=`, `?to=`, `?limit=` (default 500, max 5000). Admin/EVP Operations only. |
 
 `POST /api/gps/ingest` is device-authenticated, not user-authenticated: it requires an `x-device-api-key` header matching `GPS_DEVICE_API_KEY` and is **fail-closed** — if that env var is unset, every request fails with `500 GPS_NOT_CONFIGURED`; a missing or mismatched header when the key IS set returns `401 INVALID_DEVICE_KEY`. There's no way to accidentally leave ingest open.
+
+### GPS gateway
+
+Physical ST-901 trackers cannot call the API directly (raw TCP, H02 protocol, IMEI identity), so `apps/gps-gateway` receives them and forwards to `POST /api/gps/ingest`. It authenticates to the API with the same `GPS_DEVICE_API_KEY`, and resolves IMEI → vehicle via `GET /api/tracker-devices/resolve`. Its env vars (`GATEWAY_TCP_PORT`, `MMS_API_URL`, `SPEED_UNIT`, …) are documented in `apps/gps-gateway/.env.example`.
 
 ### Tracker-device endpoints
 
