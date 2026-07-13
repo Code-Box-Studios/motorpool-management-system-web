@@ -47,6 +47,15 @@ export async function getSparePartById(id: string): Promise<SparePart> {
   return toSnake(await api.get<SparePartApiResponse>(`/spare-parts/${id}`));
 }
 
+// Every spare part, unpaginated (see getAllDrivers). Used by the parts pickers.
+export async function getAllSpareParts(): Promise<SparePart[]> {
+  const res =
+    await api.get<{ data: SparePartApiResponse[]; count: number }>(
+      '/spare-parts'
+    );
+  return res.data.map(toSnake);
+}
+
 // Builds the multipart body shared by create/update: text fields (camelCase,
 // matching the API's zod schema) + the `image` file part when provided.
 function sparePartFormData(p: Partial<NewSparePart>, file?: File): FormData {

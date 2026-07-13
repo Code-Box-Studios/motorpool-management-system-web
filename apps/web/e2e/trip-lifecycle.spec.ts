@@ -53,12 +53,16 @@ test('trip lifecycle: requester → admin → EVP (UI) → guard → completed',
   expect(await tripStatus(request, tripId, admin.token)).toBe('pending_fuel_allocation_approval');
 
   // ---------- The UI transition: EVP approves the fuel allocation ----------
+  // The approvals queue is a list of cards (an <article> per decision), not a
+  // table — a table pushed the action button off-screen.
   await login(page, 'evp');
-  const evpRow = page.getByRole('row').filter({ hasText: destination });
-  await expect(evpRow, 'trip appears in EVP approval table').toBeVisible({ timeout: 15_000 });
+  const evpCard = page.locator('article').filter({ hasText: destination });
+  await expect(evpCard, 'trip appears in the EVP approvals queue').toBeVisible({
+    timeout: 15_000
+  });
   await shot(page, 'lifecycle-1-evp-pending');
 
-  await evpRow.getByRole('button', { name: 'Approve', exact: true }).click();
+  await evpCard.getByRole('button', { name: 'Approve', exact: true }).click();
   const dialog = page.getByRole('alertdialog');
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Approve', exact: true }).click();

@@ -24,7 +24,7 @@ import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import { NoteJobOrderModal } from './job-order-inner/note-job-order-modal';
 import { ApproveJobOrderModal } from './job-order-inner/approve-job-order-modal';
 import { CompleteRepairModal } from './job-order-inner/complete-repair-modal';
-import { useDrivers } from '@/lib/query/drivers';
+import { useAllDrivers } from '@/lib/query/drivers';
 import {
   useNoteJobOrder,
   useApproveJobOrder,
@@ -45,7 +45,7 @@ import { useMemo } from 'react';
 const JobOrdersPage = () => {
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
-  const { data: drivers } = useDrivers(1, 1000);
+  const { data: drivers } = useAllDrivers();
   const noteJobOrder = useNoteJobOrder();
   const approveJobOrder = useApproveJobOrder();
   const completeRepair = useCompleteRepair();
@@ -114,7 +114,7 @@ const JobOrdersPage = () => {
 
   const getDriverName = (driverId: string | null) => {
     if (!driverId) return 'Not assigned';
-    const driver = drivers?.data?.find((d) => d.id === driverId);
+    const driver = drivers?.find((d) => d.id === driverId);
     return driver?.full_name || 'Unknown';
   };
 
@@ -236,7 +236,7 @@ const JobOrdersPage = () => {
                             <div className="flex gap-2">
                               {isAdmin && order.status === 'pending' && (
                                 <NoteJobOrderModal
-                                  drivers={drivers?.data}
+                                  drivers={drivers}
                                   onSubmit={(data) =>
                                     handleNoteJobOrder(order.id, data)
                                   }

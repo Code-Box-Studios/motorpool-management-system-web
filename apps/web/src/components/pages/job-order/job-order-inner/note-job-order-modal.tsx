@@ -20,7 +20,7 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { MultiSelect } from '@/components/ui/multi-select';
-import { useSpareParts } from '@/lib/query/spare-parts';
+import { useAllSpareParts } from '@/lib/query/spare-parts';
 
 interface NoteJobOrderModalProps {
   drivers: Array<{ id: string; full_name: string }> | undefined;
@@ -65,7 +65,7 @@ export function NoteJobOrderModal({
   isLoading,
   currentSparePartsUsed
 }: NoteJobOrderModalProps) {
-  const { data: spareParts } = useSpareParts(1, 1000);
+  const { data: spareParts } = useAllSpareParts();
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState<NoteJobOrderFormState>(() =>
     buildInitialState(currentSparePartsUsed || [])
@@ -219,7 +219,7 @@ export function NoteJobOrderModal({
             <FieldLabel htmlFor="spare_parts_used">Spare Parts Used</FieldLabel>
             <MultiSelect
               options={
-                spareParts?.data?.map((part) => ({
+                spareParts?.map((part) => ({
                   value: part.id,
                   label: `${part.name}${part.brand ? ` - ${part.brand}` : ''}`
                 })) || []
@@ -236,7 +236,7 @@ export function NoteJobOrderModal({
               <FieldLabel>Quantities</FieldLabel>
               <div className="flex flex-col gap-2">
                 {formData.selectedSpareParts.map((sparePartId) => {
-                  const part = spareParts?.data?.find((p) => p.id === sparePartId);
+                  const part = spareParts?.find((p) => p.id === sparePartId);
                   return (
                     <div key={sparePartId} className="flex items-center gap-3">
                       <span className="flex-1 text-sm">

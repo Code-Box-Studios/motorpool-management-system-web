@@ -1,6 +1,6 @@
 import StatusBadge from '@/components/shared/status-badge';
 import { useTripTickets, useAllTripTickets } from '@/lib/query/trip-tickets';
-import { useVehicles } from '@/lib/query/vehicles';
+import { useAllVehicles } from '@/lib/query/vehicles';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { useUserRole } from '@/hooks/use-user-role';
@@ -79,7 +79,7 @@ const TripTicketsPage = () => {
   );
   const { data: calendarData, isLoading: isCalendarLoading } =
     useAllTripTickets(filterUserId, filterBranchId);
-  const { data: vehiclesData } = useVehicles(1, 1000);
+  const { data: vehiclesData } = useAllVehicles();
   const navigate = useNavigate();
   const approveTripTicket = useApproveTripTicket();
   const disapproveTripTicket = useDisapproveTripTicket();
@@ -214,10 +214,12 @@ const TripTicketsPage = () => {
           </CardAction>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="calendar" className="w-full">
+          {/* The table is the operational view — it answers "what needs doing".
+              The calendar is the secondary, planning view. */}
+          <Tabs defaultValue="table" className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
               <TabsTrigger value="table">Table</TabsTrigger>
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
             </TabsList>
             <TabsContent value="calendar" className="mt-6">
               {isCalendarLoading ? (
@@ -713,7 +715,7 @@ const TripTicketsPage = () => {
                   id="fuel-allocation-vehicle"
                   type="text"
                   value={(() => {
-                    const vehicle = vehiclesData?.data?.find(
+                    const vehicle = vehiclesData?.find(
                       (v) => v.id === fuelAllocationData.allocation_vehicle_id
                     );
                     return vehicle

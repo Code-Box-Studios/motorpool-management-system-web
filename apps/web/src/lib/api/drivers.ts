@@ -125,6 +125,15 @@ export const getDrivers = async (
   return { data: res.data.map(toSnakeDriver), count: res.count };
 };
 
+// Every driver, unpaginated — the API returns the full set when page/limit are
+// omitted. Use this for pickers and id -> name lookups. (Asking for a `limit`
+// above 200 is rejected by the API, which silently emptied these lists.)
+export const getAllDrivers = async (): Promise<Driver[]> => {
+  const res =
+    await api.get<{ data: DriverApiResponse[]; count: number }>('/drivers');
+  return res.data.map(toSnakeDriver);
+};
+
 export const getDriverById = async (id: string): Promise<Driver> => {
   return toSnakeDriver(await api.get<DriverApiResponse>(`/drivers/${id}`));
 };

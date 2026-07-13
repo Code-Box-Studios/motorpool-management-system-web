@@ -1,10 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
-import { getSpareParts, getSparePartById } from '@/lib/api/spare-parts';
+import {
+  getAllSpareParts,
+  getSpareParts,
+  getSparePartById
+} from '@/lib/api/spare-parts';
 
 export const useSpareParts = (page: number = 1, limit: number = 10) => {
   return useQuery({
     queryKey: ['spare_parts', page],
     queryFn: () => getSpareParts(page, limit)
+  });
+};
+
+// The whole catalogue — for the parts pickers.
+export const useAllSpareParts = () => {
+  return useQuery({
+    queryKey: ['spare_parts', 'all'],
+    queryFn: getAllSpareParts
   });
 };
 

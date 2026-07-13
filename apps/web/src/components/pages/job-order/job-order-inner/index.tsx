@@ -9,7 +9,7 @@ import {
 } from './actions';
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { useJobOrder } from '@/lib/query/job-orders';
-import { useDrivers } from '@/lib/query/drivers';
+import { useAllDrivers } from '@/lib/query/drivers';
 import { useVehicles } from '@/lib/query/vehicles';
 import { useAdmins, useAllUsers } from '@/lib/query/user-management';
 import { useBranches } from '@/lib/query/shared';
@@ -24,19 +24,19 @@ import { JOB_ORDER_STATUS, REPAIR_DONE_TYPE } from '@/lib/enums';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect } from 'react';
 import { MultiSelect } from '@/components/ui/multi-select';
-import { useSpareParts } from '@/lib/query/spare-parts';
+import { useAllSpareParts } from '@/lib/query/spare-parts';
 
 export function JobOrderInner() {
   const { id } = useParams({ strict: false });
   const { data: jobOrder, isLoading: isLoadingJobOrder } = useJobOrder(
     id as string
   );
-  const { data: drivers, isLoading: isLoadingDrivers } = useDrivers(1, 1000);
+  const { data: drivers, isLoading: isLoadingDrivers } = useAllDrivers();
   const { data: vehicles, isLoading: isLoadingVehicles } = useVehicles(1, 100);
   const { data: branches } = useBranches();
   const { data: admins, isLoading: isLoadingAdmins } = useAdmins();
   const { data: allUsers, isLoading: isLoadingUsers } = useAllUsers();
-  const { data: spareParts } = useSpareParts(1, 1000);
+  const { data: spareParts } = useAllSpareParts();
   const updateJobOrderAction = useUpdateJobOrderAction(id as string);
   const form = useJobOrderForm();
   const navigate = useNavigate();
@@ -45,8 +45,8 @@ export function JobOrderInner() {
     console.log('Data check:', {
       hasJobOrder: !!jobOrder,
       jobOrder: jobOrder,
-      hasDriversData: !!drivers?.data,
-      driversCount: drivers?.data?.length,
+      hasDriversData: !!drivers,
+      driversCount: drivers?.length,
       hasVehiclesData: !!vehicles?.data,
       vehiclesCount: vehicles?.data?.length,
       hasAdmins: !!admins,
@@ -60,7 +60,7 @@ export function JobOrderInner() {
       isLoadingUsers
     });
 
-    if (jobOrder && drivers?.data && vehicles?.data && admins && allUsers) {
+    if (jobOrder && drivers && vehicles?.data && admins && allUsers) {
       console.log('Resetting form with values');
 
       const formatDate = (dateString: string | null) => {
@@ -245,7 +245,7 @@ export function JobOrderInner() {
                   </FieldLabel>
                   <MultiSelect
                     options={
-                      spareParts?.data?.map((part) => ({
+                      spareParts?.map((part) => ({
                         value: part.id,
                         label: `${part.name}${part.brand ? ` - ${part.brand}` : ''}`
                       })) || []
@@ -265,7 +265,7 @@ export function JobOrderInner() {
               name="requested_by"
               control={form.control}
               render={({ field, fieldState }) => {
-                const driver = drivers?.data?.find((d) => d.id === field.value);
+                const driver = drivers?.find((d) => d.id === field.value);
                 const admin = admins?.find((a) => a.id === field.value);
                 const displayValue =
                   driver?.full_name || admin?.full_name || field.value || '';
@@ -337,7 +337,7 @@ export function JobOrderInner() {
               name="assigned_mechanic"
               control={form.control}
               render={({ field, fieldState }) => {
-                const driver = drivers?.data?.find((d) => d.id === field.value);
+                const driver = drivers?.find((d) => d.id === field.value);
                 const displayValue = driver?.full_name || field.value || '';
                 return (
                   <Field data-invalid={fieldState.invalid}>

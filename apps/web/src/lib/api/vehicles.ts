@@ -60,6 +60,24 @@ export async function getVehicles(
   return { data, count: res.count };
 }
 
+// Every vehicle, unpaginated (see getAllDrivers). Used by the vehicle pickers.
+export async function getAllVehicles(): Promise<VehicleWithBranch[]> {
+  const [res, branches] = await Promise.all([
+    api.get<{ data: VehicleResponse[]; count: number }>('/vehicles'),
+    getAllBranches()
+  ]);
+  const branchMap = new Map(branches.map((b) => [b.id, b.name]));
+  return res.data.map((v) => {
+    const row = toSnake(v);
+    return {
+      ...row,
+      branch_name: row.branch
+        ? (branchMap.get(row.branch) ?? row.branch)
+        : 'N/A'
+    };
+  });
+}
+
 export async function getVehicleById(id: string): Promise<Vehicle> {
   return toSnake(await api.get<VehicleResponse>(`/vehicles/${id}`));
 }

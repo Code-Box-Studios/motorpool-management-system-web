@@ -17,9 +17,10 @@ test.describe('per-role sign-in and landing screens', () => {
     await shot(page, 'requester-dashboard');
   });
 
-  test('EVP lands on the approvals screen', async ({ page }) => {
+  test('EVP lands on the approvals queue', async ({ page }) => {
     await login(page, 'evp');
-    await expectText(page, /EVP Operations/);
+    // The redesigned queue leads with what is waiting on them, not a page title.
+    await expectText(page, /Awaiting your sign-off/i);
     await shot(page, 'evp-approvals');
   });
 
