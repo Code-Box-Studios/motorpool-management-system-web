@@ -191,7 +191,18 @@ const JobOrdersPage = () => {
             </TabsContent>
             <TabsContent value="table" className="mt-6">
               {isLoading ? (
-                <TableSkeleton />
+                <TableSkeleton
+                  columns={[
+                    { label: 'Ref', width: 'w-16' },
+                    { label: 'Status', width: 'w-28' },
+                    { label: 'Vehicle', width: 'w-40' },
+                    { label: 'Incident Date', width: 'w-24' },
+                    { label: 'Assigned Mechanic', width: 'w-32' },
+                    { label: 'Target Date', width: 'w-24' },
+                    { label: 'Repair Type', width: 'w-24' },
+                    { label: 'Actions', width: 'w-10' }
+                  ]}
+                />
               ) : (
                 <Table>
                   <TableHeader>

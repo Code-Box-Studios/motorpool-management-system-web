@@ -245,7 +245,17 @@ const TripTicketsPage = () => {
             </TabsContent>
             <TabsContent value="table" className="mt-6">
               {isTableLoading ? (
-                <TableSkeleton />
+                <TableSkeleton
+                  columns={[
+                    { label: 'Ref', width: 'w-16' },
+                    { label: 'Status', width: 'w-28' },
+                    { label: 'Destination', width: 'w-40' },
+                    { label: 'Purpose', width: 'w-32' },
+                    { label: 'Pickup Date', width: 'w-24' },
+                    { label: 'Return Date', width: 'w-24' },
+                    { label: 'Actions', width: 'w-10' }
+                  ]}
+                />
               ) : (
                 <Table>
                   <TableHeader>

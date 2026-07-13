@@ -10,17 +10,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface TableSkeletonProps {
   rows?: number;
-  columns?: { label: string; width?: string }[];
+  columns: { label: string; width?: string }[];
 }
 
-export function TableSkeleton({
-  rows = 5,
-  columns = [
-    { label: 'ID', width: 'w-20' },
-    { label: 'Full Name', width: 'w-32' },
-    { label: 'Avatar URL', width: 'w-40' }
-  ]
-}: TableSkeletonProps) {
+// A loading table that mirrors the real one, so nothing shifts when the data
+// lands. `columns` is required on purpose: the skeleton must never invent
+// headers the page does not have.
+export function TableSkeleton({ rows = 5, columns }: TableSkeletonProps) {
   return (
     <Table>
       <TableHeader>

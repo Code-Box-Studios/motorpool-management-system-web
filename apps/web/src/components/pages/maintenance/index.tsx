@@ -149,7 +149,17 @@ const MaintenancePage = () => {
               </TabsContent>
               <TabsContent value="table" className="mt-6">
                 {isTableLoading ? (
-                  <TableSkeleton />
+                  <TableSkeleton
+                    columns={[
+                      { label: 'Date', width: 'w-24' },
+                      { label: 'Type', width: 'w-24' },
+                      { label: 'Description', width: 'w-40' },
+                      { label: 'Cost', width: 'w-20' },
+                      { label: 'Mileage', width: 'w-20' },
+                      { label: 'Next Due', width: 'w-24' },
+                      { label: 'Actions', width: 'w-10' }
+                    ]}
+                  />
                 ) : (
                   <Table>
                     <TableHeader>
