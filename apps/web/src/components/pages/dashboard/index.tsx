@@ -17,6 +17,7 @@ import DriverDashboard from '@/components/pages/trip-tickets/driver-dashboard';
 import EvpApprovalPage from '@/components/pages/job-order/evp-approval';
 import { useUserRole } from '@/hooks/use-user-role';
 import { USER_ROLES } from '@/lib/enums';
+import NeedsYou from './needs-you';
 import PreventiveMaintenance from './preventive-maintenance';
 import PredictiveMaintenance from './predictive-maintenance';
 import {
@@ -141,6 +142,9 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* What needs a human right now — before any numbers. */}
+      <NeedsYou />
+
       <div className="grid grid-cols-4 gap-5">
         <MetricCard
           title="Available Vehicles"
