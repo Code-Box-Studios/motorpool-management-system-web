@@ -47,6 +47,7 @@ import {
 } from '@/lib/mutation/trip-tickets';
 import { Eye, X } from 'lucide-react';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
+import { formatRef } from '@/lib/utils/reference';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -249,6 +250,7 @@ const TripTicketsPage = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Ref</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Destination</TableHead>
                       <TableHead>Purpose</TableHead>
@@ -261,6 +263,9 @@ const TripTicketsPage = () => {
                     {tableData?.data && tableData.data.length > 0 ? (
                       tableData.data.map((ticket) => (
                         <TableRow key={ticket.id}>
+                          <TableCell className="text-ink-soft font-mono text-sm whitespace-nowrap">
+                            {formatRef('TT', ticket.ticket_no)}
+                          </TableCell>
                           <TableCell>
                             {isAdmin ? (
                               <Select
@@ -519,7 +524,7 @@ const TripTicketsPage = () => {
                     ) : (
                       <TableRow>
                         <TableCell
-                          colSpan={6}
+                          colSpan={7}
                           className="text-muted-foreground py-8 text-center"
                         >
                           No data found

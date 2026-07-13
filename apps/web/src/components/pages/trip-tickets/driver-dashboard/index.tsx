@@ -94,6 +94,9 @@ const DriverDashboard = () => {
   }
 
   const [next, ...later] = trips;
+  const qrTicket = qrTicketId
+    ? trips.find((t) => t.id === qrTicketId)
+    : undefined;
 
   return (
     <div className="mx-auto w-full max-w-md">
@@ -115,7 +118,7 @@ const DriverDashboard = () => {
             <div className="mb-4 flex items-center justify-between gap-3">
               <StatusBadge status={next.status ?? ''} />
               <span className="text-muted-foreground font-mono text-xs">
-                {formatRef('TT', next.id)}
+                {formatRef('TT', next.ticket_no)}
               </span>
             </div>
 
@@ -233,13 +236,14 @@ const DriverDashboard = () => {
             <AlertDialogTitle>Show this to the guard</AlertDialogTitle>
           </AlertDialogHeader>
           <div className="flex flex-col items-center gap-4 py-4">
-            {qrTicketId && (
+            {qrTicket && (
               <>
+                {/* The guard's scanner reads the id; the driver reads the ref. */}
                 <div className="rounded-[20px] border bg-white p-5">
-                  <QRCode value={qrTicketId} size={240} />
+                  <QRCode value={qrTicket.id} size={240} />
                 </div>
                 <span className="text-muted-foreground font-mono text-sm">
-                  {formatRef('TT', qrTicketId)}
+                  {formatRef('TT', qrTicket.ticket_no)}
                 </span>
               </>
             )}

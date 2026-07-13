@@ -1,12 +1,11 @@
-// A short, human-readable reference for a record — so a UUID never reaches a
-// screen. Deterministic and stable for a given record, but NOT sequential:
-// the design calls for real running numbers (TT-2050), which needs a sequence
-// column in the database. This keeps database keys off screen until then.
+// The reference people say out loud: "approve TT-2050". Backed by a real
+// database sequence (trip_tickets.ticket_no / job_orders.order_no), so it is
+// sequential and quotable. UUIDs stay in the URL and the QR code; they never
+// reach a screen.
 export function formatRef(
   prefix: string,
-  id: string | null | undefined
+  no: number | null | undefined
 ): string {
-  if (!id) return `${prefix}-—`;
-  const tail = id.replace(/-/g, '').slice(-5).toUpperCase();
-  return `${prefix}-${tail}`;
+  if (no == null) return `${prefix}-—`;
+  return `${prefix}-${no}`;
 }

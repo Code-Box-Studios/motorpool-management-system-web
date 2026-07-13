@@ -158,7 +158,7 @@ export default function EvpApprovalPage() {
                   >
                     <div className="min-w-[230px] flex-1">
                       <div className="text-muted-foreground font-mono text-xs">
-                        {formatRef('TT', ticket.id)}
+                        {formatRef('TT', ticket.ticket_no)}
                       </div>
                       <h3 className="mt-1 text-lg font-semibold tracking-tight">
                         {ticket.destination}
@@ -235,7 +235,7 @@ export default function EvpApprovalPage() {
                   >
                     <div className="min-w-[230px] flex-1">
                       <div className="text-muted-foreground font-mono text-xs">
-                        {formatRef('JO', order.id)}
+                        {formatRef('JO', order.order_no)}
                       </div>
                       <h3 className="mt-1 text-lg font-semibold tracking-tight">
                         {order.incident_details ?? 'Repair'}

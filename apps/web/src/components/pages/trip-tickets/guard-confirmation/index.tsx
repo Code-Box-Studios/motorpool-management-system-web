@@ -198,7 +198,7 @@ export default function GuardConfirmationPage() {
         <div className="mb-4 flex items-center justify-between gap-3">
           <StatusBadge status={current.status ?? ''} />
           <span className="text-muted-foreground font-mono text-xs">
-            {formatRef('TT', current.id)}
+            {formatRef('TT', current.ticket_no)}
           </span>
         </div>
 
@@ -241,7 +241,7 @@ export default function GuardConfirmationPage() {
           <span className="flex-1">
             <span className="block font-semibold">Scan driver QR to verify</span>
             <span className="text-slate block text-xs">
-              Confirms the person matches {formatRef('TT', current.id)}
+              Confirms the person matches {formatRef('TT', current.ticket_no)}
             </span>
           </span>
           <ChevronRight className="text-muted-foreground size-5 flex-none" />

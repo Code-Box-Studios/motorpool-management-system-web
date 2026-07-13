@@ -45,7 +45,7 @@ const NeedsYou = () => {
       .filter((t) => t.status === TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL)
       .map((t) => ({
         key: `trip-${t.id}`,
-        ref: formatRef('TT', t.id),
+        ref: formatRef('TT', t.ticket_no),
         title: `Trip approval — ${t.destination}`,
         subtitle: vehicleLabel(t.vehicle_id),
         status: t.status ?? '',
@@ -57,7 +57,7 @@ const NeedsYou = () => {
       .filter((o) => o.status === JOB_ORDER_STATUS.PENDING)
       .map((o) => ({
         key: `job-${o.id}`,
-        ref: formatRef('JO', o.id),
+        ref: formatRef('JO', o.order_no),
         title: `Assign mechanic — ${o.incident_details ?? 'repair'}`,
         subtitle: vehicleLabel(o.vehicle_id),
         status: o.status ?? '',

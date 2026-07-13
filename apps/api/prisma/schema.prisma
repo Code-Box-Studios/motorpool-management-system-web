@@ -292,6 +292,8 @@ model Driver {
 
 model TripTicket {
   id                 String           @id @default(uuid()) @db.Uuid
+  // The number people say out loud ("approve TT-2050"). The uuid stays the key.
+  ticketNo           Int              @unique @default(autoincrement()) @map("ticket_no")
   branchId           String           @map("branch_id") @db.Uuid
   driverId           String           @map("driver_id") @db.Uuid
   vehicleId          String           @map("vehicle_id") @db.Uuid
@@ -372,6 +374,8 @@ model FuelAllocation {
 
 model JobOrder {
   id                  String         @id @default(uuid()) @db.Uuid
+  // Same idea as TripTicket.ticketNo — the number people quote ("JO-118").
+  orderNo             Int            @unique @default(autoincrement()) @map("order_no")
   vehicleId           String         @map("vehicle_id") @db.Uuid
   branchId            String         @map("branch_id") @db.Uuid
   status              JobOrderStatus @default(pending)

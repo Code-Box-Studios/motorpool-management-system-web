@@ -23,6 +23,7 @@ interface JobOrderSparePartApiResponse {
 // is applied on every read endpoint — list, getAll, getById, and every transition).
 interface JobOrderApiResponse {
   id: string;
+  orderNo: number;
   vehicleId: string;
   branchId: string;
   status: string | null;
@@ -55,6 +56,7 @@ interface JobOrderApiResponse {
 function toSnake(o: JobOrderApiResponse): JobOrderWithRelations {
   return {
     id: o.id,
+    order_no: o.orderNo,
     vehicle_id: o.vehicleId,
     branch_id: o.branchId,
     status: o.status,

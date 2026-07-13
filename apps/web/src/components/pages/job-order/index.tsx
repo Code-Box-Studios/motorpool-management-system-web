@@ -3,6 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import StatusBadge from '@/components/shared/status-badge';
+import { formatRef } from '@/lib/utils/reference';
 import {
   Card,
   CardAction,
@@ -161,10 +162,11 @@ const JobOrdersPage = () => {
           </CardAction>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="calendar" className="w-full">
+          {/* Table first: it answers "what needs doing". The calendar is for planning. */}
+          <Tabs defaultValue="table" className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
               <TabsTrigger value="table">Table</TabsTrigger>
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
             </TabsList>
             <TabsContent value="calendar" className="mt-6">
               {isCalendarLoading ? (
@@ -194,6 +196,7 @@ const JobOrdersPage = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Ref</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Vehicle</TableHead>
                       <TableHead>Incident Date</TableHead>
@@ -207,6 +210,9 @@ const JobOrdersPage = () => {
                     {data?.data && data.data.length > 0 ? (
                       data.data.map((order) => (
                         <TableRow key={order.id}>
+                          <TableCell className="text-ink-soft font-mono text-sm whitespace-nowrap">
+                            {formatRef('JO', order.order_no)}
+                          </TableCell>
                           <TableCell>
                             <StatusBadge status={order.status || 'pending'} />
                           </TableCell>
@@ -281,7 +287,7 @@ const JobOrdersPage = () => {
                     ) : (
                       <TableRow>
                         <TableCell
-                          colSpan={7}
+                          colSpan={8}
                           className="text-muted-foreground py-8 text-center"
                         >
                           No data found

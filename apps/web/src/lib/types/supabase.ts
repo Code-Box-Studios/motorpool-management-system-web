@@ -466,6 +466,7 @@ export type Database = {
           incident_date: string | null
           incident_details: string | null
           noted_by: string | null
+          order_no: number
           remarks: string | null
           repair_done: string | null
           requested_by: string | null
@@ -487,6 +488,7 @@ export type Database = {
           incident_date?: string | null
           incident_details?: string | null
           noted_by?: string | null
+          order_no?: number
           remarks?: string | null
           repair_done?: string | null
           requested_by?: string | null
@@ -508,6 +510,7 @@ export type Database = {
           incident_date?: string | null
           incident_details?: string | null
           noted_by?: string | null
+          order_no?: number
           remarks?: string | null
           repair_done?: string | null
           requested_by?: string | null
@@ -885,6 +888,7 @@ export type Database = {
           requested_by: string | null
           start_ts: string | null
           status: string | null
+          ticket_no: number
           updated_at: string | null
           vehicle_id: string
         }
@@ -928,6 +932,7 @@ export type Database = {
           requested_by?: string | null
           start_ts?: string | null
           status?: string | null
+          ticket_no?: number
           updated_at?: string | null
           vehicle_id: string
         }
@@ -971,6 +976,7 @@ export type Database = {
           requested_by?: string | null
           start_ts?: string | null
           status?: string | null
+          ticket_no?: number
           updated_at?: string | null
           vehicle_id?: string
         }

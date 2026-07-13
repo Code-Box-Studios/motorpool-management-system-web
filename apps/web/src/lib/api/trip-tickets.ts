@@ -25,6 +25,7 @@ interface FuelAllocationApiResponse {
 // model, camelCase), with the `fuelAllocation` relation embedded.
 interface TripTicketApiResponse {
   id: string;
+  ticketNo: number;
   branchId: string;
   driverId: string;
   vehicleId: string;
@@ -66,6 +67,7 @@ function toSnake(t: TripTicketApiResponse): TripTicket {
   const fa = t.fuelAllocation;
   return {
     id: t.id,
+    ticket_no: t.ticketNo,
     branch_id: t.branchId,
     driver_id: t.driverId,
     vehicle_id: t.vehicleId,
