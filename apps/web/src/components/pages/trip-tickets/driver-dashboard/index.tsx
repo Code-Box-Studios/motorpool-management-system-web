@@ -1,174 +1,248 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import QRCode from 'react-qr-code';
-import { Maximize2, X } from 'lucide-react';
+import { QrCode, X } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { useDrivers } from '@/lib/query/drivers';
+import { useAllDrivers } from '@/lib/query/drivers';
+import { useAllVehicles } from '@/lib/query/vehicles';
 import { useTripTickets } from '@/lib/query/trip-tickets';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
+import StatusBadge from '@/components/shared/status-badge';
 import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
   AlertDialogTitle
 } from '@/components/ui/alert-dialog';
+import { formatRef } from '@/lib/utils/reference';
 
+const timeOf = (value: string | null | undefined) =>
+  value
+    ? new Date(value).toLocaleString(undefined, {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    : 'Not set';
+
+/**
+ * The driver is in or beside a vehicle, on a phone. Their job here is small and
+ * specific: know which trip is next, and show the QR the guard scans at the
+ * gate. So the next trip takes the screen and the QR is one big button.
+ */
 const DriverDashboard = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const [fullscreenQrTicketId, setFullscreenQrTicketId] = useState<
-    string | null
-  >(null);
+  const [qrTicketId, setQrTicketId] = useState<string | null>(null);
 
-  const { data: driversData, isLoading: isDriversLoading } = useDrivers(
-    1,
-    1000
-  );
+  const { data: drivers, isLoading: driversLoading } = useAllDrivers();
+  const { data: vehicles } = useAllVehicles();
 
   const currentDriver = useMemo(() => {
-    if (!user?.email || !driversData?.data) return null;
-
-    const normalizedUserEmail = user.email.trim().toLowerCase();
-
+    if (!user?.email || !drivers) return null;
+    const email = user.email.trim().toLowerCase();
     return (
-      driversData.data.find(
-        (driver) => driver.email.trim().toLowerCase() === normalizedUserEmail
-      ) || null
+      drivers.find((d) => d.email.trim().toLowerCase() === email) ?? null
     );
-  }, [user?.email, driversData?.data]);
+  }, [user?.email, drivers]);
 
-  const { data: tripTicketsData, isLoading: isTripTicketsLoading } =
-    useTripTickets(1, 100, undefined, undefined, currentDriver?.id);
+  const { data: tripTicketsData, isLoading: ticketsLoading } = useTripTickets(
+    1,
+    100,
+    undefined,
+    undefined,
+    currentDriver?.id
+  );
 
-  const driverTickets = tripTicketsData?.data || [];
+  const vehicleOf = (vehicleId: string | null | undefined) =>
+    vehicleId ? vehicles?.find((v) => v.id === vehicleId) : undefined;
 
-  const getStatusLabel = (status: string | null) =>
-    (status || TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL).replace(/_/g, ' ');
+  // Trips still ahead of the driver, soonest first; finished ones drop away.
+  const trips = useMemo(() => {
+    const open = (tripTicketsData?.data ?? []).filter(
+      (t) =>
+        t.status !== TRIP_TICKET_STATUS.COMPLETED &&
+        t.status !== TRIP_TICKET_STATUS.CANCELLED &&
+        t.status !== TRIP_TICKET_STATUS.DISAPPROVED
+    );
+    return open.sort(
+      (a, b) =>
+        new Date(a.start_ts ?? 0).getTime() -
+        new Date(b.start_ts ?? 0).getTime()
+    );
+  }, [tripTicketsData?.data]);
 
-  if (isDriversLoading || isTripTicketsLoading) {
-    return <TableSkeleton />;
+  if (driversLoading || ticketsLoading) {
+    return (
+      <div className="mx-auto w-full max-w-md">
+        <Skeleton className="h-72 w-full rounded-[24px]" />
+      </div>
+    );
   }
 
   if (!currentDriver) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>My Trip Tickets</CardTitle>
-          <CardDescription>
-            Driver record not found for your account.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto w-full max-w-md">
+        <div className="border-border text-muted-foreground rounded-[24px] border border-dashed p-10 text-center text-sm">
+          We couldn&apos;t find a driver record for your account. Ask an admin to
+          link it.
+        </div>
+      </div>
     );
   }
 
+  const [next, ...later] = trips;
+
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>My Trip Tickets</CardTitle>
-          <CardDescription>
-            View only trip tickets assigned to you as driver.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+    <div className="mx-auto w-full max-w-md">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="bg-signal size-2 rounded-full" />
+        <span className="text-muted-foreground text-xs font-bold tracking-[0.11em] uppercase">
+          My trips
+        </span>
+      </div>
 
-      {driverTickets.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {driverTickets.map((ticket) => (
-            <Card key={ticket.id}>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  {ticket.destination}
-                </CardTitle>
-                <CardDescription className="capitalize">
-                  {getStatusLabel(ticket.status)}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <p>
-                  <strong>Purpose:</strong> {ticket.purpose}
-                </p>
-                <p>
-                  <strong>Start:</strong>{' '}
-                  {ticket.start_ts
-                    ? new Date(ticket.start_ts).toLocaleString()
-                    : 'N/A'}
-                </p>
-                <p>
-                  <strong>End:</strong>{' '}
-                  {ticket.end_ts
-                    ? new Date(ticket.end_ts).toLocaleString()
-                    : 'N/A'}
-                </p>
-
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      navigate({
-                        to: `/trip-tickets/${ticket.id}`,
-                        search: { viewOnly: true }
-                      })
-                    }
-                  >
-                    View Details
-                  </Button>
-
-                  <Button
-                    onClick={() => setFullscreenQrTicketId(ticket.id)}
-                    className="gap-2"
-                  >
-                    <Maximize2 className="h-4 w-4" />
-                    Fullscreen QR
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      {!next ? (
+        <div className="border-border text-muted-foreground rounded-[24px] border border-dashed p-12 text-center text-sm">
+          No trips assigned to you right now.
         </div>
       ) : (
-        <Card>
-          <CardContent className="text-muted-foreground py-8 text-center">
-            No trip tickets assigned to you.
-          </CardContent>
-        </Card>
+        <>
+          {/* ---------- The next trip ---------- */}
+          <section className="bg-card border-border rounded-[24px] border p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <StatusBadge status={next.status ?? ''} />
+              <span className="text-muted-foreground font-mono text-xs">
+                {formatRef('TT', next.id)}
+              </span>
+            </div>
+
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {next.destination}
+            </h1>
+            <p className="text-slate mt-1 text-sm">{next.purpose}</p>
+
+            <div className="bg-border my-5 h-px" />
+
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Vehicle</dt>
+                <dd className="text-right font-medium">
+                  {(() => {
+                    const v = vehicleOf(next.vehicle_id);
+                    return v ? (
+                      <>
+                        {v.make} {v.model}{' '}
+                        <span className="font-mono text-xs">
+                          {v.license_plate}
+                        </span>
+                      </>
+                    ) : (
+                      'Not assigned'
+                    );
+                  })()}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Depart</dt>
+                <dd className="font-medium">{timeOf(next.start_ts)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Return</dt>
+                <dd className="font-medium">{timeOf(next.end_ts)}</dd>
+              </div>
+            </dl>
+
+            {/* The driver's whole job at the gate: show this. */}
+            <Button
+              onClick={() => setQrTicketId(next.id)}
+              className="mt-6 h-16 w-full rounded-[22px] text-lg font-semibold"
+            >
+              <QrCode className="size-5" />
+              Show my QR at the gate
+            </Button>
+            <Button variant="ghost" className="mt-2 w-full" asChild>
+              <Link
+                to="/trip-tickets/$id"
+                params={{ id: next.id }}
+                search={{ viewOnly: true }}
+              >
+                View trip details
+              </Link>
+            </Button>
+          </section>
+
+          {/* ---------- Later ---------- */}
+          {later.length > 0 && (
+            <section className="mt-7">
+              <div className="text-muted-foreground mb-2.5 px-1 text-xs font-bold tracking-[0.11em] uppercase">
+                Later
+              </div>
+              <ul className="flex flex-col gap-2.5">
+                {later.map((ticket) => (
+                  <li
+                    key={ticket.id}
+                    className="bg-card border-border flex items-center gap-3 rounded-[18px] border p-3.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-semibold">
+                        {ticket.destination}
+                      </div>
+                      <div className="text-slate truncate text-xs">
+                        {timeOf(ticket.start_ts)}
+                      </div>
+                    </div>
+                    <StatusBadge status={ticket.status ?? ''} />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setQrTicketId(ticket.id)}
+                    >
+                      <QrCode />
+                      <span className="sr-only">Show QR</span>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
       )}
 
+      {/* ---------- The QR the guard scans ---------- */}
       <AlertDialog
-        open={!!fullscreenQrTicketId}
+        open={!!qrTicketId}
         onOpenChange={(open) => {
-          if (!open) setFullscreenQrTicketId(null);
+          if (!open) setQrTicketId(null);
         }}
       >
-        <AlertDialogContent className="max-w-3xl">
+        <AlertDialogContent className="max-w-sm">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="absolute top-2 right-2"
-            onClick={() => setFullscreenQrTicketId(null)}
+            className="absolute top-3 right-3"
+            onClick={() => setQrTicketId(null)}
           >
-            <X className="h-4 w-4" />
+            <X />
+            <span className="sr-only">Close</span>
           </Button>
           <AlertDialogHeader>
-            <AlertDialogTitle>Driver QR Code</AlertDialogTitle>
+            <AlertDialogTitle>Show this to the guard</AlertDialogTitle>
           </AlertDialogHeader>
-          <div className="flex items-center justify-center py-6">
-            {fullscreenQrTicketId ? (
-              <div className="bg-background rounded-lg border p-6">
-                <QRCode value={fullscreenQrTicketId} size={420} />
-              </div>
-            ) : null}
+          <div className="flex flex-col items-center gap-4 py-4">
+            {qrTicketId && (
+              <>
+                <div className="rounded-[20px] border bg-white p-5">
+                  <QRCode value={qrTicketId} size={240} />
+                </div>
+                <span className="text-muted-foreground font-mono text-sm">
+                  {formatRef('TT', qrTicketId)}
+                </span>
+              </>
+            )}
           </div>
         </AlertDialogContent>
       </AlertDialog>

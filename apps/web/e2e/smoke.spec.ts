@@ -33,7 +33,8 @@ test.describe('per-role sign-in and landing screens', () => {
 
   test('driver lands on their own trip tickets', async ({ page }) => {
     await login(page, 'driver');
-    await expectText(page, /My Trip Tickets/);
+    // The phone-first screen leads with the next trip and the QR the guard scans.
+    await expectText(page, /Show my QR at the gate|No trips assigned to you/i);
     await shot(page, 'driver-trips');
   });
 });
