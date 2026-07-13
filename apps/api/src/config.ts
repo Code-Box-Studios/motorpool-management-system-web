@@ -20,7 +20,11 @@ const env = envSchema.parse(process.env);
 export const config = {
   databaseUrl: env.DATABASE_URL,
   port: env.PORT,
-  corsOrigin: env.CORS_ORIGIN,
+  isProduction: env.NODE_ENV === 'production',
+  // Comma-separated allowlist, so a deployment can serve more than one origin.
+  corsOrigins: env.CORS_ORIGIN.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   jwtSecret: env.JWT_SECRET,
   // Spec §5: cross-site production (Vercel↔Railway) needs SameSite=None;
   // same-site local dev wants Lax. Explicit env always wins.

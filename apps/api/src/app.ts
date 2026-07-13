@@ -21,12 +21,35 @@ import { tripTicketsRouter } from './modules/trip-tickets/router.js';
 import { usersRouter } from './modules/users/router.js';
 import { vehiclesRouter } from './modules/vehicles/router.js';
 
+// Vite takes the next free port when 5173 is busy (a leftover dev server, a
+// second checkout), and the browser then fails every request with an opaque
+// CORS error that reads like broken auth. In development any localhost origin
+// is therefore accepted. Production stays a strict CORS_ORIGIN allowlist.
+const LOCALHOST_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+export function isAllowedOrigin(origin: string): boolean {
+  if (config.corsOrigins.includes(origin)) return true;
+  return !config.isProduction && LOCALHOST_ORIGIN.test(origin);
+}
+
 // App factory so tests can mount a fresh instance without listening.
 export function createApp(): express.Express {
   const app = express();
 
   app.use(helmet());
-  app.use(cors({ origin: config.corsOrigin, credentials: true }));
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        // No Origin header: same-origin navigations, curl, health checks.
+        if (!origin || isAllowedOrigin(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error(`Origin not allowed by CORS: ${origin}`));
+      },
+      credentials: true
+    })
+  );
   app.use(express.json());
   app.use(cookieParser());
   if (process.env.NODE_ENV !== 'test' && process.env.VITEST === undefined) {
