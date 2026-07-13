@@ -24,9 +24,10 @@ test.describe('per-role sign-in and landing screens', () => {
     await shot(page, 'evp-approvals');
   });
 
-  test('security guard lands on the guard confirmation screen', async ({ page }) => {
+  test('security guard lands on the gate screen', async ({ page }) => {
     await login(page, 'guard');
-    await expectText(page, /Guard Confirmation/);
+    // The gate screen leads with the vehicle in front of them.
+    await expectText(page, /At the gate now|Nothing at the gate/i);
     await shot(page, 'guard-confirmation');
   });
 
