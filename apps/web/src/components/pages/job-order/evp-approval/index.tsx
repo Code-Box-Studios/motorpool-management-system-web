@@ -152,71 +152,74 @@ export default function EvpApprovalPage() {
                 {pendingTickets.map((ticket) => {
                   const vehicle = getVehicle(ticket.vehicle_id);
                   return (
-                  <article
-                    key={ticket.id}
-                    className="bg-card border-border flex flex-wrap items-center gap-5 rounded-[20px] border p-6"
-                  >
-                    <div className="min-w-[230px] flex-1">
-                      <div className="text-muted-foreground font-mono text-xs">
-                        {formatRef('TT', ticket.ticket_no)}
-                      </div>
-                      <h3 className="mt-1 text-lg font-semibold tracking-tight">
-                        {ticket.destination}
-                      </h3>
-                      <p className="text-slate mt-1.5 text-sm leading-relaxed">
-                        {ticket.purpose}
-                        {vehicle && (
-                          <>
-                            <br />
-                            {vehicle.make} {vehicle.model} ·{' '}
-                            <span className="font-mono text-xs">
-                              {vehicle.license_plate}
-                            </span>
-                          </>
-                        )}
-                        {ticket.driver_id && (
-                          <> · driver {getDriverName(ticket.driver_id)}</>
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="flex-none text-right">
-                      <div className="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
-                        Fuel budget
-                      </div>
-                      <div className="text-2xl font-medium tracking-tight">
-                        {ticket.allocation_liters} L
-                      </div>
-                      {ticket.allocation_fuel_type && (
-                        <div className="text-slate mt-0.5 text-xs capitalize">
-                          {ticket.allocation_fuel_type}
+                    <article
+                      key={ticket.id}
+                      className="bg-card border-border flex flex-wrap items-center gap-5 rounded-[20px] border p-6"
+                    >
+                      <div className="min-w-[230px] flex-1">
+                        <div className="text-muted-foreground font-mono text-xs">
+                          {formatRef('TT', ticket.ticket_no)}
                         </div>
-                      )}
-                    </div>
+                        <h3 className="mt-1 text-lg font-semibold tracking-tight">
+                          {ticket.destination}
+                        </h3>
+                        <p className="text-slate mt-1.5 text-sm leading-relaxed">
+                          {ticket.purpose}
+                          {vehicle && (
+                            <>
+                              <br />
+                              {vehicle.make} {vehicle.model} ·{' '}
+                              <span className="font-mono text-xs">
+                                {vehicle.license_plate}
+                              </span>
+                            </>
+                          )}
+                          {ticket.driver_id && (
+                            <> · driver {getDriverName(ticket.driver_id)}</>
+                          )}
+                        </p>
+                      </div>
 
-                    <div className="flex flex-none gap-2.5">
-                      <Button
-                        onClick={() => handleApprove(ticket.id)}
-                        disabled={approveEvpTripTicket.isPending}
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        variant="outline"
-                        title="A reason is required"
-                        onClick={() => handleDisapprove(ticket.id)}
-                        disabled={disapproveTripTicket.isPending}
-                      >
-                        Decline
-                      </Button>
-                      <Button variant="ghost" size="icon" asChild>
-                        <Link to="/trip-tickets/$id" params={{ id: ticket.id }}>
-                          <Eye />
-                          <span className="sr-only">View trip ticket</span>
-                        </Link>
-                      </Button>
-                    </div>
-                  </article>
+                      <div className="flex-none text-right">
+                        <div className="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
+                          Fuel budget
+                        </div>
+                        <div className="text-2xl font-medium tracking-tight">
+                          {ticket.allocation_liters} L
+                        </div>
+                        {ticket.allocation_fuel_type && (
+                          <div className="text-slate mt-0.5 text-xs capitalize">
+                            {ticket.allocation_fuel_type}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-none gap-2.5">
+                        <Button
+                          onClick={() => handleApprove(ticket.id)}
+                          disabled={approveEvpTripTicket.isPending}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          title="A reason is required"
+                          onClick={() => handleDisapprove(ticket.id)}
+                          disabled={disapproveTripTicket.isPending}
+                        >
+                          Decline
+                        </Button>
+                        <Button variant="ghost" size="icon" asChild>
+                          <Link
+                            to="/trip-tickets/$id"
+                            params={{ id: ticket.id }}
+                          >
+                            <Eye />
+                            <span className="sr-only">View trip ticket</span>
+                          </Link>
+                        </Button>
+                      </div>
+                    </article>
                   );
                 })}
               </div>

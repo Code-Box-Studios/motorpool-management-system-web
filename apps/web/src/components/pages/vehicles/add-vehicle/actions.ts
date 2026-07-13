@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCreateVehicle } from '@/lib/mutation/vehicles';
-import type { NewVehicle } from '@/lib/types'; 
+import type { NewVehicle } from '@/lib/types';
 import { FUEL_TYPE, VEHICLE_STATUS } from '@/lib/enums';
 
 const vehicleSchema = z.object({
@@ -21,7 +21,8 @@ const vehicleSchema = z.object({
   capacity: z.coerce.number().min(1, 'Capacity must be at least 1'),
   images: z.array(z.instanceof(File)).optional(),
   newImages: z.array(z.instanceof(File)).optional()
-});export type VehicleFormData = z.infer<typeof vehicleSchema>;
+});
+export type VehicleFormData = z.infer<typeof vehicleSchema>;
 
 export const useVehicleForm = () => {
   return useForm<VehicleFormData>({

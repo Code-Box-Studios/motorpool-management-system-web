@@ -17,6 +17,8 @@ function toSnake(b: BranchResponse): Branch {
 
 // Fetch all branches, sorted by name (server-side).
 export const getAllBranches = async (): Promise<Branch[]> => {
-  const res = await api.get<{ data: BranchResponse[]; count: number }>('/branches');
+  const res = await api.get<{ data: BranchResponse[]; count: number }>(
+    '/branches'
+  );
   return res.data.map(toSnake);
 };

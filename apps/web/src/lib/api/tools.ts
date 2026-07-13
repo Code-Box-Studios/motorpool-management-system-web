@@ -29,7 +29,9 @@ function toSnake(t: ToolApiResponse): Tool {
     image: toAssetUrl(t.image),
     borrowed_by: t.borrowedById,
     borrowed_date: t.borrowedDate ? t.borrowedDate.slice(0, 10) : null, // @db.Date -> YYYY-MM-DD for <input type="date">
-    estimated_return_date: t.estimatedReturnDate ? t.estimatedReturnDate.slice(0, 10) : null,
+    estimated_return_date: t.estimatedReturnDate
+      ? t.estimatedReturnDate.slice(0, 10)
+      : null,
     created_at: t.createdAt,
     updated_at: t.updatedAt
   };
@@ -40,7 +42,10 @@ export async function getTools(
   page = 1,
   limit = 10
 ): Promise<{ data: Tool[]; count: number | null }> {
-  const res = await api.get<{ data: ToolApiResponse[]; count: number }>('/tools', { page, limit });
+  const res = await api.get<{ data: ToolApiResponse[]; count: number }>(
+    '/tools',
+    { page, limit }
+  );
   return { data: res.data.map(toSnake), count: res.count };
 }
 
@@ -68,7 +73,9 @@ function toolFormData(t: Partial<NewTool>, file?: File): FormData {
 }
 
 export async function createTool(tool: NewTool, file?: File): Promise<Tool> {
-  return toSnake(await api.postForm<ToolApiResponse>('/tools', toolFormData(tool, file)));
+  return toSnake(
+    await api.postForm<ToolApiResponse>('/tools', toolFormData(tool, file))
+  );
 }
 
 export async function updateTool(

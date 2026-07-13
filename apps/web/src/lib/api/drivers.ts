@@ -121,7 +121,10 @@ export const getDrivers = async (
   page: number = 1,
   limit: number = 10
 ): Promise<{ data: Driver[]; count: number | null }> => {
-  const res = await api.get<{ data: DriverApiResponse[]; count: number }>('/drivers', { page, limit });
+  const res = await api.get<{ data: DriverApiResponse[]; count: number }>(
+    '/drivers',
+    { page, limit }
+  );
   return { data: res.data.map(toSnakeDriver), count: res.count };
 };
 
@@ -129,8 +132,9 @@ export const getDrivers = async (
 // omitted. Use this for pickers and id -> name lookups. (Asking for a `limit`
 // above 200 is rejected by the API, which silently emptied these lists.)
 export const getAllDrivers = async (): Promise<Driver[]> => {
-  const res =
-    await api.get<{ data: DriverApiResponse[]; count: number }>('/drivers');
+  const res = await api.get<{ data: DriverApiResponse[]; count: number }>(
+    '/drivers'
+  );
   return res.data.map(toSnakeDriver);
 };
 
@@ -139,11 +143,18 @@ export const getDriverById = async (id: string): Promise<Driver> => {
 };
 
 export const createDriver = async (driver: NewDriver): Promise<Driver> => {
-  return toSnakeDriver(await api.post<DriverApiResponse>('/drivers', toDriverBody(driver)));
+  return toSnakeDriver(
+    await api.post<DriverApiResponse>('/drivers', toDriverBody(driver))
+  );
 };
 
-export const updateDriver = async (id: string, updates: UpdateDriver): Promise<Driver> => {
-  return toSnakeDriver(await api.patch<DriverApiResponse>(`/drivers/${id}`, toDriverBody(updates)));
+export const updateDriver = async (
+  id: string,
+  updates: UpdateDriver
+): Promise<Driver> => {
+  return toSnakeDriver(
+    await api.patch<DriverApiResponse>(`/drivers/${id}`, toDriverBody(updates))
+  );
 };
 
 // DELETE /drivers/:id returns 204 — capture the row via getDriverById BEFORE

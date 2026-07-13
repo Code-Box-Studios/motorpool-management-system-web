@@ -1,5 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getLatestGpsData, getGpsDataByVehicle, insertGpsData } from '@/lib/api/gps';
+import {
+  getLatestGpsData,
+  getGpsDataByVehicle,
+  insertGpsData
+} from '@/lib/api/gps';
 
 // Poll the newest GPS point per vehicle every 5s for the live tracking map.
 export const useLatestGpsData = () => {

@@ -71,7 +71,9 @@ export function NoteJobOrderModal({
     buildInitialState(currentSparePartsUsed || [])
   );
   const [errors, setErrors] = useState<
-    Partial<Record<'dateOfRequest' | 'targetDate' | 'assignedMechanicId', string>>
+    Partial<
+      Record<'dateOfRequest' | 'targetDate' | 'assignedMechanicId', string>
+    >
   >({});
 
   const validateForm = () => {
@@ -118,7 +120,9 @@ export function NoteJobOrderModal({
     setFormData((prev) => ({
       ...prev,
       selectedSpareParts: selected,
-      quantities: Object.fromEntries(selected.map((id) => [id, prev.quantities[id] ?? 1]))
+      quantities: Object.fromEntries(
+        selected.map((id) => [id, prev.quantities[id] ?? 1])
+      )
     }));
   };
 

@@ -74,7 +74,9 @@ function toSnake(o: JobOrderApiResponse): JobOrderWithRelations {
     remarks: o.remarks,
     created_at: o.createdAt,
     updated_at: o.updatedAt,
-    spare_parts_used: o.spareParts ? o.spareParts.map((sp) => sp.sparePartId) : null,
+    spare_parts_used: o.spareParts
+      ? o.spareParts.map((sp) => sp.sparePartId)
+      : null,
     vehicles: o.vehicle
       ? {
           id: o.vehicle.id,
@@ -121,14 +123,22 @@ function mapCreateBody(o: NewJobOrder): JobOrderRequestBody {
 // edit stays partial.
 function mapUpdateBody(u: Record<string, unknown>): JobOrderRequestBody {
   const body: JobOrderRequestBody = {};
-  if (u.vehicle_id !== undefined) body.vehicleId = (u.vehicle_id as string) || undefined;
-  if (u.branch_id !== undefined) body.branchId = (u.branch_id as string) || undefined;
-  if (u.incident_date !== undefined) body.incidentDate = (u.incident_date as string) || undefined;
+  if (u.vehicle_id !== undefined)
+    body.vehicleId = (u.vehicle_id as string) || undefined;
+  if (u.branch_id !== undefined)
+    body.branchId = (u.branch_id as string) || undefined;
+  if (u.incident_date !== undefined)
+    body.incidentDate = (u.incident_date as string) || undefined;
   if (u.incident_details !== undefined) {
-    body.incidentDetails = (u.incident_details as string) === '' ? null : (u.incident_details as string);
+    body.incidentDetails =
+      (u.incident_details as string) === ''
+        ? null
+        : (u.incident_details as string);
   }
-  if (u.requested_by !== undefined) body.requestedById = (u.requested_by as string) || undefined;
-  if (u.remarks !== undefined) body.remarks = (u.remarks as string) === '' ? null : (u.remarks as string);
+  if (u.requested_by !== undefined)
+    body.requestedById = (u.requested_by as string) || undefined;
+  if (u.remarks !== undefined)
+    body.remarks = (u.remarks as string) === '' ? null : (u.remarks as string);
   return body;
 }
 
@@ -141,25 +151,47 @@ export async function getJobOrders(
   _userId?: string,
   _userRole?: string
 ): Promise<{ data: JobOrderWithRelations[]; count: number | null }> {
-  const res = await api.get<{ data: JobOrderApiResponse[]; count: number }>('/job-orders', { page, limit });
+  const res = await api.get<{ data: JobOrderApiResponse[]; count: number }>(
+    '/job-orders',
+    { page, limit }
+  );
   return { data: res.data.map(toSnake), count: res.count };
 }
 
-export async function getAllJobOrders(_userId?: string, _userRole?: string): Promise<JobOrderWithRelations[]> {
-  const res = await api.get<{ data: JobOrderApiResponse[]; count: number }>('/job-orders');
+export async function getAllJobOrders(
+  _userId?: string,
+  _userRole?: string
+): Promise<JobOrderWithRelations[]> {
+  const res = await api.get<{ data: JobOrderApiResponse[]; count: number }>(
+    '/job-orders'
+  );
   return res.data.map(toSnake);
 }
 
-export async function getJobOrderById(id: string): Promise<JobOrderWithRelations> {
+export async function getJobOrderById(
+  id: string
+): Promise<JobOrderWithRelations> {
   return toSnake(await api.get<JobOrderApiResponse>(`/job-orders/${id}`));
 }
 
-export async function createJobOrder(jobOrder: NewJobOrder): Promise<JobOrderWithRelations> {
-  return toSnake(await api.post<JobOrderApiResponse>('/job-orders', mapCreateBody(jobOrder)));
+export async function createJobOrder(
+  jobOrder: NewJobOrder
+): Promise<JobOrderWithRelations> {
+  return toSnake(
+    await api.post<JobOrderApiResponse>('/job-orders', mapCreateBody(jobOrder))
+  );
 }
 
-export async function updateJobOrder(id: string, updates: Record<string, unknown>): Promise<JobOrderWithRelations> {
-  return toSnake(await api.patch<JobOrderApiResponse>(`/job-orders/${id}`, mapUpdateBody(updates)));
+export async function updateJobOrder(
+  id: string,
+  updates: Record<string, unknown>
+): Promise<JobOrderWithRelations> {
+  return toSnake(
+    await api.patch<JobOrderApiResponse>(
+      `/job-orders/${id}`,
+      mapUpdateBody(updates)
+    )
+  );
 }
 
 export async function deleteJobOrder(id: string): Promise<void> {
@@ -181,12 +213,18 @@ export async function noteJobOrder(
     spareParts: { sparePartId: string; quantity: number }[];
   }
 ): Promise<JobOrderWithRelations> {
-  return toSnake(await api.post<JobOrderApiResponse>(`/job-orders/${id}/note`, body));
+  return toSnake(
+    await api.post<JobOrderApiResponse>(`/job-orders/${id}/note`, body)
+  );
 }
 
 // evp_operations: approve the noted job order (assigned_mechanic -> ongoing_repair). No body.
-export async function approveJobOrder(id: string): Promise<JobOrderWithRelations> {
-  return toSnake(await api.post<JobOrderApiResponse>(`/job-orders/${id}/approve`));
+export async function approveJobOrder(
+  id: string
+): Promise<JobOrderWithRelations> {
+  return toSnake(
+    await api.post<JobOrderApiResponse>(`/job-orders/${id}/approve`)
+  );
 }
 
 // admin: complete the repair (ongoing_repair -> repaired).
@@ -194,5 +232,10 @@ export async function completeRepairJobOrder(
   id: string,
   body: { repairDone: string; remarks?: string; actualDateOfRelease?: string }
 ): Promise<JobOrderWithRelations> {
-  return toSnake(await api.post<JobOrderApiResponse>(`/job-orders/${id}/complete-repair`, body));
+  return toSnake(
+    await api.post<JobOrderApiResponse>(
+      `/job-orders/${id}/complete-repair`,
+      body
+    )
+  );
 }

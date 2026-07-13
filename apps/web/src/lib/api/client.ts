@@ -1,4 +1,5 @@
-const BASE_URL = (import.meta.env.VITE_API_URL as string) ?? 'http://localhost:3000';
+const BASE_URL =
+  (import.meta.env.VITE_API_URL as string) ?? 'http://localhost:3000';
 
 let accessToken: string | null = null;
 export function setAccessToken(token: string | null): void {
@@ -79,10 +80,13 @@ async function refreshOnce(): Promise<boolean> {
 }
 
 function buildUrl(path: string, query?: RequestOpts['query']): string {
-  const url = new URL(`${BASE_URL}${path.startsWith('/api') ? path : `/api${path}`}`);
+  const url = new URL(
+    `${BASE_URL}${path.startsWith('/api') ? path : `/api${path}`}`
+  );
   if (query) {
     for (const [k, v] of Object.entries(query)) {
-      if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+      if (v !== undefined && v !== null && v !== '')
+        url.searchParams.set(k, String(v));
     }
   }
   return url.toString();
@@ -108,7 +112,10 @@ async function raw(path: string, opts: RequestOpts): Promise<Response> {
 
 // Core request: attaches auth, unwraps the envelope, retries ONCE after a
 // single-flight refresh on 401. On refresh failure, notifies the AuthProvider.
-export async function apiRequest<T>(path: string, opts: RequestOpts = {}): Promise<T> {
+export async function apiRequest<T>(
+  path: string,
+  opts: RequestOpts = {}
+): Promise<T> {
   let res = await raw(path, opts);
 
   // A 401 here means "no valid access token" — either it expired, or (on
@@ -132,17 +139,27 @@ export async function apiRequest<T>(path: string, opts: RequestOpts = {}): Promi
   const parsed = text ? JSON.parse(text) : undefined;
 
   if (!res.ok) {
-    const err = (parsed as { error?: { code?: string; message?: string } })?.error;
-    throw new ApiError(res.status, err?.code ?? 'ERROR', err?.message ?? `Request failed (${res.status})`);
+    const err = (parsed as { error?: { code?: string; message?: string } })
+      ?.error;
+    throw new ApiError(
+      res.status,
+      err?.code ?? 'ERROR',
+      err?.message ?? `Request failed (${res.status})`
+    );
   }
   return parsed as T;
 }
 
 export const api = {
-  get: <T>(path: string, query?: RequestOpts['query']) => apiRequest<T>(path, { method: 'GET', query }),
-  post: <T>(path: string, json?: unknown) => apiRequest<T>(path, { method: 'POST', json }),
-  patch: <T>(path: string, json?: unknown) => apiRequest<T>(path, { method: 'PATCH', json }),
+  get: <T>(path: string, query?: RequestOpts['query']) =>
+    apiRequest<T>(path, { method: 'GET', query }),
+  post: <T>(path: string, json?: unknown) =>
+    apiRequest<T>(path, { method: 'POST', json }),
+  patch: <T>(path: string, json?: unknown) =>
+    apiRequest<T>(path, { method: 'PATCH', json }),
   del: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),
-  postForm: <T>(path: string, formData: FormData) => apiRequest<T>(path, { method: 'POST', formData }),
-  patchForm: <T>(path: string, formData: FormData) => apiRequest<T>(path, { method: 'PATCH', formData })
+  postForm: <T>(path: string, formData: FormData) =>
+    apiRequest<T>(path, { method: 'POST', formData }),
+  patchForm: <T>(path: string, formData: FormData) =>
+    apiRequest<T>(path, { method: 'PATCH', formData })
 };

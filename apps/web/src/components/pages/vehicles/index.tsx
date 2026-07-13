@@ -1,65 +1,53 @@
 import { useVehicles } from '@/lib/query/vehicles';
-import CardWithImage from '@/components/shared/card-with-image';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Typography } from '@/components/ui/typography';
+import { Link } from '@tanstack/react-router';
+import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import StatusBadge from '@/components/shared/status-badge';
+import PageHeader from '@/components/shared/page-header';
+import EntityCard from '@/components/shared/entity-card';
+import EmptyState from '@/components/shared/empty-state';
 
 const Vehicles = () => {
-  const { data } = useVehicles(1, 10);
-  const navigate = useNavigate();
+  const { data } = useVehicles(1, 12);
+  const vehicles = data?.data ?? [];
 
   return (
     <div>
-      <div className="mb-5 flex items-center justify-between">
-        <Typography variant={'h2'}>Vehicles</Typography>
-        <Link to="/vehicles/add-vehicle" className={cn(buttonVariants())}>
-          Add Vehicle
-        </Link>
-      </div>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:grid-cols-4">
-        {data?.data && data.data.length > 0 ? (
-          data.data.map((vehicle) => (
-            <CardWithImage
+      <PageHeader
+        title="Vehicles"
+        description="Every vehicle in the fleet, and what it is doing right now."
+        action={
+          <Link to="/vehicles/add-vehicle" className={cn(buttonVariants())}>
+            Add Vehicle
+          </Link>
+        }
+      />
+
+      {vehicles.length === 0 ? (
+        <EmptyState message="No vehicles yet." />
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {vehicles.map((vehicle) => (
+            <EntityCard
               key={vehicle.id}
+              to={`/vehicles/${vehicle.id}`}
               imageSrc={vehicle.images?.[0]}
-              title={
-                <div className="space-y-3">
-                  <StatusBadge status={vehicle.status} />
-                  <Typography variant="h5" className="line-clamp-1">
-                    {vehicle.make} {vehicle.model} {vehicle.year}
-                  </Typography>
-                </div>
-              }
-              description={
-                <div>
-                  <Typography variant="p-sm">
-                    License Plate: {vehicle.license_plate}
-                  </Typography>
-                  <Typography variant="p-sm">
-                    Capacity: {vehicle.capacity}
-                  </Typography>
-                  <Typography variant="p-sm">
-                    Branch: {vehicle.branch_name || vehicle.branch}
-                  </Typography>
-                </div>
-              }
-              primaryAction={() => navigate({ to: `/vehicles/${vehicle.id}` })}
-              primaryButtonText="View Vehicle"
+              status={vehicle.status}
+              title={`${vehicle.make} ${vehicle.model} ${vehicle.year ?? ''}`.trim()}
+              fields={[
+                {
+                  label: 'Plate',
+                  value: (
+                    <span className="font-mono">{vehicle.license_plate}</span>
+                  )
+                },
+                { label: 'Seats', value: vehicle.capacity ?? '—' },
+                {
+                  label: 'Branch',
+                  value: vehicle.branch_name || vehicle.branch || '—'
+                }
+              ]}
             />
-          ))
-        ) : (
-          <div className="text-muted-foreground col-span-full py-8 text-center">
-            No data found
-          </div>
-        )}
-      </div>
-      {data?.count && data.count > 10 && (
-        <div className="mt-6 flex justify-center">
-          <Button onClick={() => navigate({ to: '/vehicles' })}>
-            Load More
-          </Button>{' '}
+          ))}
         </div>
       )}
     </div>

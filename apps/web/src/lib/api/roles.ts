@@ -11,7 +11,12 @@ interface RoleResponse {
 
 // Reshape the API's camelCase role row into the FE's snake_case Role type.
 function toSnake(r: RoleResponse): Role {
-  return { id: r.id, name: r.name, description: r.description, created_at: r.createdAt };
+  return {
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    created_at: r.createdAt
+  };
 }
 
 // Fetch all roles, sorted by name (server-side).

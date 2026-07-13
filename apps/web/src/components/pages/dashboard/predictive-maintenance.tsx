@@ -129,7 +129,7 @@ const PredictiveMaintenance = ({
         <CardContent>
           {predictionsLoading ? (
             <div
-              className={`grid gap-4 ${showViewAll ? 'grid-cols-1 md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-4'}`}
+              className={`grid gap-4 ${showViewAll ? 'grid-cols-1' : 'md:grid-cols-2 lg:grid-cols-4'}`}
             >
               {Array.from({ length: showViewAll ? 2 : 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-48 w-full rounded-lg" />
@@ -141,7 +141,7 @@ const PredictiveMaintenance = ({
             </p>
           ) : (
             <div
-              className={`grid gap-4 ${showViewAll ? 'grid-cols-1 md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-4'}`}
+              className={`grid gap-4 ${showViewAll ? 'grid-cols-1' : 'md:grid-cols-2 lg:grid-cols-4'}`}
             >
               {displayedVehicles.map((vehicle) => (
                 <PreventiveMaintenanceCard

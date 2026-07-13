@@ -4,7 +4,8 @@ import type { Vehicle } from '@/lib/types';
 type VehicleLabelFields = Pick<Vehicle, 'make' | 'model' | 'license_plate'>;
 
 // Titleize a status enum value ('active' -> 'Active').
-export const titleize = (s: string) => s.replace(/\b\w/g, (l) => l.toUpperCase());
+export const titleize = (s: string) =>
+  s.replace(/\b\w/g, (l) => l.toUpperCase());
 
 // The one label a vehicle is shown under across the tracker screens.
 export const vehicleLabel = (v: VehicleLabelFields) =>

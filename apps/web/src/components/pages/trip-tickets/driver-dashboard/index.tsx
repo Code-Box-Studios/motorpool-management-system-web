@@ -43,9 +43,7 @@ const DriverDashboard = () => {
   const currentDriver = useMemo(() => {
     if (!user?.email || !drivers) return null;
     const email = user.email.trim().toLowerCase();
-    return (
-      drivers.find((d) => d.email.trim().toLowerCase() === email) ?? null
-    );
+    return drivers.find((d) => d.email.trim().toLowerCase() === email) ?? null;
   }, [user?.email, drivers]);
 
   const { data: tripTicketsData, isLoading: ticketsLoading } = useTripTickets(
@@ -86,8 +84,8 @@ const DriverDashboard = () => {
     return (
       <div className="mx-auto w-full max-w-md">
         <div className="border-border text-muted-foreground rounded-[24px] border border-dashed p-10 text-center text-sm">
-          We couldn&apos;t find a driver record for your account. Ask an admin to
-          link it.
+          We couldn&apos;t find a driver record for your account. Ask an admin
+          to link it.
         </div>
       </div>
     );

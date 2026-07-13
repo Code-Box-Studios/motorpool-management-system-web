@@ -82,9 +82,7 @@ export const VehicleTrackerSummary = ({
                 <DeviceOnlineIndicator lastSeenAt={device.lastSeenAt} />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-sm">
-                  Last Seen
-                </span>
+                <span className="text-muted-foreground text-sm">Last Seen</span>
                 <span className="text-sm">
                   {device.lastSeenAt
                     ? new Date(device.lastSeenAt).toLocaleString()

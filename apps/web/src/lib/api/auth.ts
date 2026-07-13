@@ -25,7 +25,10 @@ interface LoginResponse {
 // Logs in against the API, stores the in-memory access token, and returns the FE user shape.
 // Uses skipRefresh so a wrong-password 401 surfaces as a real error instead of
 // being masked as "Session expired" by the client's refresh-on-401 gate.
-export async function signIn(email: string, password: string): Promise<AppUser> {
+export async function signIn(
+  email: string,
+  password: string
+): Promise<AppUser> {
   const res = await apiRequest<LoginResponse>('/auth/login', {
     method: 'POST',
     json: { email, password },

@@ -19,7 +19,7 @@ export const useCreateDriver = () => {
       const driverData: NewDriver = {
         id: userId,
         full_name: fullName,
-        email: email,
+        email: email
       };
       return createDriver(driverData);
     },
@@ -36,13 +36,8 @@ export const useCreateDriver = () => {
 export const useUpdateDriver = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      id,
-      updates
-    }: {
-      id: string;
-      updates: UpdateDriver;
-    }) => updateDriver(id, updates),
+    mutationFn: ({ id, updates }: { id: string; updates: UpdateDriver }) =>
+      updateDriver(id, updates),
     onSuccess: () => {
       toast.success('Driver updated successfully!');
       queryClient.invalidateQueries({ queryKey: ['drivers'] });

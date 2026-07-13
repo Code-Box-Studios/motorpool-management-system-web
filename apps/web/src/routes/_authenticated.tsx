@@ -91,7 +91,9 @@ function AuthenticatedLayout() {
       <AppSidebar />
       <div className="w-full">
         <AppHeader />
-        <main className="p-5 md:p-11">
+        {/* Capped so tables and cards do not stretch into unreadable line
+            lengths on a wide monitor. */}
+        <main className="mx-auto w-full max-w-[1600px] p-5 md:p-10">
           <Outlet />
         </main>
       </div>

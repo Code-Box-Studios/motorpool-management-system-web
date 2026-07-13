@@ -1,5 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { getAllVehicles, getVehicles, getVehicleById } from '@/lib/api/vehicles';
+import {
+  getAllVehicles,
+  getVehicles,
+  getVehicleById
+} from '@/lib/api/vehicles';
 import type { VehicleWithBranch } from '@/lib/types';
 
 export const useVehicles = (page: number = 1, limit: number = 10) => {

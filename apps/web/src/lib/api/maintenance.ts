@@ -50,7 +50,9 @@ interface MaintenanceRequestBody {
 // empty strings are normalized to `null` (matches the old Supabase adapter's
 // cleanup and avoids the API's z.coerce.date() rejecting `''` as an invalid
 // date on `nextDue`).
-function toMaintenanceBody(m: NewMaintenance | UpdateMaintenance): MaintenanceRequestBody {
+function toMaintenanceBody(
+  m: NewMaintenance | UpdateMaintenance
+): MaintenanceRequestBody {
   return {
     vehicleId: m.vehicle_id ?? undefined,
     type: m.type ?? undefined,
@@ -67,16 +69,21 @@ export const getMaintenances = async (
   page: number = 1,
   limit: number = 10
 ): Promise<{ data: Maintenance[]; count: number | null }> => {
-  const res = await api.get<{ data: MaintenanceApiResponse[]; count: number }>('/maintenance', {
-    page,
-    limit
-  });
+  const res = await api.get<{ data: MaintenanceApiResponse[]; count: number }>(
+    '/maintenance',
+    {
+      page,
+      limit
+    }
+  );
   return { data: res.data.map(toSnake), count: res.count };
 };
 
 // Fetch every maintenance record, unpaginated (omits page/limit).
 export const getAllMaintenances = async (): Promise<Maintenance[]> => {
-  const res = await api.get<{ data: MaintenanceApiResponse[]; count: number }>('/maintenance');
+  const res = await api.get<{ data: MaintenanceApiResponse[]; count: number }>(
+    '/maintenance'
+  );
   return res.data.map(toSnake);
 };
 
@@ -84,9 +91,14 @@ export const getMaintenanceById = async (id: string): Promise<Maintenance> => {
   return toSnake(await api.get<MaintenanceApiResponse>(`/maintenance/${id}`));
 };
 
-export const createMaintenance = async (maintenance: NewMaintenance): Promise<Maintenance> => {
+export const createMaintenance = async (
+  maintenance: NewMaintenance
+): Promise<Maintenance> => {
   return toSnake(
-    await api.post<MaintenanceApiResponse>('/maintenance', toMaintenanceBody(maintenance))
+    await api.post<MaintenanceApiResponse>(
+      '/maintenance',
+      toMaintenanceBody(maintenance)
+    )
   );
 };
 
@@ -95,7 +107,10 @@ export const updateMaintenance = async (
   updates: UpdateMaintenance
 ): Promise<Maintenance> => {
   return toSnake(
-    await api.patch<MaintenanceApiResponse>(`/maintenance/${id}`, toMaintenanceBody(updates))
+    await api.patch<MaintenanceApiResponse>(
+      `/maintenance/${id}`,
+      toMaintenanceBody(updates)
+    )
   );
 };
 

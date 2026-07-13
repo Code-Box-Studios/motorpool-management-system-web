@@ -10,14 +10,8 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import PageHeader from '@/components/shared/page-header';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAllUsers } from '@/lib/query/user-management';
 
@@ -42,20 +36,17 @@ const UserManagement = () => {
 
   return (
     <div>
+      <PageHeader
+        title="User Management"
+        description="Accounts that can sign in, and what each one is allowed to do."
+        action={
+          <Link to="/user-management/add-user" className={cn(buttonVariants())}>
+            Add User
+          </Link>
+        }
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>User Profiles</CardTitle>
-          <CardDescription>Manage and view user profiles.</CardDescription>
-          <CardAction>
-            <Link
-              to="/user-management/add-user"
-              className={cn(buttonVariants())}
-            >
-              Add User
-            </Link>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <Table>
             <TableHeader>
               <TableRow>

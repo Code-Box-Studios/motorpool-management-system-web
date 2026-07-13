@@ -182,7 +182,8 @@ export function VehicleMap({
                     <strong>License Plate:</strong> {vehicle.license_plate}
                   </p>
                   <p style={{ margin: '4px 0' }}>
-                    <strong>Status:</strong> <StatusBadge status={vehicle.status} />
+                    <strong>Status:</strong>{' '}
+                    <StatusBadge status={vehicle.status} />
                   </p>
                   <p style={{ margin: '4px 0' }}>
                     <strong>Mileage:</strong> {vehicle.mileage} km

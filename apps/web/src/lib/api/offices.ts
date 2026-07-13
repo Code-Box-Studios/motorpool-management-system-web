@@ -51,12 +51,16 @@ function toSnakeOfficeHead(h: OfficeHeadResponse): OfficeHead {
 
 // Fetch all department offices, sorted by name (server-side).
 export const getDepartmentOffices = async (): Promise<DepartmentOffice[]> => {
-  const res = await api.get<{ data: OfficeResponse[]; count: number }>('/offices');
+  const res = await api.get<{ data: OfficeResponse[]; count: number }>(
+    '/offices'
+  );
   return res.data.map(toSnakeOffice);
 };
 
 // Fetch all office heads, sorted by name (server-side).
 export const getOfficeHeads = async (): Promise<OfficeHead[]> => {
-  const res = await api.get<{ data: OfficeHeadResponse[]; count: number }>('/office-heads');
+  const res = await api.get<{ data: OfficeHeadResponse[]; count: number }>(
+    '/office-heads'
+  );
   return res.data.map(toSnakeOfficeHead);
 };

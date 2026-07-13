@@ -9,18 +9,18 @@ import { cn } from '@/lib/utils';
 // action, the same shape outlined for the secondary. Both carry the design's
 // 1.5px ink edge, and press down slightly when tapped.
 const buttonVariants = cva(
-  "focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 rounded-lg text-sm font-medium whitespace-nowrap outline-none transition-all duration-150 active:translate-y-px active:scale-[0.99] focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-[3px] active:translate-y-px active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          'border-[1.5px] border-primary bg-primary text-primary-foreground hover:brightness-125',
+          'border-primary bg-primary text-primary-foreground border-[1.5px] hover:brightness-125',
         destructive:
-          'border-[1.5px] border-destructive bg-destructive text-destructive-foreground hover:brightness-110 focus-visible:ring-destructive/20',
+          'border-destructive bg-destructive text-destructive-foreground focus-visible:ring-destructive/20 border-[1.5px] hover:brightness-110',
         outline:
-          'border-[1.5px] border-foreground bg-card text-foreground hover:bg-accent',
+          'border-foreground bg-card text-foreground hover:bg-accent border-[1.5px]',
         secondary:
-          'border-[1.5px] border-transparent bg-secondary text-secondary-foreground hover:brightness-95',
+          'bg-secondary text-secondary-foreground border-[1.5px] border-transparent hover:brightness-95',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-signal underline-offset-4 hover:underline'
       },

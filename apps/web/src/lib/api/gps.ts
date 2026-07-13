@@ -103,16 +103,23 @@ function toRow(row: GpsHistoryApiRow): GpsDataRow {
 // Fetch the newest GPS point per vehicle, embedding a vehicle summary (used
 // by the live tracking map; polled every 5s by useLatestGpsData).
 export async function getLatestGpsData(): Promise<GpsDataWithVehicle[]> {
-  const res = await api.get<{ data: GpsLatestApiRow[]; count: number }>('/gps/latest');
+  const res = await api.get<{ data: GpsLatestApiRow[]; count: number }>(
+    '/gps/latest'
+  );
   return res.data.map(toNested);
 }
 
 // Fetch up to 100 of the most recent GPS points for a single vehicle.
-export async function getGpsDataByVehicle(vehicleId: string): Promise<GpsDataRow[]> {
-  const res = await api.get<{ data: GpsHistoryApiRow[]; count: number }>('/gps/history', {
-    vehicleId,
-    limit: 100
-  });
+export async function getGpsDataByVehicle(
+  vehicleId: string
+): Promise<GpsDataRow[]> {
+  const res = await api.get<{ data: GpsHistoryApiRow[]; count: number }>(
+    '/gps/history',
+    {
+      vehicleId,
+      limit: 100
+    }
+  );
   return res.data.map(toRow);
 }
 
@@ -135,12 +142,18 @@ interface GpsIngestResult {
 // device-key auth (NOT the user's JWT) -- see require-device-key.ts -- so the
 // device key is sent as an explicit header instead of relying on the client's
 // bearer-token auth.
-export async function insertGpsData(gpsData: GpsIngestInput): Promise<GpsIngestResult> {
+export async function insertGpsData(
+  gpsData: GpsIngestInput
+): Promise<GpsIngestResult> {
   const deviceKey = import.meta.env.VITE_GPS_DEVICE_KEY as string | undefined;
   // Fail fast (and clearly) on a misconfigured demo rather than firing a doomed
   // request that the API rejects with a device-key 401.
   if (!deviceKey) {
-    throw new ApiError(0, 'GPS_DEVICE_KEY_MISSING', 'VITE_GPS_DEVICE_KEY is not set — the GPS demo needs a device key.');
+    throw new ApiError(
+      0,
+      'GPS_DEVICE_KEY_MISSING',
+      'VITE_GPS_DEVICE_KEY is not set — the GPS demo needs a device key.'
+    );
   }
   return apiRequest<GpsIngestResult>('/gps/ingest', {
     method: 'POST',

@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 //   neutral — a resting state that needs nothing (approved, scheduled, idle)
 // Each renders as a pill with a leading dot inheriting the text colour.
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap transition-[color,box-shadow] before:size-1.5 before:shrink-0 before:rounded-full before:bg-current before:content-[''] focus-visible:ring-[3px] focus-visible:ring-ring/50 [&>svg]:pointer-events-none [&>svg]:size-3",
+  "focus-visible:ring-ring/50 inline-flex w-fit shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap transition-[color,box-shadow] before:size-1.5 before:shrink-0 before:rounded-full before:bg-current before:content-[''] focus-visible:ring-[3px] [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       variant: {
@@ -26,7 +26,7 @@ const badgeVariants = cva(
         neutral: 'bg-status-neut-bg text-status-neut-fg',
         // Non-status badges (counts, labels) carry no dot.
         default: 'bg-primary text-primary-foreground before:hidden',
-        outline: 'border border-border text-foreground before:hidden',
+        outline: 'border-border text-foreground border before:hidden',
         signal: 'bg-signal text-signal-foreground before:hidden'
       }
     },

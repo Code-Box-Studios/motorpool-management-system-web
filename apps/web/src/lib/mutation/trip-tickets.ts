@@ -64,7 +64,10 @@ export const useDeleteTripTicket = () => {
 
 // Invalidates both the list and the single-ticket cache for `id` — shared by
 // every transition hook below.
-const invalidateTripTicket = (queryClient: ReturnType<typeof useQueryClient>, id: string) => {
+const invalidateTripTicket = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  id: string
+) => {
   queryClient.invalidateQueries({ queryKey: ['trip_tickets'] });
   queryClient.invalidateQueries({ queryKey: ['trip_ticket', id] });
   // check-out/check-in flip the vehicle's status (available <-> on_trip) and a
@@ -122,7 +125,8 @@ export const useApproveEvpTripTicket = () => {
 export const useDisapproveTripTicket = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }) => disapproveTripTicket(id, reason),
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      disapproveTripTicket(id, reason),
     onSuccess: (_data, variables) => {
       invalidateTripTicket(queryClient, variables.id);
       toast.success('Trip ticket disapproved successfully!');
@@ -137,7 +141,8 @@ export const useDisapproveTripTicket = () => {
 export const useCancelTripTicket = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }) => cancelTripTicket(id, reason),
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      cancelTripTicket(id, reason),
     onSuccess: (_data, variables) => {
       invalidateTripTicket(queryClient, variables.id);
       toast.success('Trip ticket cancelled successfully!');

@@ -4,14 +4,9 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import StatusBadge from '@/components/shared/status-badge';
 import { formatRef } from '@/lib/utils/reference';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
+import { statusEventColor, resolveStatus } from '@/lib/status';
+import { Card, CardContent } from '@/components/ui/card';
+import PageHeader from '@/components/shared/page-header';
 import {
   Table,
   TableBody,
@@ -69,17 +64,6 @@ const JobOrdersPage = () => {
     shouldFilter ? 'driver' : undefined
   );
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      pending: '#FFA500',
-      assigned_mechanic: '#3B82F6',
-      ongoing_repair: '#8B5CF6',
-      evp_approval: '#F59E0B',
-      completed: '#10B981'
-    };
-    return colors[status] || '#6B7280';
-  };
-
   const calendarEvents = useMemo(() => {
     if (!calendarData) return [];
     return calendarData
@@ -88,11 +72,11 @@ const JobOrdersPage = () => {
         const targetDate = new Date(order.target_date || new Date());
         return {
           id: order.id,
-          title: `${order.vehicles?.make || ''} ${order.vehicles?.model || ''} - ${order.status}`,
+          title: `${order.vehicles?.make ?? ''} ${order.vehicles?.model ?? ''} — ${resolveStatus(order.status ?? '').label}`,
           start: targetDate.toISOString(),
           allDay: true,
-          backgroundColor: getStatusColor(order.status || 'pending'),
-          borderColor: getStatusColor(order.status || 'pending'),
+          backgroundColor: statusEventColor(order.status || 'pending'),
+          borderColor: statusEventColor(order.status || 'pending'),
           extendedProps: {
             vehicle: order.vehicles,
             status: order.status,
@@ -120,11 +104,9 @@ const JobOrdersPage = () => {
   };
 
   const handleNoteJobOrder = (orderId: string, data: NoteJobOrderData) => {
-    noteJobOrder
-      .mutateAsync({ id: orderId, ...data })
-      .catch((error) => {
-        console.error('Error noting job order:', error);
-      });
+    noteJobOrder.mutateAsync({ id: orderId, ...data }).catch((error) => {
+      console.error('Error noting job order:', error);
+    });
   };
 
   const handleApproveJobOrder = (orderId: string) => {
@@ -148,20 +130,17 @@ const JobOrdersPage = () => {
 
   return (
     <div>
+      <PageHeader
+        title="Job Orders"
+        description="Repairs raised against the fleet, and who is working on them."
+        action={
+          <Link to="/job-order/add-job-order" className={cn(buttonVariants())}>
+            Create Job Order
+          </Link>
+        }
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>Job Orders</CardTitle>
-          <CardDescription>Manage and view job orders.</CardDescription>
-          <CardAction>
-            <Link
-              to="/job-order/add-job-order"
-              className={cn(buttonVariants())}
-            >
-              Create Job Order
-            </Link>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {/* Table first: it answers "what needs doing". The calendar is for planning. */}
           <Tabs defaultValue="table" className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -233,7 +212,9 @@ const JobOrdersPage = () => {
                               : 'N/A'}
                           </TableCell>
                           <TableCell>
-                            {order.incident_date ? new Date(order.incident_date).toLocaleString() : 'N/A'}
+                            {order.incident_date
+                              ? new Date(order.incident_date).toLocaleString()
+                              : 'N/A'}
                           </TableCell>
                           <TableCell>
                             {getDriverName(order.assigned_mechanic)}

@@ -239,7 +239,9 @@ export default function GuardConfirmationPage() {
             <QrCode className="size-6" />
           </span>
           <span className="flex-1">
-            <span className="block font-semibold">Scan driver QR to verify</span>
+            <span className="block font-semibold">
+              Scan driver QR to verify
+            </span>
             <span className="text-slate block text-xs">
               Confirms the person matches {formatRef('TT', current.ticket_no)}
             </span>
@@ -340,7 +342,9 @@ export default function GuardConfirmationPage() {
             {cameraError && (
               <p className="text-destructive text-sm">{cameraError}</p>
             )}
-            {scanError && <p className="text-destructive text-sm">{scanError}</p>}
+            {scanError && (
+              <p className="text-destructive text-sm">{scanError}</p>
+            )}
           </div>
 
           <AlertDialogFooter>

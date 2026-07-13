@@ -11,8 +11,13 @@ export const useCreateSparePart = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ sparePart, file }: { sparePart: NewSparePart; file?: File }) =>
-      createSparePart(sparePart, file),
+    mutationFn: ({
+      sparePart,
+      file
+    }: {
+      sparePart: NewSparePart;
+      file?: File;
+    }) => createSparePart(sparePart, file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['spare_parts'] });
       toast.success('Spare part created successfully');

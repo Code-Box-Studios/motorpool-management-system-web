@@ -166,14 +166,20 @@ function mapCreateBody(t: NewTripTicket): TripTicketRequestBody {
 // Supabase adapter's `!== undefined` guards) so a partial edit stays partial.
 function mapUpdateBody(u: Record<string, unknown>): TripTicketRequestBody {
   const body: TripTicketRequestBody = {};
-  if (u.driver_id !== undefined) body.driverId = (u.driver_id as string) || undefined;
-  if (u.vehicle_id !== undefined) body.vehicleId = (u.vehicle_id as string) || undefined;
-  if (u.branch_id !== undefined) body.branchId = (u.branch_id as string) || undefined;
-  if (u.office_id !== undefined) body.officeId = (u.office_id as string) || undefined;
-  if (u.office_head_id !== undefined) body.officeHeadId = (u.office_head_id as string) || undefined;
+  if (u.driver_id !== undefined)
+    body.driverId = (u.driver_id as string) || undefined;
+  if (u.vehicle_id !== undefined)
+    body.vehicleId = (u.vehicle_id as string) || undefined;
+  if (u.branch_id !== undefined)
+    body.branchId = (u.branch_id as string) || undefined;
+  if (u.office_id !== undefined)
+    body.officeId = (u.office_id as string) || undefined;
+  if (u.office_head_id !== undefined)
+    body.officeHeadId = (u.office_head_id as string) || undefined;
   if (u.destination !== undefined) body.destination = u.destination as string;
   if (u.purpose !== undefined) body.purpose = u.purpose as string;
-  if (u.date_requested !== undefined) body.dateRequested = u.date_requested as string;
+  if (u.date_requested !== undefined)
+    body.dateRequested = u.date_requested as string;
   if (u.participants !== undefined) {
     body.participants =
       typeof u.participants === 'string'
@@ -183,10 +189,13 @@ function mapUpdateBody(u: Record<string, unknown>): TripTicketRequestBody {
             .filter((p) => p.length > 0)
         : (u.participants as string[]);
   }
-  if (u.participants_count !== undefined) body.participantsCount = u.participants_count as number | null;
-  if (u.requested_by !== undefined) body.requestedById = (u.requested_by as string) || undefined;
+  if (u.participants_count !== undefined)
+    body.participantsCount = u.participants_count as number | null;
+  if (u.requested_by !== undefined)
+    body.requestedById = (u.requested_by as string) || undefined;
   if (u.prepared_by !== undefined) body.preparedBy = u.prepared_by as string;
-  if (u.remarks !== undefined) body.remarks = (u.remarks as string) === '' ? null : (u.remarks as string);
+  if (u.remarks !== undefined)
+    body.remarks = (u.remarks as string) === '' ? null : (u.remarks as string);
   if (u.start_ts !== undefined) body.startTs = u.start_ts as string | null;
   if (u.end_ts !== undefined) body.endTs = u.end_ts as string | null;
   return body;
@@ -199,21 +208,30 @@ export async function getTripTickets(
   branchId?: string,
   driverId?: string
 ): Promise<{ data: TripTicket[]; count: number | null }> {
-  const res = await api.get<{ data: TripTicketApiResponse[]; count: number }>('/trip-tickets', {
-    page,
-    limit,
-    requestedBy: userId,
-    branchId,
-    driverId
-  });
+  const res = await api.get<{ data: TripTicketApiResponse[]; count: number }>(
+    '/trip-tickets',
+    {
+      page,
+      limit,
+      requestedBy: userId,
+      branchId,
+      driverId
+    }
+  );
   return { data: res.data.map(toSnake), count: res.count };
 }
 
-export async function getAllTripTickets(userId?: string, branchId?: string): Promise<TripTicket[]> {
-  const res = await api.get<{ data: TripTicketApiResponse[]; count: number }>('/trip-tickets', {
-    requestedBy: userId,
-    branchId
-  });
+export async function getAllTripTickets(
+  userId?: string,
+  branchId?: string
+): Promise<TripTicket[]> {
+  const res = await api.get<{ data: TripTicketApiResponse[]; count: number }>(
+    '/trip-tickets',
+    {
+      requestedBy: userId,
+      branchId
+    }
+  );
   return res.data.map(toSnake);
 }
 
@@ -221,12 +239,27 @@ export async function getTripTicketById(id: string): Promise<TripTicket> {
   return toSnake(await api.get<TripTicketApiResponse>(`/trip-tickets/${id}`));
 }
 
-export async function createTripTicket(tripTicket: NewTripTicket): Promise<TripTicket> {
-  return toSnake(await api.post<TripTicketApiResponse>('/trip-tickets', mapCreateBody(tripTicket)));
+export async function createTripTicket(
+  tripTicket: NewTripTicket
+): Promise<TripTicket> {
+  return toSnake(
+    await api.post<TripTicketApiResponse>(
+      '/trip-tickets',
+      mapCreateBody(tripTicket)
+    )
+  );
 }
 
-export async function updateTripTicket(id: string, updates: Record<string, unknown>): Promise<TripTicket> {
-  return toSnake(await api.patch<TripTicketApiResponse>(`/trip-tickets/${id}`, mapUpdateBody(updates)));
+export async function updateTripTicket(
+  id: string,
+  updates: Record<string, unknown>
+): Promise<TripTicket> {
+  return toSnake(
+    await api.patch<TripTicketApiResponse>(
+      `/trip-tickets/${id}`,
+      mapUpdateBody(updates)
+    )
+  );
 }
 
 export async function deleteTripTicket(id: string): Promise<void> {
@@ -238,27 +271,55 @@ export async function deleteTripTicket(id: string): Promise<void> {
 
 export async function approveTripTicket(
   id: string,
-  body: { liters: number; fuelType: string; date: string; purpose: string; tripTo: string }
+  body: {
+    liters: number;
+    fuelType: string;
+    date: string;
+    purpose: string;
+    tripTo: string;
+  }
 ): Promise<TripTicket> {
-  return toSnake(await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/approve`, body));
+  return toSnake(
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/approve`, body)
+  );
 }
 
 export async function approveEvpTripTicket(id: string): Promise<TripTicket> {
-  return toSnake(await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/approve-evp`));
+  return toSnake(
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/approve-evp`)
+  );
 }
 
-export async function disapproveTripTicket(id: string, reason: string): Promise<TripTicket> {
-  return toSnake(await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/disapprove`, { reason }));
+export async function disapproveTripTicket(
+  id: string,
+  reason: string
+): Promise<TripTicket> {
+  return toSnake(
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/disapprove`, {
+      reason
+    })
+  );
 }
 
-export async function cancelTripTicket(id: string, reason: string): Promise<TripTicket> {
-  return toSnake(await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/cancel`, { reason }));
+export async function cancelTripTicket(
+  id: string,
+  reason: string
+): Promise<TripTicket> {
+  return toSnake(
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/cancel`, {
+      reason
+    })
+  );
 }
 
 export async function checkOutTripTicket(id: string): Promise<TripTicket> {
-  return toSnake(await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-out`));
+  return toSnake(
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-out`)
+  );
 }
 
 export async function checkInTripTicket(id: string): Promise<TripTicket> {
-  return toSnake(await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-in`));
+  return toSnake(
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-in`)
+  );
 }

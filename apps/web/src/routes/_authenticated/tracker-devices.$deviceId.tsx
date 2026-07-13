@@ -4,7 +4,9 @@ import { createFileRoute, useParams } from '@tanstack/react-router';
 
 // See tracker-devices.add-device.tsx — the pathname-keyed `_authenticated` guard
 // cannot match a dynamic route at all, so the gate has to live in the component.
-export const Route = createFileRoute('/_authenticated/tracker-devices/$deviceId')({
+export const Route = createFileRoute(
+  '/_authenticated/tracker-devices/$deviceId'
+)({
   component: RouteComponent
 });
 

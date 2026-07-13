@@ -48,9 +48,8 @@ const TrackerDeviceInner = ({ deviceId }: { deviceId: string }) => {
   const { data: vehicles, isPending: vehiclesLoading } = useVehicles(1, 200);
   // The assigned vehicle is read by id, not reverse-looked-up in the paginated
   // list above — that list can't be trusted to contain it (page size, shared cache).
-  const { data: assignedVehicle, isLoading: assignedVehicleLoading } = useVehicle(
-    device?.vehicleId ?? ''
-  );
+  const { data: assignedVehicle, isLoading: assignedVehicleLoading } =
+    useVehicle(device?.vehicleId ?? '');
   const updateDevice = useUpdateTrackerDevice();
   const deleteDevice = useDeleteTrackerDevice();
   const navigate = useNavigate();
@@ -286,10 +285,7 @@ const TrackerDeviceInner = ({ deviceId }: { deviceId: string }) => {
               name="notes"
               control={form.control}
               render={({ field, fieldState }) => (
-                <Field
-                  data-invalid={fieldState.invalid}
-                  className="col-span-2"
-                >
+                <Field data-invalid={fieldState.invalid} className="col-span-2">
                   <FieldLabel htmlFor="notes">Notes</FieldLabel>
                   <Textarea
                     {...field}

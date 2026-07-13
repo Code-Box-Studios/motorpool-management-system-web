@@ -1,5 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { getTripTickets, getTripTicketById, getAllTripTickets } from '@/lib/api/trip-tickets';
+import {
+  getTripTickets,
+  getTripTicketById,
+  getAllTripTickets
+} from '@/lib/api/trip-tickets';
 
 export const useTripTickets = (
   page: number = 1,

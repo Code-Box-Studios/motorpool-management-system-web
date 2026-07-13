@@ -1,5 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createMaintenance, updateMaintenance, deleteMaintenance } from '@/lib/api/maintenance';
+import {
+  createMaintenance,
+  updateMaintenance,
+  deleteMaintenance
+} from '@/lib/api/maintenance';
 import type { NewMaintenance, UpdateMaintenance } from '../types';
 import { toast } from 'sonner';
 
@@ -20,13 +24,8 @@ export const useCreateMaintenance = () => {
 export const useUpdateMaintenance = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      id,
-      updates
-    }: {
-      id: string;
-      updates: UpdateMaintenance;
-    }) => updateMaintenance(id, updates),
+    mutationFn: ({ id, updates }: { id: string; updates: UpdateMaintenance }) =>
+      updateMaintenance(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenances'] });
       toast.success('Maintenance record updated successfully!');

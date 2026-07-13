@@ -29,7 +29,13 @@ export const useCreateJobOrder = () => {
 export const useUpdateJobOrder = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Record<string, unknown> }) => updateJobOrder(id, updates),
+    mutationFn: ({
+      id,
+      updates
+    }: {
+      id: string;
+      updates: Record<string, unknown>;
+    }) => updateJobOrder(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job_orders'] });
       queryClient.invalidateQueries({ queryKey: ['all_job_orders'] });
@@ -58,7 +64,10 @@ export const useDeleteJobOrder = () => {
 
 // Invalidates both the list and the single-order cache for `id` — shared by
 // every transition hook below.
-const invalidateJobOrder = (queryClient: ReturnType<typeof useQueryClient>, id: string) => {
+const invalidateJobOrder = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  id: string
+) => {
   queryClient.invalidateQueries({ queryKey: ['job_orders'] });
   queryClient.invalidateQueries({ queryKey: ['all_job_orders'] }); // calendar view
   queryClient.invalidateQueries({ queryKey: ['job_order', id] });
@@ -88,7 +97,13 @@ export const useNoteJobOrder = () => {
       dateOfRequest?: string;
       targetDate?: string;
       spareParts: { sparePartId: string; quantity: number }[];
-    }) => noteJobOrder(id, { assignedMechanicId, dateOfRequest, targetDate, spareParts }),
+    }) =>
+      noteJobOrder(id, {
+        assignedMechanicId,
+        dateOfRequest,
+        targetDate,
+        spareParts
+      }),
     onSuccess: (_data, variables) => {
       invalidateJobOrder(queryClient, variables.id);
       toast.success('Job order noted successfully!');
@@ -128,7 +143,8 @@ export const useCompleteRepair = () => {
       repairDone: string;
       remarks?: string;
       actualDateOfRelease?: string;
-    }) => completeRepairJobOrder(id, { repairDone, remarks, actualDateOfRelease }),
+    }) =>
+      completeRepairJobOrder(id, { repairDone, remarks, actualDateOfRelease }),
     onSuccess: (_data, variables) => {
       invalidateJobOrder(queryClient, variables.id);
       toast.success('Job order repair completed successfully!');

@@ -77,7 +77,10 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
       // the FE's Vehicle row type (and what the adapter sends on) names the
       // column `branch` -- map it explicitly so the value actually reaches the API.
       const { newImages, branchId, ...rest } = pendingData;
-      const updates: Omit<UpdateVehicle, 'images'> = { ...rest, branch: branchId };
+      const updates: Omit<UpdateVehicle, 'images'> = {
+        ...rest,
+        branch: branchId
+      };
       updateVehicle.mutate(
         { id: vehicle.id, updates, files: newImages || [], removedImages },
         {

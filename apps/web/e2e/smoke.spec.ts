@@ -40,50 +40,37 @@ test.describe('per-role sign-in and landing screens', () => {
 });
 
 // The admin can reach every area from the sidebar and each page renders.
-// `content` is text only that page shows — never the sidebar link, which stays
-// mounted across navigations. Waiting on it proves the destination actually
-// painted (a settled URL alone does not), and it keeps the screenshots honest:
-// without it the shot lands before the new page renders and captures the
-// previous one.
+//
+// Each page renders its name as an <h1> (PageHeader). Waiting for that heading
+// proves the destination actually painted — a settled URL does not, and without
+// this the screenshots captured the *previous* page. We assert the heading
+// rather than the body copy so that rewording a page description does not break
+// the navigation test.
 test.describe('admin navigation', () => {
-  const pages: Array<{ link: string; url: RegExp; content: string | RegExp }> = [
-    {
-      link: 'Trip Tickets',
-      url: /\/trip-tickets/,
-      content: 'Manage and view trip tickets.'
-    },
-    {
-      link: 'Job Orders',
-      url: /\/job-order/,
-      content: 'Manage and view job orders.'
-    },
-    {
-      link: 'Drivers',
-      url: /\/drivers/,
-      content: 'Manage and view driver details.'
-    },
-    {
-      link: 'Maintenance',
-      url: /\/maintenance/,
-      content: 'Manage and view maintenance records.'
-    },
-    { link: 'Vehicles', url: /\/vehicles/, content: 'Add Vehicle' },
-    { link: 'Spare Parts', url: /\/spare-parts/, content: 'Add Spare Part' },
-    { link: 'Tools', url: /\/tools/, content: 'Add Tool' },
+  const pages: Array<{ link: string; url: RegExp; heading: string }> = [
+    { link: 'Trip Tickets', url: /\/trip-tickets/, heading: 'Trip Tickets' },
+    { link: 'Job Orders', url: /\/job-order/, heading: 'Job Orders' },
+    { link: 'Drivers', url: /\/drivers/, heading: 'Drivers' },
+    { link: 'Maintenance', url: /\/maintenance/, heading: 'Maintenance' },
+    { link: 'Vehicles', url: /\/vehicles/, heading: 'Vehicles' },
+    { link: 'Spare Parts', url: /\/spare-parts/, heading: 'Spare Parts' },
+    { link: 'Tools', url: /\/tools/, heading: 'Tools' },
     {
       link: 'User Management',
       url: /\/user-management/,
-      content: 'Manage and view user profiles.'
+      heading: 'User Management'
     }
   ];
 
   test('every sidebar destination loads', async ({ page }) => {
     await login(page, 'admin');
-    for (const { link, url, content } of pages) {
+    for (const { link, url, heading } of pages) {
       await page.getByRole('link', { name: link, exact: true }).first().click();
       await page.waitForURL(url, { timeout: 15_000 });
       await expect(page).toHaveURL(url);
-      await expectText(page, content);
+      await expect(
+        page.getByRole('heading', { level: 1, name: heading, exact: true })
+      ).toBeVisible({ timeout: 15_000 });
       await shot(page, `admin-nav-${link.toLowerCase().replace(/\s+/g, '-')}`);
     }
   });

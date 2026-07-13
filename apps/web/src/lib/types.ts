@@ -1,6 +1,11 @@
 // src/lib/types.ts
 
-import type { Enums, Tables, TablesInsert, TablesUpdate } from "./types/supabase";
+import type {
+  Enums,
+  Tables,
+  TablesInsert,
+  TablesUpdate
+} from './types/supabase';
 
 export type RouteStaticData = {
   title: string;
@@ -53,12 +58,16 @@ export type NewMaintenance = TablesInsert<'maintenance'>;
 export type UpdateMaintenance = TablesUpdate<'maintenance'>;
 
 export type MaintenanceCompletionLog = Tables<'maintenance_completion_logs'>;
-export type NewMaintenanceCompletionLog = TablesInsert<'maintenance_completion_logs'>;
-export type UpdateMaintenanceCompletionLog = TablesUpdate<'maintenance_completion_logs'>;
+export type NewMaintenanceCompletionLog =
+  TablesInsert<'maintenance_completion_logs'>;
+export type UpdateMaintenanceCompletionLog =
+  TablesUpdate<'maintenance_completion_logs'>;
 
 export type MaintenanceScheduleItem = Tables<'maintenance_schedule_items'>;
-export type NewMaintenanceScheduleItem = TablesInsert<'maintenance_schedule_items'>;
-export type UpdateMaintenanceScheduleItem = TablesUpdate<'maintenance_schedule_items'>;
+export type NewMaintenanceScheduleItem =
+  TablesInsert<'maintenance_schedule_items'>;
+export type UpdateMaintenanceScheduleItem =
+  TablesUpdate<'maintenance_schedule_items'>;
 
 export type MaintenanceStandard = Tables<'maintenance_standards'>;
 export type NewMaintenanceStandard = TablesInsert<'maintenance_standards'>;
@@ -84,8 +93,10 @@ export type TripTicketWithRelations = TripTicket & {
 };
 
 export type VehicleMaintenanceTracking = Tables<'vehicle_maintenance_tracking'>;
-export type NewVehicleMaintenanceTracking = TablesInsert<'vehicle_maintenance_tracking'>;
-export type UpdateVehicleMaintenanceTracking = TablesUpdate<'vehicle_maintenance_tracking'>;
+export type NewVehicleMaintenanceTracking =
+  TablesInsert<'vehicle_maintenance_tracking'>;
+export type UpdateVehicleMaintenanceTracking =
+  TablesUpdate<'vehicle_maintenance_tracking'>;
 
 export type UserRole = Tables<'user_roles'>;
 export type NewUserRole = TablesInsert<'user_roles'>;
@@ -132,4 +143,4 @@ export type UserMetadata = AppUser['user_metadata'];
 /**
  * Extended User type with properly typed user_metadata
  */
-export type ExtendedUser = AppUser; 
+export type ExtendedUser = AppUser;

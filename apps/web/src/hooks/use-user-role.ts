@@ -11,7 +11,12 @@ export const useUserRole = () => {
   // Preserve the shape consumers read (data?.branch_id, data?.roles?.name).
   return {
     data: user
-      ? { user_id: user.id, role, branch_id: branchId, roles: role ? { name: role } : null }
+      ? {
+          user_id: user.id,
+          role,
+          branch_id: branchId,
+          roles: role ? { name: role } : null
+        }
       : null,
     isLoading: false,
     isError: false

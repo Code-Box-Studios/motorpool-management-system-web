@@ -1,65 +1,48 @@
 import { useTools } from '@/lib/query/tools';
-import CardWithImage from '@/components/shared/card-with-image';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Typography } from '@/components/ui/typography';
+import { Link } from '@tanstack/react-router';
+import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import StatusBadge from '@/components/shared/status-badge';
+import PageHeader from '@/components/shared/page-header';
+import EntityCard from '@/components/shared/entity-card';
+import EmptyState from '@/components/shared/empty-state';
 
 const Tools = () => {
-  const { data } = useTools(1, 10);
-  const navigate = useNavigate();
+  const { data } = useTools(1, 12);
+  const tools = data?.data ?? [];
 
   return (
     <div>
-      <div className="mb-5 flex items-center justify-between">
-        <Typography variant={'h2'}>Tools</Typography>
-        <Link to="/tools/add-tools" className={cn(buttonVariants())}>
-          Add Tool
-        </Link>
-      </div>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:grid-cols-4">
-        {data?.data && data.data.length > 0 ? (
-          data.data.map((tool) => (
-            <CardWithImage
+      <PageHeader
+        title="Tools"
+        description="Workshop tools, and which ones are currently signed out."
+        action={
+          <Link to="/tools/add-tools" className={cn(buttonVariants())}>
+            Add Tool
+          </Link>
+        }
+      />
+
+      {tools.length === 0 ? (
+        <EmptyState message="No tools yet." />
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {tools.map((tool) => (
+            <EntityCard
               key={tool.id}
-              imageSrc={tool.image ?? '/logo/mms-logo.png'}
-              title={
-                <div className="space-y-3">
-                  <StatusBadge status={tool.status || 'available'} />
-                  <Typography variant="h5" className="line-clamp-1">
-                    {tool.name}
-                  </Typography>
-                </div>
+              to={`/tools/${tool.id}`}
+              imageSrc={tool.image}
+              status={tool.status || 'available'}
+              title={tool.name}
+              // The badge already carries the status; only add a row when the
+              // tool is out, because then "who has it" is the useful fact.
+              fields={
+                tool.borrowed_by
+                  ? [{ label: 'Signed out', value: 'Yes' }]
+                  : undefined
               }
-              description={
-                <div>
-                  <Typography variant="p-sm" className="line-clamp-2">
-                    {tool.description || 'No description'}
-                  </Typography>
-                  {tool.borrowed_by && (
-                    <Typography
-                      variant="p-sm"
-                      className="text-muted-foreground mt-1"
-                    >
-                      Borrowed
-                    </Typography>
-                  )}
-                </div>
-              }
-              primaryAction={() => navigate({ to: `/tools/${tool.id}` })}
-              primaryButtonText="View Tool"
+              footnote={tool.description}
             />
-          ))
-        ) : (
-          <div className="col-span-full text-center py-8 text-muted-foreground">
-            No data found
-          </div>
-        )}
-      </div>
-      {data?.count && data.count > 10 && (
-        <div className="mt-6 flex justify-center">
-          <Button onClick={() => navigate({ to: '/tools' })}>Load More</Button>
+          ))}
         </div>
       )}
     </div>

@@ -16,7 +16,10 @@ function formatRole(role: string | null): string {
 // user-management table's UserProfileData shape. Typed return (no `as`) so
 // tsc enforces every UserProfile column, including the ones the new API
 // doesn't track (phone/address/date_of_birth/updated_at -> null).
-function toUserProfileData(u: UserResponse, branchMap: Map<string, string>): UserProfileData {
+function toUserProfileData(
+  u: UserResponse,
+  branchMap: Map<string, string>
+): UserProfileData {
   return {
     id: u.id,
     email: u.email,
@@ -46,11 +49,19 @@ export const getAllUsers = async (): Promise<UserProfileData[]> => {
 
 // Reshape a user row into the Admin shape (the API tracks no admin-specific timestamp).
 function toAdmin(u: UserResponse): Admin {
-  return { id: u.id, email: u.email, full_name: u.fullName, branch_id: u.branchId, updated_at: null };
+  return {
+    id: u.id,
+    email: u.email,
+    full_name: u.fullName,
+    branch_id: u.branchId,
+    updated_at: null
+  };
 }
 
 // Fetch every user with the admin role (used to resolve "requested by"/"noted by" names).
 export const getAllAdmins = async (): Promise<Admin[]> => {
-  const res = await api.get<{ data: UserResponse[]; count: number }>('/users', { role: 'admin' });
+  const res = await api.get<{ data: UserResponse[]; count: number }>('/users', {
+    role: 'admin'
+  });
   return res.data.map(toAdmin);
 };

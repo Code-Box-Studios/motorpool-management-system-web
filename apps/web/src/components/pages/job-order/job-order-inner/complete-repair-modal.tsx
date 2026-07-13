@@ -133,9 +133,7 @@ export function CompleteRepairModal({
               aria-invalid={!!errors.actualDateOfRelease}
             />
             {errors.actualDateOfRelease && (
-              <FieldError
-                errors={[{ message: errors.actualDateOfRelease }]}
-              />
+              <FieldError errors={[{ message: errors.actualDateOfRelease }]} />
             )}
           </Field>
 

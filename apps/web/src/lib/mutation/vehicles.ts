@@ -10,7 +10,7 @@ export const useCreateVehicle = () => {
       vehicle,
       files
     }: {
-      vehicle: Omit<NewVehicle, 'images'>; 
+      vehicle: Omit<NewVehicle, 'images'>;
       files?: File[];
     }) => createVehicle(vehicle, files),
     onSuccess: () => {
@@ -29,7 +29,7 @@ export const useUpdateVehicle = () => {
       removedImages
     }: {
       id: string;
-      updates: Omit<UpdateVehicle, 'images'>; 
+      updates: Omit<UpdateVehicle, 'images'>;
       files?: File[];
       removedImages?: string[];
     }) => updateVehicle(id, updates, files, removedImages),

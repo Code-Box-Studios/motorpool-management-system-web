@@ -11,6 +11,8 @@ export function cn(...inputs: ClassValue[]) {
  * @param userMetadata - The AppUser's user_metadata object
  * @returns Promise resolving to the role name string or null
  */
-export async function getUserRoleName(userMetadata: UserMetadata | null | undefined): Promise<string | null> {
+export async function getUserRoleName(
+  userMetadata: UserMetadata | null | undefined
+): Promise<string | null> {
   return userMetadata?.role ?? null;
 }

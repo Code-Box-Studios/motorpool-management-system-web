@@ -145,7 +145,7 @@ const Dashboard = () => {
       {/* What needs a human right now — before any numbers. */}
       <NeedsYou />
 
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
         <MetricCard
           title="Available Vehicles"
           value={statusCounts?.available ?? 0}
@@ -158,7 +158,9 @@ const Dashboard = () => {
         <MetricCard title="Trips Completed" value={completedTrips ?? 0} />
       </div>
 
-      <div className="grid h-full grid-cols-2 gap-5">
+      {/* Side by side only when there is genuinely room. Below xl these two
+          panels squeeze their cards until the vehicle names wrap mid-word. */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <PreventiveMaintenance />
         <PredictiveMaintenance />
       </div>

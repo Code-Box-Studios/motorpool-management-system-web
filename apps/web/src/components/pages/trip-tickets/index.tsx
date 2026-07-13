@@ -6,14 +6,8 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { useUserRole } from '@/hooks/use-user-role';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import PageHeader from '@/components/shared/page-header';
 import {
   Select,
   SelectContent,
@@ -48,6 +42,7 @@ import {
 import { Eye, X } from 'lucide-react';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import { formatRef } from '@/lib/utils/reference';
+import { statusEventColor, resolveStatus } from '@/lib/status';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -175,11 +170,11 @@ const TripTicketsPage = () => {
 
       return {
         id: ticket.id,
-        title: `${ticket.destination} - ${ticket.status}`,
+        title: `${ticket.destination} — ${resolveStatus(ticket.status ?? '').label}`,
         start: startDateTime.toISOString(),
         end: endDateTime.toISOString(),
-        backgroundColor: getStatusColor(ticket.status || 'pending'),
-        borderColor: getStatusColor(ticket.status || 'pending'),
+        backgroundColor: statusEventColor(ticket.status || 'pending'),
+        borderColor: statusEventColor(ticket.status || 'pending'),
         extendedProps: {
           purpose: ticket.purpose,
           status: ticket.status
@@ -201,20 +196,20 @@ const TripTicketsPage = () => {
 
   return (
     <div>
+      <PageHeader
+        title="Trip Tickets"
+        description="Every requested trip and where it is in the approval chain."
+        action={
+          <Link
+            to="/trip-tickets/add-trip-ticket"
+            className={cn(buttonVariants())}
+          >
+            Create Trip Ticket
+          </Link>
+        }
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>Trip Tickets</CardTitle>
-          <CardDescription>Manage and view trip tickets.</CardDescription>
-          <CardAction>
-            <Link
-              to="/trip-tickets/add-trip-ticket"
-              className={cn(buttonVariants())}
-            >
-              Create Trip Ticket
-            </Link>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {/* The table is the operational view — it answers "what needs doing".
               The calendar is the secondary, planning view. */}
           <Tabs defaultValue="table" className="w-full">
@@ -393,7 +388,9 @@ const TripTicketsPage = () => {
                                 </SelectContent>
                               </Select>
                             ) : (
-                              <StatusBadge status={ticket.status || 'pending'} />
+                              <StatusBadge
+                                status={ticket.status || 'pending'}
+                              />
                             )}
                           </TableCell>
                           <TableCell>{ticket.destination}</TableCell>
@@ -638,7 +635,9 @@ const TripTicketsPage = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={!disapprovedReason.trim() || disapproveTripTicket.isPending}
+              disabled={
+                !disapprovedReason.trim() || disapproveTripTicket.isPending
+              }
               onClick={() => {
                 if (pendingStatusChange && disapprovedReason.trim()) {
                   handleStatusChange(
@@ -815,18 +814,5 @@ const TripTicketsPage = () => {
     </div>
   );
 };
-
-function getStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    pending_admin_approval: '#f59e0b',
-    pending_fuel_allocation_approval: '#fb923c',
-    approved: '#10b981',
-    in_progress: '#3b82f6',
-    completed: '#6b7280',
-    disapproved: '#dc2626',
-    cancelled: '#ef4444'
-  };
-  return colors[status] || '#6b7280';
-}
 
 export default TripTicketsPage;

@@ -1,7 +1,12 @@
 // src/lib/api/vehicles.ts
 import { api, toAssetUrl, toRelativeAssetPath } from './client.js';
 import { getAllBranches } from './shared.js';
-import type { Vehicle, VehicleWithBranch, NewVehicle, UpdateVehicle } from '../types';
+import type {
+  Vehicle,
+  VehicleWithBranch,
+  NewVehicle,
+  UpdateVehicle
+} from '../types';
 import type { VehicleResponse } from '@mms/shared';
 
 // Reshape the API's camelCase vehicle row into the FE's snake_case Vehicle
@@ -49,13 +54,21 @@ export async function getVehicles(
   limit = 10
 ): Promise<{ data: VehicleWithBranch[]; count: number | null }> {
   const [res, branches] = await Promise.all([
-    api.get<{ data: VehicleResponse[]; count: number }>('/vehicles', { page, limit }),
+    api.get<{ data: VehicleResponse[]; count: number }>('/vehicles', {
+      page,
+      limit
+    }),
     getAllBranches()
   ]);
   const branchMap = new Map(branches.map((b) => [b.id, b.name]));
   const data: VehicleWithBranch[] = res.data.map((v) => {
     const row = toSnake(v);
-    return { ...row, branch_name: row.branch ? (branchMap.get(row.branch) ?? row.branch) : 'N/A' };
+    return {
+      ...row,
+      branch_name: row.branch
+        ? (branchMap.get(row.branch) ?? row.branch)
+        : 'N/A'
+    };
   });
   return { data, count: res.count };
 }
@@ -109,8 +122,16 @@ function vehicleFormData(v: Partial<NewVehicle>, files: File[]): FormData {
   return fd;
 }
 
-export async function createVehicle(vehicle: NewVehicle, files: File[] = []): Promise<Vehicle> {
-  return toSnake(await api.postForm<VehicleResponse>('/vehicles', vehicleFormData(vehicle, files)));
+export async function createVehicle(
+  vehicle: NewVehicle,
+  files: File[] = []
+): Promise<Vehicle> {
+  return toSnake(
+    await api.postForm<VehicleResponse>(
+      '/vehicles',
+      vehicleFormData(vehicle, files)
+    )
+  );
 }
 
 export async function updateVehicle(
@@ -122,6 +143,7 @@ export async function updateVehicle(
   const fd = vehicleFormData(updates, files);
   // removedImages arrive as rendered absolute URLs (toAssetUrl); the API matches
   // them against the RELATIVE stored path, so strip the base back off first.
-  for (const url of removedImages) fd.append('removedImages', toRelativeAssetPath(url));
+  for (const url of removedImages)
+    fd.append('removedImages', toRelativeAssetPath(url));
   return toSnake(await api.patchForm<VehicleResponse>(`/vehicles/${id}`, fd));
 }

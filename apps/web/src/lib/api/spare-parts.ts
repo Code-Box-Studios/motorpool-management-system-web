@@ -36,10 +36,13 @@ export async function getSpareParts(
   page = 1,
   limit = 10
 ): Promise<{ data: SparePart[]; count: number | null }> {
-  const res = await api.get<{ data: SparePartApiResponse[]; count: number }>('/spare-parts', {
-    page,
-    limit
-  });
+  const res = await api.get<{ data: SparePartApiResponse[]; count: number }>(
+    '/spare-parts',
+    {
+      page,
+      limit
+    }
+  );
   return { data: res.data.map(toSnake), count: res.count };
 }
 
@@ -49,10 +52,9 @@ export async function getSparePartById(id: string): Promise<SparePart> {
 
 // Every spare part, unpaginated (see getAllDrivers). Used by the parts pickers.
 export async function getAllSpareParts(): Promise<SparePart[]> {
-  const res =
-    await api.get<{ data: SparePartApiResponse[]; count: number }>(
-      '/spare-parts'
-    );
+  const res = await api.get<{ data: SparePartApiResponse[]; count: number }>(
+    '/spare-parts'
+  );
   return res.data.map(toSnake);
 }
 
@@ -73,9 +75,15 @@ function sparePartFormData(p: Partial<NewSparePart>, file?: File): FormData {
   return fd;
 }
 
-export async function createSparePart(sparePart: NewSparePart, file?: File): Promise<SparePart> {
+export async function createSparePart(
+  sparePart: NewSparePart,
+  file?: File
+): Promise<SparePart> {
   return toSnake(
-    await api.postForm<SparePartApiResponse>('/spare-parts', sparePartFormData(sparePart, file))
+    await api.postForm<SparePartApiResponse>(
+      '/spare-parts',
+      sparePartFormData(sparePart, file)
+    )
   );
 }
 
@@ -87,7 +95,9 @@ export async function updateSparePart(
 ): Promise<SparePart> {
   const fd = sparePartFormData(updates, file);
   if (removeImage) fd.append('removeImage', 'true');
-  return toSnake(await api.patchForm<SparePartApiResponse>(`/spare-parts/${id}`, fd));
+  return toSnake(
+    await api.patchForm<SparePartApiResponse>(`/spare-parts/${id}`, fd)
+  );
 }
 
 export async function deleteSparePart(id: string): Promise<void> {
