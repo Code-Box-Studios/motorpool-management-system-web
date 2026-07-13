@@ -33,7 +33,6 @@ import {
   AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { TRIP_TICKET_STATUS, JOB_ORDER_STATUS } from '@/lib/enums';
@@ -153,9 +152,7 @@ export default function EvpApprovalPage() {
                   pendingApproval.map((ticket) => (
                     <TableRow key={ticket.id}>
                       <TableCell>
-                        <Badge variant="default" className="capitalize">
-                          {ticket.status?.replace(/_/g, ' ')}
-                        </Badge>
+                        <StatusBadge status={ticket.status ?? ''} />
                       </TableCell>
                       <TableCell>{ticket.destination}</TableCell>
                       <TableCell className="max-w-xs truncate">

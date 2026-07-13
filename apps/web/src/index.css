@@ -1,6 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+/* Sofia Sans (variable) is the redesign's typeface; IBM Plex Mono carries
+   reference codes and plate numbers. */
+@import url('https://fonts.googleapis.com/css2?family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 @import 'leaflet/dist/leaflet.css';
 
 @import 'tailwindcss';
@@ -9,42 +10,77 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #f3f3f3;
-  --foreground: oklch(0.2178 0 0);
-  --card: oklch(0.9779 0.0042 56.3756);
-  --card-foreground: oklch(0.2178 0 0);
-  --popover: oklch(0.9779 0.0042 56.3756);
-  --popover-foreground: oklch(0.2178 0 0);
-  --primary: oklch(0.4441 0.2136 29.5);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.9625 0.0385 89.0943);
-  --secondary-foreground: oklch(0.4847 0.1022 75.1153);
-  --muted: oklch(0.9431 0.0068 53.4442);
-  --muted-foreground: oklch(0.4444 0.0096 73.639);
-  --accent: oklch(0.9619 0.058 95.6174);
-  --accent-foreground: oklch(0.3958 0.1331 25.723);
-  --destructive: oklch(0.4437 0.1613 26.8994);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.9779 0.0042 56.3756);
-  --input: #ffff;
-  --ring: oklch(0.465 0.147 24.9381);
-  --chart-1: oklch(0.5054 0.1905 27.5181);
-  --chart-2: oklch(0.465 0.147 24.9381);
-  --chart-3: oklch(0.3958 0.1331 25.723);
-  --chart-4: oklch(0.5553 0.1455 48.9975);
-  --chart-5: oklch(0.4732 0.1247 46.2007);
-  --sidebar: oklch(0.9431 0.0068 53.4442);
-  --sidebar-foreground: oklch(0.2178 0 0);
-  --sidebar-primary: oklch(0.465 0.147 24.9381);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.9619 0.058 95.6174);
-  --sidebar-accent-foreground: oklch(0.3958 0.1331 25.723);
-  --sidebar-border: oklch(0.9355 0.0324 80.9937);
-  --sidebar-ring: oklch(0.465 0.147 24.9381);
-  --font-sans: Poppins, sans-serif;
-  --font-serif: Libre Baskerville, serif;
-  --font-mono: IBM Plex Mono, monospace;
-  --radius: 1.05rem;
+  /* Canvas & surfaces */
+  --background: #f3f0ee; /* canvas */
+  --foreground: #141413; /* ink */
+  --card: #ffffff; /* surface */
+  --card-foreground: #141413;
+  --popover: #ffffff;
+  --popover-foreground: #141413;
+
+  /* The primary action is INK, not the brand colour — a near-black pill. */
+  --primary: #141413;
+  --primary-foreground: #f3f0ee;
+
+  --secondary: #e7e0d8; /* ghost */
+  --secondary-foreground: #141413;
+  --muted: #eae4dd;
+  --muted-foreground: #8b857d;
+
+  /* shadcn's --accent is a hover SURFACE, not the brand colour. */
+  --accent: #e7e0d8;
+  --accent-foreground: #141413;
+
+  --destructive: #9c3a2a;
+  --destructive-foreground: #ffffff;
+
+  --border: #e5dfd7; /* line */
+  --input: #d6d0c7; /* line-strong */
+  --ring: #141413;
+
+  /* Brand signal — switch with data-accent="orange|rust|maroon" on <html>. */
+  --signal: #7e2230;
+  --signal-soft: #a83b4a;
+  --signal-foreground: #ffffff;
+
+  /* Ink scale */
+  --ink-soft: #262627;
+  --slate: #696969;
+  --whisper: #b8b1a8;
+  --line-strong: #d6d0c7;
+
+  /* Semantic status system: waiting / moving / done / stopped / neutral */
+  --status-wait-fg: #8a6a1f;
+  --status-wait-bg: #f1e7cf;
+  --status-move-fg: #3a5c9e;
+  --status-move-bg: #e3eaf5;
+  --status-done-fg: #3e6b4e;
+  --status-done-bg: #dfebe1;
+  --status-stop-fg: #9c3a2a;
+  --status-stop-bg: #f2e1db;
+  --status-neut-fg: #6c665f;
+  --status-neut-bg: #eae4dd;
+
+  --chart-1: #7e2230;
+  --chart-2: #3a5c9e;
+  --chart-3: #3e6b4e;
+  --chart-4: #8a6a1f;
+  --chart-5: #6c665f;
+
+  /* The rail is a surface, and the active item is an ink pill. */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #262627;
+  --sidebar-primary: #141413;
+  --sidebar-primary-foreground: #f3f0ee;
+  --sidebar-accent: #e7e0d8;
+  --sidebar-accent-foreground: #141413;
+  --sidebar-border: #e5dfd7;
+  --sidebar-ring: #141413;
+
+  --font-sans: 'Sofia Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Sofia Sans', ui-sans-serif, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  --radius: 1.25rem;
   --shadow-x: 1px;
   --shadow-y: 1px;
   --shadow-blur: 5px;
@@ -77,42 +113,68 @@
 }
 
 .dark {
-  --background: oklch(0.2161 0.0061 56.0434);
-  --foreground: oklch(0.9699 0.0013 106.4238);
-  --card: oklch(0.2685 0.0063 34.2976);
-  --card-foreground: oklch(0.9699 0.0013 106.4238);
-  --popover: oklch(0.2685 0.0063 34.2976);
-  --popover-foreground: oklch(0.9699 0.0013 106.4238);
-  --primary: oklch(0.5054 0.1905 27.5181);
-  --primary-foreground: oklch(0.9779 0.0042 56.3756);
-  --secondary: oklch(0.4732 0.1247 46.2007);
-  --secondary-foreground: oklch(0.9619 0.058 95.6174);
-  --muted: oklch(0.2291 0.006 56.0708);
-  --muted-foreground: oklch(0.8687 0.0043 56.366);
-  --accent: oklch(0.5553 0.1455 48.9975);
-  --accent-foreground: oklch(0.9619 0.058 95.6174);
-  --destructive: oklch(0.6368 0.2078 25.3313);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.3741 0.0087 67.5582);
-  --input: oklch(0.3741 0.0087 67.5582);
-  --ring: oklch(0.5054 0.1905 27.5181);
-  --chart-1: oklch(0.7106 0.1661 22.2162);
-  --chart-2: oklch(0.6368 0.2078 25.3313);
-  --chart-3: oklch(0.5771 0.2152 27.325);
-  --chart-4: oklch(0.8369 0.1644 84.4286);
-  --chart-5: oklch(0.7686 0.1647 70.0804);
-  --sidebar: oklch(0.2161 0.0061 56.0434);
-  --sidebar-foreground: oklch(0.9699 0.0013 106.4238);
-  --sidebar-primary: oklch(0.5054 0.1905 27.5181);
-  --sidebar-primary-foreground: oklch(0.9779 0.0042 56.3756);
-  --sidebar-accent: oklch(0.5553 0.1455 48.9975);
-  --sidebar-accent-foreground: oklch(0.9619 0.058 95.6174);
-  --sidebar-border: oklch(0.3741 0.0087 67.5582);
-  --sidebar-ring: oklch(0.5054 0.1905 27.5181);
-  --font-sans: Poppins, sans-serif;
-  --font-serif: Libre Baskerville, serif;
-  --font-mono: IBM Plex Mono, monospace;
-  --radius: 1.05rem;
+  --background: #191816;
+  --foreground: #f3f0ee;
+  --card: #2a2724;
+  --card-foreground: #f3f0ee;
+  --popover: #2a2724;
+  --popover-foreground: #f3f0ee;
+
+  /* Ink inverts in the dark: the primary pill becomes light-on-dark. */
+  --primary: #f3f0ee;
+  --primary-foreground: #191816;
+
+  --secondary: #22201d;
+  --secondary-foreground: #f3f0ee;
+  --muted: #2c2825;
+  --muted-foreground: #8e877e;
+  --accent: #22201d;
+  --accent-foreground: #f3f0ee;
+  --destructive: #e59c8a;
+  --destructive-foreground: #191816;
+  --border: #332f2b;
+  --input: #3d3833;
+  --ring: #f3f0ee;
+
+  --signal: #a83b4a;
+  --signal-soft: #c6602a;
+  --signal-foreground: #ffffff;
+
+  --ink-soft: #e7e1d9;
+  --slate: #a69f96;
+  --whisper: #6b645c;
+  --line-strong: #3d3833;
+
+  --status-wait-fg: #d9b265;
+  --status-wait-bg: #37301c;
+  --status-move-fg: #9fb8ea;
+  --status-move-bg: #212a3a;
+  --status-done-fg: #93c6a2;
+  --status-done-bg: #1f2f20;
+  --status-stop-fg: #e59c8a;
+  --status-stop-bg: #382420;
+  --status-neut-fg: #b8b1a8;
+  --status-neut-bg: #2c2825;
+
+  --chart-1: #a83b4a;
+  --chart-2: #9fb8ea;
+  --chart-3: #93c6a2;
+  --chart-4: #d9b265;
+  --chart-5: #b8b1a8;
+
+  --sidebar: #221f1d;
+  --sidebar-foreground: #e7e1d9;
+  --sidebar-primary: #f3f0ee;
+  --sidebar-primary-foreground: #191816;
+  --sidebar-accent: #2c2825;
+  --sidebar-accent-foreground: #f3f0ee;
+  --sidebar-border: #332f2b;
+  --sidebar-ring: #f3f0ee;
+
+  --font-sans: 'Sofia Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Sofia Sans', ui-sans-serif, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  --radius: 1.25rem;
   --shadow-x: 1px;
   --shadow-y: 1px;
   --shadow-blur: 5px;
@@ -143,7 +205,40 @@
   --spacing: 0.25rem;
 }
 
+/* The brand signal is switchable without touching anything else. */
+:root[data-accent='orange'] {
+  --signal: #cf4500;
+  --signal-soft: #f37338;
+}
+:root[data-accent='rust'] {
+  --signal: #9a3a0a;
+  --signal-soft: #c6602a;
+}
+:root[data-accent='maroon'] {
+  --signal: #7e2230;
+  --signal-soft: #a83b4a;
+}
+
 @theme inline {
+  --color-signal: var(--signal);
+  --color-signal-soft: var(--signal-soft);
+  --color-signal-foreground: var(--signal-foreground);
+  --color-ink-soft: var(--ink-soft);
+  --color-slate: var(--slate);
+  --color-whisper: var(--whisper);
+  --color-line-strong: var(--line-strong);
+
+  --color-status-wait-fg: var(--status-wait-fg);
+  --color-status-wait-bg: var(--status-wait-bg);
+  --color-status-move-fg: var(--status-move-fg);
+  --color-status-move-bg: var(--status-move-bg);
+  --color-status-done-fg: var(--status-done-fg);
+  --color-status-done-bg: var(--status-done-bg);
+  --color-status-stop-fg: var(--status-stop-fg);
+  --color-status-stop-bg: var(--status-stop-bg);
+  --color-status-neut-fg: var(--status-neut-fg);
+  --color-status-neut-bg: var(--status-neut-bg);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -177,9 +272,9 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans: Poppins, sans-serif;
-  --font-mono: IBM Plex Mono, monospace;
-  --font-serif: Libre Baskerville, serif;
+  --font-sans: 'Sofia Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  --font-serif: 'Sofia Sans', ui-sans-serif, serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

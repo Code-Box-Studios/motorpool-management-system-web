@@ -1,3 +1,4 @@
+import StatusBadge from '@/components/shared/status-badge';
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -181,10 +182,7 @@ export function VehicleMap({
                     <strong>License Plate:</strong> {vehicle.license_plate}
                   </p>
                   <p style={{ margin: '4px 0' }}>
-                    <strong>Status:</strong>{' '}
-                    <span style={{ textTransform: 'capitalize' }}>
-                      {vehicle.status.replace(/_/g, ' ')}
-                    </span>
+                    <strong>Status:</strong> <StatusBadge status={vehicle.status} />
                   </p>
                   <p style={{ margin: '4px 0' }}>
                     <strong>Mileage:</strong> {vehicle.mileage} km

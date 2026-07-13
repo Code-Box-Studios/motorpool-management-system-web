@@ -43,7 +43,7 @@ export const PreventiveMaintenanceCard = ({
               </Link>
               <p className="text-muted-foreground text-sm">{plateNumber}</p>
             </div>
-            <Badge variant={priority === 'high' ? 'destructive' : 'default'}>
+            <Badge variant={priority === 'high' ? 'stop' : 'wait'}>
               {priority === 'high' ? 'High Priority' : 'Medium Priority'}
             </Badge>
           </div>

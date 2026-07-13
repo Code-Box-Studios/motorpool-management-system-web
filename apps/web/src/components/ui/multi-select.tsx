@@ -66,7 +66,7 @@ export function MultiSelect({
             const option = options.find((o) => o.value === item);
             return (
               <Badge
-                variant="secondary"
+                variant="outline"
                 key={item}
                 className="mr-1"
                 onClick={(e) => {

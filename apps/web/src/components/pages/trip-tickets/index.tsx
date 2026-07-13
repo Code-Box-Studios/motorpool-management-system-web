@@ -1,3 +1,4 @@
+import StatusBadge from '@/components/shared/status-badge';
 import { useTripTickets, useAllTripTickets } from '@/lib/query/trip-tickets';
 import { useVehicles } from '@/lib/query/vehicles';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -375,9 +376,7 @@ const TripTicketsPage = () => {
                                 </SelectContent>
                               </Select>
                             ) : (
-                              <span className="text-sm capitalize">
-                                {ticket.status?.replace(/_/g, ' ') || 'pending'}
-                              </span>
+                              <StatusBadge status={ticket.status || 'pending'} />
                             )}
                           </TableCell>
                           <TableCell>{ticket.destination}</TableCell>

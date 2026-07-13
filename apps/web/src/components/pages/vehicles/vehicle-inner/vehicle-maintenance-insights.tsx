@@ -100,10 +100,10 @@ export const VehicleMaintenanceInsights = ({
               <Badge
                 variant={
                   kmRemaining <= 0
-                    ? 'destructive'
+                    ? 'stop'
                     : kmRemaining <= 500
-                      ? 'default'
-                      : 'secondary'
+                      ? 'wait'
+                      : 'neutral'
                 }
               >
                 {kmRemaining <= 0
@@ -199,10 +199,10 @@ export const VehicleMaintenanceInsights = ({
               <Badge
                 variant={
                   prediction.priority === 'high'
-                    ? 'destructive'
+                    ? 'stop'
                     : prediction.priority === 'medium'
-                      ? 'default'
-                      : 'secondary'
+                      ? 'wait'
+                      : 'neutral'
                 }
               >
                 {prediction.priority === 'high'

@@ -26,7 +26,7 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import StatusBadge from '@/components/shared/status-badge';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import { CheckCircle, XCircle } from 'lucide-react';
@@ -164,17 +164,6 @@ export default function GuardConfirmationPage() {
     return driver?.full_name || driverId;
   };
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case TRIP_TICKET_STATUS.APPROVED:
-        return 'default';
-      case TRIP_TICKET_STATUS.IN_PROGRESS:
-        return 'secondary';
-      default:
-        return 'outline';
-    }
-  };
-
   return (
     <div className="container mx-auto space-y-4 py-6">
       <Card>
@@ -201,12 +190,7 @@ export default function GuardConfirmationPage() {
                         <CardTitle className="text-base">
                           {ticket.destination}
                         </CardTitle>
-                        <Badge
-                          variant={getStatusBadgeVariant(ticket.status || '')}
-                          className="capitalize"
-                        >
-                          {ticket.status?.replace(/_/g, ' ')}
-                        </Badge>
+                        <StatusBadge status={ticket.status || ''} />
                       </div>
                       <CardDescription className="break-all">
                         Trip Ticket ID: {ticket.id}
