@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
+import EmptyState from '@/components/shared/empty-state';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -37,6 +38,16 @@ import type { EventClickArg } from '@fullcalendar/core';
 import { useMemo, useState } from 'react';
 import PreventiveMaintenance from '../dashboard/preventive-maintenance';
 import PredictiveMaintenance from '../dashboard/predictive-maintenance';
+
+// shadcn paints the ACTIVE tab with --background — a canvas beige that sits
+// *lighter* than the --muted track behind the inactive one, so on a white card
+// the segmented control read inverted, the unselected view looking selected.
+// Emphasis is the ink pill this app already uses for the primary button and the
+// active sidebar item.
+const ACTIVE_TAB =
+  'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground dark:data-[state=active]:border-primary';
+
+const EmDash = () => <span className="text-muted-foreground">—</span>;
 
 const MaintenancePage = () => {
   const { data: tableData, isLoading: isTableLoading } = useMaintenances(
@@ -63,13 +74,23 @@ const MaintenancePage = () => {
 
   // A maintenance record only means something next to the vehicle it is for.
   // The calendar used to print the raw vehicle_id, which told the reader nothing.
-  const vehicleLabel = (vehicleId: string | null | undefined) => {
+  const vehicleCell = (vehicleId: string | null | undefined) => {
     const vehicle = vehicleId
       ? vehicles?.find((v) => v.id === vehicleId)
       : undefined;
-    return vehicle
-      ? `${vehicle.make} ${vehicle.model} · ${vehicle.license_plate}`
-      : 'Unassigned vehicle';
+    if (!vehicle) {
+      return <span className="text-muted-foreground">Unassigned vehicle</span>;
+    }
+    return (
+      <span className="flex flex-col leading-tight">
+        <span>
+          {vehicle.make} {vehicle.model}
+        </span>
+        <span className="text-muted-foreground font-mono text-xs">
+          {vehicle.license_plate}
+        </span>
+      </span>
+    );
   };
 
   const calendarEvents = useMemo(() => {
@@ -105,6 +126,10 @@ const MaintenancePage = () => {
     });
   };
 
+  const openMaintenance = (maintenanceId: string) => {
+    navigate({ to: `/maintenance/${maintenanceId}` });
+  };
+
   return (
     <div>
       <PageHeader
@@ -126,9 +151,15 @@ const MaintenancePage = () => {
         className="w-full"
       >
         <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="preventive">Preventive</TabsTrigger>
-          <TabsTrigger value="predictive">Predictive</TabsTrigger>
+          <TabsTrigger value="schedule" className={ACTIVE_TAB}>
+            Schedule
+          </TabsTrigger>
+          <TabsTrigger value="preventive" className={ACTIVE_TAB}>
+            Preventive
+          </TabsTrigger>
+          <TabsTrigger value="predictive" className={ACTIVE_TAB}>
+            Predictive
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="schedule" className="mt-6">
           <Card>
@@ -145,13 +176,19 @@ const MaintenancePage = () => {
               >
                 <div className="flex justify-end">
                   <TabsList>
-                    <TabsTrigger value="calendar">Calendar</TabsTrigger>
-                    <TabsTrigger value="table">Table</TabsTrigger>
+                    <TabsTrigger value="calendar" className={ACTIVE_TAB}>
+                      Calendar
+                    </TabsTrigger>
+                    <TabsTrigger value="table" className={ACTIVE_TAB}>
+                      Table
+                    </TabsTrigger>
                   </TabsList>
                 </div>
                 <TabsContent value="calendar" className="mt-6">
                   {isCalendarLoading ? (
-                    <div>Loading calendar...</div>
+                    <div className="text-muted-foreground py-12 text-center text-sm">
+                      Loading calendar...
+                    </div>
                   ) : (
                     <FullCalendar
                       plugins={[
@@ -178,144 +215,162 @@ const MaintenancePage = () => {
                   {isTableLoading ? (
                     <TableSkeleton
                       columns={[
-                        { label: 'Date', width: 'w-24' },
-                        { label: 'Vehicle', width: 'w-40' },
-                        { label: 'Type', width: 'w-24' },
-                        { label: 'Description', width: 'w-40' },
-                        { label: 'Cost', width: 'w-20' },
-                        { label: 'Mileage', width: 'w-20' },
-                        { label: 'Next Due', width: 'w-24' },
-                        { label: 'Actions', width: 'w-10' }
+                        { label: 'Date', width: 'w-20' },
+                        { label: 'Vehicle', width: 'w-44' },
+                        { label: 'Type', width: 'w-20' },
+                        { label: 'Description', width: 'w-48' },
+                        { label: 'Cost', width: 'w-16' },
+                        { label: 'Mileage', width: 'w-16' },
+                        { label: 'Next Due', width: 'w-20' },
+                        { label: 'Actions', width: 'w-32' }
                       ]}
                     />
+                  ) : !tableData?.data?.length ? (
+                    <EmptyState message="No maintenance records yet." />
                   ) : (
-                    <Table>
+                    /* Table already renders its own overflow-x-auto container;
+                       the min-width is what actually makes it scroll rather than
+                       letting the browser squeeze the row actions until they
+                       clip. */
+                    <Table className="min-w-[1080px]">
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Vehicle</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead>Cost</TableHead>
-                          <TableHead>Mileage</TableHead>
-                          <TableHead>Next Due</TableHead>
-                          <TableHead>Actions</TableHead>
+                          <TableHead className="w-[110px]">Date</TableHead>
+                          <TableHead className="min-w-[200px]">
+                            Vehicle
+                          </TableHead>
+                          <TableHead className="w-[120px]">Type</TableHead>
+                          <TableHead className="min-w-[220px]">
+                            Description
+                          </TableHead>
+                          <TableHead className="w-[100px] text-right">
+                            Cost
+                          </TableHead>
+                          <TableHead className="w-[110px] text-right">
+                            Mileage
+                          </TableHead>
+                          <TableHead className="w-[110px]">Next Due</TableHead>
+                          <TableHead className="w-[170px] text-right">
+                            Actions
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {tableData?.data && tableData.data.length > 0 ? (
-                          tableData.data.map((maintenance) => (
-                            <TableRow key={maintenance.id}>
-                              <TableCell>
-                                {new Date(
-                                  maintenance.date
-                                ).toLocaleDateString()}
-                              </TableCell>
-                              <TableCell>
-                                {vehicleLabel(maintenance.vehicle_id)}
-                              </TableCell>
-                              <TableCell className="capitalize">
-                                {maintenance.type}
-                              </TableCell>
-                              <TableCell className="max-w-xs truncate">
-                                {maintenance.description || 'N/A'}
-                              </TableCell>
-                              <TableCell>
-                                {maintenance.cost !== null
-                                  ? `$${maintenance.cost.toFixed(2)}`
-                                  : 'N/A'}
-                              </TableCell>
-                              <TableCell>
-                                {maintenance.mileage !== null
-                                  ? `${maintenance.mileage} km`
-                                  : 'N/A'}
-                              </TableCell>
-                              <TableCell>
-                                {maintenance.next_due
-                                  ? new Date(
-                                      maintenance.next_due
-                                    ).toLocaleDateString()
-                                  : 'N/A'}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        disabled={deleteMaintenance.isPending}
+                        {tableData.data.map((maintenance) => (
+                          <TableRow
+                            key={maintenance.id}
+                            className="cursor-pointer"
+                            onClick={() => openMaintenance(maintenance.id)}
+                          >
+                            <TableCell>
+                              {new Date(maintenance.date).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              {vehicleCell(maintenance.vehicle_id)}
+                            </TableCell>
+                            <TableCell className="capitalize">
+                              {maintenance.type}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground max-w-xs truncate">
+                              {maintenance.description || <EmDash />}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {maintenance.cost !== null ? (
+                                `$${maintenance.cost.toFixed(2)}`
+                              ) : (
+                                <EmDash />
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {maintenance.mileage !== null ? (
+                                `${maintenance.mileage} km`
+                              ) : (
+                                <EmDash />
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {maintenance.next_due ? (
+                                new Date(
+                                  maintenance.next_due
+                                ).toLocaleDateString()
+                              ) : (
+                                <EmDash />
+                              )}
+                            </TableCell>
+                            {/* Edit and delete are destructive-adjacent; a click
+                                on one must not also open the record. */}
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    openMaintenance(maintenance.id)
+                                  }
+                                >
+                                  <Eye className="h-4 w-4" />
+                                  View
+                                </Button>
+
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label="Edit maintenance record"
+                                  title="Edit"
+                                  onClick={() =>
+                                    navigate({
+                                      to: `/maintenance/${maintenance.id}`,
+                                      search: { edit: true }
+                                    })
+                                  }
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      aria-label="Delete maintenance record"
+                                      title="Delete"
+                                      disabled={deleteMaintenance.isPending}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        Are you sure?
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This action cannot be undone. This will
+                                        permanently delete the maintenance
+                                        record and remove the data from the
+                                        server.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>
+                                        Cancel
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() =>
+                                          deleteMaintenance.mutate(
+                                            maintenance.id
+                                          )
+                                        }
                                       >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                          Are you sure?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          This action cannot be undone. This
-                                          will permanently delete the
-                                          maintenance record and remove the data
-                                          from the server.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                          Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                          onClick={() =>
-                                            deleteMaintenance.mutate(
-                                              maintenance.id
-                                            )
-                                          }
-                                        >
-                                          Delete
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() =>
-                                      navigate({
-                                        to: `/maintenance/${maintenance.id}`,
-                                        search: { edit: true }
-                                      })
-                                    }
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() =>
-                                      navigate({
-                                        to: `/maintenance/${maintenance.id}`
-                                      })
-                                    }
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell
-                              colSpan={8}
-                              className="text-muted-foreground py-8 text-center"
-                            >
-                              No data found
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
                             </TableCell>
                           </TableRow>
-                        )}
+                        ))}
                       </TableBody>
                     </Table>
                   )}

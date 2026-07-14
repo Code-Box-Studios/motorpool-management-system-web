@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { FieldGroup } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Controller } from 'react-hook-form';
@@ -19,18 +18,31 @@ import {
 } from '@/components/ui/select';
 import { VEHICLE_STATUS, FUEL_TYPE } from '@/lib/enums';
 import { TrashIcon } from 'lucide-react';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious
-} from '@/components/ui/carousel';
-import { cn } from '@/lib/utils';
 import { Loading } from '@/components/ui/loader';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
+import {
+  RecordHeader,
+  DetailSection,
+  DetailGrid,
+  DetailItem
+} from '@/components/shared/detail-view';
+import {
+  FormLayout,
+  FormSection,
+  FormRow,
+  FormActions
+} from '@/components/shared/form-section';
+import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
 import { VehicleMaintenanceInsights } from './vehicle-maintenance-insights';
 import { VehicleTrackerSummary } from './vehicle-tracker-summary';
+
+const titleCase = (value: string) =>
+  value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+// A missing date must reach DetailItem as undefined, not as a pre-formatted
+// dash — DetailItem owns how absence looks.
+const formatDate = (value?: string | null) =>
+  value ? new Date(value).toLocaleDateString() : undefined;
 
 const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   const { data: vehicle } = useVehicle(vehicleId);
@@ -45,6 +57,8 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   );
 
   const form = useVehicleUpdateForm();
+
+  useBreadcrumbLabel(vehicle?.license_plate);
 
   useEffect(() => {
     if (vehicle && branches) {
@@ -98,439 +112,417 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
 
   if (!vehicle || branchesLoading) return <Loading />;
 
+  const branchName = branches?.find((b) => b.id === vehicle.branch)?.name;
+  const fuelType = vehicle.fuel_type ? titleCase(vehicle.fuel_type) : undefined;
+  const title = [vehicle.make, vehicle.model, vehicle.year]
+    .filter(Boolean)
+    .join(' ');
+  const images = (vehicle.images ?? []).filter(
+    (url) => !removedImages.includes(url)
+  );
+
   return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Vehicle Details</h1>
-        <Button
-          onClick={() => {
-            setIsEditing(!isEditing);
-            if (isEditing) {
-              setRemovedImages([]);
-            }
-          }}
-        >
-          {isEditing ? 'Cancel' : 'Edit'}
-        </Button>
-      </div>
-
-      <form
-        className="flex flex-col justify-center"
-        id="edit-vehicle-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
-        {vehicle.images && vehicle.images.length > 0 && (
-          <Carousel
-            className={cn(
-              'mb-11 w-full max-w-md',
-              vehicle.images.length > 1 && 'ml-11 cursor-grab'
-            )}
+    <div className="flex flex-col gap-6">
+      <RecordHeader
+        reference={vehicle.license_plate}
+        title={title}
+        status={vehicle.status}
+        meta={branchName}
+        backTo="/vehicles"
+        backLabel="Vehicles"
+        actions={
+          <Button
+            onClick={() => {
+              setIsEditing(!isEditing);
+              if (isEditing) {
+                setRemovedImages([]);
+              }
+            }}
           >
-            <CarouselContent>
-              {vehicle.images
-                .filter((url) => !removedImages.includes(url))
-                .map((url, index) => (
-                  <CarouselItem key={index}>
-                    <div className="relative">
-                      <img
-                        src={url ?? '/logo/mms-logo.png'}
-                        alt={`Vehicle image ${index + 1}`}
-                        className="aspect-square w-full rounded-lg border bg-white object-contain"
-                      />
-                      <div>
-                        {isEditing && (
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="absolute top-2 right-2 rounded-full p-1"
-                            onClick={() =>
-                              setRemovedImages((prev) => [...prev, url])
-                            }
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {/* {isEditing && (
-                          <Button
-                            type="button"
-                            variant="default"
-                            size="sm"
-                            className="absolute top-2 right-2 rounded-full bg-green-500/50 p-1"
-                            onClick={() =>
-                              setRemovedImages((prev) => [...prev, url])
-                            }
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        )} */}
-                      </div>
-                    </div>
-                  </CarouselItem>
-                ))}
-            </CarouselContent>
-            {vehicle.images.length > 1 && <CarouselPrevious />}
-            {vehicle.images.length > 1 && <CarouselNext />}
-          </Carousel>
-        )}
-        {isEditing && (
-          <div className="mb-11 grid grid-cols-2 gap-11">
-            <Controller
-              name="newImages"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="newImages">Add New Images</FieldLabel>
-                  <Input
-                    id="newImages"
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={(e) =>
-                      field.onChange(Array.from(e.target.files || []))
-                    }
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <div />
-          </div>
-        )}
-        <FieldGroup>
-          <div className="grid grid-cols-2 gap-11">
-            <Controller
-              name="make"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="make">Make *</FieldLabel>
-                  <Input
-                    {...field}
-                    id="make"
-                    type="text"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter make"
-                    disabled={!isEditing}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="model"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="model">Model *</FieldLabel>
-                  <Input
-                    {...field}
-                    id="model"
-                    type="text"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter model"
-                    disabled={!isEditing}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="year"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="year">Year *</FieldLabel>
-                  <Input
-                    {...field}
-                    id="year"
-                    type="number"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter year"
-                    disabled={!isEditing}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="license_plate"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="license_plate">
-                    License Plate *
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="license_plate"
-                    type="text"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter license plate"
-                    disabled={!isEditing}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="vin"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="vin">VIN *</FieldLabel>
-                  <Input
-                    {...field}
-                    id="vin"
-                    type="text"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter VIN"
-                    disabled={!isEditing}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            {isEditing ? (
-              <Controller
-                name="status"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="status">Status</FieldLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!isEditing}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.values(VEHICLE_STATUS).map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {status
-                              .replace(/_/g, ' ')
-                              .replace(/\b\w/g, (l) => l.toUpperCase())}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-            ) : (
-              <Field>
-                <FieldLabel>Status</FieldLabel>
-                <Input
-                  value={vehicle.status
-                    .replace(/_/g, ' ')
-                    .replace(/\b\w/g, (l) => l.toUpperCase())}
-                  disabled
-                  className="bg-muted"
-                />
-              </Field>
-            )}
-            {isEditing ? (
-              <Controller
-                name="branchId"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="branchId">Branch *</FieldLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!isEditing}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches?.map((branch) => (
-                          <SelectItem key={branch.id} value={branch.id}>
-                            {branch.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-            ) : (
-              <Field>
-                <FieldLabel>Branch</FieldLabel>
-                <Input
-                  value={
-                    branches?.find((b) => b.id === vehicle.branch)?.name || '—'
-                  }
-                  disabled
-                  className="bg-muted"
-                />
-              </Field>
-            )}
-            {isEditing ? (
-              <Controller
-                name="fuel_type"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="fuel_type">Fuel Type *</FieldLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!isEditing}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select fuel type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.values(FUEL_TYPE).map((fuel) => (
-                          <SelectItem key={fuel} value={fuel}>
-                            {fuel.charAt(0).toUpperCase() +
-                              fuel.slice(1).toLowerCase()}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-            ) : (
-              <Field>
-                <FieldLabel>Fuel Type</FieldLabel>
-                <Input
-                  value={
-                    vehicle.fuel_type
-                      ? vehicle.fuel_type.charAt(0).toUpperCase() +
-                        vehicle.fuel_type.slice(1).toLowerCase()
-                      : '—'
-                  }
-                  disabled
-                  className="bg-muted"
-                />
-              </Field>
-            )}
-            <Controller
-              name="mileage"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="mileage">Mileage *</FieldLabel>
-                  <Input
-                    {...field}
-                    id="mileage"
-                    type="number"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter mileage"
-                    disabled={!isEditing}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="capacity"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="capacity">Capacity *</FieldLabel>
-                  <Input
-                    {...field}
-                    id="capacity"
-                    type="number"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter capacity"
-                    disabled={!isEditing}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="insurance_expiry"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="insurance_expiry">
-                    Insurance Expiry *
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="insurance_expiry"
-                    type="date"
-                    aria-invalid={fieldState.invalid}
-                    disabled={!isEditing}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="registration_expiry"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="registration_expiry">
-                    Registration Expiry *
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="registration_expiry"
-                    type="date"
-                    aria-invalid={fieldState.invalid}
-                    disabled={!isEditing}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-          </div>
-        </FieldGroup>
+            {isEditing ? 'Cancel' : 'Edit'}
+          </Button>
+        }
+      />
 
-        {isEditing && (
-          <Field className="mt-10 w-fit">
-            <Button
-              type="submit"
-              className="w-fit px-11"
-              form="edit-vehicle-form"
-              disabled={updateVehicle.isPending}
+      {/* No photos means no image strip: a placeholder box carries no
+          information and only pushes the record's facts out of view. */}
+      {images.length > 0 && (
+        <div className="grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {images.map((url, index) => (
+            <div key={url} className="relative">
+              <img
+                src={url ?? '/logo/mms-logo.png'}
+                alt={`${title} photo ${index + 1}`}
+                className="bg-muted border-border aspect-video w-full rounded-lg border object-cover"
+              />
+              {isEditing && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon-sm"
+                  aria-label={`Remove photo ${index + 1}`}
+                  className="absolute top-2 right-2"
+                  onClick={() => setRemovedImages((prev) => [...prev, url])}
+                >
+                  <TrashIcon className="size-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isEditing ? (
+        <form id="edit-vehicle-form" onSubmit={form.handleSubmit(onSubmit)}>
+          <FormLayout>
+            <FormSection
+              title="Specification"
+              description="What the vehicle is, and where it belongs."
             >
-              {updateVehicle.isPending ? 'Updating...' : 'Update Vehicle'}
-            </Button>
-          </Field>
-        )}
-      </form>
+              <div className="flex flex-col gap-5">
+                <FormRow>
+                  <Controller
+                    name="make"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="make">Make *</FieldLabel>
+                        <Input
+                          {...field}
+                          id="make"
+                          type="text"
+                          aria-invalid={fieldState.invalid}
+                          placeholder="Enter make"
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+                  <Controller
+                    name="model"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="model">Model *</FieldLabel>
+                        <Input
+                          {...field}
+                          id="model"
+                          type="text"
+                          aria-invalid={fieldState.invalid}
+                          placeholder="Enter model"
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+                </FormRow>
+
+                <FormRow>
+                  <Controller
+                    name="year"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="year">Year *</FieldLabel>
+                        <Input
+                          {...field}
+                          id="year"
+                          type="number"
+                          aria-invalid={fieldState.invalid}
+                          placeholder="Enter year"
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+                  <Controller
+                    name="license_plate"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="license_plate">
+                          License Plate *
+                        </FieldLabel>
+                        <Input
+                          {...field}
+                          id="license_plate"
+                          type="text"
+                          aria-invalid={fieldState.invalid}
+                          placeholder="Enter license plate"
+                          className="font-mono"
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+                </FormRow>
+
+                <FormRow>
+                  <Controller
+                    name="vin"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="vin">VIN *</FieldLabel>
+                        <Input
+                          {...field}
+                          id="vin"
+                          type="text"
+                          aria-invalid={fieldState.invalid}
+                          placeholder="Enter VIN"
+                          className="font-mono"
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+                  <Controller
+                    name="status"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="status">Status</FieldLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <SelectTrigger id="status">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.values(VEHICLE_STATUS).map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {titleCase(status)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+                </FormRow>
+
+                <FormRow>
+                  <Controller
+                    name="branchId"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="branchId">Branch *</FieldLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <SelectTrigger id="branchId">
+                            <SelectValue placeholder="Select a branch" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {branches?.map((branch) => (
+                              <SelectItem key={branch.id} value={branch.id}>
+                                {branch.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+                  <Controller
+                    name="fuel_type"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="fuel_type">Fuel Type *</FieldLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <SelectTrigger id="fuel_type">
+                            <SelectValue placeholder="Select fuel type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.values(FUEL_TYPE).map((fuel) => (
+                              <SelectItem key={fuel} value={fuel}>
+                                {titleCase(fuel.toLowerCase())}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+                </FormRow>
+
+                <FormRow>
+                  <Controller
+                    name="mileage"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="mileage">Mileage *</FieldLabel>
+                        <Input
+                          {...field}
+                          id="mileage"
+                          type="number"
+                          aria-invalid={fieldState.invalid}
+                          placeholder="Enter mileage"
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+                  <Controller
+                    name="capacity"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="capacity">Capacity *</FieldLabel>
+                        <Input
+                          {...field}
+                          id="capacity"
+                          type="number"
+                          aria-invalid={fieldState.invalid}
+                          placeholder="Enter capacity"
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+                </FormRow>
+
+                <FormRow>
+                  <Controller
+                    name="insurance_expiry"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="insurance_expiry">
+                          Insurance Expiry *
+                        </FieldLabel>
+                        <Input
+                          {...field}
+                          id="insurance_expiry"
+                          type="date"
+                          aria-invalid={fieldState.invalid}
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+                  <Controller
+                    name="registration_expiry"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="registration_expiry">
+                          Registration Expiry *
+                        </FieldLabel>
+                        <Input
+                          {...field}
+                          id="registration_expiry"
+                          type="date"
+                          aria-invalid={fieldState.invalid}
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
+                  />
+                </FormRow>
+              </div>
+            </FormSection>
+
+            <FormSection
+              title="Photos"
+              description="Uploads are added to the existing photos; use the bin on a photo above to drop it."
+            >
+              <Controller
+                name="newImages"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="newImages">Add New Images</FieldLabel>
+                    <Input
+                      id="newImages"
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={(e) =>
+                        field.onChange(Array.from(e.target.files || []))
+                      }
+                      aria-invalid={fieldState.invalid}
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </FormSection>
+
+            <FormActions>
+              <Button
+                type="submit"
+                form="edit-vehicle-form"
+                disabled={updateVehicle.isPending}
+              >
+                {updateVehicle.isPending ? 'Updating...' : 'Update Vehicle'}
+              </Button>
+            </FormActions>
+          </FormLayout>
+        </form>
+      ) : (
+        <DetailSection title="Specification">
+          <DetailGrid>
+            <DetailItem label="Make" value={vehicle.make} />
+            <DetailItem label="Model" value={vehicle.model} />
+            <DetailItem label="Year" value={vehicle.year} />
+            <DetailItem label="Plate" value={vehicle.license_plate} mono />
+            <DetailItem label="VIN" value={vehicle.vin} mono />
+            <DetailItem label="Branch" value={branchName} />
+            <DetailItem label="Fuel Type" value={fuelType} />
+            <DetailItem
+              label="Mileage"
+              value={`${vehicle.mileage.toLocaleString()} km`}
+            />
+            <DetailItem label="Seats" value={vehicle.capacity} />
+            <DetailItem
+              label="Insurance Expiry"
+              value={formatDate(vehicle.insurance_expiry)}
+            />
+            <DetailItem
+              label="Registration Expiry"
+              value={formatDate(vehicle.registration_expiry)}
+            />
+          </DetailGrid>
+        </DetailSection>
+      )}
 
       <ConfirmationModal
         open={showConfirm}

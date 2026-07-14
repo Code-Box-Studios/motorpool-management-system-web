@@ -93,25 +93,28 @@ const NeedsYou = () => {
           Nothing is waiting on you. Approvals and unassigned repairs land here.
         </p>
       ) : (
-        <ul>
+        <ul className="mt-2">
           {items.map((item) => (
             <li
               key={item.key}
-              className="border-border flex flex-wrap items-center gap-3.5 border-t py-3.5"
+              className="border-border flex flex-wrap items-center gap-x-3.5 gap-y-2 border-t py-3.5"
             >
-              <span className="text-ink-soft flex-none font-mono text-sm whitespace-nowrap">
+              {/* Fixed measure so the refs read as a column, not a ragged edge. */}
+              <span className="text-ink-soft min-w-16 flex-none font-mono text-sm whitespace-nowrap">
                 {item.ref}
               </span>
               <div className="min-w-[180px] flex-1">
-                <div className="font-semibold">{item.title}</div>
+                <div className="leading-snug font-semibold">{item.title}</div>
                 <div className="text-slate text-xs">{item.subtitle}</div>
               </div>
-              <StatusBadge status={item.status} />
-              <Button size="sm" asChild>
-                <Link to={item.to} params={item.params}>
-                  {item.actionLabel}
-                </Link>
-              </Button>
+              <div className="ml-auto flex items-center gap-3">
+                <StatusBadge status={item.status} />
+                <Button size="sm" asChild>
+                  <Link to={item.to} params={item.params}>
+                    {item.actionLabel}
+                  </Link>
+                </Button>
+              </div>
             </li>
           ))}
         </ul>

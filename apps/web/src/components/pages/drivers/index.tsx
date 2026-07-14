@@ -1,4 +1,4 @@
-import MetricCard from '../../shared/metric-card';
+import { MetricStrip } from '../../shared/metric-card';
 import { Card, CardContent } from '@/components/ui/card';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import {
@@ -17,6 +17,13 @@ import { Typography } from '@/components/ui/typography';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import PageHeader from '@/components/shared/page-header';
 import StatusBadge from '@/components/shared/status-badge';
+
+const COLUMNS = [
+  { label: 'Driver', width: 'w-40' },
+  { label: 'License', width: 'w-32' },
+  { label: 'Contact', width: 'w-32' },
+  { label: 'Status', width: 'w-20' }
+];
 
 const Drivers = () => {
   const [page, setPage] = useState(1);
@@ -44,30 +51,27 @@ const Drivers = () => {
         description="Who is on the roster, and who is free to take a trip."
       />
 
-      <div className="mb-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
-        <MetricCard title="Total Drivers" value={totalCount} />
-        <MetricCard title="On a Trip" value={onTrip} />
-        <MetricCard title="Available" value={available} />
-      </div>
+      <MetricStrip
+        className="mb-5"
+        metrics={[
+          { label: 'Total Drivers', value: totalCount },
+          { label: 'On a Trip', value: onTrip },
+          { label: 'Available', value: available }
+        ]}
+      />
 
       <Card>
         <CardContent className="pt-6">
           {isLoading ? (
-            <TableSkeleton
-              columns={[
-                { label: 'Full Name', width: 'w-32' },
-                { label: 'License Number', width: 'w-32' },
-                { label: 'Status', width: 'w-20' }
-              ]}
-            />
+            <TableSkeleton columns={COLUMNS} />
           ) : (
             <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Full Name</TableHead>
-                    <TableHead>License Number</TableHead>
-                    <TableHead>Status</TableHead>
+                    {COLUMNS.map((column) => (
+                      <TableHead key={column.label}>{column.label}</TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -83,11 +87,26 @@ const Drivers = () => {
                           })
                         }
                       >
-                        <TableCell className="font-medium">
-                          {driver.full_name}
+                        <TableCell>
+                          <div className="font-medium">{driver.full_name}</div>
+                          {driver.email && (
+                            <div className="text-muted-foreground text-xs">
+                              {driver.email}
+                            </div>
+                          )}
                         </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {driver.license_number}
+                        <TableCell>
+                          <div className="font-mono text-sm">
+                            {driver.license_number || '—'}
+                          </div>
+                          {driver.license_type && (
+                            <div className="text-muted-foreground text-xs">
+                              {driver.license_type}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {driver.phone || '—'}
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={driver.status ?? ''} />
@@ -97,7 +116,7 @@ const Drivers = () => {
                   ) : (
                     <TableRow>
                       <TableCell
-                        colSpan={3}
+                        colSpan={COLUMNS.length}
                         className="text-muted-foreground py-8 text-center"
                       >
                         No drivers yet.

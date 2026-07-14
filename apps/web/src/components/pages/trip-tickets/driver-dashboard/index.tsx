@@ -9,6 +9,7 @@ import { useTripTickets } from '@/lib/query/trip-tickets';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import PageHeader from '@/components/shared/page-header';
 import StatusBadge from '@/components/shared/status-badge';
 import {
   AlertDialog,
@@ -17,6 +18,7 @@ import {
   AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import { formatRef } from '@/lib/utils/reference';
+import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
 
 const timeOf = (value: string | null | undefined) =>
   value
@@ -28,6 +30,13 @@ const timeOf = (value: string | null | undefined) =>
       })
     : 'Not set';
 
+// The driver keeps the rail (Dashboard, Job Orders, Tools), so the URL stays
+// /dashboard — but five roles share that URL and see five different screens.
+// The page names itself, in the body and in the crumb.
+const PAGE_TITLE = 'My Trips';
+const PAGE_DESCRIPTION =
+  'Your next trip, and the QR the guard scans at the gate.';
+
 /**
  * The driver is in or beside a vehicle, on a phone. Their job here is small and
  * specific: know which trip is next, and show the QR the guard scans at the
@@ -36,6 +45,8 @@ const timeOf = (value: string | null | undefined) =>
 const DriverDashboard = () => {
   const { user } = useAuth();
   const [qrTicketId, setQrTicketId] = useState<string | null>(null);
+
+  useBreadcrumbLabel(PAGE_TITLE);
 
   const { data: drivers, isLoading: driversLoading } = useAllDrivers();
   const { data: vehicles } = useAllVehicles();
@@ -75,6 +86,7 @@ const DriverDashboard = () => {
   if (driversLoading || ticketsLoading) {
     return (
       <div className="mx-auto w-full max-w-md">
+        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
         <Skeleton className="h-72 w-full rounded-[24px]" />
       </div>
     );
@@ -83,6 +95,7 @@ const DriverDashboard = () => {
   if (!currentDriver) {
     return (
       <div className="mx-auto w-full max-w-md">
+        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
         <div className="border-border text-muted-foreground rounded-[24px] border border-dashed p-10 text-center text-sm">
           We couldn&apos;t find a driver record for your account. Ask an admin
           to link it.
@@ -98,12 +111,7 @@ const DriverDashboard = () => {
 
   return (
     <div className="mx-auto w-full max-w-md">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="bg-signal size-2 rounded-full" />
-        <span className="text-muted-foreground text-xs font-bold tracking-[0.11em] uppercase">
-          My trips
-        </span>
-      </div>
+      <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
 
       {!next ? (
         <div className="border-border text-muted-foreground rounded-[24px] border border-dashed p-12 text-center text-sm">
@@ -112,6 +120,13 @@ const DriverDashboard = () => {
       ) : (
         <>
           {/* ---------- The next trip ---------- */}
+          <div className="mb-3 flex items-center gap-2">
+            <span className="bg-signal size-2 rounded-full" />
+            <span className="text-muted-foreground text-xs font-bold tracking-[0.11em] uppercase">
+              Next trip
+            </span>
+          </div>
+
           <section className="bg-card border-border rounded-[24px] border p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between gap-3">
               <StatusBadge status={next.status ?? ''} />
@@ -120,17 +135,19 @@ const DriverDashboard = () => {
               </span>
             </div>
 
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h2 className="break-words text-2xl font-semibold tracking-tight">
               {next.destination}
-            </h1>
-            <p className="text-slate mt-1 text-sm">{next.purpose}</p>
+            </h2>
+            <p className="text-slate mt-1 break-words text-sm">
+              {next.purpose}
+            </p>
 
             <div className="bg-border my-5 h-px" />
 
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">Vehicle</dt>
-                <dd className="text-right font-medium">
+                <dt className="text-muted-foreground flex-none">Vehicle</dt>
+                <dd className="min-w-0 text-right font-medium">
                   {(() => {
                     const v = vehicleOf(next.vehicle_id);
                     return v ? (
@@ -147,12 +164,16 @@ const DriverDashboard = () => {
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">Depart</dt>
-                <dd className="font-medium">{timeOf(next.start_ts)}</dd>
+                <dt className="text-muted-foreground flex-none">Depart</dt>
+                <dd className="min-w-0 text-right font-medium">
+                  {timeOf(next.start_ts)}
+                </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">Return</dt>
-                <dd className="font-medium">{timeOf(next.end_ts)}</dd>
+                <dt className="text-muted-foreground flex-none">Return</dt>
+                <dd className="min-w-0 text-right font-medium">
+                  {timeOf(next.end_ts)}
+                </dd>
               </div>
             </dl>
 
@@ -219,7 +240,10 @@ const DriverDashboard = () => {
           if (!open) setQrTicketId(null);
         }}
       >
-        <AlertDialogContent className="max-w-sm">
+        {/* Capped only from `sm` up: an unprefixed max-w would override the
+            dialog's own max-w-[calc(100%-2rem)] and leave a phone with no
+            side gutter. */}
+        <AlertDialogContent className="sm:max-w-sm">
           <Button
             type="button"
             variant="ghost"
@@ -236,9 +260,17 @@ const DriverDashboard = () => {
           <div className="flex flex-col items-center gap-4 py-4">
             {qrTicket && (
               <>
-                {/* The guard's scanner reads the id; the driver reads the ref. */}
-                <div className="rounded-[20px] border bg-white p-5">
-                  <QRCode value={qrTicket.id} size={240} />
+                {/* The guard's scanner reads the id; the driver reads the ref.
+                    The quiet zone stays white in both themes — a scanner cannot
+                    resolve the code against a dark surface. The SVG is sized in
+                    CSS, not by `size`, so it shrinks on a narrow phone instead
+                    of overflowing the dialog. */}
+                <div className="w-full max-w-[280px] rounded-[20px] border bg-white p-5">
+                  <QRCode
+                    value={qrTicket.id}
+                    size={240}
+                    style={{ width: '100%', height: 'auto' }}
+                  />
                 </div>
                 <span className="text-muted-foreground font-mono text-sm">
                   {formatRef('TT', qrTicket.ticket_no)}

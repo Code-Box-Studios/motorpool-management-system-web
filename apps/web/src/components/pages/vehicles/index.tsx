@@ -5,6 +5,21 @@ import { cn } from '@/lib/utils';
 import PageHeader from '@/components/shared/page-header';
 import EntityCard from '@/components/shared/entity-card';
 import EmptyState from '@/components/shared/empty-state';
+import type { VehicleWithBranch } from '@/lib/types';
+
+const titleCase = (value: string) =>
+  value.replace(/\b\w/g, (c) => c.toUpperCase());
+
+const odometer = (mileage: number | null) =>
+  mileage == null ? undefined : `${mileage.toLocaleString()} km`;
+
+// `branch_name` falls back to the raw branch id when the branch lookup misses,
+// and to 'N/A' when the vehicle has no branch — neither is something to show.
+const branchLabel = (vehicle: VehicleWithBranch) => {
+  const name = vehicle.branch_name;
+  if (!name || name === 'N/A' || name === vehicle.branch) return undefined;
+  return name;
+};
 
 const Vehicles = () => {
   const { data } = useVehicles(1, 12);
@@ -34,17 +49,16 @@ const Vehicles = () => {
               status={vehicle.status}
               title={`${vehicle.make} ${vehicle.model} ${vehicle.year ?? ''}`.trim()}
               fields={[
+                { label: 'Plate', value: vehicle.license_plate, mono: true },
+                { label: 'Odometer', value: odometer(vehicle.mileage) },
                 {
-                  label: 'Plate',
-                  value: (
-                    <span className="font-mono">{vehicle.license_plate}</span>
-                  )
+                  label: 'Fuel',
+                  value: vehicle.fuel_type
+                    ? titleCase(vehicle.fuel_type)
+                    : undefined
                 },
-                { label: 'Seats', value: vehicle.capacity ?? '—' },
-                {
-                  label: 'Branch',
-                  value: vehicle.branch_name || vehicle.branch || '—'
-                }
+                { label: 'Seats', value: vehicle.capacity },
+                { label: 'Branch', value: branchLabel(vehicle) }
               ]}
             />
           ))}

@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button';
-import { FieldGroup } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useDriver } from '@/lib/query/drivers';
@@ -11,7 +10,6 @@ import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { FormSkeleton } from '@/components/shared/skeleton/form-skeleton';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
-import { Typography } from '@/components/ui/typography';
 import {
   Select,
   SelectContent,
@@ -20,6 +18,22 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { DRIVER_STATUS_DB, DRIVER_STATUS_DISPLAY } from '@/lib/enums';
+import {
+  RecordHeader,
+  DetailSection,
+  DetailGrid,
+  DetailItem
+} from '@/components/shared/detail-view';
+import {
+  FormLayout,
+  FormSection,
+  FormRow,
+  FormActions
+} from '@/components/shared/form-section';
+import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
+
+const formatDate = (value: string | null | undefined) =>
+  value ? new Date(value).toLocaleDateString() : undefined;
 
 export function DriverDetails({ id }: { id: string }) {
   const { data: driver, isLoading } = useDriver(id);
@@ -28,6 +42,8 @@ export function DriverDetails({ id }: { id: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingData, setPendingData] = useState<DriverFormData | null>(null);
+
+  useBreadcrumbLabel(driver?.full_name);
 
   useEffect(() => {
     if (driver) {
@@ -75,252 +91,317 @@ export function DriverDetails({ id }: { id: string }) {
   };
 
   if (isLoading) return <FormSkeleton />;
-  if (!driver) return <div>Driver not found</div>;
+  if (!driver)
+    return <div className="text-muted-foreground">Driver not found</div>;
 
   return (
-    <div className="">
-      <div className="mb-11 flex justify-between">
-        <Typography className="text-center" variant={'h1'}>
-          Driver Details
-        </Typography>
-        <Button onClick={() => setIsEditing(!isEditing)}>
-          {isEditing ? 'Cancel' : 'Edit'}
-        </Button>
-      </div>
-      <form
-        className="flex flex-col justify-center"
-        id="update-driver-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
-        <FieldGroup>
-          <div className="grid grid-cols-2 gap-11">
-            <Controller
-              name="full_name"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="full_name">Full Name *</FieldLabel>
-                  <Input
-                    {...field}
-                    id="full_name"
-                    type="text"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter full name"
-                    autoComplete="name"
-                    disabled={!isEditing}
+    <div>
+      <RecordHeader
+        title={driver.full_name}
+        status={driver.status ?? undefined}
+        meta={
+          driver.license_number ? (
+            <span className="font-mono">{driver.license_number}</span>
+          ) : undefined
+        }
+        backTo="/drivers"
+        backLabel="Drivers"
+        actions={
+          // While editing, Save and Cancel live together in the sticky bar at
+          // the foot of the form; a Cancel up here would be the same button twice.
+          isEditing ? undefined : (
+            <Button onClick={() => setIsEditing(true)}>Edit</Button>
+          )
+        }
+      />
+
+      {isEditing ? (
+        <form id="update-driver-form" onSubmit={form.handleSubmit(onSubmit)}>
+          <FormLayout>
+            <FormSection title="Personnel">
+              <div className="flex flex-col gap-5">
+                <FormRow>
+                  <Controller
+                    name="full_name"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="full_name">Full Name *</FieldLabel>
+                        <Input
+                          {...field}
+                          id="full_name"
+                          type="text"
+                          aria-invalid={fieldState.invalid}
+                          placeholder="Enter full name"
+                          autoComplete="name"
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
                   />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="license_number"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="license_number">
-                    License Number *
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="license_number"
-                    type="text"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter license number"
-                    disabled={!isEditing}
+                  <Controller
+                    name="status"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="status">Status</FieldLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DRIVER_STATUS_DB.map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {DRIVER_STATUS_DISPLAY[status]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
                   />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="phone"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="phone">Phone</FieldLabel>
-                  <Input
-                    {...field}
-                    id="phone"
-                    type="tel"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter phone number"
-                    autoComplete="tel"
-                    disabled={!isEditing}
+                </FormRow>
+                <FormRow>
+                  <Controller
+                    name="phone"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="phone">Phone</FieldLabel>
+                        <Input
+                          {...field}
+                          id="phone"
+                          type="tel"
+                          aria-invalid={fieldState.invalid}
+                          placeholder="Enter phone number"
+                          autoComplete="tel"
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
                   />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="email"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="email">Email</FieldLabel>
-                  <Input
-                    {...field}
-                    id="email"
-                    type="email"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter email"
-                    autoComplete="email"
-                    disabled={!isEditing}
+                  <Controller
+                    name="email"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="email">Email</FieldLabel>
+                        <Input
+                          {...field}
+                          id="email"
+                          type="email"
+                          aria-invalid={fieldState.invalid}
+                          placeholder="Enter email"
+                          autoComplete="email"
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
                   />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="date_of_birth"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="date_of_birth">Date of Birth</FieldLabel>
-                  <Input
-                    {...field}
-                    id="date_of_birth"
-                    type="date"
-                    aria-invalid={fieldState.invalid}
-                    disabled={!isEditing}
+                </FormRow>
+                <FormRow>
+                  <Controller
+                    name="date_of_birth"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="date_of_birth">
+                          Date of Birth
+                        </FieldLabel>
+                        <Input
+                          {...field}
+                          id="date_of_birth"
+                          type="date"
+                          aria-invalid={fieldState.invalid}
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
                   />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="license_expiry"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="license_expiry">
-                    License Expiry
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="license_expiry"
-                    type="date"
-                    aria-invalid={fieldState.invalid}
-                    disabled={!isEditing}
+                  <Controller
+                    name="hire_date"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="hire_date">Hire Date</FieldLabel>
+                        <Input
+                          {...field}
+                          id="hire_date"
+                          type="date"
+                          aria-invalid={fieldState.invalid}
+                        />
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                      </Field>
+                    )}
                   />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
+                </FormRow>
+                <Controller
+                  name="address"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="address">Address</FieldLabel>
+                      <Textarea
+                        {...field}
+                        id="address"
+                        aria-invalid={fieldState.invalid}
+                        placeholder="Enter address"
+                        rows={3}
+                      />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
                   )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="hire_date"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="hire_date">Hire Date</FieldLabel>
-                  <Input
-                    {...field}
-                    id="hire_date"
-                    type="date"
-                    aria-invalid={fieldState.invalid}
-                    disabled={!isEditing}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="status"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="status">Status</FieldLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DRIVER_STATUS_DB.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {DRIVER_STATUS_DISPLAY[status]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-          </div>
-          <Controller
-            name="address"
-            control={form.control}
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="address">Address</FieldLabel>
-                <Textarea
-                  {...field}
-                  id="address"
-                  aria-invalid={fieldState.invalid}
-                  placeholder="Enter address"
-                  rows={3}
-                  disabled={!isEditing}
                 />
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
-              </Field>
-            )}
-          />
-          <Controller
-            name="notes"
-            control={form.control}
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="notes">Notes</FieldLabel>
-                <Textarea
-                  {...field}
-                  id="notes"
-                  aria-invalid={fieldState.invalid}
-                  placeholder="Additional notes"
-                  rows={3}
-                  disabled={!isEditing}
+                <Controller
+                  name="notes"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="notes">Notes</FieldLabel>
+                      <Textarea
+                        {...field}
+                        id="notes"
+                        aria-invalid={fieldState.invalid}
+                        placeholder="Additional notes"
+                        rows={3}
+                      />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
                 />
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
-              </Field>
-            )}
-          />
-        </FieldGroup>
-        {isEditing && (
-          <Field className="mt-10 w-fit">
-            <Button
-              type="submit"
-              className="w-fit px-11"
-              form="update-driver-form"
-              disabled={updateDriver.isPending}
-            >
-              {updateDriver.isPending ? 'Updating...' : 'Save Details'}
-            </Button>
-          </Field>
-        )}
-      </form>
+              </div>
+            </FormSection>
+
+            <FormSection title="License">
+              <FormRow>
+                <Controller
+                  name="license_number"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="license_number">
+                        License Number *
+                      </FieldLabel>
+                      <Input
+                        {...field}
+                        id="license_number"
+                        type="text"
+                        aria-invalid={fieldState.invalid}
+                        placeholder="Enter license number"
+                      />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+                <Controller
+                  name="license_expiry"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="license_expiry">
+                        License Expiry
+                      </FieldLabel>
+                      <Input
+                        {...field}
+                        id="license_expiry"
+                        type="date"
+                        aria-invalid={fieldState.invalid}
+                      />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+              </FormRow>
+            </FormSection>
+
+            <FormActions>
+              <Button
+                type="submit"
+                form="update-driver-form"
+                disabled={updateDriver.isPending}
+              >
+                {updateDriver.isPending ? 'Updating...' : 'Save Details'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditing(false)}
+                disabled={updateDriver.isPending}
+              >
+                Cancel
+              </Button>
+            </FormActions>
+          </FormLayout>
+        </form>
+      ) : (
+        <div className="flex flex-col gap-5">
+          <DetailSection title="Personnel">
+            <DetailGrid>
+              <DetailItem label="Phone" value={driver.phone} />
+              <DetailItem label="Email" value={driver.email} />
+              <DetailItem
+                label="Date of Birth"
+                value={formatDate(driver.date_of_birth)}
+              />
+              <DetailItem
+                label="Hire Date"
+                value={formatDate(driver.hire_date)}
+              />
+              <DetailItem
+                label="Emergency Contact"
+                value={driver.emergency_contact_name}
+              />
+              <DetailItem
+                label="Emergency Contact Phone"
+                value={driver.emergency_contact_phone}
+              />
+              <DetailItem label="SSS Number" value={driver.sss_number} mono />
+              <DetailItem label="TIN" value={driver.tin} mono />
+              <DetailItem label="Address" value={driver.address} wide />
+              <DetailItem label="Notes" value={driver.notes} wide />
+            </DetailGrid>
+          </DetailSection>
+
+          <DetailSection title="License">
+            <DetailGrid>
+              <DetailItem
+                label="License Number"
+                value={driver.license_number}
+                mono
+              />
+              <DetailItem label="License Type" value={driver.license_type} />
+              <DetailItem
+                label="Expiry"
+                value={formatDate(driver.license_expiry)}
+              />
+            </DetailGrid>
+          </DetailSection>
+        </div>
+      )}
 
       <ConfirmationModal
         open={showConfirm}

@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button';
-import { FieldGroup } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Controller } from 'react-hook-form';
@@ -25,6 +24,13 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
+import PageHeader from '@/components/shared/page-header';
+import {
+  FormLayout,
+  FormSection,
+  FormRow,
+  FormActions
+} from '@/components/shared/form-section';
 
 export function AddTripTicket() {
   const { data: drivers, isLoading: driversLoading } = useDrivers(1, 100);
@@ -85,455 +91,486 @@ export function AddTripTicket() {
 
   return (
     <div>
-      <form
-        className="flex flex-col justify-center"
-        id="add-trip-ticket-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
-        <FieldGroup>
-          <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-bold">Request Trip Ticket</h1>
-            <p className="text-muted-foreground text-balance">
-              Submit a trip ticket request for admin approval.
-            </p>
-          </div>
+      <PageHeader
+        title="Request Trip Ticket"
+        description="Submit a trip ticket request for admin approval."
+      />
 
-          {/* Basic Information */}
-          <div className="grid grid-cols-2 gap-11">
-            <Controller
-              name="branch_id"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="branch_id">Branch *</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value || ''}
-                    disabled={branchesLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          branchesLoading ? 'Loading...' : 'Select a branch'
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches && branches.length > 0 ? (
-                        branches.map((branch) => (
-                          <SelectItem key={branch.id} value={branch.id}>
-                            {branch.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="text-muted-foreground p-2 text-sm">
-                          No branches available
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-
-            <Controller
-              name="office_id"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="office_id">
-                    Department/Office/College *
-                  </FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={officesLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          officesLoading
-                            ? 'Loading...'
-                            : 'Select department/office'
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {offices && offices.length > 0 ? (
-                        offices.map((office) => (
-                          <SelectItem key={office.id} value={office.id}>
-                            {office.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="text-muted-foreground p-2 text-sm">
-                          No offices available
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-
-            <Controller
-              name="office_head_id"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="office_head_id">Office Head</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={officeHeadsLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          officeHeadsLoading
-                            ? 'Loading...'
-                            : 'Select office head'
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {officeHeads && officeHeads.length > 0 ? (
-                        officeHeads.map((officeHead) => (
-                          <SelectItem key={officeHead.id} value={officeHead.id}>
-                            {officeHead.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="text-muted-foreground p-2 text-sm">
-                          No office heads available
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-
-            <Controller
-              name="vehicle_id"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="vehicle_id">Vehicle *</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={vehiclesLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          vehiclesLoading ? 'Loading...' : 'Select a vehicle'
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehicles?.data && vehicles.data.length > 0 ? (
-                        vehicles.data
-                          .filter((vehicle) => {
-                            // Filter by availability
-                            if (vehicle.status !== 'available') return false;
-                            // Filter by user's branch (for both requesters and admins)
-                            if (
-                              userBranchId &&
-                              vehicle.branch !== userBranchId
-                            ) {
-                              return false;
+      <form id="add-trip-ticket-form" onSubmit={form.handleSubmit(onSubmit)}>
+        <FormLayout>
+          <FormSection
+            title="Who it's for"
+            description="The office making the request, and the head who signs it off."
+          >
+            <div className="flex flex-col gap-5">
+              <FormRow>
+                <Controller
+                  name="branch_id"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="branch_id">Branch *</FieldLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || ''}
+                        disabled={branchesLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              branchesLoading ? 'Loading...' : 'Select a branch'
                             }
-                            return true;
-                          })
-                          .map((vehicle) => (
-                            <SelectItem key={vehicle.id} value={vehicle.id}>
-                              {vehicle.make} {vehicle.model} -{' '}
-                              {vehicle.license_plate}
-                            </SelectItem>
-                          ))
-                      ) : (
-                        <div className="text-muted-foreground p-2 text-sm">
-                          No available vehicles in your branch
-                        </div>
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branches && branches.length > 0 ? (
+                            branches.map((branch) => (
+                              <SelectItem key={branch.id} value={branch.id}>
+                                {branch.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="text-muted-foreground p-2 text-sm">
+                              No branches available
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
                       )}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
+                    </Field>
                   )}
-                </Field>
-              )}
-            />
-
-            <Controller
-              name="driver_id"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="driver_id">Driver *</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={driversLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          driversLoading ? 'Loading...' : 'Select a driver'
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {drivers?.data && drivers.data.length > 0 ? (
-                        drivers.data
-                          .filter((driver) => {
-                            // Filter by active status
-                            if (driver.status !== 'active') return false;
-                            // Filter by user's branch (for both requesters and admins)
-                            if (
-                              userBranchId &&
-                              driver.branch_id !== userBranchId
-                            ) {
-                              return false;
-                            }
-                            return true;
-                          })
-                          .map((driver) => (
-                            <SelectItem key={driver.id} value={driver.id}>
-                              {driver.full_name}
-                            </SelectItem>
-                          ))
-                      ) : (
-                        <div className="text-muted-foreground p-2 text-sm">
-                          No active drivers in your branch
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-          </div>
-
-          {/* Purpose and Participants */}
-          <Controller
-            name="purpose"
-            control={form.control}
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="purpose">Purpose *</FieldLabel>
-                <Textarea
-                  {...field}
-                  id="purpose"
-                  aria-invalid={fieldState.invalid}
-                  placeholder="Enter the purpose of the trip"
-                  rows={3}
                 />
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
-              </Field>
-            )}
-          />
 
-          <div className="grid grid-cols-2 gap-11">
-            <Controller
-              name="destination"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="destination">Destination *</FieldLabel>
-                  <Input
-                    {...field}
-                    id="destination"
-                    type="text"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter destination"
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
+                <Controller
+                  name="office_id"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="office_id">
+                        Department/Office/College *
+                      </FieldLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={officesLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              officesLoading
+                                ? 'Loading...'
+                                : 'Select department/office'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {offices && offices.length > 0 ? (
+                            offices.map((office) => (
+                              <SelectItem key={office.id} value={office.id}>
+                                {office.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="text-muted-foreground p-2 text-sm">
+                              No offices available
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
                   )}
-                </Field>
-              )}
-            />
+                />
+              </FormRow>
 
-            <Controller
-              name="participants_count"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="participants_count">
-                    Number of Participants *
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="participants_count"
-                    type="number"
-                    min="1"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter number of participants"
-                    onChange={(e) => {
-                      const count = parseInt(e.target.value) || 1;
-                      field.onChange(e);
-                      // Adjust participants array to match count
-                      const newParticipants = Array.from(
-                        { length: count },
-                        (_, i) => participants[i] || ''
-                      );
-                      setParticipants(newParticipants);
-                    }}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
+              <FormRow>
+                <Controller
+                  name="office_head_id"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="office_head_id">
+                        Office Head
+                      </FieldLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={officeHeadsLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              officeHeadsLoading
+                                ? 'Loading...'
+                                : 'Select office head'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {officeHeads && officeHeads.length > 0 ? (
+                            officeHeads.map((officeHead) => (
+                              <SelectItem
+                                key={officeHead.id}
+                                value={officeHead.id}
+                              >
+                                {officeHead.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="text-muted-foreground p-2 text-sm">
+                              No office heads available
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
                   )}
-                </Field>
-              )}
-            />
-          </div>
+                />
+              </FormRow>
+            </div>
+          </FormSection>
 
-          <Controller
-            name="participants"
-            control={form.control}
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="participants">Participants *</FieldLabel>
-                <p className="text-muted-foreground mb-2 text-sm">
-                  Number of fields matches the participant count above
-                </p>
-                <div className="space-y-2">
-                  {participants.map((participant, index) => (
-                    <div key={index} className="flex gap-2">
+          <FormSection
+            title="The trip"
+            description="Only available vehicles and active drivers from your branch are listed."
+          >
+            <div className="flex flex-col gap-5">
+              <FormRow>
+                <Controller
+                  name="vehicle_id"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="vehicle_id">Vehicle *</FieldLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={vehiclesLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              vehiclesLoading
+                                ? 'Loading...'
+                                : 'Select a vehicle'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vehicles?.data && vehicles.data.length > 0 ? (
+                            vehicles.data
+                              .filter((vehicle) => {
+                                // Filter by availability
+                                if (vehicle.status !== 'available')
+                                  return false;
+                                // Filter by user's branch (for both requesters and admins)
+                                if (
+                                  userBranchId &&
+                                  vehicle.branch !== userBranchId
+                                ) {
+                                  return false;
+                                }
+                                return true;
+                              })
+                              .map((vehicle) => (
+                                <SelectItem key={vehicle.id} value={vehicle.id}>
+                                  {vehicle.make} {vehicle.model} -{' '}
+                                  {vehicle.license_plate}
+                                </SelectItem>
+                              ))
+                          ) : (
+                            <div className="text-muted-foreground p-2 text-sm">
+                              No available vehicles in your branch
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+
+                <Controller
+                  name="driver_id"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="driver_id">Driver *</FieldLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={driversLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              driversLoading ? 'Loading...' : 'Select a driver'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {drivers?.data && drivers.data.length > 0 ? (
+                            drivers.data
+                              .filter((driver) => {
+                                // Filter by active status
+                                if (driver.status !== 'active') return false;
+                                // Filter by user's branch (for both requesters and admins)
+                                if (
+                                  userBranchId &&
+                                  driver.branch_id !== userBranchId
+                                ) {
+                                  return false;
+                                }
+                                return true;
+                              })
+                              .map((driver) => (
+                                <SelectItem key={driver.id} value={driver.id}>
+                                  {driver.full_name}
+                                </SelectItem>
+                              ))
+                          ) : (
+                            <div className="text-muted-foreground p-2 text-sm">
+                              No active drivers in your branch
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+              </FormRow>
+
+              <FormRow>
+                <Controller
+                  name="destination"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="destination">
+                        Destination *
+                      </FieldLabel>
                       <Input
-                        value={participant}
+                        {...field}
+                        id="destination"
+                        type="text"
+                        aria-invalid={fieldState.invalid}
+                        placeholder="Enter destination"
+                      />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+
+                <Controller
+                  name="participants_count"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="participants_count">
+                        Number of Participants *
+                      </FieldLabel>
+                      <Input
+                        {...field}
+                        id="participants_count"
+                        type="number"
+                        min="1"
+                        aria-invalid={fieldState.invalid}
+                        placeholder="Enter number of participants"
                         onChange={(e) => {
-                          const newParticipants = [...participants];
-                          newParticipants[index] = e.target.value;
-                          setParticipants(newParticipants);
-                          // Update form value as comma-separated string
-                          field.onChange(
-                            newParticipants.filter((p) => p.trim()).join(', ')
+                          const count = parseInt(e.target.value) || 1;
+                          field.onChange(e);
+                          // Adjust participants array to match count
+                          const newParticipants = Array.from(
+                            { length: count },
+                            (_, i) => participants[i] || ''
                           );
+                          setParticipants(newParticipants);
                         }}
-                        placeholder={`Participant ${index + 1} name`}
+                      />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+              </FormRow>
+
+              <Controller
+                name="purpose"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="purpose">Purpose *</FieldLabel>
+                    <Textarea
+                      {...field}
+                      id="purpose"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Enter the purpose of the trip"
+                      rows={3}
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+
+              <Controller
+                name="participants"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="participants">
+                      Participants *
+                    </FieldLabel>
+                    <p className="text-muted-foreground mb-2 text-sm">
+                      Number of fields matches the participant count above
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {participants.map((participant, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input
+                            value={participant}
+                            onChange={(e) => {
+                              const newParticipants = [...participants];
+                              newParticipants[index] = e.target.value;
+                              setParticipants(newParticipants);
+                              // Update form value as comma-separated string
+                              field.onChange(
+                                newParticipants
+                                  .filter((p) => p.trim())
+                                  .join(', ')
+                              );
+                            }}
+                            placeholder={`Participant ${index + 1} name`}
+                            aria-invalid={fieldState.invalid}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </div>
+          </FormSection>
+
+          <FormSection title="When">
+            <FormRow>
+              <Controller
+                name="start_ts"
+                control={form.control}
+                render={({ field, fieldState }) => {
+                  // Get today's date and time in local timezone as minimum
+                  const now = new Date();
+                  const minDateTime = new Date(
+                    now.getTime() - now.getTimezoneOffset() * 60000
+                  )
+                    .toISOString()
+                    .slice(0, 16);
+
+                  return (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="start_ts">
+                        Start Date & Time *
+                      </FieldLabel>
+                      <Input
+                        {...field}
+                        id="start_ts"
+                        type="datetime-local"
+                        min={minDateTime}
                         aria-invalid={fieldState.invalid}
                       />
-                    </div>
-                  ))}
-                </div>
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
-              </Field>
-            )}
-          />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  );
+                }}
+              />
 
-          {/* Trip Details */}
-          <div className="grid grid-cols-2 gap-6">
+              <Controller
+                name="end_ts"
+                control={form.control}
+                render={({ field, fieldState }) => {
+                  // Get the start_ts value to set as minimum for end_ts
+                  const startTs = form.watch('start_ts');
+
+                  return (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="end_ts">
+                        End Date & Time *
+                      </FieldLabel>
+                      <Input
+                        {...field}
+                        id="end_ts"
+                        type="datetime-local"
+                        min={startTs || undefined}
+                        aria-invalid={fieldState.invalid}
+                      />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  );
+                }}
+              />
+            </FormRow>
+          </FormSection>
+
+          <FormSection title="Anything else">
             <Controller
-              name="start_ts"
+              name="remarks"
               control={form.control}
-              render={({ field, fieldState }) => {
-                // Get today's date and time in local timezone as minimum
-                const now = new Date();
-                const minDateTime = new Date(
-                  now.getTime() - now.getTimezoneOffset() * 60000
-                )
-                  .toISOString()
-                  .slice(0, 16);
-
-                return (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="start_ts">
-                      Start Date & Time *
-                    </FieldLabel>
-                    <Input
-                      {...field}
-                      id="start_ts"
-                      type="datetime-local"
-                      min={minDateTime}
-                      aria-invalid={fieldState.invalid}
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                );
-              }}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="remarks">Remarks (Optional)</FieldLabel>
+                  <Textarea
+                    {...field}
+                    id="remarks"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Enter any additional remarks"
+                    rows={3}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
             />
+          </FormSection>
 
-            <Controller
-              name="end_ts"
-              control={form.control}
-              render={({ field, fieldState }) => {
-                // Get the start_ts value to set as minimum for end_ts
-                const startTs = form.watch('start_ts');
-
-                return (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="end_ts">End Date & Time *</FieldLabel>
-                    <Input
-                      {...field}
-                      id="end_ts"
-                      type="datetime-local"
-                      min={startTs || undefined}
-                      aria-invalid={fieldState.invalid}
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                );
-              }}
-            />
-          </div>
-
-          <Controller
-            name="remarks"
-            control={form.control}
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="remarks">Remarks (Optional)</FieldLabel>
-                <Textarea
-                  {...field}
-                  id="remarks"
-                  aria-invalid={fieldState.invalid}
-                  placeholder="Enter any additional remarks"
-                  rows={3}
-                />
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
-              </Field>
-            )}
-          />
-        </FieldGroup>
-
-        <div className="mt-11 flex gap-4">
-          <Button type="submit" disabled={addTripTicketAction.isLoading}>
-            {addTripTicketAction.isLoading ? 'Submitting...' : 'Submit Request'}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate({ to: '/trip-tickets' })}
-          >
-            Cancel
-          </Button>
-        </div>
+          <FormActions>
+            <Button type="submit" disabled={addTripTicketAction.isLoading}>
+              {addTripTicketAction.isLoading
+                ? 'Submitting...'
+                : 'Submit Request'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate({ to: '/trip-tickets' })}
+            >
+              Cancel
+            </Button>
+          </FormActions>
+        </FormLayout>
       </form>
 
       <ConfirmationModal

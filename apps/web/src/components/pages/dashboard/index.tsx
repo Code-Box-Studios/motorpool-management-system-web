@@ -1,4 +1,3 @@
-import MetricCard from '@/components/shared/metric-card';
 import VehicleMap from '@/components/shared/vehicle-map';
 import { useLatestGpsData, useInsertGpsData } from '@/lib/query/gps';
 import { useVehicles } from '@/lib/query/vehicles';
@@ -20,6 +19,7 @@ import { USER_ROLES } from '@/lib/enums';
 import NeedsYou from './needs-you';
 import PreventiveMaintenance from './preventive-maintenance';
 import PredictiveMaintenance from './predictive-maintenance';
+import { MetricStrip } from '@/components/shared/metric-card';
 import {
   useVehicleStatusCounts,
   useCompletedTripsCount
@@ -140,34 +140,33 @@ const Dashboard = () => {
     );
   }
 
+  const metrics = [
+    { label: 'Available Vehicles', value: statusCounts?.available ?? 0 },
+    { label: 'Under Maintenance', value: statusCounts?.underMaintenance ?? 0 },
+    { label: 'On Trip', value: statusCounts?.onTrip ?? 0 },
+    { label: 'Trips Completed', value: completedTrips ?? 0 }
+  ];
+
   return (
     <div className="space-y-6">
       {/* What needs a human right now — before any numbers. */}
       <NeedsYou />
 
-      <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
-        <MetricCard
-          title="Available Vehicles"
-          value={statusCounts?.available ?? 0}
-        />
-        <MetricCard
-          title="Under Maintenance"
-          value={statusCounts?.underMaintenance ?? 0}
-        />
-        <MetricCard title="On Trip" value={statusCounts?.onTrip ?? 0} />
-        <MetricCard title="Trips Completed" value={completedTrips ?? 0} />
-      </div>
+      <MetricStrip metrics={metrics} />
 
-      {/* Side by side only when there is genuinely room. Below xl these two
-          panels squeeze their cards until the vehicle names wrap mid-word. */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <PreventiveMaintenance />
-        <PredictiveMaintenance />
+      {/* Both panels are previews here, not the record: showViewAll keeps each
+          to its top few rows and sends the rest to the Maintenance tabs.
+          items-start so the shorter panel does not stretch to match the taller.
+          Side by side only when there is genuinely room — below xl these two
+          squeeze their cards until the vehicle names wrap mid-word. */}
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
+        <PreventiveMaintenance showViewAll />
+        <PredictiveMaintenance showViewAll />
       </div>
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle>Vehicle Tracking</CardTitle>
               <CardDescription>
@@ -190,27 +189,23 @@ const Dashboard = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <VehicleMap
             gpsData={gpsData || []}
-            height="600px"
+            height="460px"
             center={[7.0731, 125.6128]}
             zoom={13}
           />
+
+          {/* The demo note belongs to the map it describes, not to the page. */}
+          {isDemoRunning && (
+            <p className="bg-status-move-bg text-status-move-fg rounded-[14px] px-4 py-3 text-sm">
+              Demo vehicle is moving through Davao City. The marker updates every
+              3 seconds with GPS coordinates, speed, heading, and engine status.
+            </p>
+          )}
         </CardContent>
       </Card>
-
-      {isDemoRunning && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="pt-6">
-            <p className="text-sm text-blue-800">
-              🚗 Demo vehicle is moving through Davao City. The marker updates
-              every 3 seconds with GPS coordinates, speed, heading, and engine
-              status.
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

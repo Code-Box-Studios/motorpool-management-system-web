@@ -8,7 +8,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Typography } from '@/components/ui/typography';
 import { useNavigate } from '@tanstack/react-router';
-import { PreventiveMaintenanceCard } from '@/components/shared/preventive-maintenance-card';
+import { PredictiveMaintenanceCard } from '@/components/shared/preventive-maintenance-card';
+import { lastServiceTime } from '@/lib/maintenance-format';
 import {
   Table,
   TableBody,
@@ -28,12 +29,15 @@ import {
   usePredictiveMaintenanceData,
   useSparePartsAssociations
 } from '@/lib/query/analytics';
-import { getNextMaintenanceDueMileage } from '@/lib/utils/predictive-maintenance';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface PredictiveMaintenanceProps {
   showViewAll?: boolean;
 }
+
+// Four across squeezed the cards until "Isuzu Traviz", "MMS-0004" and
+// "49,000 km" all broke mid-word.
+const CARD_GRID = 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3';
 
 const PredictiveMaintenance = ({
   showViewAll = true
@@ -55,9 +59,12 @@ const PredictiveMaintenance = ({
     id: v.vehicleId,
     plateNumber: v.licensePlate,
     vehicleName: v.vehicleName,
-    mileage: v.mileage,
-    maintenanceDue: getNextMaintenanceDueMileage(v.mileage),
-    lastMaintenance: v.lastMaintenanceDate ?? 'N/A',
+    riskScore: v.riskScore,
+    kmSinceLastMaint: v.kmSinceLastMaint,
+    avgDailyKm: v.avgDailyKm,
+    // Kept null rather than coerced to 'N/A' — a placeholder string reaches
+    // `new Date()` as "Invalid Date", and it is only a sort key here anyway.
+    lastMaintenance: v.lastMaintenanceDate,
     priority: v.priority,
     reason: v.reason,
     predictedDate: v.predictedFailureDate
@@ -76,8 +83,7 @@ const PredictiveMaintenance = ({
     .filter((v) => v.priority === 'high')
     .sort(
       (a, b) =>
-        new Date(a.lastMaintenance).getTime() -
-        new Date(b.lastMaintenance).getTime()
+        lastServiceTime(a.lastMaintenance) - lastServiceTime(b.lastMaintenance)
     );
 
   const displayedVehicles = showViewAll
@@ -114,7 +120,7 @@ const PredictiveMaintenance = ({
               </div>
               <Typography
                 variant={'p-sm'}
-                className="font-normal text-gray-500"
+                className="text-muted-foreground font-normal"
               >
                 Vehicles predicted to need maintenance based on data analysis
               </Typography>
@@ -128,11 +134,9 @@ const PredictiveMaintenance = ({
         </CardHeader>
         <CardContent>
           {predictionsLoading ? (
-            <div
-              className={`grid gap-4 ${showViewAll ? 'grid-cols-1' : 'md:grid-cols-2 lg:grid-cols-4'}`}
-            >
-              {Array.from({ length: showViewAll ? 2 : 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-48 w-full rounded-lg" />
+            <div className={showViewAll ? 'grid grid-cols-1 gap-4' : CARD_GRID}>
+              {Array.from({ length: showViewAll ? 2 : 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-64 w-full rounded-xl" />
               ))}
             </div>
           ) : displayedVehicles.length === 0 ? (
@@ -140,25 +144,19 @@ const PredictiveMaintenance = ({
               No vehicles currently at risk. All vehicles are well-maintained.
             </p>
           ) : (
-            <div
-              className={`grid gap-4 ${showViewAll ? 'grid-cols-1' : 'md:grid-cols-2 lg:grid-cols-4'}`}
-            >
+            <div className={showViewAll ? 'grid grid-cols-1 gap-4' : CARD_GRID}>
               {displayedVehicles.map((vehicle) => (
-                <PreventiveMaintenanceCard
+                <PredictiveMaintenanceCard
                   key={vehicle.id}
                   id={vehicle.id}
                   plateNumber={vehicle.plateNumber}
                   vehicleName={vehicle.vehicleName}
-                  mileage={vehicle.mileage}
-                  maintenanceDue={vehicle.maintenanceDue}
-                  lastMaintenance={vehicle.lastMaintenance}
+                  riskScore={vehicle.riskScore}
                   priority={vehicle.priority}
                   reason={vehicle.reason}
-                  predictedSchedule={vehicle.reason.replace(
-                    'Predicted next: ',
-                    ''
-                  )}
                   predictedDate={vehicle.predictedDate}
+                  kmSinceLastMaint={vehicle.kmSinceLastMaint}
+                  avgDailyKm={vehicle.avgDailyKm}
                 />
               ))}
             </div>
@@ -208,13 +206,15 @@ const PredictiveMaintenance = ({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="h-2 w-24 rounded-full bg-gray-200">
+                          <div className="bg-muted h-2 w-24 overflow-hidden rounded-full">
                             <div
                               className="bg-primary h-2 rounded-full"
-                              style={{ width: `${pair.frequency}%` }}
+                              style={{
+                                width: `${Math.min(pair.frequency, 100)}%`
+                              }}
                             />
                           </div>
-                          <span className="text-muted-foreground text-sm">
+                          <span className="text-muted-foreground shrink-0 text-sm whitespace-nowrap">
                             {pair.frequency}%
                           </span>
                         </div>

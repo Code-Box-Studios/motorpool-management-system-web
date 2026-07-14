@@ -12,7 +12,8 @@ import {
   Gauge,
   TrendingUp,
   Activity,
-  Wrench
+  Wrench,
+  Info
 } from 'lucide-react';
 import {
   Tooltip,
@@ -20,14 +21,34 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@/components/ui/tooltip';
-import { Info } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  MaintenanceMeter,
+  MaintenanceRow
+} from '@/components/shared/preventive-maintenance-card';
+import {
+  formatMaintenanceDate,
+  meterTone,
+  priorityMeterTone
+} from '@/lib/maintenance-format';
 import { usePredictiveMaintenanceData } from '@/lib/query/analytics';
 import { getNextMaintenanceDueMileage } from '@/lib/utils/predictive-maintenance';
 
 interface VehicleMaintenanceInsightsProps {
   vehicleId: string;
 }
+
+const RISK_LABEL = {
+  high: 'High Risk',
+  medium: 'Medium Risk',
+  low: 'Low Risk'
+} as const;
+
+const RISK_BADGE = {
+  high: 'stop',
+  medium: 'wait',
+  low: 'neutral'
+} as const;
 
 export const VehicleMaintenanceInsights = ({
   vehicleId
@@ -40,9 +61,9 @@ export const VehicleMaintenanceInsights = ({
     return (
       <div className="mt-8 space-y-4">
         <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-2 gap-4">
-          <Skeleton className="h-64 w-full rounded-lg" />
-          <Skeleton className="h-64 w-full rounded-lg" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Skeleton className="h-64 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       </div>
     );
@@ -54,10 +75,11 @@ export const VehicleMaintenanceInsights = ({
 
   const maintenanceDue = getNextMaintenanceDueMileage(prediction.mileage);
   const kmRemaining = maintenanceDue - prediction.mileage;
-  const mileageProgress = Math.min(
-    (prediction.mileage / maintenanceDue) * 100,
-    100
-  );
+  // A vehicle at 0 km has a next-service mileage of 0 too; guard the divide.
+  const mileageProgress =
+    maintenanceDue > 0
+      ? Math.min((prediction.mileage / maintenanceDue) * 100, 100)
+      : 0;
 
   const preventiveReason =
     kmRemaining <= 0
@@ -71,7 +93,6 @@ export const VehicleMaintenanceInsights = ({
       <h2 className="text-xl font-semibold">Maintenance Insights</h2>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Preventive Maintenance Card */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -95,7 +116,7 @@ export const VehicleMaintenanceInsights = ({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground text-sm">Status</span>
               <Badge
                 variant={
@@ -115,52 +136,40 @@ export const VehicleMaintenanceInsights = ({
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Gauge className="text-muted-foreground h-4 w-4" />
-                <span className="text-muted-foreground">Current Mileage:</span>
-                <span className="font-medium">
-                  {prediction.mileage.toLocaleString()} km
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <AlertTriangle className="h-4 w-4 text-orange-500" />
-                <span className="text-muted-foreground">Next Service At:</span>
-                <span className="font-medium">
-                  {maintenanceDue.toLocaleString()} km
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="text-muted-foreground h-4 w-4" />
-                <span className="text-muted-foreground">Last Service:</span>
-                <span className="font-medium">
-                  {prediction.lastMaintenanceDate
-                    ? new Date(
-                        prediction.lastMaintenanceDate
-                      ).toLocaleDateString()
-                    : 'No records'}
-                </span>
-              </div>
+              <MaintenanceRow
+                icon={Gauge}
+                label="Current Mileage"
+                value={`${prediction.mileage.toLocaleString()} km`}
+              />
+              <MaintenanceRow
+                icon={AlertTriangle}
+                iconClassName="text-status-wait-fg"
+                label="Next Service At"
+                value={`${maintenanceDue.toLocaleString()} km`}
+              />
+              <MaintenanceRow
+                icon={Calendar}
+                label="Last Service"
+                value={formatMaintenanceDate(
+                  prediction.lastMaintenanceDate,
+                  'No records'
+                )}
+              />
             </div>
 
-            <div>
-              <div className="mb-1 flex justify-between text-xs">
-                <span className="text-muted-foreground">Mileage progress</span>
-                <span className="text-muted-foreground">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-muted-foreground truncate">
+                  Mileage progress
+                </span>
+                <span className="text-muted-foreground shrink-0 whitespace-nowrap">
                   {Math.round(mileageProgress)}%
                 </span>
               </div>
-              <div className="h-2.5 w-full rounded-full bg-gray-200">
-                <div
-                  className={`h-2.5 rounded-full ${
-                    mileageProgress >= 100
-                      ? 'bg-red-500'
-                      : mileageProgress >= 80
-                        ? 'bg-orange-500'
-                        : 'bg-green-500'
-                  }`}
-                  style={{ width: `${Math.min(mileageProgress, 100)}%` }}
-                />
-              </div>
+              <MaintenanceMeter
+                value={mileageProgress}
+                tone={meterTone(mileageProgress)}
+              />
             </div>
 
             <p className="text-muted-foreground text-sm italic">
@@ -169,7 +178,8 @@ export const VehicleMaintenanceInsights = ({
           </CardContent>
         </Card>
 
-        {/* Predictive Maintenance Card */}
+        {/* Leads with the score and the reason behind it — the mileage triplet
+            belongs to the preventive card beside it, not here. */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -194,93 +204,56 @@ export const VehicleMaintenanceInsights = ({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground text-sm">Risk Level</span>
-              <Badge
-                variant={
-                  prediction.priority === 'high'
-                    ? 'stop'
-                    : prediction.priority === 'medium'
-                      ? 'wait'
-                      : 'neutral'
-                }
-              >
-                {prediction.priority === 'high'
-                  ? 'High Risk'
-                  : prediction.priority === 'medium'
-                    ? 'Medium Risk'
-                    : 'Low Risk'}
+              <Badge variant={RISK_BADGE[prediction.priority]}>
+                {RISK_LABEL[prediction.priority]}
               </Badge>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <TrendingUp className="h-4 w-4 text-blue-500" />
-                <span className="text-muted-foreground">Risk Score:</span>
-                <span className="font-medium">{prediction.riskScore}/100</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Gauge className="text-muted-foreground h-4 w-4" />
-                <span className="text-muted-foreground">
-                  KM Since Last Service:
+            <div className="space-y-1.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-muted-foreground truncate text-xs">
+                  Risk score
                 </span>
-                <span className="font-medium">
-                  {prediction.kmSinceLastMaint.toLocaleString()} km
+                <span className="shrink-0 whitespace-nowrap">
+                  <span className="text-2xl leading-none font-semibold">
+                    {prediction.riskScore}
+                  </span>
+                  <span className="text-muted-foreground text-sm">/100</span>
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Activity className="text-muted-foreground h-4 w-4" />
-                <span className="text-muted-foreground">Avg Daily Usage:</span>
-                <span className="font-medium">
-                  {prediction.avgDailyKm} km/day
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Wrench className="text-muted-foreground h-4 w-4" />
-                <span className="text-muted-foreground">
-                  Services (12 months):
-                </span>
-                <span className="font-medium">{prediction.maintFreq12m}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-red-500" />
-                <span className="text-muted-foreground">
-                  Predicted Maintenance:
-                </span>
-                <span className="font-medium">
-                  {new Date(
-                    prediction.predictedFailureDate
-                  ).toLocaleDateString()}
-                </span>
-              </div>
+              <MaintenanceMeter
+                value={prediction.riskScore}
+                tone={priorityMeterTone(prediction.priority)}
+              />
             </div>
 
-            <div>
-              <div className="mb-1 flex justify-between text-xs">
-                <span className="text-muted-foreground">Risk level</span>
-                <span className="text-muted-foreground">
-                  {prediction.riskScore}%
-                </span>
-              </div>
-              <div className="h-2.5 w-full rounded-full bg-gray-200">
-                <div
-                  className={`h-2.5 rounded-full ${
-                    prediction.riskScore >= 65
-                      ? 'bg-red-500'
-                      : prediction.riskScore >= 40
-                        ? 'bg-orange-500'
-                        : 'bg-green-500'
-                  }`}
-                  style={{
-                    width: `${Math.min(prediction.riskScore, 100)}%`
-                  }}
-                />
-              </div>
-            </div>
+            <p className="text-ink-soft text-sm">{prediction.reason}</p>
 
-            <p className="text-muted-foreground text-sm italic">
-              {prediction.reason}
-            </p>
+            <div className="border-border space-y-2 border-t pt-3">
+              <MaintenanceRow
+                icon={Calendar}
+                iconClassName="text-status-stop-fg"
+                label="Predicted Maintenance"
+                value={formatMaintenanceDate(prediction.predictedFailureDate)}
+              />
+              <MaintenanceRow
+                icon={TrendingUp}
+                label="Since Last Service"
+                value={`${prediction.kmSinceLastMaint.toLocaleString()} km`}
+              />
+              <MaintenanceRow
+                icon={Activity}
+                label="Avg Daily Usage"
+                value={`${prediction.avgDailyKm.toLocaleString()} km/day`}
+              />
+              <MaintenanceRow
+                icon={Wrench}
+                label="Services (12 months)"
+                value={prediction.maintFreq12m}
+              />
+            </div>
           </CardContent>
         </Card>
       </div>

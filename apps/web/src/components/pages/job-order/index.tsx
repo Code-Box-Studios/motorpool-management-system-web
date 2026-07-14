@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
+import EmptyState from '@/components/shared/empty-state';
 import { NoteJobOrderModal } from './job-order-inner/note-job-order-modal';
 import { ApproveJobOrderModal } from './job-order-inner/approve-job-order-modal';
 import { CompleteRepairModal } from './job-order-inner/complete-repair-modal';
@@ -37,6 +38,32 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
 import { useMemo } from 'react';
+
+// shadcn paints the ACTIVE tab with --background — a canvas beige that sits
+// *lighter* than the --muted track behind the inactive one, so on a white card
+// the segmented control read inverted, the unselected view looking selected.
+// Emphasis is the ink pill this app already uses for the primary button and the
+// active sidebar item.
+const ACTIVE_TAB =
+  'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground dark:data-[state=active]:border-primary';
+
+const EmDash = () => <span className="text-muted-foreground">—</span>;
+
+// Job orders carry a timestamp, not just a day. Stacking the time under the date
+// keeps that precision without paying for a column wide enough to hold both on
+// one line.
+const DateTimeCell = ({ value }: { value: string | null | undefined }) => {
+  if (!value) return <EmDash />;
+  const at = new Date(value);
+  return (
+    <span className="flex flex-col leading-tight">
+      <span>{at.toLocaleDateString()}</span>
+      <span className="text-muted-foreground text-xs">
+        {at.toLocaleTimeString()}
+      </span>
+    </span>
+  );
+};
 
 const JobOrdersPage = () => {
   const { user } = useAuth();
@@ -97,6 +124,10 @@ const JobOrdersPage = () => {
     });
   };
 
+  const openOrder = (orderId: string) => {
+    navigate({ to: `/job-order/${orderId}` });
+  };
+
   const getDriverName = (driverId: string | null) => {
     if (!driverId) return 'Not assigned';
     const driver = drivers?.find((d) => d.id === driverId);
@@ -143,13 +174,19 @@ const JobOrdersPage = () => {
         <CardContent className="pt-6">
           {/* Table first: it answers "what needs doing". The calendar is for planning. */}
           <Tabs defaultValue="table" className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="table">Table</TabsTrigger>
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            <TabsList className="grid w-full max-w-[260px] grid-cols-2">
+              <TabsTrigger value="table" className={ACTIVE_TAB}>
+                Table
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className={ACTIVE_TAB}>
+                Calendar
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="calendar" className="mt-6">
               {isCalendarLoading ? (
-                <div>Loading calendar...</div>
+                <div className="text-muted-foreground py-12 text-center text-sm">
+                  Loading calendar...
+                </div>
               ) : (
                 <FullCalendar
                   plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -172,120 +209,134 @@ const JobOrdersPage = () => {
               {isLoading ? (
                 <TableSkeleton
                   columns={[
-                    { label: 'Ref', width: 'w-16' },
+                    { label: 'Ref', width: 'w-14' },
                     { label: 'Status', width: 'w-28' },
-                    { label: 'Vehicle', width: 'w-40' },
+                    { label: 'Vehicle', width: 'w-44' },
                     { label: 'Incident Date', width: 'w-24' },
                     { label: 'Assigned Mechanic', width: 'w-32' },
                     { label: 'Target Date', width: 'w-24' },
-                    { label: 'Repair Type', width: 'w-24' },
-                    { label: 'Actions', width: 'w-10' }
+                    { label: 'Repair Type', width: 'w-20' },
+                    { label: 'Actions', width: 'w-40' }
                   ]}
                 />
+              ) : !data?.data?.length ? (
+                <EmptyState message="No job orders yet." />
               ) : (
-                <Table>
+                /* Table already renders its own overflow-x-auto container; the
+                   min-width is what actually makes it scroll rather than letting
+                   the browser squeeze the row actions — "Note Job Order",
+                   "Approve", "Mark as Repaired" — until they clip. */
+                <Table className="min-w-[1180px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Ref</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Vehicle</TableHead>
-                      <TableHead>Incident Date</TableHead>
-                      <TableHead>Assigned Mechanic</TableHead>
-                      <TableHead>Target Date</TableHead>
-                      <TableHead>Repair Type</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="w-[80px]">Ref</TableHead>
+                      <TableHead className="w-[150px]">Status</TableHead>
+                      <TableHead className="min-w-[200px]">Vehicle</TableHead>
+                      <TableHead className="w-[130px]">Incident Date</TableHead>
+                      <TableHead className="w-[160px]">
+                        Assigned Mechanic
+                      </TableHead>
+                      <TableHead className="w-[130px]">Target Date</TableHead>
+                      <TableHead className="w-[110px]">Repair Type</TableHead>
+                      {/* Pinned: the row's transition ("Note Job Order",
+                          "Mark as Repaired") is the point of the row, and it sat
+                          past the scroll edge where it had to be hunted for. */}
+                      <TableHead className="bg-card border-border sticky right-0 z-10 w-[260px] border-l text-right">
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data?.data && data.data.length > 0 ? (
-                      data.data.map((order) => (
-                        <TableRow key={order.id}>
-                          <TableCell className="text-ink-soft font-mono text-sm whitespace-nowrap">
-                            {formatRef('JO', order.order_no)}
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge status={order.status || 'pending'} />
-                          </TableCell>
-                          <TableCell>
-                            {order.vehicles
-                              ? `${order.vehicles.make} ${order.vehicles.model} - ${order.vehicles.license_plate}`
-                              : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            {order.incident_date
-                              ? new Date(order.incident_date).toLocaleString()
-                              : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            {getDriverName(order.assigned_mechanic)}
-                          </TableCell>
-                          <TableCell>
-                            {order.target_date
-                              ? new Date(order.target_date).toLocaleString()
-                              : 'Not set'}
-                          </TableCell>
-                          <TableCell>
-                            {order.repair_done
-                              ? order.repair_done.charAt(0).toUpperCase() +
-                                order.repair_done.slice(1)
-                              : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              {isAdmin && order.status === 'pending' && (
-                                <NoteJobOrderModal
-                                  drivers={drivers}
-                                  onSubmit={(data) =>
-                                    handleNoteJobOrder(order.id, data)
-                                  }
-                                  isLoading={noteJobOrder.isPending}
-                                  currentSparePartsUsed={
-                                    Array.isArray(order.spare_parts_used)
-                                      ? order.spare_parts_used
-                                      : []
-                                  }
-                                />
-                              )}
-                              {isEVP &&
-                                order.status === 'assigned_mechanic' && (
-                                  <ApproveJobOrderModal
-                                    onSubmit={() =>
-                                      handleApproveJobOrder(order.id)
-                                    }
-                                    isLoading={approveJobOrder.isPending}
-                                  />
-                                )}
-                              {isAdmin && order.status === 'ongoing_repair' && (
-                                <CompleteRepairModal
-                                  onSubmit={(data) =>
-                                    handleCompleteRepair(order.id, data)
-                                  }
-                                  isLoading={completeRepair.isPending}
-                                />
-                              )}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  navigate({ to: `/job-order/${order.id}` })
-                                }
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
+                    {data.data.map((order) => (
+                      <TableRow
+                        key={order.id}
+                        className="cursor-pointer"
+                        onClick={() => openOrder(order.id)}
+                      >
+                        <TableCell className="text-ink-soft font-mono text-sm whitespace-nowrap">
+                          {formatRef('JO', order.order_no)}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={order.status || 'pending'} />
+                        </TableCell>
+                        <TableCell>
+                          {order.vehicles ? (
+                            <span className="flex flex-col leading-tight">
+                              <span>
+                                {order.vehicles.make} {order.vehicles.model}
+                              </span>
+                              <span className="text-muted-foreground font-mono text-xs">
+                                {order.vehicles.license_plate}
+                              </span>
+                            </span>
+                          ) : (
+                            <EmDash />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <DateTimeCell value={order.incident_date} />
+                        </TableCell>
+                        <TableCell>
+                          {getDriverName(order.assigned_mechanic)}
+                        </TableCell>
+                        <TableCell>
+                          <DateTimeCell value={order.target_date} />
+                        </TableCell>
+                        <TableCell>
+                          {order.repair_done ? (
+                            order.repair_done.charAt(0).toUpperCase() +
+                            order.repair_done.slice(1)
+                          ) : (
+                            <EmDash />
+                          )}
+                        </TableCell>
+                        {/* The transition modals below are the real approval
+                            controls; a click on one must not also open the record. */}
                         <TableCell
-                          colSpan={8}
-                          className="text-muted-foreground py-8 text-center"
+                          className="bg-card border-border sticky right-0 z-10 border-l"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          No data found
+                          <div className="flex items-center justify-end gap-2">
+                            {isAdmin && order.status === 'pending' && (
+                              <NoteJobOrderModal
+                                drivers={drivers}
+                                onSubmit={(data) =>
+                                  handleNoteJobOrder(order.id, data)
+                                }
+                                isLoading={noteJobOrder.isPending}
+                                currentSparePartsUsed={
+                                  Array.isArray(order.spare_parts_used)
+                                    ? order.spare_parts_used
+                                    : []
+                                }
+                              />
+                            )}
+                            {isEVP && order.status === 'assigned_mechanic' && (
+                              <ApproveJobOrderModal
+                                onSubmit={() => handleApproveJobOrder(order.id)}
+                                isLoading={approveJobOrder.isPending}
+                              />
+                            )}
+                            {isAdmin && order.status === 'ongoing_repair' && (
+                              <CompleteRepairModal
+                                onSubmit={(data) =>
+                                  handleCompleteRepair(order.id, data)
+                                }
+                                isLoading={completeRepair.isPending}
+                              />
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openOrder(order.id)}
+                            >
+                              <Eye className="h-4 w-4" />
+                              View
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    )}
+                    ))}
                   </TableBody>
                 </Table>
               )}

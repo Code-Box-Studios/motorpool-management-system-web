@@ -11,6 +11,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
+import { BreadcrumbProvider } from '@/components/provider/breadcrumb-provider';
 import { USER_ROLES } from '@/lib/enums';
 import { getUserRoleName } from '@/lib/utils';
 
@@ -87,16 +88,24 @@ function AuthenticatedLayout() {
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <div className="w-full">
-        <AppHeader />
-        {/* Capped so tables and cards do not stretch into unreadable line
-            lengths on a wide monitor. */}
-        <main className="mx-auto w-full max-w-[1600px] p-5 md:p-10">
-          <Outlet />
-        </main>
-      </div>
-    </SidebarProvider>
+    <BreadcrumbProvider>
+      <SidebarProvider>
+        <AppSidebar />
+        {/* min-w-0: this is a flex child, and a flex item defaults to
+            min-width:auto — it refuses to shrink below its content. A wide
+            table (the job-order row actions push it past 1180px) would then
+            widen this whole column past the viewport, scrolling the PAGE
+            sideways and clipping the actions, instead of scrolling inside the
+            table's own overflow container. */}
+        <div className="w-full min-w-0">
+          <AppHeader />
+          {/* Capped so tables and cards do not stretch into unreadable line
+              lengths on a wide monitor. */}
+          <main className="mx-auto w-full max-w-[1600px] p-5 md:p-10">
+            <Outlet />
+          </main>
+        </div>
+      </SidebarProvider>
+    </BreadcrumbProvider>
   );
 }

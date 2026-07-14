@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Typography } from '@/components/ui/typography';
 import { useNavigate } from '@tanstack/react-router';
 import { PreventiveMaintenanceCard } from '@/components/shared/preventive-maintenance-card';
+import { lastServiceTime } from '@/lib/maintenance-format';
 import {
   Tooltip,
   TooltipContent,
@@ -23,6 +24,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface PreventiveMaintenanceProps {
   showViewAll?: boolean;
 }
+
+// Full width on the dashboard's half-width column; up to three across on the
+// Maintenance tab. Four across squeezed the cards until plates and distances
+// hyphenated mid-word.
+const CARD_GRID = 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3';
 
 const PreventiveMaintenance = ({
   showViewAll = true
@@ -57,7 +63,10 @@ const PreventiveMaintenance = ({
       vehicleName: v.vehicleName,
       mileage: v.mileage,
       maintenanceDue,
-      lastMaintenance: v.lastMaintenanceDate ?? 'N/A',
+      // Kept null rather than coerced to 'N/A': the card renders "No records"
+      // for a vehicle that has never been serviced, and any placeholder string
+      // here would reach `new Date()` as "Invalid Date".
+      lastMaintenance: v.lastMaintenanceDate,
       priority: v.priority,
       reason
     };
@@ -67,8 +76,7 @@ const PreventiveMaintenance = ({
     .filter((v) => v.priority === 'high')
     .sort(
       (a, b) =>
-        new Date(a.lastMaintenance).getTime() -
-        new Date(b.lastMaintenance).getTime()
+        lastServiceTime(a.lastMaintenance) - lastServiceTime(b.lastMaintenance)
     );
 
   const displayedVehicles = showViewAll
@@ -110,7 +118,10 @@ const PreventiveMaintenance = ({
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <Typography variant={'p-sm'} className="font-normal text-gray-500">
+            <Typography
+              variant={'p-sm'}
+              className="text-muted-foreground font-normal"
+            >
               Vehicles due for maintenance based on mileage and service
               intervals
             </Typography>
@@ -124,11 +135,9 @@ const PreventiveMaintenance = ({
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div
-            className={`grid gap-4 ${showViewAll ? 'grid-cols-1' : 'md:grid-cols-2 lg:grid-cols-4'}`}
-          >
-            {Array.from({ length: showViewAll ? 2 : 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-48 w-full rounded-lg" />
+          <div className={showViewAll ? 'grid grid-cols-1 gap-4' : CARD_GRID}>
+            {Array.from({ length: showViewAll ? 2 : 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-64 w-full rounded-xl" />
             ))}
           </div>
         ) : displayedVehicles.length === 0 ? (
@@ -136,9 +145,7 @@ const PreventiveMaintenance = ({
             No vehicles currently due for preventive maintenance.
           </p>
         ) : (
-          <div
-            className={`grid gap-4 ${showViewAll ? 'grid-cols-1' : 'md:grid-cols-2 lg:grid-cols-4'}`}
-          >
+          <div className={showViewAll ? 'grid grid-cols-1 gap-4' : CARD_GRID}>
             {displayedVehicles.map((vehicle) => (
               <PreventiveMaintenanceCard
                 key={vehicle.id}

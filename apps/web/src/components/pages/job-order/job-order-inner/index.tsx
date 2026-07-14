@@ -1,509 +1,243 @@
-import { FieldGroup } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { Field, FieldError, FieldLabel } from '@/components/ui/field';
-import { Controller } from 'react-hook-form';
-import {
-  useJobOrderForm,
-  useUpdateJobOrderAction,
-  type JobOrderFormData
-} from './actions';
-import { useParams, useNavigate } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import { useJobOrder } from '@/lib/query/job-orders';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useVehicles } from '@/lib/query/vehicles';
 import { useAdmins, useAllUsers } from '@/lib/query/user-management';
 import { useBranches } from '@/lib/query/shared';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { JOB_ORDER_STATUS, REPAIR_DONE_TYPE } from '@/lib/enums';
-import { Textarea } from '@/components/ui/textarea';
-import { useEffect } from 'react';
-import { MultiSelect } from '@/components/ui/multi-select';
 import { useAllSpareParts } from '@/lib/query/spare-parts';
+import {
+  RecordHeader,
+  DetailSection,
+  DetailGrid,
+  DetailItem
+} from '@/components/shared/detail-view';
+import EmptyState from '@/components/shared/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
+import { formatRef } from '@/lib/utils/reference';
 
-export function JobOrderInner() {
+// Dates arrive as ISO strings (some columns are `@db.Date`). A missing or
+// unparseable one resolves to undefined so DetailItem prints an em dash
+// rather than "Invalid Date".
+const formatDateTime = (value: string | null | undefined) => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toLocaleString();
+};
+
+const titleCase = (value: string | null | undefined) =>
+  value ? value.charAt(0).toUpperCase() + value.slice(1) : undefined;
+
+const DetailSkeleton = () => (
+  <div>
+    <div className="mb-6 space-y-3">
+      <Skeleton className="h-4 w-20" />
+      <Skeleton className="h-8 w-72" />
+      <Skeleton className="h-4 w-56" />
+    </div>
+    <div className="space-y-6">
+      {[0, 1].map((section) => (
+        <div
+          key={section}
+          className="bg-card border-border rounded-[20px] border p-6"
+        >
+          <Skeleton className="mb-5 h-5 w-40" />
+          <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2, 3, 4, 5].map((field) => (
+              <div key={field} className="space-y-2">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-4 w-36" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+export const JobOrderInner = () => {
   const { id } = useParams({ strict: false });
   const { data: jobOrder, isLoading: isLoadingJobOrder } = useJobOrder(
     id as string
   );
   const { data: drivers, isLoading: isLoadingDrivers } = useAllDrivers();
   const { data: vehicles, isLoading: isLoadingVehicles } = useVehicles(1, 100);
-  const { data: branches } = useBranches();
+  const { data: branches, isLoading: isLoadingBranches } = useBranches();
   const { data: admins, isLoading: isLoadingAdmins } = useAdmins();
   const { data: allUsers, isLoading: isLoadingUsers } = useAllUsers();
-  const { data: spareParts } = useAllSpareParts();
-  const updateJobOrderAction = useUpdateJobOrderAction(id as string);
-  const form = useJobOrderForm();
-  const navigate = useNavigate();
+  const { data: spareParts, isLoading: isLoadingSpareParts } =
+    useAllSpareParts();
 
-  useEffect(() => {
-    console.log('Data check:', {
-      hasJobOrder: !!jobOrder,
-      jobOrder: jobOrder,
-      hasDriversData: !!drivers,
-      driversCount: drivers?.length,
-      hasVehiclesData: !!vehicles?.data,
-      vehiclesCount: vehicles?.data?.length,
-      hasAdmins: !!admins,
-      adminsCount: admins?.length,
-      hasAllUsers: !!allUsers,
-      allUsersCount: allUsers?.length,
-      isLoadingJobOrder,
-      isLoadingDrivers,
-      isLoadingVehicles,
-      isLoadingAdmins,
-      isLoadingUsers
-    });
+  useBreadcrumbLabel(
+    jobOrder ? formatRef('JO', jobOrder.order_no) : undefined
+  );
 
-    if (jobOrder && drivers && vehicles?.data && admins && allUsers) {
-      console.log('Resetting form with values');
-
-      const formatDate = (dateString: string | null) => {
-        if (!dateString) return '';
-        try {
-          const date = new Date(dateString);
-          if (dateString.includes('T')) {
-            return date.toISOString().slice(0, 16);
-          } else {
-            return dateString + 'T00:00';
-          }
-        } catch {
-          return '';
-        }
-      };
-
-      const formData = {
-        vehicle_id: jobOrder.vehicle_id || '',
-        branch_id: jobOrder.branch_id || '',
-        incident_date: formatDate(jobOrder.incident_date),
-        incident_details: jobOrder.incident_details || '',
-        date_of_request: formatDate(jobOrder.created_at),
-        requested_by: jobOrder.requested_by || '',
-        noted_by: jobOrder.noted_by || '',
-        approved_by: jobOrder.approved_by || '',
-        date_approved: formatDate(jobOrder.date_approved),
-        assigned_mechanic: jobOrder.assigned_mechanic || '',
-        target_date: formatDate(jobOrder.target_date),
-        repair_done: jobOrder.repair_done || '',
-        actual_date_of_release: formatDate(jobOrder.actual_date_of_release),
-        status: (jobOrder.status as JobOrderFormData['status']) || 'pending',
-        remarks: jobOrder.remarks || '',
-        spare_parts_used: Array.isArray(jobOrder.spare_parts_used)
-          ? jobOrder.spare_parts_used
-          : []
-      };
-
-      console.log('Form data being set:', formData);
-      form.reset(formData);
-    }
-  }, [
-    jobOrder,
-    drivers,
-    vehicles,
-    admins,
-    allUsers,
-    form,
-    isLoadingJobOrder,
-    isLoadingDrivers,
-    isLoadingVehicles,
-    isLoadingAdmins,
-    isLoadingUsers
-  ]);
-
-  const onSubmit = (data: JobOrderFormData) => {
-    updateJobOrderAction
-      .updateJobOrderAction(data)
-      .then(() => {
-        navigate({ to: '/job-order' });
-      })
-      .catch((error) => {
-        console.error('Error updating job order:', error);
-      });
+  // The API stores people as ids and embeds no user object, so a name has to be
+  // found in one of the three directories. An id we cannot name is NOT shown —
+  // a UUID is a database key, never a fact about a person.
+  const personName = (personId: string | null | undefined) => {
+    if (!personId) return undefined;
+    return (
+      drivers?.find((driver) => driver.id === personId)?.full_name ||
+      admins?.find((admin) => admin.id === personId)?.full_name ||
+      allUsers?.find((user) => user.id === personId)?.full_name ||
+      undefined
+    );
   };
 
   if (
     isLoadingJobOrder ||
     isLoadingDrivers ||
     isLoadingVehicles ||
+    isLoadingBranches ||
     isLoadingAdmins ||
-    isLoadingUsers
+    isLoadingUsers ||
+    isLoadingSpareParts
   ) {
-    return <div>Loading...</div>;
+    return <DetailSkeleton />;
   }
 
   if (!jobOrder) {
-    return <div>Job order not found</div>;
+    return <EmptyState message="Job order not found." />;
   }
+
+  // The read endpoint embeds the vehicle; the fleet list is the fallback for a
+  // payload served without it.
+  const vehicle =
+    jobOrder.vehicles ??
+    vehicles?.data?.find((v) => v.id === jobOrder.vehicle_id);
+  const vehicleName = vehicle ? `${vehicle.make} ${vehicle.model}` : undefined;
+  const plate = vehicle?.license_plate;
+
+  const branchName = branches?.find(
+    (branch) => branch.id === jobOrder.branch_id
+  )?.name;
+
+  const partsUsed = (
+    Array.isArray(jobOrder.spare_parts_used) ? jobOrder.spare_parts_used : []
+  ).map((sparePartId) => {
+    const part = spareParts?.find((p) => p.id === sparePartId);
+    return {
+      id: sparePartId,
+      name: part?.name ?? 'Unknown part',
+      brand: part?.brand ?? undefined
+    };
+  });
+
+  const incident = jobOrder.incident_details?.trim();
 
   return (
     <div>
-      <form
-        className="flex flex-col justify-center"
-        id="update-job-order-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
-        <FieldGroup>
-          <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-bold">View Job Order</h1>
-            <p className="text-muted-foreground text-balance">
-              Job order details are read-only.
+      <RecordHeader
+        reference={formatRef('JO', jobOrder.order_no)}
+        title={incident || 'Job order'}
+        status={jobOrder.status ?? undefined}
+        meta={
+          vehicleName && (
+            <>
+              {vehicleName}
+              {plate && (
+                <>
+                  {' · '}
+                  <span className="font-mono">{plate}</span>
+                </>
+              )}
+            </>
+          )
+        }
+        backTo="/job-order"
+        backLabel="Job Orders"
+      />
+
+      <div className="space-y-6">
+        <DetailSection title="Vehicle & request">
+          <DetailGrid>
+            <DetailItem label="Vehicle" value={vehicleName} />
+            <DetailItem label="Plate" value={plate} mono />
+            <DetailItem label="Branch" value={branchName} />
+            <DetailItem
+              label="Incident Date"
+              value={formatDateTime(jobOrder.incident_date)}
+            />
+            <DetailItem
+              label="Requested By"
+              value={personName(jobOrder.requested_by)}
+            />
+            <DetailItem
+              label="Date of Request"
+              value={formatDateTime(jobOrder.created_at)}
+            />
+            <DetailItem label="Incident Details" value={incident} wide />
+          </DetailGrid>
+        </DetailSection>
+
+        <DetailSection title="Repair">
+          <DetailGrid>
+            <DetailItem
+              label="Assigned Mechanic"
+              value={personName(jobOrder.assigned_mechanic)}
+            />
+            {/* `date_of_request` is what the note flow calls "Vehicle Date
+                Accepted" — the day the shop took the vehicle in. */}
+            <DetailItem
+              label="Vehicle Date Accepted"
+              value={formatDateTime(jobOrder.date_of_request)}
+            />
+            <DetailItem
+              label="Target Date"
+              value={formatDateTime(jobOrder.target_date)}
+            />
+            <DetailItem
+              label="Actual Date of Release"
+              value={formatDateTime(jobOrder.actual_date_of_release)}
+            />
+            <DetailItem
+              label="Repair Done"
+              value={titleCase(jobOrder.repair_done)}
+            />
+            <DetailItem label="Noted By" value={personName(jobOrder.noted_by)} />
+            <DetailItem
+              label="Approved By"
+              value={personName(jobOrder.approved_by)}
+            />
+            <DetailItem
+              label="Date Approved"
+              value={formatDateTime(jobOrder.date_approved)}
+            />
+            <DetailItem label="Remarks" value={jobOrder.remarks} wide />
+          </DetailGrid>
+        </DetailSection>
+
+        <DetailSection
+          title="Spare parts"
+          description="Parts noted against this repair."
+        >
+          {partsUsed.length > 0 ? (
+            <ul className="divide-border divide-y">
+              {partsUsed.map((part) => (
+                <li
+                  key={part.id}
+                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3 first:pt-0 last:pb-0"
+                >
+                  <span className="text-sm font-medium">{part.name}</span>
+                  {part.brand && (
+                    <span className="text-muted-foreground text-sm">
+                      {part.brand}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              No spare parts noted.
             </p>
-          </div>
-          <div className="grid grid-cols-2 gap-11">
-            <Controller
-              name="branch_id"
-              control={form.control}
-              render={({ field, fieldState }) => {
-                const branch = branches?.find((b) => b.id === field.value);
-                const displayValue = branch?.name || field.value || '';
-                return (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="branch_id">Branch *</FieldLabel>
-                    <Input value={displayValue} disabled readOnly />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                );
-              }}
-            />
-            <Controller
-              name="vehicle_id"
-              control={form.control}
-              render={({ field, fieldState }) => {
-                const vehicle = vehicles?.data?.find(
-                  (v) => v.id === field.value
-                );
-                const displayValue = vehicle
-                  ? `${vehicle.make} ${vehicle.model} - ${vehicle.license_plate}`
-                  : field.value || '';
-                return (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="vehicle_id">Vehicle *</FieldLabel>
-                    <Input value={displayValue} disabled readOnly />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                );
-              }}
-            />
-            <Controller
-              name="incident_date"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="incident_date">
-                    Incident Date *
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="incident_date"
-                    type="datetime-local"
-                    aria-invalid={fieldState.invalid}
-                    disabled
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="date_of_request"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="date_of_request">
-                    Date of Request
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="date_of_request"
-                    type="datetime-local"
-                    aria-invalid={fieldState.invalid}
-                    disabled
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="spare_parts_used"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid} className="col-span-2">
-                  <FieldLabel htmlFor="spare_parts_used">
-                    Spare Parts Used
-                  </FieldLabel>
-                  <MultiSelect
-                    options={
-                      spareParts?.map((part) => ({
-                        value: part.id,
-                        label: `${part.name}${part.brand ? ` - ${part.brand}` : ''}`
-                      })) || []
-                    }
-                    selected={field.value || []}
-                    onChange={field.onChange}
-                    placeholder="Select spare parts..."
-                    disabled
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="requested_by"
-              control={form.control}
-              render={({ field, fieldState }) => {
-                const driver = drivers?.find((d) => d.id === field.value);
-                const admin = admins?.find((a) => a.id === field.value);
-                const displayValue =
-                  driver?.full_name || admin?.full_name || field.value || '';
-                return (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="requested_by">Requested By</FieldLabel>
-                    <Input value={displayValue} disabled readOnly />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                );
-              }}
-            />
-            <Controller
-              name="noted_by"
-              control={form.control}
-              render={({ field, fieldState }) => {
-                const admin = admins?.find((a) => a.id === field.value);
-                const displayValue = admin?.full_name || field.value || '';
-                return (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="noted_by">Noted By</FieldLabel>
-                    <Input value={displayValue} disabled readOnly />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                );
-              }}
-            />
-            <Controller
-              name="approved_by"
-              control={form.control}
-              render={({ field, fieldState }) => {
-                const user = allUsers?.find((u) => u.id === field.value);
-                const displayValue = user?.full_name || field.value || '';
-                return (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="approved_by">Approved By</FieldLabel>
-                    <Input value={displayValue} disabled readOnly />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                );
-              }}
-            />
-            <Controller
-              name="date_approved"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="date_approved">Date Approved</FieldLabel>
-                  <Input
-                    {...field}
-                    id="date_approved"
-                    type="datetime-local"
-                    aria-invalid={fieldState.invalid}
-                    disabled
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="assigned_mechanic"
-              control={form.control}
-              render={({ field, fieldState }) => {
-                const driver = drivers?.find((d) => d.id === field.value);
-                const displayValue = driver?.full_name || field.value || '';
-                return (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="assigned_mechanic">
-                      Assigned Mechanic
-                    </FieldLabel>
-                    <Input value={displayValue} disabled readOnly />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                );
-              }}
-            />
-            <Controller
-              name="target_date"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="target_date">Target Date</FieldLabel>
-                  <Input
-                    {...field}
-                    id="target_date"
-                    type="datetime-local"
-                    aria-invalid={fieldState.invalid}
-                    disabled
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="actual_date_of_release"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="actual_date_of_release">
-                    Actual Date of Release
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="actual_date_of_release"
-                    type="datetime-local"
-                    aria-invalid={fieldState.invalid}
-                    disabled
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="repair_done"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="repair_done">Repair Done</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    defaultValue={field.value}
-                    disabled
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select repair type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(REPAIR_DONE_TYPE).map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type.charAt(0).toUpperCase() + type.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="status"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="status">Status</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    defaultValue={field.value}
-                    disabled
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(JOB_ORDER_STATUS).map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status
-                            .split('_')
-                            .map(
-                              (word) =>
-                                word.charAt(0).toUpperCase() +
-                                word.slice(1).toLowerCase()
-                            )
-                            .join(' ')}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="incident_details"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid} className="col-span-2">
-                  <FieldLabel htmlFor="incident_details">
-                    Incident Details
-                  </FieldLabel>
-                  <Textarea
-                    {...field}
-                    id="incident_details"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Describe the incident"
-                    rows={3}
-                    disabled
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="remarks"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid} className="col-span-2">
-                  <FieldLabel htmlFor="remarks">Remarks</FieldLabel>
-                  <Textarea
-                    {...field}
-                    id="remarks"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter any remarks"
-                    rows={3}
-                    disabled
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-          </div>
-        </FieldGroup>
-      </form>
+          )}
+        </DetailSection>
+      </div>
     </div>
   );
-}
+};
 
 export default JobOrderInner;

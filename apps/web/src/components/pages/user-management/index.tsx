@@ -11,28 +11,32 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import PageHeader from '@/components/shared/page-header';
+import EmptyState from '@/components/shared/empty-state';
+import StatusBadge from '@/components/shared/status-badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAllUsers } from '@/lib/query/user-management';
+import { present, roleLabel } from '@/lib/role-label';
+
+const getInitials = (user: UserProfileData): string => {
+  if (user.full_name) {
+    return user.full_name
+      .split(' ')
+      .filter(Boolean)
+      .map((word) => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  }
+  if (user.email) return user.email.split('@')[0].slice(0, 2).toUpperCase();
+  return 'U';
+};
+
+const COLUMNS = ['User', 'Role', 'Branch', 'Status', 'Created'];
 
 const UserManagement = () => {
   const { data: users, isLoading, error } = useAllUsers();
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div>Loading users...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-red-500">Error loading users: {error.message}</div>
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -45,78 +49,88 @@ const UserManagement = () => {
           </Link>
         }
       />
-      <Card>
-        <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Avatar</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Full Name</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Branch</TableHead>
-                <TableHead>Created</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users && users.length > 0 ? (
-                users.map((user: UserProfileData) => {
-                  const initials = user.full_name
-                    ? user.full_name
-                        .split(' ')
-                        .map((word: string) => word.charAt(0))
-                        .join('')
-                        .toUpperCase()
-                        .slice(0, 2)
-                    : user.email
-                      ? user.email.charAt(0).toUpperCase()
-                      : 'U';
 
-                  const formattedRole = user.role
-                    ? user.role
-                        .split('_')
-                        .map(
-                          (word: string) =>
-                            word.charAt(0).toUpperCase() +
-                            word.slice(1).toLowerCase()
-                        )
-                        .join(' ')
-                    : 'N/A';
-
-                  return (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <Avatar>
-                          <AvatarImage src={user.avatar_url || undefined} />
-                          <AvatarFallback>{initials}</AvatarFallback>
-                        </Avatar>
-                      </TableCell>
-                      <TableCell>{user.email || 'N/A'}</TableCell>
-                      <TableCell>{user.full_name || 'N/A'}</TableCell>
-                      <TableCell>{formattedRole}</TableCell>
-                      <TableCell>{user.branch_name || 'N/A'}</TableCell>
-                      <TableCell>
-                        {user.created_at
-                          ? new Date(user.created_at).toLocaleDateString()
-                          : 'N/A'}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              ) : (
+      {error ? (
+        <Card>
+          <CardContent className="text-destructive pt-6 text-sm">
+            Error loading users: {error.message}
+          </CardContent>
+        </Card>
+      ) : !isLoading && (!users || users.length === 0) ? (
+        <EmptyState message="No users yet." />
+      ) : (
+        <Card>
+          <CardContent className="pt-6">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-muted-foreground py-8 text-center"
-                  >
-                    No users found
-                  </TableCell>
+                  {COLUMNS.map((column) => (
+                    <TableHead key={column}>{column}</TableHead>
+                  ))}
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {isLoading
+                  ? Array.from({ length: 5 }).map((_, row) => (
+                      <TableRow key={row}>
+                        {COLUMNS.map((column) => (
+                          <TableCell key={column}>
+                            <Skeleton className="h-5 w-full" />
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  : users?.map((user: UserProfileData) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage
+                                src={user.avatar_url || undefined}
+                                alt=""
+                                className="object-cover"
+                              />
+                              {/* AvatarFallback paints bg-primary, so the initials
+                                  need the matching foreground or they vanish into it. */}
+                              <AvatarFallback>
+                                <span className="text-primary-foreground text-xs font-semibold">
+                                  {getInitials(user)}
+                                </span>
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <div className="truncate font-medium">
+                                {user.full_name || '—'}
+                              </div>
+                              <div className="text-muted-foreground truncate text-sm">
+                                {user.email || '—'}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{roleLabel(user.role) ?? '—'}</TableCell>
+                        <TableCell>
+                          {present(user.branch_name) ?? '—'}
+                        </TableCell>
+                        <TableCell>
+                          {user.status ? (
+                            <StatusBadge status={user.status} />
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {user.created_at
+                            ? new Date(user.created_at).toLocaleDateString()
+                            : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

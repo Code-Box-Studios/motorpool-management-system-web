@@ -1,10 +1,23 @@
 import { useSpareParts } from '@/lib/query/spare-parts';
 import { Link } from '@tanstack/react-router';
 import { buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import PageHeader from '@/components/shared/page-header';
 import EntityCard from '@/components/shared/entity-card';
 import EmptyState from '@/components/shared/empty-state';
+
+// The shelf is the point of this screen, so every part carries a stock pill in
+// the same slot the other grids give a status: what is gone, what is nearly
+// gone, what is fine. Tones are the shared semantic five — no new colours.
+const LOW_STOCK_THRESHOLD = 5;
+
+const stockBadge = (quantity: number) => {
+  if (quantity === 0) return <Badge variant="stop">Out of stock</Badge>;
+  if (quantity <= LOW_STOCK_THRESHOLD)
+    return <Badge variant="wait">Low stock</Badge>;
+  return <Badge variant="done">In stock</Badge>;
+};
 
 const SpareParts = () => {
   const { data } = useSpareParts(1, 100);
@@ -37,19 +50,12 @@ const SpareParts = () => {
                 to={`/spare-parts/${sparePart.id}`}
                 imageSrc={sparePart.image}
                 title={sparePart.name}
-                fields={[
-                  { label: 'Brand', value: sparePart.brand || '—' },
-                  {
-                    label: 'In stock',
-                    // Running out is the thing worth noticing on this screen.
-                    value: (
-                      <span className={cn(quantity === 0 && 'text-signal')}>
-                        {quantity}
-                      </span>
-                    )
-                  }
-                ]}
+                badge={stockBadge(quantity)}
                 footnote={sparePart.description}
+                fields={[
+                  { label: 'Brand', value: sparePart.brand },
+                  { label: 'On hand', value: quantity }
+                ]}
               />
             );
           })}

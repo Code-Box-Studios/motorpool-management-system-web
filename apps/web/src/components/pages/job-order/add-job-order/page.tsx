@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button';
-import { FieldGroup } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Controller } from 'react-hook-form';
@@ -26,6 +25,13 @@ import { useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useState } from 'react';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
+import PageHeader from '@/components/shared/page-header';
+import {
+  FormLayout,
+  FormSection,
+  FormRow,
+  FormActions
+} from '@/components/shared/form-section';
 
 export function AddJobOrder() {
   const { data: vehicles } = useVehicles(1, 100);
@@ -68,122 +74,128 @@ export function AddJobOrder() {
 
   return (
     <div>
-      <form
-        className="flex flex-col justify-center"
-        id="add-job-order-form"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
-        <FieldGroup>
-          <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-bold">Create Job Order</h1>
-            <p className="text-muted-foreground text-balance">
-              Submit a job order request for vehicle repair or maintenance.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-11">
-            <Controller
-              name="branch_id"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="branch_id">Branch *</FieldLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches?.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="vehicle_id"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="vehicle_id">Vehicle *</FieldLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a vehicle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehicles?.data?.map((vehicle) => (
-                        <SelectItem key={vehicle.id} value={vehicle.id}>
-                          {vehicle.make} {vehicle.model} -{' '}
-                          {vehicle.license_plate}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+      <PageHeader
+        title="Create Job Order"
+        description="Submit a job order request for vehicle repair or maintenance."
+      />
 
-            <Controller
-              name="incident_date"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="incident_date">
-                    Incident Date and Time *
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="incident_date"
-                    type="datetime-local"
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
+      <form id="add-job-order-form" onSubmit={form.handleSubmit(onSubmit)}>
+        <FormLayout>
+          <FormSection title="The vehicle">
+            <FormRow>
+              <Controller
+                name="branch_id"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="branch_id">Branch *</FieldLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches?.map((branch) => (
+                          <SelectItem key={branch.id} value={branch.id}>
+                            {branch.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+              <Controller
+                name="vehicle_id"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="vehicle_id">Vehicle *</FieldLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a vehicle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vehicles?.data?.map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id}>
+                            {vehicle.make} {vehicle.model} -{' '}
+                            {vehicle.license_plate}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </FormRow>
+          </FormSection>
+
+          <FormSection
+            title="What happened"
+            description="When the fault or incident occurred, and what the mechanic needs to know."
+          >
+            <div className="flex flex-col gap-5">
+              <FormRow>
+                <Controller
+                  name="incident_date"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="incident_date">
+                        Incident Date and Time *
+                      </FieldLabel>
+                      <Input
+                        {...field}
+                        id="incident_date"
+                        type="datetime-local"
+                        aria-invalid={fieldState.invalid}
+                      />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
                   )}
-                </Field>
-              )}
-            />
+                />
+              </FormRow>
 
-            {/* Incident Details */}
-            <Controller
-              name="incident_details"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid} className="col-span-2">
-                  <FieldLabel htmlFor="incident_details">
-                    Incident Details
-                  </FieldLabel>
-                  <Textarea
-                    {...field}
-                    id="incident_details"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Describe what happened..."
-                    rows={4}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+              <Controller
+                name="incident_details"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="incident_details">
+                      Incident Details
+                    </FieldLabel>
+                    <Textarea
+                      {...field}
+                      id="incident_details"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Describe what happened..."
+                      rows={4}
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
 
-            {/* Spare parts are recorded later, when an admin notes the job
-                order — the create endpoint does not accept them. */}
+              {/* Spare parts are recorded later, when an admin notes the job
+                  order — the create endpoint does not accept them. */}
+            </div>
+          </FormSection>
 
-            {/* Remarks */}
+          <FormSection title="Anything else">
             <Controller
               name="remarks"
               control={form.control}
               render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid} className="col-span-2">
+                <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor="remarks">Remarks</FieldLabel>
                   <Textarea
                     {...field}
@@ -198,66 +210,74 @@ export function AddJobOrder() {
                 </Field>
               )}
             />
+          </FormSection>
 
-            {/* Status (disabled, defaults to pending) */}
-            <Controller
-              name="status"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="status">Status</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(JOB_ORDER_STATUS).map(([key, value]) => (
-                        <SelectItem key={value} value={value}>
-                          {key
-                            .replace(/_/g, ' ')
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+          <FormSection
+            title="The request"
+            description="Filled in for you — a new job order starts as pending, under your name."
+          >
+            <FormRow>
+              <Controller
+                name="status"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="status">Status</FieldLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(JOB_ORDER_STATUS).map(
+                          ([key, value]) => (
+                            <SelectItem key={value} value={value}>
+                              {key
+                                .replace(/_/g, ' ')
+                                .replace(/\b\w/g, (l) => l.toUpperCase())}
+                            </SelectItem>
+                          )
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
 
-            {/* Requested By (auto-filled with current user) */}
-            <Controller
-              name="requested_by"
-              control={form.control}
-              render={({ fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="requested_by">Requested By</FieldLabel>
-                  <Input
-                    id="requested_by"
-                    value={
-                      allUsers?.find((u) => u.id === user?.id)?.full_name ||
-                      'Current User'
-                    }
-                    disabled
-                    className="bg-muted"
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-          </div>
-        </FieldGroup>
+              <Controller
+                name="requested_by"
+                control={form.control}
+                render={({ fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="requested_by">Requested By</FieldLabel>
+                    <Input
+                      id="requested_by"
+                      value={
+                        allUsers?.find((u) => u.id === user?.id)?.full_name ||
+                        'Current User'
+                      }
+                      disabled
+                      className="bg-muted"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </FormRow>
+          </FormSection>
 
-        <Field className="mt-10 w-fit">
-          <div className="flex gap-4">
+          <FormActions>
+            <Button type="submit" disabled={addJobOrderAction.isLoading}>
+              {addJobOrderAction.isLoading ? 'Creating...' : 'Create Job Order'}
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -265,15 +285,8 @@ export function AddJobOrder() {
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="w-fit px-11"
-              disabled={addJobOrderAction.isLoading}
-            >
-              {addJobOrderAction.isLoading ? 'Creating...' : 'Create Job Order'}
-            </Button>
-          </div>
-        </Field>
+          </FormActions>
+        </FormLayout>
       </form>
 
       <ConfirmationModal

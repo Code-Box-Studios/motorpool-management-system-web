@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
+import EmptyState from '@/components/shared/empty-state';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -54,6 +55,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
+
+// shadcn paints the ACTIVE tab with --background — a canvas beige that sits
+// *lighter* than the --muted track behind the inactive one, so on a white card
+// the segmented control read inverted, the unselected view looking selected.
+// Emphasis is the ink pill this app already uses for the primary button and the
+// active sidebar item.
+const ACTIVE_TAB =
+  'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground dark:data-[state=active]:border-primary';
 
 const TripTicketsPage = () => {
   const { user } = useAuth();
@@ -194,6 +203,19 @@ const TripTicketsPage = () => {
     });
   };
 
+  // Non-admins land on the detail page read-only. Shared by the row click and
+  // the View button so the two can never drift apart.
+  const openTicket = (ticketId: string) => {
+    if (isAdmin) {
+      navigate({ to: `/trip-tickets/${ticketId}` });
+      return;
+    }
+    navigate({
+      to: `/trip-tickets/${ticketId}`,
+      search: { viewOnly: true }
+    });
+  };
+
   return (
     <div>
       <PageHeader
@@ -213,13 +235,19 @@ const TripTicketsPage = () => {
           {/* The table is the operational view — it answers "what needs doing".
               The calendar is the secondary, planning view. */}
           <Tabs defaultValue="table" className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="table">Table</TabsTrigger>
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            <TabsList className="grid w-full max-w-[260px] grid-cols-2">
+              <TabsTrigger value="table" className={ACTIVE_TAB}>
+                Table
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className={ACTIVE_TAB}>
+                Calendar
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="calendar" className="mt-6">
               {isCalendarLoading ? (
-                <div>Loading calendar...</div>
+                <div className="text-muted-foreground py-12 text-center text-sm">
+                  Loading calendar...
+                </div>
               ) : (
                 <FullCalendar
                   plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -242,302 +270,292 @@ const TripTicketsPage = () => {
               {isTableLoading ? (
                 <TableSkeleton
                   columns={[
-                    { label: 'Ref', width: 'w-16' },
-                    { label: 'Status', width: 'w-28' },
+                    { label: 'Ref', width: 'w-14' },
+                    { label: 'Status', width: 'w-32' },
                     { label: 'Destination', width: 'w-40' },
-                    { label: 'Purpose', width: 'w-32' },
-                    { label: 'Pickup Date', width: 'w-24' },
-                    { label: 'Return Date', width: 'w-24' },
-                    { label: 'Actions', width: 'w-10' }
+                    { label: 'Purpose', width: 'w-48' },
+                    { label: 'Pickup Date', width: 'w-20' },
+                    { label: 'Return Date', width: 'w-20' },
+                    { label: 'Actions', width: 'w-24' }
                   ]}
                 />
+              ) : !tableData?.data?.length ? (
+                <EmptyState message="No trip tickets yet." />
               ) : (
-                <Table>
+                /* Table already renders its own overflow-x-auto container; the
+                   min-width is what actually makes it scroll rather than letting
+                   the browser squeeze the status control and the row actions
+                   until they clip. */
+                <Table className="min-w-[1040px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Ref</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Destination</TableHead>
-                      <TableHead>Purpose</TableHead>
-                      <TableHead>Pickup Date</TableHead>
-                      <TableHead>Return Date</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="w-[80px]">Ref</TableHead>
+                      <TableHead className="w-[200px]">Status</TableHead>
+                      <TableHead className="min-w-[180px]">
+                        Destination
+                      </TableHead>
+                      <TableHead className="min-w-[220px]">Purpose</TableHead>
+                      <TableHead className="w-[116px]">Pickup Date</TableHead>
+                      <TableHead className="w-[116px]">Return Date</TableHead>
+                      <TableHead className="w-[190px] text-right">
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tableData?.data && tableData.data.length > 0 ? (
-                      tableData.data.map((ticket) => (
-                        <TableRow key={ticket.id}>
-                          <TableCell className="text-ink-soft font-mono text-sm whitespace-nowrap">
-                            {formatRef('TT', ticket.ticket_no)}
-                          </TableCell>
-                          <TableCell>
-                            {isAdmin ? (
-                              <Select
-                                value={
-                                  ticket.status || 'pending_admin_approval'
+                    {tableData.data.map((ticket) => (
+                      <TableRow
+                        key={ticket.id}
+                        className="cursor-pointer"
+                        onClick={() => openTicket(ticket.id)}
+                      >
+                        <TableCell className="text-ink-soft font-mono text-sm whitespace-nowrap">
+                          {formatRef('TT', ticket.ticket_no)}
+                        </TableCell>
+                        {/* The admin status control is a real menu of transitions;
+                            a click on it must not also open the record. */}
+                        <TableCell
+                          onClick={
+                            isAdmin ? (e) => e.stopPropagation() : undefined
+                          }
+                        >
+                          {isAdmin ? (
+                            <Select
+                              value={ticket.status || 'pending_admin_approval'}
+                              onValueChange={(value) => {
+                                if (value === TRIP_TICKET_STATUS.CANCELLED) {
+                                  setPendingStatusChange({
+                                    ticketId: ticket.id,
+                                    status: value
+                                  });
+                                  setAdminCancelDialogOpen(true);
+                                } else if (
+                                  value === TRIP_TICKET_STATUS.DISAPPROVED
+                                ) {
+                                  setPendingStatusChange({
+                                    ticketId: ticket.id,
+                                    status: value
+                                  });
+                                  setDisapprovedDialogOpen(true);
+                                } else if (
+                                  value ===
+                                  TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL
+                                ) {
+                                  setPendingStatusChange({
+                                    ticketId: ticket.id,
+                                    status: value
+                                  });
+                                  // Pre-populate fuel allocation data from ticket
+                                  // Fall back to today when the ticket has no
+                                  // start_ts, so the required approve `date`
+                                  // is never sent empty (server rejects '').
+                                  const startDate = ticket.start_ts
+                                    ? ticket.start_ts.split('T')[0]
+                                    : new Date().toISOString().split('T')[0];
+                                  setFuelAllocationData({
+                                    allocation_date: startDate,
+                                    allocation_trip_to:
+                                      ticket.destination || '',
+                                    allocation_purpose: ticket.purpose || '',
+                                    allocation_vehicle_id:
+                                      ticket.vehicle_id || '',
+                                    allocation_fuel_type: '',
+                                    allocation_liters: ''
+                                  });
+                                  setFuelAllocationDialogOpen(true);
+                                } else {
+                                  handleStatusChange(ticket.id, value);
                                 }
-                                onValueChange={(value) => {
-                                  if (value === TRIP_TICKET_STATUS.CANCELLED) {
-                                    setPendingStatusChange({
-                                      ticketId: ticket.id,
-                                      status: value
-                                    });
-                                    setAdminCancelDialogOpen(true);
-                                  } else if (
-                                    value === TRIP_TICKET_STATUS.DISAPPROVED
-                                  ) {
-                                    setPendingStatusChange({
-                                      ticketId: ticket.id,
-                                      status: value
-                                    });
-                                    setDisapprovedDialogOpen(true);
-                                  } else if (
-                                    value ===
-                                    TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL
-                                  ) {
-                                    setPendingStatusChange({
-                                      ticketId: ticket.id,
-                                      status: value
-                                    });
-                                    // Pre-populate fuel allocation data from ticket
-                                    // Fall back to today when the ticket has no
-                                    // start_ts, so the required approve `date`
-                                    // is never sent empty (server rejects '').
-                                    const startDate = ticket.start_ts
-                                      ? ticket.start_ts.split('T')[0]
-                                      : new Date().toISOString().split('T')[0];
-                                    setFuelAllocationData({
-                                      allocation_date: startDate,
-                                      allocation_trip_to:
-                                        ticket.destination || '',
-                                      allocation_purpose: ticket.purpose || '',
-                                      allocation_vehicle_id:
-                                        ticket.vehicle_id || '',
-                                      allocation_fuel_type: '',
-                                      allocation_liters: ''
-                                    });
-                                    setFuelAllocationDialogOpen(true);
-                                  } else {
-                                    handleStatusChange(ticket.id, value);
+                              }}
+                              disabled={
+                                approveTripTicket.isPending ||
+                                disapproveTripTicket.isPending ||
+                                cancelTripTicket.isPending ||
+                                ticket.status ===
+                                  TRIP_TICKET_STATUS.CANCELLED ||
+                                ticket.status === TRIP_TICKET_STATUS.APPROVED ||
+                                ticket.status ===
+                                  TRIP_TICKET_STATUS.DISAPPROVED ||
+                                ticket.status ===
+                                  TRIP_TICKET_STATUS.COMPLETED ||
+                                ticket.status === TRIP_TICKET_STATUS.IN_PROGRESS
+                              }
+                            >
+                              <SelectTrigger className="w-[180px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem
+                                  value={
+                                    TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL
                                   }
-                                }}
-                                disabled={
-                                  approveTripTicket.isPending ||
-                                  disapproveTripTicket.isPending ||
-                                  cancelTripTicket.isPending ||
-                                  ticket.status ===
-                                    TRIP_TICKET_STATUS.CANCELLED ||
-                                  ticket.status ===
-                                    TRIP_TICKET_STATUS.APPROVED ||
-                                  ticket.status ===
-                                    TRIP_TICKET_STATUS.DISAPPROVED ||
-                                  ticket.status ===
-                                    TRIP_TICKET_STATUS.COMPLETED ||
-                                  ticket.status ===
-                                    TRIP_TICKET_STATUS.IN_PROGRESS
-                                }
-                              >
-                                <SelectTrigger className="w-[180px]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem
-                                    value={
-                                      TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL
-                                    }
-                                    disabled
-                                  >
-                                    Pending Admin
-                                  </SelectItem>
-                                  <SelectItem
-                                    value={
-                                      TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL
-                                    }
-                                  >
-                                    Pending Fuel
-                                  </SelectItem>
-                                  <SelectItem
-                                    value={TRIP_TICKET_STATUS.APPROVED}
-                                    disabled
-                                  >
-                                    Approved
-                                  </SelectItem>
-                                  <SelectItem
-                                    value={TRIP_TICKET_STATUS.IN_PROGRESS}
-                                    disabled
-                                  >
-                                    In Progress
-                                  </SelectItem>
-                                  <SelectItem
-                                    value={TRIP_TICKET_STATUS.COMPLETED}
-                                    disabled
-                                  >
-                                    Completed
-                                  </SelectItem>
-                                  <SelectItem
-                                    value={TRIP_TICKET_STATUS.DISAPPROVED}
-                                  >
-                                    Disapproved
-                                  </SelectItem>
-                                  <SelectItem
-                                    value={TRIP_TICKET_STATUS.CANCELLED}
-                                  >
-                                    Cancelled
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <StatusBadge
-                                status={ticket.status || 'pending'}
-                              />
-                            )}
-                          </TableCell>
-                          <TableCell>{ticket.destination}</TableCell>
-                          <TableCell className="max-w-xs truncate">
-                            {ticket.purpose}
-                          </TableCell>
-                          <TableCell>
-                            {ticket.start_ts
-                              ? new Date(ticket.start_ts).toLocaleDateString()
-                              : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            {ticket.end_ts
-                              ? new Date(ticket.end_ts).toLocaleDateString()
-                              : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {isAdmin ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() =>
-                                    navigate({
-                                      to: `/trip-tickets/${ticket.id}`
-                                    })
+                                  disabled
+                                >
+                                  Pending Admin
+                                </SelectItem>
+                                <SelectItem
+                                  value={
+                                    TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL
                                   }
                                 >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              ) : (
-                                <>
+                                  Pending Fuel
+                                </SelectItem>
+                                <SelectItem
+                                  value={TRIP_TICKET_STATUS.APPROVED}
+                                  disabled
+                                >
+                                  Approved
+                                </SelectItem>
+                                <SelectItem
+                                  value={TRIP_TICKET_STATUS.IN_PROGRESS}
+                                  disabled
+                                >
+                                  In Progress
+                                </SelectItem>
+                                <SelectItem
+                                  value={TRIP_TICKET_STATUS.COMPLETED}
+                                  disabled
+                                >
+                                  Completed
+                                </SelectItem>
+                                <SelectItem
+                                  value={TRIP_TICKET_STATUS.DISAPPROVED}
+                                >
+                                  Disapproved
+                                </SelectItem>
+                                <SelectItem
+                                  value={TRIP_TICKET_STATUS.CANCELLED}
+                                >
+                                  Cancelled
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <StatusBadge status={ticket.status || 'pending'} />
+                          )}
+                        </TableCell>
+                        <TableCell className="max-w-[220px] truncate">
+                          {ticket.destination}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground max-w-xs truncate">
+                          {ticket.purpose}
+                        </TableCell>
+                        <TableCell>
+                          {ticket.start_ts ? (
+                            new Date(ticket.start_ts).toLocaleDateString()
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {ticket.end_ts ? (
+                            new Date(ticket.end_ts).toLocaleDateString()
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openTicket(ticket.id)}
+                            >
+                              <Eye className="h-4 w-4" />
+                              View
+                            </Button>
+                            {!isAdmin && (
+                              <AlertDialog
+                                open={cancellingTicketId === ticket.id}
+                                onOpenChange={(open) => {
+                                  if (open) {
+                                    setCancellingTicketId(ticket.id);
+                                    setCancellationReason('');
+                                  } else {
+                                    setCancellingTicketId(null);
+                                    setCancellationReason('');
+                                  }
+                                }}
+                              >
+                                <AlertDialogTrigger asChild>
                                   <Button
                                     variant="ghost"
-                                    size="icon"
-                                    onClick={() =>
-                                      navigate({
-                                        to: `/trip-tickets/${ticket.id}`,
-                                        search: { viewOnly: true }
-                                      })
+                                    size="sm"
+                                    disabled={
+                                      cancelTripTicket.isPending ||
+                                      ticket.status ===
+                                        TRIP_TICKET_STATUS.CANCELLED ||
+                                      ticket.status ===
+                                        TRIP_TICKET_STATUS.APPROVED ||
+                                      ticket.status ===
+                                        TRIP_TICKET_STATUS.DISAPPROVED ||
+                                      ticket.status ===
+                                        TRIP_TICKET_STATUS.IN_PROGRESS ||
+                                      ticket.status ===
+                                        TRIP_TICKET_STATUS.COMPLETED
                                     }
                                   >
-                                    <Eye className="h-4 w-4" />
+                                    <X className="h-4 w-4" />
+                                    Cancel
                                   </Button>
-                                  <AlertDialog
-                                    open={cancellingTicketId === ticket.id}
-                                    onOpenChange={(open) => {
-                                      if (open) {
-                                        setCancellingTicketId(ticket.id);
-                                        setCancellationReason('');
-                                      } else {
-                                        setCancellingTicketId(null);
-                                        setCancellationReason('');
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Cancel Trip Ticket
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Please provide a reason for cancelling
+                                      this trip ticket request.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <div className="py-4">
+                                    <Label
+                                      htmlFor="cancellation-reason"
+                                      className="mb-2 block"
+                                    >
+                                      Cancellation Reason *
+                                    </Label>
+                                    <Textarea
+                                      id="cancellation-reason"
+                                      placeholder="Enter reason for cancellation..."
+                                      value={cancellationReason}
+                                      onChange={(e) =>
+                                        setCancellationReason(e.target.value)
                                       }
-                                    }}
-                                  >
-                                    <AlertDialogTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        disabled={
-                                          cancelTripTicket.isPending ||
-                                          ticket.status ===
-                                            TRIP_TICKET_STATUS.CANCELLED ||
-                                          ticket.status ===
-                                            TRIP_TICKET_STATUS.APPROVED ||
-                                          ticket.status ===
-                                            TRIP_TICKET_STATUS.DISAPPROVED ||
-                                          ticket.status ===
-                                            TRIP_TICKET_STATUS.IN_PROGRESS ||
-                                          ticket.status ===
-                                            TRIP_TICKET_STATUS.COMPLETED
+                                      rows={4}
+                                      className="w-full"
+                                    />
+                                  </div>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      No, keep it
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      disabled={
+                                        !cancellationReason.trim() ||
+                                        cancelTripTicket.isPending
+                                      }
+                                      onClick={() => {
+                                        if (cancellationReason.trim()) {
+                                          handleStatusChange(
+                                            ticket.id,
+                                            TRIP_TICKET_STATUS.CANCELLED,
+                                            cancellationReason
+                                          );
                                         }
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                          Cancel Trip Ticket
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          Please provide a reason for cancelling
-                                          this trip ticket request.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <div className="py-4">
-                                        <Label
-                                          htmlFor="cancellation-reason"
-                                          className="mb-2 block"
-                                        >
-                                          Cancellation Reason *
-                                        </Label>
-                                        <Textarea
-                                          id="cancellation-reason"
-                                          placeholder="Enter reason for cancellation..."
-                                          value={cancellationReason}
-                                          onChange={(e) =>
-                                            setCancellationReason(
-                                              e.target.value
-                                            )
-                                          }
-                                          rows={4}
-                                          className="w-full"
-                                        />
-                                      </div>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                          No, keep it
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                          disabled={
-                                            !cancellationReason.trim() ||
-                                            cancelTripTicket.isPending
-                                          }
-                                          onClick={() => {
-                                            if (cancellationReason.trim()) {
-                                              handleStatusChange(
-                                                ticket.id,
-                                                TRIP_TICKET_STATUS.CANCELLED,
-                                                cancellationReason
-                                              );
-                                            }
-                                          }}
-                                        >
-                                          Yes, cancel request
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell
-                          colSpan={7}
-                          className="text-muted-foreground py-8 text-center"
-                        >
-                          No data found
+                                      }}
+                                    >
+                                      Yes, cancel request
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
-                    )}
+                    ))}
                   </TableBody>
                 </Table>
               )}
