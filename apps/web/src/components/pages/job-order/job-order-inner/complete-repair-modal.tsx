@@ -25,6 +25,8 @@ import { REPAIR_DONE_TYPE } from '@/lib/enums';
 interface CompleteRepairModalProps {
   onSubmit: (data: CompleteRepairData) => void;
   isLoading: boolean;
+  /** The odometer already on record — the reading can never be below it. */
+  currentMileage: number;
 }
 
 // Body shape for `useCompleteRepair` (POST /job-orders/:id/complete-repair) —
@@ -32,17 +34,24 @@ interface CompleteRepairModalProps {
 export interface CompleteRepairData {
   actualDateOfRelease: string;
   repairDone: string;
+  // The odometer the repair was signed off at. The maintenance row this writes
+  // is what "last service" means to the risk model, and a row with no odometer
+  // reads as a service at 0 km — which is why completing a repair used to make a
+  // vehicle look MORE overdue, not less.
+  completedMileage: string;
   remarks: string;
 }
 
 export function CompleteRepairModal({
   onSubmit,
-  isLoading
+  isLoading,
+  currentMileage
 }: CompleteRepairModalProps) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState<CompleteRepairData>({
     actualDateOfRelease: '',
     repairDone: '',
+    completedMileage: '',
     remarks: ''
   });
   const [errors, setErrors] = useState<
@@ -75,6 +84,13 @@ export function CompleteRepairModal({
       newErrors.repairDone = 'Repair Done type is required';
     }
 
+    const reading = Number(formData.completedMileage);
+    if (!formData.completedMileage.trim() || !Number.isFinite(reading)) {
+      newErrors.completedMileage = 'Odometer reading is required';
+    } else if (reading < currentMileage) {
+      newErrors.completedMileage = `Cannot be below the vehicle's current ${currentMileage.toLocaleString()} km`;
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -93,6 +109,7 @@ export function CompleteRepairModal({
       setFormData({
         actualDateOfRelease: '',
         repairDone: '',
+        completedMileage: '',
         remarks: ''
       });
       setErrors({});
@@ -159,6 +176,60 @@ export function CompleteRepairModal({
             </Select>
             {errors.repairDone && (
               <FieldError errors={[{ message: errors.repairDone }]} />
+            )}
+          </Field>
+
+          {/* Odometer at sign-off. Nothing else records what the vehicle was
+              serviced at, and every maintenance figure is derived from it. */}
+          <Field data-invalid={!!errors.completedMileage}>
+            <FieldLabel htmlFor="completed_mileage">
+              Odometer at completion *
+            </FieldLabel>
+            <Input
+              id="completed_mileage"
+              inputMode="numeric"
+              placeholder={currentMileage.toLocaleString()}
+              value={formData.completedMileage}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  completedMileage: e.target.value.replace(/[^0-9]/g, '')
+                })
+              }
+              aria-invalid={!!errors.completedMileage}
+            />
+            <p className="text-muted-foreground text-xs">
+              Last recorded: {currentMileage.toLocaleString()} km
+            </p>
+            {errors.completedMileage && (
+              <FieldError errors={[{ message: errors.completedMileage }]} />
+            )}
+          </Field>
+
+          {/* The odometer at sign-off. Nothing else records what the vehicle was
+              serviced at, and every maintenance figure is derived from it. */}
+          <Field data-invalid={!!errors.completedMileage}>
+            <FieldLabel htmlFor="completed_mileage">
+              Odometer at completion *
+            </FieldLabel>
+            <Input
+              id="completed_mileage"
+              inputMode="numeric"
+              placeholder={currentMileage.toLocaleString()}
+              value={formData.completedMileage}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  completedMileage: e.target.value.replace(/[^0-9]/g, '')
+                })
+              }
+              aria-invalid={!!errors.completedMileage}
+            />
+            <p className="text-muted-foreground text-xs">
+              Last recorded: {currentMileage.toLocaleString()} km
+            </p>
+            {errors.completedMileage && (
+              <FieldError errors={[{ message: errors.completedMileage }]} />
             )}
           </Field>
 

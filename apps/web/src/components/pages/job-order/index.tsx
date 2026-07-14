@@ -22,6 +22,7 @@ import { NoteJobOrderModal } from './job-order-inner/note-job-order-modal';
 import { ApproveJobOrderModal } from './job-order-inner/approve-job-order-modal';
 import { CompleteRepairModal } from './job-order-inner/complete-repair-modal';
 import { useAllDrivers } from '@/lib/query/drivers';
+import { useAllVehicles } from '@/lib/query/vehicles';
 import {
   useNoteJobOrder,
   useApproveJobOrder,
@@ -69,6 +70,9 @@ const JobOrdersPage = () => {
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
   const { data: drivers } = useAllDrivers();
+  // The embedded vehicle summary on a job order carries make/model/plate but not
+  // the odometer, and complete-repair has to record a reading against it.
+  const { data: vehicles } = useAllVehicles();
   const noteJobOrder = useNoteJobOrder();
   const approveJobOrder = useApproveJobOrder();
   const completeRepair = useCompleteRepair();
@@ -151,6 +155,7 @@ const JobOrdersPage = () => {
       .mutateAsync({
         id: orderId,
         repairDone: data.repairDone,
+        completedMileage: Number(data.completedMileage),
         remarks: data.remarks || undefined,
         actualDateOfRelease: data.actualDateOfRelease || undefined
       })
@@ -323,6 +328,11 @@ const JobOrdersPage = () => {
                                   handleCompleteRepair(order.id, data)
                                 }
                                 isLoading={completeRepair.isPending}
+                                currentMileage={
+                                  vehicles?.find(
+                                    (v) => v.id === order.vehicle_id
+                                  )?.mileage ?? 0
+                                }
                               />
                             )}
                             <Button

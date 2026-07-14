@@ -49,7 +49,68 @@ export async function getById(id: string, actor: AuthenticatedUser) {
   return ticket;
 }
 
+// A trip that has not reached a terminal state still holds its vehicle and its
+// driver. Completed / cancelled / disapproved trips release both.
+const LIVE_STATUSES = [
+  'pending_admin_approval',
+  'pending_fuel_allocation_approval',
+  'approved',
+  'in_progress'
+] as const;
+
+// Nothing checked any of this before: a trip could be booked on a van that was
+// out of service, could end before it started, and the same van (and the same
+// driver) could be booked twice over for the same hours — right through to the
+// guard checking BOTH trips out.
+async function assertBookable(
+  body: Pick<CreateTripTicketBody, 'vehicleId' | 'driverId' | 'startTs' | 'endTs'>,
+  excludeTicketId?: string
+): Promise<void> {
+  const { vehicleId, driverId, startTs, endTs } = body;
+
+  if (startTs && endTs && startTs >= endTs) {
+    throw new AppError(400, 'INVALID_TRIP_WINDOW', 'A trip cannot end before it starts');
+  }
+
+  const vehicle = await prisma.vehicle.findUnique({
+    where: { id: vehicleId },
+    select: { status: true }
+  });
+  if (!vehicle) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
+  // Only out_of_service is refused outright. `under_maintenance` is not: a van in
+  // the workshop today can legitimately be booked for a trip next month — and the
+  // guard's check-out is the gate that refuses to release it if it is still in
+  // there on the day.
+  if (vehicle.status === 'out_of_service') {
+    throw new AppError(409, 'VEHICLE_OUT_OF_SERVICE', 'This vehicle is out of service');
+  }
+
+  // Overlap is only meaningful when the trip has a window at all.
+  if (!startTs || !endTs) return;
+
+  // Half-open overlap: [a.start, a.end) intersects [b.start, b.end).
+  const clash = await prisma.tripTicket.findFirst({
+    where: {
+      ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
+      status: { in: [...LIVE_STATUSES] },
+      startTs: { lt: endTs },
+      endTs: { gt: startTs },
+      OR: [{ vehicleId }, { driverId }]
+    },
+    select: { id: true, ticketNo: true, vehicleId: true }
+  });
+  if (!clash) return;
+
+  const isVehicle = clash.vehicleId === vehicleId;
+  throw new AppError(
+    409,
+    isVehicle ? 'VEHICLE_DOUBLE_BOOKED' : 'DRIVER_DOUBLE_BOOKED',
+    `${isVehicle ? 'This vehicle' : 'This driver'} is already booked for an overlapping trip (TT-${clash.ticketNo})`
+  );
+}
+
 export async function create(body: CreateTripTicketBody) {
+  await assertBookable(body);
   return prisma.tripTicket.create({
     data: { ...body, status: 'pending_admin_approval' }, // status is never client-chosen
     include: tripTicketInclude
@@ -65,6 +126,17 @@ export async function update(id: string, body: UpdateTripTicketBody, actor: Auth
   if (existing.status !== 'pending_admin_approval') {
     throw new AppError(409, 'INVALID_TRANSITION', 'Trip ticket can only be edited while pending admin approval');
   }
+  // An edit can move the trip onto another vehicle, another driver, or other
+  // hours, so it has to clear the same bar a new booking does.
+  await assertBookable(
+    {
+      vehicleId: body.vehicleId ?? existing.vehicleId,
+      driverId: body.driverId ?? existing.driverId,
+      startTs: body.startTs ?? existing.startTs,
+      endTs: body.endTs ?? existing.endTs
+    },
+    id
+  );
   await prisma.tripTicket.update({ where: { id }, data: body });
   return findTripTicketById(id);
 }
@@ -72,8 +144,15 @@ export async function update(id: string, body: UpdateTripTicketBody, actor: Auth
 export async function remove(id: string): Promise<void> {
   const existing = await findTripTicketById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Trip ticket not found');
-  if (existing.status === 'in_progress') {
-    throw new AppError(409, 'INVALID_TRANSITION', 'Cannot delete a trip ticket that is in progress');
+  // A trip that physically happened is a record, not a draft. Deleting a
+  // completed one used to succeed and cascade its fuel allocation away with it,
+  // erasing an approved fuel spend from the books. Cancel it instead.
+  if (existing.status === 'in_progress' || existing.status === 'completed') {
+    throw new AppError(
+      409,
+      'INVALID_TRANSITION',
+      `Cannot delete a trip ticket that is ${existing.status}`
+    );
   }
   await prisma.tripTicket.delete({ where: { id } }); // fuel_allocation cascades (schema onDelete: Cascade)
 }

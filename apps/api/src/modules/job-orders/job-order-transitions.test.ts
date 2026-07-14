@@ -73,12 +73,52 @@ describe('job-order transitions', () => {
     const { user: evp } = await createTestUser({ email: 'e@test.local', role: 'evp_operations' });
     await request(app).post(`/api/job-orders/${order.id}/approve`).set('Authorization', authHeader(evp.id, evp.email, 'evp_operations')).send({});
 
-    const res = await request(app).post(`/api/job-orders/${order.id}/complete-repair`).set('Authorization', adminH).send({ repairDone: 'simple', remarks: 'Done', actualDateOfRelease: '2026-08-05' });
+    const res = await request(app).post(`/api/job-orders/${order.id}/complete-repair`).set('Authorization', adminH).send({ repairDone: 'simple', completedMileage: 1500, remarks: 'Done', actualDateOfRelease: '2026-08-05' });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('repaired');
     expect((await prisma.sparePart.findUniqueOrThrow({ where: { id: part.id } })).quantity).toBe(7); // 10 - 3
     expect(await prisma.maintenance.count({ where: { vehicleId: vehicle.id } })).toBe(1);
-    expect((await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })).status).toBe('available');
+
+    // The maintenance row MUST carry the odometer it was serviced at. Written
+    // with mileage: null, the risk model reads it as a service at 0 km — so
+    // "distance since last service" becomes the vehicle's whole odometer and a
+    // freshly repaired van scores as critically overdue.
+    const record = await prisma.maintenance.findFirstOrThrow({ where: { vehicleId: vehicle.id } });
+    expect(record.mileage).toBe(1500);
+
+    const after = await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } });
+    expect(after.status).toBe('available');
+    expect(after.mileage).toBe(1500);
+  });
+
+  it('complete-repair: refuses an odometer reading below the vehicle’s current mileage', async () => {
+    const { vehicle, mechanic, order } = await scaffold('available');
+    const { user: admin } = await createTestUser({ email: 'a@test.local', role: 'admin' });
+    const adminH = authHeader(admin.id, admin.email, 'admin');
+    await request(app).post(`/api/job-orders/${order.id}/note`).set('Authorization', adminH).send({ assignedMechanicId: mechanic.id, spareParts: [] });
+    const { user: evp } = await createTestUser({ email: 'e@test.local', role: 'evp_operations' });
+    await request(app).post(`/api/job-orders/${order.id}/approve`).set('Authorization', authHeader(evp.id, evp.email, 'evp_operations')).send({});
+
+    const res = await request(app).post(`/api/job-orders/${order.id}/complete-repair`).set('Authorization', adminH).send({ repairDone: 'simple', completedMileage: 999 });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('ODOMETER_BACKWARDS');
+    expect(await prisma.maintenance.count({ where: { vehicleId: vehicle.id } })).toBe(0);
+  });
+
+  it('note: REFUSES to take a vehicle into the workshop while it is on a trip', async () => {
+    const { vehicle, mechanic, order } = await scaffold('available');
+    await prisma.vehicle.update({ where: { id: vehicle.id }, data: { status: 'on_trip' } });
+    const { user: admin } = await createTestUser({ email: 'a@test.local', role: 'admin' });
+    const adminH = authHeader(admin.id, admin.email, 'admin');
+
+    const res = await request(app).post(`/api/job-orders/${order.id}/note`).set('Authorization', adminH).send({ assignedMechanicId: mechanic.id, spareParts: [] });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('VEHICLE_ON_TRIP');
+    // Previously this succeeded and silently skipped the flip, so the van stayed
+    // 'on_trip' — and when the guard checked that trip back in it went straight
+    // to 'available' while it was under repair.
+    expect((await prisma.jobOrder.findUniqueOrThrow({ where: { id: order.id } })).status).toBe('pending');
+    expect((await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })).status).toBe('on_trip');
   });
 
   it('complete-repair: concurrent double-submit decrements spare-parts inventory exactly once', async () => {
@@ -90,7 +130,7 @@ describe('job-order transitions', () => {
     await request(app).post(`/api/job-orders/${order.id}/approve`).set('Authorization', authHeader(evp.id, evp.email, 'evp_operations')).send({});
 
     const fire = () =>
-      request(app).post(`/api/job-orders/${order.id}/complete-repair`).set('Authorization', adminH).send({ repairDone: 'simple', remarks: 'Done', actualDateOfRelease: '2026-08-05' });
+      request(app).post(`/api/job-orders/${order.id}/complete-repair`).set('Authorization', adminH).send({ repairDone: 'simple', completedMileage: 1500, remarks: 'Done', actualDateOfRelease: '2026-08-05' });
     const [first, second] = await Promise.all([fire(), fire()]);
     const statuses = [first.status, second.status].sort();
     expect(statuses).toEqual([200, 409]);

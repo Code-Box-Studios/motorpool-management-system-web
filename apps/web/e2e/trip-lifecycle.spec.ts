@@ -76,13 +76,30 @@ test('trip lifecycle: requester → admin → EVP (UI) → guard → completed',
   // ---------- Guard check-out / check-in via API ----------
   // (The guard UI requires scanning the trip QR with a physical camera, which
   // cannot run in headless Chromium — so these transitions go through the API.)
-  const checkOut = await apiPost(request, `/api/trip-tickets/${tripId}/check-out`, guard.token, {});
+  // The guard reads the odometer at the gate, out and back. It is the only thing
+  // that advances the vehicle's mileage, which every maintenance figure uses.
+  const vehicleBefore = (await apiGet(request, `/api/vehicles/${vehicle!.id}`, admin.token)) as {
+    mileage: number;
+  };
+  const startMileage = vehicleBefore.mileage;
+  const endMileage = startMileage + 120;
+
+  const checkOut = await apiPost(request, `/api/trip-tickets/${tripId}/check-out`, guard.token, {
+    startMileage
+  });
   expect(checkOut.ok, 'guard check-out').toBeTruthy();
   expect(await tripStatus(request, tripId, admin.token)).toBe('in_progress');
 
-  const checkIn = await apiPost(request, `/api/trip-tickets/${tripId}/check-in`, guard.token, {});
+  const checkIn = await apiPost(request, `/api/trip-tickets/${tripId}/check-in`, guard.token, {
+    endMileage
+  });
   expect(checkIn.ok, 'guard check-in').toBeTruthy();
   expect(await tripStatus(request, tripId, admin.token)).toBe('completed');
+
+  const vehicleAfter = (await apiGet(request, `/api/vehicles/${vehicle!.id}`, admin.token)) as {
+    mileage: number;
+  };
+  expect(vehicleAfter.mileage, 'the trip moved the odometer').toBe(endMileage);
 
   // ---------- Verify the completed trip is visible in the admin UI ----------
   await page.context().clearCookies();

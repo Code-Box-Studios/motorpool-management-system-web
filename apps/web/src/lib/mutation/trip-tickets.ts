@@ -157,9 +157,13 @@ export const useCancelTripTicket = () => {
 export const useCheckOutTripTicket = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }: { id: string }) => checkOutTripTicket(id),
+    mutationFn: ({ id, startMileage }: { id: string; startMileage: number }) =>
+      checkOutTripTicket(id, startMileage),
     onSuccess: (_data, variables) => {
       invalidateTripTicket(queryClient, variables.id);
+      // The odometer moved, so the vehicle and every maintenance figure derived
+      // from it are stale.
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       toast.success('Trip ticket checked out successfully!');
     },
     onError: (error: ApiError) => {
@@ -172,9 +176,11 @@ export const useCheckOutTripTicket = () => {
 export const useCheckInTripTicket = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }: { id: string }) => checkInTripTicket(id),
+    mutationFn: ({ id, endMileage }: { id: string; endMileage: number }) =>
+      checkInTripTicket(id, endMileage),
     onSuccess: (_data, variables) => {
       invalidateTripTicket(queryClient, variables.id);
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       toast.success('Trip ticket checked in successfully!');
     },
     onError: (error: ApiError) => {

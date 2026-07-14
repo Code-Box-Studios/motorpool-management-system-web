@@ -312,14 +312,27 @@ export async function cancelTripTicket(
   );
 }
 
-export async function checkOutTripTicket(id: string): Promise<TripTicket> {
+// The guard reads the odometer at the gate, out and back. It is the only thing
+// that advances the vehicle's mileage — which every preventive and predictive
+// maintenance number is computed from.
+export async function checkOutTripTicket(
+  id: string,
+  startMileage: number
+): Promise<TripTicket> {
   return toSnake(
-    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-out`)
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-out`, {
+      startMileage
+    })
   );
 }
 
-export async function checkInTripTicket(id: string): Promise<TripTicket> {
+export async function checkInTripTicket(
+  id: string,
+  endMileage: number
+): Promise<TripTicket> {
   return toSnake(
-    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-in`)
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-in`, {
+      endMileage
+    })
   );
 }

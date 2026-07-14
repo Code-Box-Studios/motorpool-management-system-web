@@ -76,4 +76,30 @@ describe('feature extraction (frozen clock for determinism)', () => {
     const f = extractFeatures({ mileage: 12000 }, maints, now);
     expect(f.avgDailyKm).toBeCloseTo(1000 / 30, 4);
   });
+
+  // The bug this guards: `lastMaint?.mileage ?? 0` read a service with no
+  // recorded odometer as a service at 0 km, so "distance since last service"
+  // became the vehicle's ENTIRE odometer. complete-repair wrote exactly such a
+  // row — so repairing a van was what made it look like it was about to break
+  // (a clean repair drove one vehicle from 36/100 to 95/100).
+  it('a service with an UNKNOWN odometer does not read as a service at 0 km', () => {
+    const maints = [{ date: new Date('2026-06-01T00:00:00.000Z'), mileage: null }];
+    const f = extractFeatures({ mileage: 33000 }, maints, now);
+    expect(f.kmSinceLastMaint).toBe(0); // NOT 33000
+    expect(f.maintFreq12m).toBe(1); // it still counts as a service
+  });
+
+  it('falls back to the newest service whose odometer IS known', () => {
+    const maints = [
+      { date: new Date('2026-06-01T00:00:00.000Z'), mileage: null }, // newest: a repair, odometer not recorded
+      { date: new Date('2026-05-02T00:00:00.000Z'), mileage: 30000 } // the last one we actually know
+    ];
+    const f = extractFeatures({ mileage: 33000 }, maints, now);
+    expect(f.kmSinceLastMaint).toBe(3000); // 33000 - 30000, not 33000 - 0
+  });
+
+  it('never serviced still means every kilometre is distance since service', () => {
+    const f = extractFeatures({ mileage: 33000 }, [], now);
+    expect(f.kmSinceLastMaint).toBe(33000);
+  });
 });

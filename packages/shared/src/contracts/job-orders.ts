@@ -28,9 +28,13 @@ export const noteJobOrderBodySchema = z.object({
 });
 export type NoteJobOrderBody = z.infer<typeof noteJobOrderBodySchema>;
 
-// complete-repair(admin).
+// complete-repair(admin). completedMileage is required: the maintenance row this
+// writes is what "last service" means to the risk model, and a row with no
+// odometer on it reads as "never serviced" — so a completed repair used to make
+// a vehicle look MORE overdue, not less.
 export const completeRepairBodySchema = z.object({
   repairDone: z.nativeEnum(REPAIR_DONE_TYPE),
+  completedMileage: z.coerce.number().int().nonnegative(),
   remarks: z.string().nullable().optional(),
   actualDateOfRelease: z.coerce.date().nullable().optional()
 });

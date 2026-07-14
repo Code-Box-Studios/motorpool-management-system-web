@@ -18,6 +18,53 @@ interface ChangeStatusOpts {
   expectedFrom?: VehicleStatus | VehicleStatus[];
 }
 
+// A hard precondition on the vehicle's CURRENT status.
+//
+// `expectedFrom` below is deliberately soft — it skips the flip and lets the
+// transition succeed. That is right when the physical event has already happened
+// and we are only recording it (a van coming back through the gate is back,
+// whatever the row says). It is WRONG when we are about to authorise a physical
+// act: it let a guard release a van that was in the workshop, and let a second
+// trip check out a van that was already on the road, in both cases leaving the
+// vehicle's status quietly contradicting reality. Those callers use this instead.
+export async function requireVehicleStatus(
+  client: Prisma.TransactionClient,
+  vehicleId: string,
+  allowed: VehicleStatus[],
+  code: string,
+  message: (current: VehicleStatus) => string
+): Promise<{ status: VehicleStatus; mileage: number }> {
+  const vehicle = await client.vehicle.findUnique({
+    where: { id: vehicleId },
+    select: { status: true, mileage: true }
+  });
+  if (!vehicle) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
+  if (!allowed.includes(vehicle.status)) {
+    throw new AppError(409, code, message(vehicle.status));
+  }
+  return vehicle;
+}
+
+// The odometer only ever goes forward. A reading below the one already on the
+// vehicle is a typo, not a fact — take it as an error rather than silently
+// rewinding the number every maintenance calculation depends on.
+export async function advanceOdometer(
+  client: Prisma.TransactionClient,
+  vehicleId: string,
+  reading: number,
+  currentMileage: number
+): Promise<void> {
+  if (reading < currentMileage) {
+    throw new AppError(
+      409,
+      'ODOMETER_BACKWARDS',
+      `Odometer reading ${reading} km is below the vehicle's current ${currentMileage} km`
+    );
+  }
+  if (reading === currentMileage) return;
+  await client.vehicle.update({ where: { id: vehicleId }, data: { mileage: reading } });
+}
+
 // Spec §4.2: the single choke point for EVERY vehicle status flip. Updates the
 // status column and records a vehicle_status_audit row IN THE CALLER'S
 // transaction. Returns true if it flipped, false if skipped.

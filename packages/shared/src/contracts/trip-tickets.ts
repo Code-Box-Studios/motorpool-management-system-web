@@ -42,6 +42,20 @@ export type ApproveTripTicketBody = z.infer<typeof approveTripTicketBodySchema>;
 export const reasonBodySchema = z.object({ reason: z.string().min(1) });
 export type ReasonBody = z.infer<typeof reasonBodySchema>;
 
+// The guard reads the odometer at the gate, out and back. Required, not
+// optional: an optional reading is a reading nobody takes, and this is the only
+// thing in the system that advances vehicles.mileage — which every preventive
+// and predictive maintenance number is computed from.
+export const checkOutBodySchema = z.object({
+  startMileage: z.coerce.number().int().nonnegative()
+});
+export type CheckOutBody = z.infer<typeof checkOutBodySchema>;
+
+export const checkInBodySchema = z.object({
+  endMileage: z.coerce.number().int().nonnegative()
+});
+export type CheckInBody = z.infer<typeof checkInBodySchema>;
+
 export const tripTicketsListQuerySchema = paginationQuerySchema.extend({
   requestedBy: z.string().uuid().optional(),
   branchId: z.string().uuid().optional(),

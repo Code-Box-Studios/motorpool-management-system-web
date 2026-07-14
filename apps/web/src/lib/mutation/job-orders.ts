@@ -136,15 +136,22 @@ export const useCompleteRepair = () => {
     mutationFn: ({
       id,
       repairDone,
+      completedMileage,
       remarks,
       actualDateOfRelease
     }: {
       id: string;
       repairDone: string;
+      completedMileage: number;
       remarks?: string;
       actualDateOfRelease?: string;
     }) =>
-      completeRepairJobOrder(id, { repairDone, remarks, actualDateOfRelease }),
+      completeRepairJobOrder(id, {
+        repairDone,
+        completedMileage,
+        remarks,
+        actualDateOfRelease
+      }),
     onSuccess: (_data, variables) => {
       invalidateJobOrder(queryClient, variables.id);
       toast.success('Job order repair completed successfully!');

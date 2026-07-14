@@ -67,10 +67,13 @@ describe('trip-tickets module', () => {
     const { user: r1 } = await createTestUser({ email: 'r1@test.local', role: 'requester' });
     const { user: r2 } = await createTestUser({ email: 'r2@test.local', role: 'requester' });
     const { user: admin } = await createTestUser({ email: 'a@test.local', role: 'admin' });
+    // Disjoint windows, and each a valid one. This used to override startTs while
+    // leaving the fixture's endTs behind, so the second ticket ended nine days
+    // before it started — and the two shared one vehicle and one driver.
     await request(app).post('/api/trip-tickets').set('Authorization', authHeader(r1.id, r1.email, 'requester'))
-      .send({ ...ticketBody(s, r1.id), startTs: '2026-07-01T08:00:00.000Z' });
+      .send({ ...ticketBody(s, r1.id), startTs: '2026-07-01T08:00:00.000Z', endTs: '2026-07-01T17:00:00.000Z' });
     await request(app).post('/api/trip-tickets').set('Authorization', authHeader(r2.id, r2.email, 'requester'))
-      .send({ ...ticketBody(s, r2.id), startTs: '2026-07-20T08:00:00.000Z' });
+      .send({ ...ticketBody(s, r2.id), startTs: '2026-07-20T08:00:00.000Z', endTs: '2026-07-20T17:00:00.000Z' });
 
     const asR1 = await request(app).get('/api/trip-tickets').set('Authorization', authHeader(r1.id, r1.email, 'requester'));
     expect(asR1.body.count).toBe(1); // only r1's own

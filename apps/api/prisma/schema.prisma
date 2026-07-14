@@ -322,6 +322,11 @@ model TripTicket {
   postTripGuardId    String?          @map("post_trip_guard") @db.Uuid
   postTripCheckedById String?         @map("post_trip_checked_by") @db.Uuid
   postTripCheckedAt  DateTime?        @map("post_trip_checked_at")
+  // The odometer as the guard reads it at the gate, out and back. This is the
+  // only thing that moves vehicles.mileage — and preventive AND predictive
+  // maintenance are both computed from that number.
+  startMileage       Int?             @map("start_mileage")
+  endMileage         Int?             @map("end_mileage")
   startTs            DateTime?        @map("start_ts")
   endTs              DateTime?        @map("end_ts")
   createdAt          DateTime         @default(now()) @map("created_at")

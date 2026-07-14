@@ -19,6 +19,8 @@ import {
   AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import StatusBadge from '@/components/shared/status-badge';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
@@ -51,10 +53,16 @@ export default function GuardConfirmationPage() {
   const [confirmAction, setConfirmAction] = useState<{
     type: 'check-out' | 'check-in';
     ticketId: string;
+    vehicleId: string;
   } | null>(null);
   const [isQrVerified, setIsQrVerified] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [scanError, setScanError] = useState('');
+  // The odometer as the guard reads it off the dash. This is the only thing in
+  // the whole system that advances the vehicle's mileage, and every preventive
+  // and predictive maintenance figure is computed from that number.
+  const [odometer, setOdometer] = useState('');
+  const [odometerError, setOdometerError] = useState('');
 
   const extractUuid = (value: string) => {
     const match = value
@@ -83,26 +91,34 @@ export default function GuardConfirmationPage() {
   const getDriverName = (driverId: string) =>
     drivers?.find((d) => d.id === driverId)?.full_name ?? 'Unknown driver';
 
-  const openCheckOut = (ticketId: string) => {
+  const resetDialog = () => {
     setIsQrVerified(false);
     setCameraError('');
     setScanError('');
-    setConfirmAction({ type: 'check-out', ticketId });
+    setOdometer('');
+    setOdometerError('');
   };
 
-  const openCheckIn = (ticketId: string) => {
-    setIsQrVerified(false);
-    setCameraError('');
-    setScanError('');
-    setConfirmAction({ type: 'check-in', ticketId });
+  const openCheckOut = (ticketId: string, vehicleId: string) => {
+    resetDialog();
+    setConfirmAction({ type: 'check-out', ticketId, vehicleId });
+  };
+
+  const openCheckIn = (ticketId: string, vehicleId: string) => {
+    resetDialog();
+    setConfirmAction({ type: 'check-in', ticketId, vehicleId });
   };
 
   const closeQrDialog = () => {
     setConfirmAction(null);
-    setIsQrVerified(false);
-    setCameraError('');
-    setScanError('');
+    resetDialog();
   };
+
+  // The reading already on record — the guard's number can never be below it.
+  const pendingVehicle = confirmAction
+    ? getVehicle(confirmAction.vehicleId)
+    : undefined;
+  const currentOdometer = pendingVehicle?.mileage ?? 0;
 
   const handleScanResult = (detectedCodes: Array<{ rawValue?: string }>) => {
     if (!confirmAction || isQrVerified || !detectedCodes.length) return;
@@ -142,14 +158,30 @@ export default function GuardConfirmationPage() {
     }
     setScanError('');
 
-    const mutation =
-      confirmAction.type === 'check-out'
-        ? checkOutTripTicket
-        : checkInTripTicket;
-    mutation.mutate(
-      { id: confirmAction.ticketId },
-      { onSettled: closeQrDialog }
-    );
+    const reading = Number(odometer);
+    if (!odometer.trim() || !Number.isFinite(reading)) {
+      setOdometerError('Read the odometer off the dash and enter it.');
+      return;
+    }
+    if (reading < currentOdometer) {
+      setOdometerError(
+        `Cannot be below the last reading (${currentOdometer.toLocaleString()} km).`
+      );
+      return;
+    }
+    setOdometerError('');
+
+    if (confirmAction.type === 'check-out') {
+      checkOutTripTicket.mutate(
+        { id: confirmAction.ticketId, startMileage: reading },
+        { onSettled: closeQrDialog }
+      );
+    } else {
+      checkInTripTicket.mutate(
+        { id: confirmAction.ticketId, endMileage: reading },
+        { onSettled: closeQrDialog }
+      );
+    }
   };
 
   // Anything the guard can act on: cleared to leave, or out and due back.
@@ -231,7 +263,9 @@ export default function GuardConfirmationPage() {
         <button
           type="button"
           onClick={() =>
-            isReturning ? openCheckIn(current.id) : openCheckOut(current.id)
+            isReturning
+              ? openCheckIn(current.id, current.vehicle_id)
+              : openCheckOut(current.id, current.vehicle_id)
           }
           className="border-line-strong hover:bg-accent mt-5 flex w-full items-center gap-3.5 rounded-[20px] border-[1.5px] border-dashed p-3.5 text-left transition-colors"
         >
@@ -252,7 +286,9 @@ export default function GuardConfirmationPage() {
         {/* The whole job, one button. */}
         <Button
           onClick={() =>
-            isReturning ? openCheckIn(current.id) : openCheckOut(current.id)
+            isReturning
+              ? openCheckIn(current.id, current.vehicle_id)
+              : openCheckOut(current.id, current.vehicle_id)
           }
           disabled={checkOutTripTicket.isPending || checkInTripTicket.isPending}
           className="mt-4 h-16 w-full rounded-[22px] text-lg font-semibold"
@@ -345,6 +381,36 @@ export default function GuardConfirmationPage() {
             {scanError && (
               <p className="text-destructive text-sm">{scanError}</p>
             )}
+
+            {/* The odometer. Nothing else in the system moves this number, and
+                the whole maintenance schedule is computed from it. */}
+            <div className="border-border space-y-1.5 border-t pt-3">
+              <Label htmlFor="odometer" className="text-sm font-medium">
+                Odometer now
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="odometer"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder={currentOdometer.toLocaleString()}
+                  value={odometer}
+                  onChange={(e) => {
+                    setOdometer(e.target.value.replace(/[^0-9]/g, ''));
+                    setOdometerError('');
+                  }}
+                  aria-invalid={Boolean(odometerError)}
+                  className="h-12 text-lg"
+                />
+                <span className="text-muted-foreground text-sm">km</span>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Last recorded: {currentOdometer.toLocaleString()} km
+              </p>
+              {odometerError && (
+                <p className="text-destructive text-sm">{odometerError}</p>
+              )}
+            </div>
           </div>
 
           <AlertDialogFooter>

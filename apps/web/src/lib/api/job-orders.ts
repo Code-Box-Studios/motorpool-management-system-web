@@ -230,7 +230,15 @@ export async function approveJobOrder(
 // admin: complete the repair (ongoing_repair -> repaired).
 export async function completeRepairJobOrder(
   id: string,
-  body: { repairDone: string; remarks?: string; actualDateOfRelease?: string }
+  body: {
+    repairDone: string;
+    // The odometer the repair was signed off at. The maintenance row this writes
+    // is what "last service" means to the risk model, and a row with no odometer
+    // reads as a service at 0 km — which made a repaired van look overdue.
+    completedMileage: number;
+    remarks?: string;
+    actualDateOfRelease?: string;
+  }
 ): Promise<JobOrderWithRelations> {
   return toSnake(
     await api.post<JobOrderApiResponse>(

@@ -2,7 +2,7 @@ import type { CompleteRepairBody, NoteJobOrderBody } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
-import { changeVehicleStatus } from '../vehicles/status.js';
+import { advanceOdometer, changeVehicleStatus, requireVehicleStatus } from '../vehicles/status.js';
 import { findJobOrderById } from './repository.js';
 
 async function loadInState(id: string, allowedFrom: string[]) {
@@ -19,6 +19,17 @@ async function loadInState(id: string, allowedFrom: string[]) {
 export async function note(id: string, actor: AuthenticatedUser, body: NoteJobOrderBody) {
   const order = await loadInState(id, ['pending']);
   await prisma.$transaction(async (tx) => {
+    // A van that is out on a trip is not in the workshop. This used to be a soft
+    // `expectedFrom: 'available'`, so noting a job order on a vehicle that was
+    // on the road silently skipped the flip — and when the guard later checked
+    // that trip back in, the van went to `available` while it was under repair.
+    await requireVehicleStatus(
+      tx,
+      order.vehicleId,
+      ['available', 'unavailable', 'out_of_service', 'under_maintenance'],
+      'VEHICLE_ON_TRIP',
+      (current) => `Vehicle is ${current}; it cannot be taken into the workshop until it is back`
+    );
     await tx.jobOrder.update({
       where: { id },
       data: {
@@ -36,10 +47,11 @@ export async function note(id: string, actor: AuthenticatedUser, body: NoteJobOr
         data: body.spareParts.map((p) => ({ jobOrderId: id, sparePartId: p.sparePartId, quantity: p.quantity }))
       });
     }
+    // No expectedFrom: the precondition above already established the vehicle is
+    // here, and a van that was out_of_service is exactly the one you'd repair.
     await changeVehicleStatus(tx, order.vehicleId, 'under_maintenance', {
       changedBy: actor.id,
-      source: 'job_order_note',
-      expectedFrom: 'available'
+      source: 'job_order_note'
     });
   });
   return findJobOrderById(id);
@@ -92,8 +104,24 @@ export async function completeRepair(id: string, actor: AuthenticatedUser, body:
         data: { quantity: { decrement: line.quantity } }
       });
     }
+    // The odometer the repair was signed off at. Without it this row was written
+    // with `mileage: null`, and the risk model reads a null last-service mileage
+    // as ZERO — so "distance since last service" became the vehicle's ENTIRE
+    // odometer and a freshly repaired van scored as critically overdue. A clean
+    // repair on a 33,000 km van drove its risk from 36/100 to 95/100.
+    const vehicle = await tx.vehicle.findUniqueOrThrow({
+      where: { id: order.vehicleId },
+      select: { mileage: true }
+    });
+    await advanceOdometer(tx, order.vehicleId, body.completedMileage, vehicle.mileage);
     await tx.maintenance.create({
-      data: { vehicleId: order.vehicleId, type: 'repair', date: releaseDate, description: body.remarks ?? null }
+      data: {
+        vehicleId: order.vehicleId,
+        type: 'repair',
+        date: releaseDate,
+        mileage: body.completedMileage,
+        description: body.remarks ?? null
+      }
     });
     await changeVehicleStatus(tx, order.vehicleId, 'available', {
       changedBy: actor.id,

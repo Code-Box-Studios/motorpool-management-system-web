@@ -1,8 +1,8 @@
-import type { ApproveTripTicketBody } from '@mms/shared';
+import type { ApproveTripTicketBody, CheckInBody, CheckOutBody } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
-import { changeVehicleStatus } from '../vehicles/status.js';
+import { advanceOdometer, changeVehicleStatus, requireVehicleStatus } from '../vehicles/status.js';
 import { findTripTicketById } from './repository.js';
 
 // Loads the ticket and asserts its current status is in the allowed-from set.
@@ -71,9 +71,16 @@ export async function disapprove(id: string, actor: AuthenticatedUser, reason: s
   return findTripTicketById(id);
 }
 
-// cancel (owning requester or admin; from either pending state).
+// cancel (owning requester or admin). Also legal from `approved`: a trip that is
+// signed off but no longer needed had no way out at all — the only exits were to
+// delete the record outright, or to have the guard check out and check back in a
+// trip that never happened.
 export async function cancel(id: string, actor: AuthenticatedUser, reason: string) {
-  const ticket = await loadInState(id, ['pending_admin_approval', 'pending_fuel_allocation_approval']);
+  const ticket = await loadInState(id, [
+    'pending_admin_approval',
+    'pending_fuel_allocation_approval',
+    'approved'
+  ]);
   if (actor.role !== 'admin' && ticket.requestedById !== actor.id) {
     throw new AppError(403, 'NOT_TICKET_OWNER', 'You may only cancel your own trip ticket');
   }
@@ -84,18 +91,32 @@ export async function cancel(id: string, actor: AuthenticatedUser, reason: strin
   return findTripTicketById(id);
 }
 
-// security_guard check-out → in_progress; records the pre-trip guard and flips
-// the vehicle available→on_trip (skipped+logged if it isn't available).
-export async function checkOut(id: string, actor: AuthenticatedUser) {
+// security_guard check-out → in_progress; records the pre-trip guard and the
+// odometer, and flips the vehicle available→on_trip.
+//
+// The vehicle MUST be available. This used to be a soft `expectedFrom` that
+// skipped the flip and let the check-out succeed anyway, which meant a guard
+// could release a van sitting in the workshop, and a second trip could check out
+// a van already on the road — leaving two trips live on one vehicle.
+export async function checkOut(id: string, actor: AuthenticatedUser, body: CheckOutBody) {
   const ticket = await loadInState(id, ['approved']);
   await prisma.$transaction(async (tx) => {
+    const vehicle = await requireVehicleStatus(
+      tx,
+      ticket.vehicleId,
+      ['available'],
+      'VEHICLE_NOT_AVAILABLE',
+      (current) => `Vehicle is ${current}, so it cannot leave the gate`
+    );
+    await advanceOdometer(tx, ticket.vehicleId, body.startMileage, vehicle.mileage);
     await tx.tripTicket.update({
       where: { id },
       data: {
         status: 'in_progress',
         preTripGuardId: actor.id,
         preTripCheckedById: actor.id,
-        preTripCheckedAt: new Date()
+        preTripCheckedAt: new Date(),
+        startMileage: body.startMileage
       }
     });
     await changeVehicleStatus(tx, ticket.vehicleId, 'on_trip', {
@@ -107,18 +128,32 @@ export async function checkOut(id: string, actor: AuthenticatedUser) {
   return findTripTicketById(id);
 }
 
-// security_guard check-in → completed; records the post-trip guard and flips
-// the vehicle on_trip→available (skipped+logged if it isn't on_trip).
-export async function checkIn(id: string, actor: AuthenticatedUser) {
+// security_guard check-in → completed; records the post-trip guard and the
+// closing odometer, and flips the vehicle on_trip→available.
+//
+// The status flip stays SOFT here, deliberately: the van is physically back
+// whatever the row says, and if a job order took it into the workshop mid-trip
+// we must not flip it to `available` on top of that. But the trip still closes
+// and the odometer still advances.
+export async function checkIn(id: string, actor: AuthenticatedUser, body: CheckInBody) {
   const ticket = await loadInState(id, ['in_progress']);
   await prisma.$transaction(async (tx) => {
+    const vehicle = await tx.vehicle.findUniqueOrThrow({
+      where: { id: ticket.vehicleId },
+      select: { mileage: true }
+    });
+    // Floor at whatever the guard read on the way out, so a trip can never
+    // record a negative distance.
+    const floor = Math.max(vehicle.mileage, ticket.startMileage ?? 0);
+    await advanceOdometer(tx, ticket.vehicleId, body.endMileage, floor);
     await tx.tripTicket.update({
       where: { id },
       data: {
         status: 'completed',
         postTripGuardId: actor.id,
         postTripCheckedById: actor.id,
-        postTripCheckedAt: new Date()
+        postTripCheckedAt: new Date(),
+        endMileage: body.endMileage
       }
     });
     await changeVehicleStatus(tx, ticket.vehicleId, 'available', {
