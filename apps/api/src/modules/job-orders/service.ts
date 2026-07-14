@@ -49,7 +49,29 @@ export async function update(id: string, body: UpdateJobOrderBody) {
 }
 
 export async function remove(id: string): Promise<void> {
-  const existing = await findJobOrderById(id);
+  const existing = await prisma.jobOrder.findUnique({
+    where: { id },
+    include: { spareParts: true }
+  });
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Job order not found');
-  await prisma.jobOrder.delete({ where: { id } }); // job_order_spare_parts cascade (schema)
+
+  // A repair that happened is a record: it consumed parts off the shelf, wrote a
+  // maintenance row, and released the vehicle. Deleting it erases the reason the
+  // stock is gone and leaves the maintenance history pointing at nothing.
+  if (existing.status === 'repaired') {
+    throw new AppError(409, 'INVALID_TRANSITION', 'Cannot delete a job order that has been repaired');
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Parts are issued at `note`. Abandoning the job puts them back on the shelf
+    // — without this, reserving them at note would simply lose them: the join
+    // rows cascade away on delete and the stock never returns.
+    for (const line of existing.spareParts) {
+      await tx.sparePart.update({
+        where: { id: line.sparePartId },
+        data: { quantity: { increment: line.quantity } }
+      });
+    }
+    await tx.jobOrder.delete({ where: { id } }); // job_order_spare_parts cascade (schema)
+  });
 }

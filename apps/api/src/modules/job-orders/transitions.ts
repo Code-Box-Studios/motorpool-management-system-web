@@ -40,11 +40,44 @@ export async function note(id: string, actor: AuthenticatedUser, body: NoteJobOr
         assignedMechanicId: body.assignedMechanicId
       }
     });
+    // Parts come off the shelf HERE, when they are committed to this repair —
+    // not at complete-repair, which is only the paperwork closing. Issuing them
+    // at the point of commitment is what makes the check below possible at all:
+    // two job orders can no longer each note the last brake pad and both go on
+    // to complete, driving stock negative with nothing to stop it.
+    //
+    // The same part can appear twice in one note, so sum by part before checking.
+    const wanted = new Map<string, number>();
+    for (const line of body.spareParts) {
+      wanted.set(line.sparePartId, (wanted.get(line.sparePartId) ?? 0) + line.quantity);
+    }
+
+    for (const [sparePartId, quantity] of wanted) {
+      const part = await tx.sparePart.findUnique({
+        where: { id: sparePartId },
+        select: { name: true, quantity: true }
+      });
+      if (!part) throw new AppError(404, 'NOT_FOUND', 'Spare part not found');
+      if (part.quantity < quantity) {
+        throw new AppError(
+          409,
+          'INSUFFICIENT_STOCK',
+          `Only ${part.quantity} × ${part.name} on the shelf; the repair needs ${quantity}`
+        );
+      }
+    }
+
     // Replace any existing join rows with the noted set.
     await tx.jobOrderSparePart.deleteMany({ where: { jobOrderId: id } });
     if (body.spareParts.length > 0) {
       await tx.jobOrderSparePart.createMany({
         data: body.spareParts.map((p) => ({ jobOrderId: id, sparePartId: p.sparePartId, quantity: p.quantity }))
+      });
+    }
+    for (const [sparePartId, quantity] of wanted) {
+      await tx.sparePart.update({
+        where: { id: sparePartId },
+        data: { quantity: { decrement: quantity } }
       });
     }
     // No expectedFrom: the precondition above already established the vehicle is
@@ -67,21 +100,25 @@ export async function approve(id: string, actor: AuthenticatedUser) {
   return findJobOrderById(id);
 }
 
-// admin complete-repair → repaired; decrements spare-parts inventory, writes a
-// maintenance history row, and flips the vehicle back to available. One
-// transaction (spec §6.2 — this inventory decrement is NEW behavior).
+// admin complete-repair → repaired; writes a maintenance history row and flips
+// the vehicle back to available. One transaction.
+//
+// It does NOT touch inventory: the parts came off the shelf at `note`, when they
+// were committed to this repair. Decrementing here — with no stock floor — was
+// what let two job orders each claim the last part and both complete, taking
+// stock negative and quietly corrupting every "In stock" / "Low stock" badge.
 export async function completeRepair(id: string, actor: AuthenticatedUser, body: CompleteRepairBody) {
-  const order = await prisma.jobOrder.findUnique({ where: { id }, include: { spareParts: true } });
+  const order = await prisma.jobOrder.findUnique({ where: { id } });
   if (!order) throw new AppError(404, 'NOT_FOUND', 'Job order not found');
   if (order.status !== 'ongoing_repair') {
     throw new AppError(409, 'INVALID_TRANSITION', `Not allowed from status ${order.status}`);
   }
   const releaseDate = body.actualDateOfRelease ?? new Date();
   await prisma.$transaction(async (tx) => {
-    // Conditional write: only flips rows still in ongoing_repair. Under concurrent
-    // double-submit, the loser's updateMany blocks on the row lock, re-evaluates
-    // the WHERE against the winner's committed status, matches 0, and aborts here
-    // — before the decrement loop runs — preventing a double decrement.
+    // Conditional write: only flips rows still in ongoing_repair. Under a
+    // concurrent double-submit the loser blocks on the row lock, re-evaluates the
+    // WHERE against the winner's committed status, matches 0, and aborts here —
+    // so the maintenance row is written exactly once.
     const flipped = await tx.jobOrder.updateMany({
       where: { id, status: 'ongoing_repair' },
       data: {
@@ -93,16 +130,6 @@ export async function completeRepair(id: string, actor: AuthenticatedUser, body:
     });
     if (flipped.count === 0) {
       throw new AppError(409, 'INVALID_TRANSITION', `Not allowed from status ${order.status}`);
-    }
-    // Decrement inventory per noted part (spec §6.2 — NEW behavior). Intentionally
-    // NO stock floor: a physically-completed repair is never blocked on inventory
-    // math, and clamping would hide over-use. A negative quantity is an accepted
-    // signal for admin reconciliation. (Revisit if a hard stock guard is wanted.)
-    for (const line of order.spareParts) {
-      await tx.sparePart.update({
-        where: { id: line.sparePartId },
-        data: { quantity: { decrement: line.quantity } }
-      });
     }
     // The odometer the repair was signed off at. Without it this row was written
     // with `mileage: null`, and the risk model reads a null last-service mileage

@@ -72,7 +72,10 @@ export function NoteJobOrderModal({
   );
   const [errors, setErrors] = useState<
     Partial<
-      Record<'dateOfRequest' | 'targetDate' | 'assignedMechanicId', string>
+      Record<
+        'dateOfRequest' | 'targetDate' | 'assignedMechanicId' | 'spareParts',
+        string
+      >
     >
   >({});
 
@@ -87,6 +90,19 @@ export function NoteJobOrderModal({
     }
     if (!formData.assignedMechanicId) {
       newErrors.assignedMechanicId = 'Assigned Mechanic is required';
+    }
+
+    // Noting the job issues the parts, so a shortage is a hard stop. The server
+    // refuses it anyway (409 INSUFFICIENT_STOCK) — this just says so first.
+    const short = formData.selectedSpareParts.filter((id) => {
+      const onHand = spareParts?.find((p) => p.id === id)?.quantity ?? 0;
+      return (formData.quantities[id] ?? 1) > onHand;
+    });
+    if (short.length > 0) {
+      const names = short
+        .map((id) => spareParts?.find((p) => p.id === id)?.name ?? 'part')
+        .join(', ');
+      newErrors.spareParts = `Not enough on the shelf: ${names}`;
     }
 
     setErrors(newErrors);
@@ -223,15 +239,22 @@ export function NoteJobOrderModal({
             <FieldLabel htmlFor="spare_parts_used">Spare Parts Used</FieldLabel>
             <MultiSelect
               options={
+                // The shelf count rides in the label. Noting more of a part than
+                // exists is refused server-side (409 INSUFFICIENT_STOCK) because
+                // the parts are issued here — so show what is actually there
+                // rather than let the admin find out by being rejected.
                 spareParts?.map((part) => ({
                   value: part.id,
-                  label: `${part.name}${part.brand ? ` - ${part.brand}` : ''}`
+                  label: `${part.name}${part.brand ? ` - ${part.brand}` : ''} · ${part.quantity ?? 0} on hand`
                 })) || []
               }
               selected={formData.selectedSpareParts}
               onChange={handleSparePartsChange}
               placeholder="Select spare parts..."
             />
+            {errors.spareParts && (
+              <FieldError errors={[{ message: errors.spareParts }]} />
+            )}
           </Field>
 
           {/* Per-part quantity (default 1) */}
@@ -241,17 +264,28 @@ export function NoteJobOrderModal({
               <div className="flex flex-col gap-2">
                 {formData.selectedSpareParts.map((sparePartId) => {
                   const part = spareParts?.find((p) => p.id === sparePartId);
+                  const onHand = part?.quantity ?? 0;
+                  const wanted = formData.quantities[sparePartId] ?? 1;
+                  const short = wanted > onHand;
                   return (
                     <div key={sparePartId} className="flex items-center gap-3">
                       <span className="flex-1 text-sm">
                         {part?.name || sparePartId}
+                        <span className="text-muted-foreground ml-2 text-xs">
+                          {onHand} on hand
+                        </span>
                       </span>
                       <Input
                         type="number"
                         min={1}
+                        // Capped at the shelf: the parts leave stock the moment
+                        // this job order is noted, so more than exists is not a
+                        // thing that can be committed.
+                        max={Math.max(1, onHand)}
                         step={1}
                         className="w-24"
-                        value={formData.quantities[sparePartId] ?? 1}
+                        aria-invalid={short}
+                        value={wanted}
                         onChange={(e) =>
                           handleQuantityChange(
                             sparePartId,
@@ -259,6 +293,11 @@ export function NoteJobOrderModal({
                           )
                         }
                       />
+                      {short && (
+                        <span className="text-destructive w-28 text-xs">
+                          Only {onHand} on the shelf
+                        </span>
+                      )}
                     </div>
                   );
                 })}
