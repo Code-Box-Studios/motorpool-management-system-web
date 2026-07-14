@@ -60,13 +60,16 @@ const SpareParts = () => {
   const table = (
     <Card>
       <CardContent className="pt-6">
+        {/* No fixed column widths: pinning them left every spare pixel to the
+            last column, so the data bunched left behind a wide empty
+            Description. Auto-layout spreads the slack in proportion to content. */}
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[280px]">Part</TableHead>
-              <TableHead className="w-[140px]">Brand</TableHead>
-              <TableHead className="w-[100px]">On hand</TableHead>
-              <TableHead className="w-[140px]">Stock</TableHead>
+              <TableHead>Part</TableHead>
+              <TableHead>Brand</TableHead>
+              <TableHead className="text-right">On hand</TableHead>
+              <TableHead>Stock</TableHead>
               <TableHead>Description</TableHead>
             </TableRow>
           </TableHeader>
@@ -94,14 +97,14 @@ const SpareParts = () => {
                       <span className="font-medium">{sparePart.name}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-sm whitespace-nowrap">
                     {sparePart.brand || '—'}
                   </TableCell>
-                  <TableCell className="text-sm tabular-nums">
+                  <TableCell className="text-right text-sm tabular-nums">
                     {quantity}
                   </TableCell>
                   <TableCell>{stockBadge(quantity)}</TableCell>
-                  <TableCell className="text-muted-foreground max-w-[320px] truncate text-sm">
+                  <TableCell className="text-muted-foreground text-sm">
                     {sparePart.description || '—'}
                   </TableCell>
                 </TableRow>

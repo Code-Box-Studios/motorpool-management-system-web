@@ -59,13 +59,16 @@ const Tools = () => {
   const table = (
     <Card>
       <CardContent className="pt-6">
+        {/* No fixed column widths: pinning them left every spare pixel to the
+            last column, so the data bunched left behind a wide empty
+            Description. Auto-layout spreads the slack in proportion to content. */}
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[280px]">Tool</TableHead>
-              <TableHead className="w-[130px]">Status</TableHead>
-              <TableHead className="w-[180px]">Signed out to</TableHead>
-              <TableHead className="w-[130px]">Due back</TableHead>
+              <TableHead>Tool</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Signed out to</TableHead>
+              <TableHead>Due back</TableHead>
               <TableHead>Description</TableHead>
             </TableRow>
           </TableHeader>
@@ -94,13 +97,13 @@ const Tools = () => {
                 <TableCell>
                   <StatusBadge status={tool.status || 'available'} />
                 </TableCell>
-                <TableCell className="text-sm">
+                <TableCell className="text-sm whitespace-nowrap">
                   {borrowerName(tool.borrowed_by) ?? '—'}
                 </TableCell>
                 <TableCell className="text-sm whitespace-nowrap">
                   {formatDate(tool.estimated_return_date) ?? '—'}
                 </TableCell>
-                <TableCell className="text-muted-foreground max-w-[320px] truncate text-sm">
+                <TableCell className="text-muted-foreground text-sm">
                   {tool.description || '—'}
                 </TableCell>
               </TableRow>

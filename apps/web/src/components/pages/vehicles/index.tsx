@@ -70,15 +70,20 @@ const Vehicles = () => {
   const table = (
     <Card>
       <CardContent className="pt-6">
+        {/* No fixed column widths. Pinning them summed to less than the table
+            and auto-layout dumped every spare pixel into the LAST column, so the
+            data bunched left behind a wide empty Branch. Left free, the browser
+            spreads the slack across the columns in proportion to what is in
+            them. Numbers are right-aligned so they line up to scan down. */}
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[280px]">Vehicle</TableHead>
-              <TableHead className="w-[110px]">Plate</TableHead>
-              <TableHead className="w-[130px]">Status</TableHead>
-              <TableHead className="w-[110px]">Odometer</TableHead>
-              <TableHead className="w-[90px]">Fuel</TableHead>
-              <TableHead className="w-[70px]">Seats</TableHead>
+              <TableHead>Vehicle</TableHead>
+              <TableHead>Plate</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Odometer</TableHead>
+              <TableHead>Fuel</TableHead>
+              <TableHead className="text-right">Seats</TableHead>
               <TableHead>Branch</TableHead>
             </TableRow>
           </TableHeader>
@@ -104,19 +109,19 @@ const Vehicles = () => {
                     <span className="font-medium">{vehicleTitle(vehicle)}</span>
                   </div>
                 </TableCell>
-                <TableCell className="font-mono text-sm">
+                <TableCell className="font-mono text-sm whitespace-nowrap">
                   {vehicle.license_plate}
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={vehicle.status ?? ''} />
                 </TableCell>
-                <TableCell className="text-sm whitespace-nowrap">
+                <TableCell className="text-right text-sm tabular-nums whitespace-nowrap">
                   {odometer(vehicle.mileage) ?? '—'}
                 </TableCell>
-                <TableCell className="text-sm">
+                <TableCell className="text-sm whitespace-nowrap">
                   {vehicle.fuel_type ? titleCase(vehicle.fuel_type) : '—'}
                 </TableCell>
-                <TableCell className="text-sm">
+                <TableCell className="text-right text-sm tabular-nums">
                   {vehicle.capacity ?? '—'}
                 </TableCell>
                 <TableCell className="text-sm">
