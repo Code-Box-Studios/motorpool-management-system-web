@@ -5,6 +5,7 @@ import { toSkipTake } from '../../lib/pagination.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import { findDriverByUserId } from '../drivers/repository.js';
+import { changeVehicleStatus } from '../vehicles/status.js';
 import { findJobOrderById, jobOrderInclude, listJobOrders } from './repository.js';
 
 // Visibility (spec §6): admin/evp see all; everyone else sees rows they
@@ -73,5 +74,24 @@ export async function remove(id: string): Promise<void> {
       });
     }
     await tx.jobOrder.delete({ where: { id } }); // job_order_spare_parts cascade (schema)
+
+    // Noting a job order takes the vehicle INTO the workshop. Deleting that job
+    // order used to leave it there — stranded in `under_maintenance` with no job
+    // order left to explain why, and unbookable until someone noticed and edited
+    // it by hand. Let it out, unless another live repair is still holding it.
+    const heldByAnother = await tx.jobOrder.count({
+      where: {
+        vehicleId: existing.vehicleId,
+        status: { in: ['assigned_mechanic', 'ongoing_repair'] }
+      }
+    });
+    if (heldByAnother === 0) {
+      await changeVehicleStatus(tx, existing.vehicleId, 'available', {
+        changedBy: null,
+        source: 'job_order_note',
+        reason: 'job order deleted',
+        expectedFrom: 'under_maintenance'
+      });
+    }
   });
 }

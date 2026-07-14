@@ -211,19 +211,39 @@ describe('job-order spare-part stock', () => {
     expect((await prisma.sparePart.findUniqueOrThrow({ where: { id: part.id } })).quantity).toBe(0); // never negative
   });
 
-  it('abandoning a noted job order puts its parts back on the shelf', async () => {
-    const { mechanic, part, order } = await scaffold('available');
+  it('abandoning a noted job order puts its parts back AND lets the vehicle out of the workshop', async () => {
+    const { vehicle, mechanic, part, order } = await scaffold('available');
     const adminH = await adminOf();
 
     await request(app).post(`/api/job-orders/${order.id}/note`).set('Authorization', adminH)
       .send({ assignedMechanicId: mechanic.id, spareParts: [{ sparePartId: part.id, quantity: 4 }] });
     expect((await prisma.sparePart.findUniqueOrThrow({ where: { id: part.id } })).quantity).toBe(6);
+    expect((await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })).status).toBe('under_maintenance');
 
     const del = await request(app).delete(`/api/job-orders/${order.id}`).set('Authorization', adminH);
     expect(del.status).toBe(204);
     // Without this the join rows would simply cascade away and the stock would be
     // gone for a repair that never happened.
     expect((await prisma.sparePart.findUniqueOrThrow({ where: { id: part.id } })).quantity).toBe(10);
+    // And the van used to be left stranded in the workshop with no job order left
+    // to explain why — unbookable until someone noticed and edited it by hand.
+    expect((await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })).status).toBe('available');
+  });
+
+  it('abandoning one job order does NOT free a vehicle another repair still holds', async () => {
+    const { branch, vehicle, mechanic, order } = await scaffold('available');
+    const adminH = await adminOf();
+    const second = await prisma.jobOrder.create({ data: { vehicleId: vehicle.id, branchId: branch.id, status: 'pending' } });
+
+    await request(app).post(`/api/job-orders/${order.id}/note`).set('Authorization', adminH)
+      .send({ assignedMechanicId: mechanic.id, spareParts: [] });
+    // The van is already in the workshop, so the second note is a no-op flip.
+    await request(app).post(`/api/job-orders/${second.id}/note`).set('Authorization', adminH)
+      .send({ assignedMechanicId: mechanic.id, spareParts: [] });
+
+    await request(app).delete(`/api/job-orders/${order.id}`).set('Authorization', adminH);
+    // The other repair is still open — the van stays in.
+    expect((await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })).status).toBe('under_maintenance');
   });
 
   it('a REPAIRED job order cannot be deleted (its parts are already consumed)', async () => {

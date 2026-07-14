@@ -76,6 +76,16 @@ export function AddTripTicket() {
   }, [user, form]);
 
   const onSubmit = (data: TripTicketFormData) => {
+    // The last word on the headcount. The count field is capped and re-clamped
+    // when the vehicle changes, so this should be unreachable — but the API
+    // refuses an over-capacity trip (409 OVER_CAPACITY) and a form that can send
+    // one is a form that can waste someone's time filling it in.
+    if (seats !== null && data.participants_count > seats) {
+      form.setError('participants_count', {
+        message: `That vehicle seats ${seats}`
+      });
+      return;
+    }
     setPendingData(data);
     setShowConfirm(true);
   };
@@ -257,7 +267,29 @@ export function AddTripTicket() {
                     <Field data-invalid={fieldState.invalid}>
                       <FieldLabel htmlFor="vehicle_id">Vehicle *</FieldLabel>
                       <Select
-                        onValueChange={field.onChange}
+                        onValueChange={(vehicleId) => {
+                          field.onChange(vehicleId);
+                          // Changing the van changes how many people fit. Without
+                          // this, picking a 9-seater, entering 9, then switching
+                          // to a 4-seater left the count at 9 and the trip only
+                          // failed on submit.
+                          const nextSeats = vehicles?.data?.find(
+                            (v) => v.id === vehicleId
+                          )?.capacity;
+                          if (!nextSeats) return;
+                          const count = form.getValues('participants_count');
+                          if (count > nextSeats) {
+                            form.setValue('participants_count', nextSeats, {
+                              shouldValidate: true
+                            });
+                            setParticipants((prev) =>
+                              Array.from(
+                                { length: nextSeats },
+                                (_, i) => prev[i] || ''
+                              )
+                            );
+                          }
+                        }}
                         value={field.value}
                         disabled={vehiclesLoading}
                       >
@@ -288,8 +320,11 @@ export function AddTripTicket() {
                               })
                               .map((vehicle) => (
                                 <SelectItem key={vehicle.id} value={vehicle.id}>
+                                  {/* The seat count decides how many people can
+                                      come, so it belongs on the choice itself. */}
                                   {vehicle.make} {vehicle.model} -{' '}
-                                  {vehicle.license_plate}
+                                  {vehicle.license_plate} · {vehicle.capacity}{' '}
+                                  {vehicle.capacity === 1 ? 'seat' : 'seats'}
                                 </SelectItem>
                               ))
                           ) : (
@@ -412,7 +447,11 @@ export function AddTripTicket() {
                           setParticipants(newParticipants);
                         }}
                       />
-                      {seats !== null && (
+                      {seats === null ? (
+                        <p className="text-muted-foreground text-xs">
+                          Pick a vehicle to see how many it seats
+                        </p>
+                      ) : (
                         <p className="text-muted-foreground text-xs">
                           This vehicle seats {seats}
                         </p>
