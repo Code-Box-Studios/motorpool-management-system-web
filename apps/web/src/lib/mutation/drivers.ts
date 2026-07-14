@@ -36,8 +36,17 @@ export const useCreateDriver = () => {
 export const useUpdateDriver = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: UpdateDriver }) =>
-      updateDriver(id, updates),
+    mutationFn: ({
+      id,
+      updates,
+      file,
+      removePhoto
+    }: {
+      id: string;
+      updates: UpdateDriver;
+      file?: File;
+      removePhoto?: boolean;
+    }) => updateDriver(id, updates, file, removePhoto),
     onSuccess: () => {
       toast.success('Driver updated successfully!');
       queryClient.invalidateQueries({ queryKey: ['drivers'] });

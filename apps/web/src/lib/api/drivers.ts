@@ -1,6 +1,6 @@
 // src/lib/api/drivers.ts
 import { DRIVER_STATUS_DB } from '@mms/shared';
-import { api } from './client.js';
+import { api, toAssetUrl } from './client.js';
 import type { Driver, NewDriver, UpdateDriver } from '../types';
 
 type DriverStatusDb = (typeof DRIVER_STATUS_DB)[number];
@@ -26,6 +26,7 @@ interface DriverApiResponse {
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
   notes: string | null;
+  photo: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -52,6 +53,9 @@ function toSnakeDriver(d: DriverApiResponse): Driver {
     emergency_contact_name: d.emergencyContactName,
     emergency_contact_phone: d.emergencyContactPhone,
     notes: d.notes,
+    // Stored relative (/uploads/drivers/x.jpg) but served by the API, not the
+    // web dev server — absolute for <img src>.
+    photo: toAssetUrl(d.photo),
     updated_at: d.updatedAt
   };
 }
@@ -142,18 +146,47 @@ export const getDriverById = async (id: string): Promise<Driver> => {
   return toSnakeDriver(await api.get<DriverApiResponse>(`/drivers/${id}`));
 };
 
-export const createDriver = async (driver: NewDriver): Promise<Driver> => {
+// A photo can only travel as multipart, so create/update go out as form data
+// whenever one is involved. Text fields keep the same camelCase names the JSON
+// body used — the API's zod schema coerces them either way.
+function driverFormData(d: NewDriver | UpdateDriver, file?: File): FormData {
+  const fd = new FormData();
+  for (const [key, value] of Object.entries(toDriverBody(d))) {
+    if (value !== undefined && value !== null) fd.append(key, String(value));
+  }
+  if (file) fd.append('photo', file);
+  return fd;
+}
+
+export const createDriver = async (
+  driver: NewDriver,
+  file?: File
+): Promise<Driver> => {
+  if (!file) {
+    return toSnakeDriver(
+      await api.post<DriverApiResponse>('/drivers', toDriverBody(driver))
+    );
+  }
   return toSnakeDriver(
-    await api.post<DriverApiResponse>('/drivers', toDriverBody(driver))
+    await api.postForm<DriverApiResponse>('/drivers', driverFormData(driver, file))
   );
 };
 
 export const updateDriver = async (
   id: string,
-  updates: UpdateDriver
+  updates: UpdateDriver,
+  file?: File,
+  removePhoto: boolean = false
 ): Promise<Driver> => {
+  if (!file && !removePhoto) {
+    return toSnakeDriver(
+      await api.patch<DriverApiResponse>(`/drivers/${id}`, toDriverBody(updates))
+    );
+  }
+  const fd = driverFormData(updates, file);
+  if (removePhoto) fd.append('removePhoto', 'true');
   return toSnakeDriver(
-    await api.patch<DriverApiResponse>(`/drivers/${id}`, toDriverBody(updates))
+    await api.patchForm<DriverApiResponse>(`/drivers/${id}`, fd)
   );
 };
 

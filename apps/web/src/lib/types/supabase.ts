@@ -187,6 +187,7 @@ export type Database = {
           license_type: string | null;
           notes: string | null;
           phone: string | null;
+          photo: string | null;
           sss_number: string | null;
           status: string | null;
           tin: string | null;
@@ -208,6 +209,7 @@ export type Database = {
           license_type?: string | null;
           notes?: string | null;
           phone?: string | null;
+          photo?: string | null;
           sss_number?: string | null;
           status?: string | null;
           tin?: string | null;
@@ -229,6 +231,7 @@ export type Database = {
           license_type?: string | null;
           notes?: string | null;
           phone?: string | null;
+          photo?: string | null;
           sss_number?: string | null;
           status?: string | null;
           tin?: string | null;

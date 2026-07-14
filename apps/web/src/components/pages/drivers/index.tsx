@@ -15,6 +15,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Typography } from '@/components/ui/typography';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import EntityImage from '@/components/shared/entity-image';
 import PageHeader from '@/components/shared/page-header';
 import StatusBadge from '@/components/shared/status-badge';
 
@@ -88,12 +89,23 @@ const Drivers = () => {
                         }
                       >
                         <TableCell>
-                          <div className="font-medium">{driver.full_name}</div>
-                          {driver.email && (
-                            <div className="text-muted-foreground text-xs">
-                              {driver.email}
+                          <div className="flex items-center gap-3">
+                            <EntityImage
+                              src={driver.photo}
+                              alt=""
+                              className="border-border size-10 shrink-0 rounded-full border"
+                            />
+                            <div className="min-w-0">
+                              <div className="font-medium">
+                                {driver.full_name}
+                              </div>
+                              {driver.email && (
+                                <div className="text-muted-foreground text-xs">
+                                  {driver.email}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="font-mono text-sm">

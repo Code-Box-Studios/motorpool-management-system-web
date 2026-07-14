@@ -1,6 +1,8 @@
+import { TrashIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import EntityImage from '@/components/shared/entity-image';
 import { useDriver } from '@/lib/query/drivers';
 import { useUpdateDriver } from '@/lib/mutation/drivers';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -42,8 +44,18 @@ export function DriverDetails({ id }: { id: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingData, setPendingData] = useState<DriverFormData | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
 
   useBreadcrumbLabel(driver?.full_name);
+
+  // The preview is an object URL; leaking it holds the whole image in memory.
+  useEffect(() => {
+    return () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+    };
+  }, [photoPreview]);
 
   useEffect(() => {
     if (driver) {
@@ -72,15 +84,27 @@ export function DriverDetails({ id }: { id: string }) {
     setShowConfirm(true);
   };
 
+  const resetPhotoState = () => {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setRemovePhoto(false);
+  };
+
   const handleConfirmUpdate = () => {
     if (!pendingData) return;
     updateDriver.mutate(
-      { id, updates: pendingData },
+      {
+        id,
+        updates: pendingData,
+        file: photoFile ?? undefined,
+        removePhoto
+      },
       {
         onSuccess: () => {
           setIsEditing(false);
           setShowConfirm(false);
           setPendingData(null);
+          resetPhotoState();
         },
         onError: (error) => {
           toast.error(`Failed to update driver: ${error.message}`);
@@ -118,6 +142,50 @@ export function DriverDetails({ id }: { id: string }) {
       {isEditing ? (
         <form id="update-driver-form" onSubmit={form.handleSubmit(onSubmit)}>
           <FormLayout>
+            <FormSection
+              title="Photo"
+              description="A head-and-shoulders photo the guard can match at the gate."
+            >
+              <div className="flex flex-wrap items-start gap-5">
+                <div className="relative w-full max-w-[180px] shrink-0">
+                  <EntityImage
+                    src={removePhoto ? null : (photoPreview ?? driver.photo)}
+                    alt={driver.full_name}
+                    className="border-border aspect-square w-full rounded-[20px] border"
+                  />
+                  {driver.photo && !removePhoto && !photoPreview && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon-sm"
+                      aria-label="Remove photo"
+                      className="absolute top-2 right-2"
+                      onClick={() => setRemovePhoto(true)}
+                    >
+                      <TrashIcon className="size-4" />
+                    </Button>
+                  )}
+                </div>
+
+                <Field className="flex-1">
+                  <FieldLabel htmlFor="driver_photo">
+                    {driver.photo && !removePhoto ? 'Replace photo' : 'Add photo'}
+                  </FieldLabel>
+                  <Input
+                    id="driver_photo"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      setPhotoFile(file);
+                      setPhotoPreview(file ? URL.createObjectURL(file) : null);
+                      if (file) setRemovePhoto(false);
+                    }}
+                  />
+                </Field>
+              </div>
+            </FormSection>
+
             <FormSection title="Personnel">
               <div className="flex flex-col gap-5">
                 <FormRow>
@@ -349,7 +417,10 @@ export function DriverDetails({ id }: { id: string }) {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setIsEditing(false)}
+                onClick={() => {
+                  setIsEditing(false);
+                  resetPhotoState();
+                }}
                 disabled={updateDriver.isPending}
               >
                 Cancel
@@ -360,7 +431,13 @@ export function DriverDetails({ id }: { id: string }) {
       ) : (
         <div className="flex flex-col gap-5">
           <DetailSection title="Personnel">
-            <DetailGrid>
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+              <EntityImage
+                src={driver.photo}
+                alt={driver.full_name}
+                className="border-border aspect-square w-full max-w-[180px] shrink-0 rounded-[20px] border"
+              />
+              <DetailGrid className="flex-1 lg:grid-cols-2">
               <DetailItem label="Phone" value={driver.phone} />
               <DetailItem label="Email" value={driver.email} />
               <DetailItem
@@ -383,7 +460,8 @@ export function DriverDetails({ id }: { id: string }) {
               <DetailItem label="TIN" value={driver.tin} mono />
               <DetailItem label="Address" value={driver.address} wide />
               <DetailItem label="Notes" value={driver.notes} wide />
-            </DetailGrid>
+              </DetailGrid>
+            </div>
           </DetailSection>
 
           <DetailSection title="License">

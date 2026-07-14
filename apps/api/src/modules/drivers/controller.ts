@@ -2,12 +2,17 @@ import type { Request, Response } from 'express';
 import type { CreateDriverBody, UpdateDriverBody } from '@mms/shared';
 import { paginationQuerySchema } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
+import { publicUploadPath } from '../../lib/uploads.js';
 import * as service from './service.js';
 
 function requireIdParam(req: Request): string {
   const id = req.params.id;
   if (typeof id !== 'string' || !id) throw new AppError(400, 'VALIDATION_ERROR', 'Missing id parameter');
   return id;
+}
+
+function photoPath(req: Request): string | null {
+  return req.file ? publicUploadPath('drivers', req.file.filename) : null;
 }
 
 function requireUser(req: Request) {
@@ -24,11 +29,11 @@ export async function getById(req: Request, res: Response): Promise<void> {
 }
 
 export async function create(req: Request, res: Response): Promise<void> {
-  res.status(201).json(await service.create(req.body as CreateDriverBody));
+  res.status(201).json(await service.create(req.body as CreateDriverBody, photoPath(req)));
 }
 
 export async function update(req: Request, res: Response): Promise<void> {
-  res.json(await service.update(requireIdParam(req), req.body as UpdateDriverBody));
+  res.json(await service.update(requireIdParam(req), req.body as UpdateDriverBody, photoPath(req)));
 }
 
 export async function remove(req: Request, res: Response): Promise<void> {

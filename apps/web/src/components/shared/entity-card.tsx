@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import StatusBadge from '@/components/shared/status-badge';
+import EntityImage from '@/components/shared/entity-image';
 import { cn } from '@/lib/utils';
 
 export interface EntityCardField {
@@ -17,8 +18,8 @@ interface EntityCardProps {
   status?: string;
   /** An extra pill beside the status, e.g. a stock warning on a part. */
   badge?: ReactNode;
-  /** A real photo. When absent the card shows no image at all — a placeholder
-   *  carries no information and would only push the data out of view. */
+  /** The record's photo. When absent the card falls back to the MMS mark, so
+   *  every card in a grid keeps the same shape. */
   imageSrc?: string | null;
   fields?: EntityCardField[];
   footnote?: ReactNode;
@@ -43,14 +44,10 @@ const EntityCard = ({
     to={to}
     className="bg-card border-border hover:border-foreground/25 focus-visible:ring-ring group flex h-full flex-col overflow-hidden rounded-[20px] border transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-2 focus-visible:outline-none"
   >
-    {imageSrc && (
-      <img
-        src={imageSrc}
-        alt=""
-        loading="lazy"
-        className="bg-muted aspect-video w-full object-cover"
-      />
-    )}
+    <EntityImage
+      src={imageSrc}
+      className="aspect-video w-full"
+    />
 
     <div className="flex flex-1 flex-col gap-3 p-5">
       {/* Badge above, not beside: in a narrow column a badge on the title's row

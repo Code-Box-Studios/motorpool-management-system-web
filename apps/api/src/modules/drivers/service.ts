@@ -28,14 +28,14 @@ async function mustExist(id: string) {
   return driver;
 }
 
-export async function create(body: CreateDriverBody) {
+export async function create(body: CreateDriverBody, photoPath: string | null = null) {
   if (await findDriverByEmail(body.email)) {
     throw new AppError(409, 'EMAIL_TAKEN', 'A driver with this email already exists');
   }
-  return prisma.driver.create({ data: body });
+  return prisma.driver.create({ data: { ...body, photo: photoPath } });
 }
 
-export async function update(id: string, body: UpdateDriverBody) {
+export async function update(id: string, body: UpdateDriverBody, newPhotoPath: string | null = null) {
   await mustExist(id);
   if (body.email) {
     const clash = await findDriverByEmail(body.email);
@@ -43,7 +43,14 @@ export async function update(id: string, body: UpdateDriverBody) {
       throw new AppError(409, 'EMAIL_TAKEN', 'A driver with this email already exists');
     }
   }
-  return prisma.driver.update({ where: { id }, data: body });
+  // Three-valued, as with tools: a new file replaces, removePhoto clears, and
+  // neither leaves the existing photo alone.
+  const { removePhoto, ...rest } = body;
+  const photo = newPhotoPath ? newPhotoPath : removePhoto ? null : undefined;
+  return prisma.driver.update({
+    where: { id },
+    data: { ...rest, ...(photo !== undefined ? { photo } : {}) }
+  });
 }
 
 export async function remove(id: string): Promise<void> {

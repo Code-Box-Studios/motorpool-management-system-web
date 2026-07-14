@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import EntityImage from '@/components/shared/entity-image';
 import { Controller } from 'react-hook-form';
 import { useVehicleUpdateForm, type UpdateVehicleFormData } from './actions';
 import type { UpdateVehicle } from '@/lib/types';
@@ -144,16 +145,14 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
         }
       />
 
-      {/* No photos means no image strip: a placeholder box carries no
-          information and only pushes the record's facts out of view. */}
-      {images.length > 0 && (
-        <div className="grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {images.map((url, index) => (
+      <div className="grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {images.length > 0 ? (
+          images.map((url, index) => (
             <div key={url} className="relative">
-              <img
-                src={url ?? '/logo/mms-logo.png'}
+              <EntityImage
+                src={url}
                 alt={`${title} photo ${index + 1}`}
-                className="bg-muted border-border aspect-video w-full rounded-lg border object-cover"
+                className="border-border aspect-video w-full rounded-lg border"
               />
               {isEditing && (
                 <Button
@@ -168,9 +167,14 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
                 </Button>
               )}
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        ) : (
+          <EntityImage
+            alt=""
+            className="border-border aspect-video w-full rounded-lg border"
+          />
+        )}
+      </div>
 
       {isEditing ? (
         <form id="edit-vehicle-form" onSubmit={form.handleSubmit(onSubmit)}>

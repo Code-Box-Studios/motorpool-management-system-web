@@ -8,6 +8,7 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
 import { Loading } from '@/components/ui/loader';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
+import EntityImage from '@/components/shared/entity-image';
 import {
   RecordHeader,
   DetailSection,
@@ -277,13 +278,11 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
         <div className="flex flex-col gap-5">
           <DetailSection title="Part">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-              {sparePart.image && (
-                <img
-                  src={sparePart.image}
-                  alt={sparePart.name}
-                  className="border-border bg-muted aspect-square w-full max-w-[220px] shrink-0 rounded-[20px] border object-contain"
-                />
-              )}
+              <EntityImage
+                src={sparePart.image}
+                alt={sparePart.name}
+                className="border-border aspect-square w-full max-w-[220px] shrink-0 rounded-[20px] border"
+              />
               <DetailGrid className="flex-1 lg:grid-cols-2">
                 <DetailItem label="Brand" value={sparePart.brand} />
                 <DetailItem

@@ -16,6 +16,7 @@ import {
 import { Loading } from '@/components/ui/loader';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import StatusBadge from '@/components/shared/status-badge';
+import EntityImage from '@/components/shared/entity-image';
 import {
   RecordHeader,
   DetailSection,
@@ -406,13 +407,11 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
         <div className="flex flex-col gap-5">
           <DetailSection title="Tool">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-              {tool.image && (
-                <img
-                  src={tool.image}
-                  alt={tool.name}
-                  className="border-border bg-muted aspect-square w-full max-w-[220px] shrink-0 rounded-[20px] border object-contain"
-                />
-              )}
+              <EntityImage
+                src={tool.image}
+                alt={tool.name}
+                className="border-border aspect-square w-full max-w-[220px] shrink-0 rounded-[20px] border"
+              />
               {/* Status is not repeated here: the header already carries it as
                   a badge, and the same fact twice on one screen reads as two. */}
               <DetailGrid className="flex-1 lg:grid-cols-2">

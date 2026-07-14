@@ -1,7 +1,11 @@
 import { z } from 'zod';
+import { booleanFromString } from './common.js';
 
 export const driverStatusSchema = z.enum(['active', 'inactive', 'on_trip']);
 
+// The photo rides in as a multipart file (field name `photo`), never in the
+// body — the server derives its path. Everything else still accepts JSON, so
+// the pre-multipart callers keep working.
 export const createDriverBodySchema = z.object({
   email: z.string().email(),
   fullName: z.string().min(1),
@@ -23,7 +27,9 @@ export const createDriverBodySchema = z.object({
 });
 export type CreateDriverBody = z.infer<typeof createDriverBodySchema>;
 
-export const updateDriverBodySchema = createDriverBodySchema.partial();
+export const updateDriverBodySchema = createDriverBodySchema.partial().extend({
+  removePhoto: booleanFromString.optional()
+});
 export type UpdateDriverBody = z.infer<typeof updateDriverBodySchema>;
 
 // Response type is intentionally loose (Prisma row serialized to JSON);

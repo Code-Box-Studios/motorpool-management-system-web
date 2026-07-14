@@ -259,6 +259,10 @@ model Driver {
   userId                String?      @unique @map("user_id") @db.Uuid
   email                 String       @unique
   fullName              String       @map("full_name")
+  // A driver's own photo. Not users.avatarUrl: only a driver created through
+  // POST /api/users has a linked user at all, so most driver rows could never
+  // carry one.
+  photo                 String?
   phone                 String?
   address               String?
   dateOfBirth           DateTime?    @map("date_of_birth") @db.Date
