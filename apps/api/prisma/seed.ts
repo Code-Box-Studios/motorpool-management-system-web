@@ -27,7 +27,7 @@ async function main() {
     update: {},
     create: { id: '00000000-0000-4000-8000-000000000001', name: 'Main Branch', location: 'Head Office' }
   });
-  await prisma.branch.upsert({
+  const northBranch = await prisma.branch.upsert({
     where: { id: '00000000-0000-4000-8000-000000000002' },
     update: {},
     create: { id: '00000000-0000-4000-8000-000000000002', name: 'North Branch', location: 'North Depot' }
@@ -45,6 +45,22 @@ async function main() {
     create: { id: '00000000-0000-4000-8000-000000000021', name: 'Maria Santos', branchId: mainBranch.id, officeId: office.id }
   });
   await prisma.departmentOffice.update({ where: { id: office.id }, data: { headId: head.id } });
+
+  // North Branch was a branch in name only: no office, no vans, no drivers. So a
+  // trip raised for it had to borrow head office's office head, and a branch that
+  // owns nothing cannot lend anything — which made "borrow another branch's
+  // vehicle", a thing the business actually does, impossible to see or to try.
+  const northOffice = await prisma.departmentOffice.upsert({
+    where: { id: '00000000-0000-4000-8000-000000000012' },
+    update: {},
+    create: { id: '00000000-0000-4000-8000-000000000012', name: 'North Operations', branchId: northBranch.id }
+  });
+  const northHead = await prisma.officeHead.upsert({
+    where: { id: '00000000-0000-4000-8000-000000000022' },
+    update: {},
+    create: { id: '00000000-0000-4000-8000-000000000022', name: 'Elena Villanueva', branchId: northBranch.id, officeId: northOffice.id }
+  });
+  await prisma.departmentOffice.update({ where: { id: northOffice.id }, data: { headId: northHead.id } });
 
   // One user per role (+ linked driver row for the driver-role user)
   const users = {} as Record<RoleName, { id: string }>;
@@ -89,6 +105,46 @@ async function main() {
           }
         }))
     );
+  }
+
+  // North Branch's own vans. Deliberately NOT pushed onto `vehicles` — everything
+  // downstream (the maintenance history, the seeded trips, the GPS traces) walks
+  // that array by index, and quietly folding another branch's vans into it would
+  // turn seeded head-office trips into cross-branch borrows behind the tests'
+  // backs. North owns these; nothing else touches them.
+  //
+  // Both `available`, because a van nobody can book is a van nobody can lend, and
+  // the point of them is that Main can borrow one and North can lend it.
+  const northVehicleSpecs = [
+    { make: 'Toyota', model: 'Innova', plate: 'MMS-0007', capacity: 7 },
+    { make: 'Hyundai', model: 'H-100', plate: 'MMS-0008', capacity: 3 }
+  ] as const;
+  for (const [i, v] of northVehicleSpecs.entries()) {
+    const existing = await prisma.vehicle.findFirst({ where: { licensePlate: v.plate } });
+    if (existing) continue;
+    await prisma.vehicle.create({
+      data: {
+        make: v.make, model: v.model, year: 2022 + i,
+        vin: `VIN${String(7 + i).padStart(8, '0')}`,
+        licensePlate: v.plate, capacity: v.capacity, fuelType: 'diesel',
+        mileage: 18000 + i * 6000, status: 'available',
+        insuranceExpiry: new Date('2026-12-31'), registrationExpiry: new Date('2026-12-31'),
+        branchId: northBranch.id
+      }
+    });
+  }
+
+  // ...and a driver of its own, so a North trip is not forced to take a head
+  // office driver. Same reasoning: kept out of the `drivers` array below.
+  const northDriverEmail = 'elena.reyes@mms.local';
+  if (!(await prisma.driver.findFirst({ where: { email: northDriverEmail } }))) {
+    await prisma.driver.create({
+      data: {
+        email: northDriverEmail, fullName: 'Elena Reyes', status: 'active',
+        licenseNumber: 'N01-23-456789', licenseExpiry: new Date('2027-06-30'),
+        branchId: northBranch.id
+      }
+    });
   }
 
   // Drivers (5; first one linked to the driver-role user)

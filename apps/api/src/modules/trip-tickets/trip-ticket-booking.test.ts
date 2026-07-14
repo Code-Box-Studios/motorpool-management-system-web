@@ -67,6 +67,55 @@ describe('trip-ticket booking rules', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
 
+  // A branch runs its own vans and borrows another branch's when it needs to.
+  // That is the policy, so this is a rule about what must KEEP working: the
+  // absence of a branch check here is deliberate, not an oversight, and a future
+  // reader who "tightens" this by matching trip.branchId to vehicle.branchId
+  // breaks a real workflow. The web surfaces the borrow to the approver — who is
+  // the control on it — rather than the API forbidding it.
+  it('ALLOWS a branch to borrow another branch’s vehicle', async () => {
+    const s = await scaffold();
+    const lender = await createTestBranch();
+    const lentVehicle = await prisma.vehicle.create({
+      data: {
+        make: 'T', model: 'H', year: 2021, vin: 'V9', licensePlate: 'P9', capacity: 5,
+        fuelType: 'diesel', mileage: 1000, status: 'available', branchId: lender.id,
+        insuranceExpiry: new Date('2027-01-01'), registrationExpiry: new Date('2027-01-01')
+      }
+    });
+
+    // The trip is FOR s.branch; the van belongs to `lender`.
+    const res = await post(s, { vehicleId: lentVehicle.id });
+    expect(res.status).toBe(201);
+    expect(res.body.branchId).toBe(s.branch.id);
+    expect(res.body.vehicle.branchId).toBe(lender.id);
+  });
+
+  // Borrowing does not get you out of the queue: a borrowed van is still one van,
+  // and the overlap check does not care whose it is.
+  it('a borrowed vehicle still cannot be double-booked by its OWN branch', async () => {
+    const s = await scaffold();
+    const lender = await createTestBranch();
+    const lentVehicle = await prisma.vehicle.create({
+      data: {
+        make: 'T', model: 'H', year: 2021, vin: 'V9', licensePlate: 'P9', capacity: 5,
+        fuelType: 'diesel', mileage: 1000, status: 'available', branchId: lender.id,
+        insuranceExpiry: new Date('2027-01-01'), registrationExpiry: new Date('2027-01-01')
+      }
+    });
+
+    const borrowed = await post(s, { vehicleId: lentVehicle.id });
+    expect(borrowed.status).toBe(201);
+
+    // The owning branch now wants its own van back for the same hours. Too late.
+    const clash = await post(s, {
+      branchId: lender.id,
+      vehicleId: lentVehicle.id,
+      driverId: s.otherDriver.id
+    });
+    expect(clash.status).toBe(409);
+  });
+
   it('refuses a vehicle that is out of service', async () => {
     const s = await scaffold();
     const res = await post(s, { vehicleId: s.deadVehicle.id });

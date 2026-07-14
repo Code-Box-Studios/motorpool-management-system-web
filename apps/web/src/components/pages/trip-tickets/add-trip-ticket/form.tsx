@@ -15,7 +15,9 @@ import { useDepartmentOffices, useOfficeHeads } from '@/lib/query/offices';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
@@ -27,6 +29,8 @@ import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import Stepper from '@/components/shared/stepper';
 import DestinationPicker from '@/components/shared/destination-picker';
 import { DetailGrid, DetailItem } from '@/components/shared/detail-view';
+import { BorrowedBadge } from '@/components/shared/borrowed-badge';
+import { isBorrowed } from '@/lib/borrowed';
 import {
   FormLayout,
   FormSection,
@@ -161,14 +165,81 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
     null
   );
 
-  // Get user's branch for filtering
   const userBranchId = userRole?.branch_id || user?.user_metadata?.branch_id;
 
+  // The branch the TRIP is for — not the branch the person filling the form
+  // happens to belong to. Both lists below used to key off the user's branch, so
+  // an admin booking on Kidapawan's behalf was offered head office's vans and
+  // head office's drivers. Fall back to the user's branch only until a branch is
+  // picked.
+  const tripBranchId: string | null | undefined =
+    review.branch_id || userBranchId;
+  const tripBranchName = branches?.find((b) => b.id === tripBranchId)?.name;
+
+  // Every branch runs its own vans and borrows another branch's when it needs to.
+  // The vans it owns are the default and come first; another branch's are
+  // reachable, but under their own heading and tagged with whose they are — a
+  // borrow should be a decision, not something you do by not noticing.
+  const freeVehicles = (vehicles?.data ?? []).filter(
+    (v) => v.status === 'available'
+  );
+  const ownVehicles = freeVehicles.filter(
+    (v) => !isBorrowed(tripBranchId, v.branch)
+  );
+  const borrowableVehicles = freeVehicles.filter((v) =>
+    isBorrowed(tripBranchId, v.branch)
+  );
+
+  // Drivers get the same shape for the same reason — and because keying them to
+  // the trip's branch WITHOUT a fallback group would hand an admin an empty
+  // dropdown the moment they booked for a branch whose drivers they cannot see.
+  const activeDrivers = (drivers?.data ?? []).filter(
+    (d) => d.status === 'active'
+  );
+  const ownDrivers = activeDrivers.filter(
+    (d) => !isBorrowed(tripBranchId, d.branch_id)
+  );
+  const otherDrivers = activeDrivers.filter((d) =>
+    isBorrowed(tripBranchId, d.branch_id)
+  );
+
+  // Whose van this is, when it is not ours. Drives the note under the picker, the
+  // review, and (via the same helper) the badge the approver sees.
+  const borrowedFrom = isBorrowed(tripBranchId, reviewVehicle?.branch)
+    ? (reviewVehicle?.branch_name ?? 'another branch')
+    : null;
+
+  // A VAN can be borrowed. An OFFICE cannot — it is the chain the request is
+  // filed under, not a resource: branch -> office -> head. Neither list was
+  // filtered, so a Main Branch trip could be filed under North Branch's office,
+  // signed off by North Branch's office head, and nothing anywhere objected.
+  const branchOffices = (offices ?? []).filter(
+    (o) => !tripBranchId || o.branch_id === tripBranchId
+  );
+  const officeHeadsForOffice = (officeHeads ?? []).filter((h) =>
+    review.office_id
+      ? h.office_id === review.office_id
+      : !tripBranchId || h.branch_id === tripBranchId
+  );
+
+  // Changing the branch can strand an office (and a head) that belongs to the
+  // branch you just left. Drop them rather than submit a trip whose office is
+  // somebody else's.
   useEffect(() => {
-    console.log('Drivers:', drivers);
-    console.log('Vehicles:', vehicles);
-    console.log('Branches:', branches);
-  }, [drivers, vehicles, branches]);
+    if (review.office_id && !branchOffices.some((o) => o.id === review.office_id)) {
+      form.setValue('office_id', '');
+      form.setValue('office_head_id', '');
+    }
+  }, [review.office_id, branchOffices, form]);
+
+  useEffect(() => {
+    if (
+      review.office_head_id &&
+      !officeHeadsForOffice.some((h) => h.id === review.office_head_id)
+    ) {
+      form.setValue('office_head_id', '');
+    }
+  }, [review.office_head_id, officeHeadsForOffice, form]);
 
   useEffect(() => {
     if (user) {
@@ -310,15 +381,17 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                           />
                         </SelectTrigger>
                         <SelectContent>
-                          {offices && offices.length > 0 ? (
-                            offices.map((office) => (
+                          {branchOffices.length > 0 ? (
+                            branchOffices.map((office) => (
                               <SelectItem key={office.id} value={office.id}>
                                 {office.name}
                               </SelectItem>
                             ))
                           ) : (
                             <div className="text-muted-foreground p-2 text-sm">
-                              No offices available
+                              {tripBranchId
+                                ? 'This branch has no offices'
+                                : 'Pick a branch first'}
                             </div>
                           )}
                         </SelectContent>
@@ -355,8 +428,8 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                           />
                         </SelectTrigger>
                         <SelectContent>
-                          {officeHeads && officeHeads.length > 0 ? (
-                            officeHeads.map((officeHead) => (
+                          {officeHeadsForOffice.length > 0 ? (
+                            officeHeadsForOffice.map((officeHead) => (
                               <SelectItem
                                 key={officeHead.id}
                                 value={officeHead.id}
@@ -366,7 +439,9 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                             ))
                           ) : (
                             <div className="text-muted-foreground p-2 text-sm">
-                              No office heads available
+                              {review.office_id
+                                ? 'This office has no head'
+                                : 'Pick an office first'}
                             </div>
                           )}
                         </SelectContent>
@@ -383,7 +458,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
 
           <FormSection
             title="The trip"
-            description="Only available vehicles and active drivers from your branch are listed."
+            description="Free vehicles and active drivers. The branch's own come first; another branch's can be borrowed."
             className={step === 1 ? undefined : 'hidden'}
           >
             <div className="flex flex-col gap-5">
@@ -422,37 +497,75 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                           />
                         </SelectTrigger>
                         <SelectContent>
-                          {vehicles?.data && vehicles.data.length > 0 ? (
-                            vehicles.data
-                              .filter((vehicle) => {
-                                // Filter by availability
-                                if (vehicle.status !== 'available')
-                                  return false;
-                                // Filter by user's branch (for both requesters and admins)
-                                if (
-                                  userBranchId &&
-                                  vehicle.branch !== userBranchId
-                                ) {
-                                  return false;
-                                }
-                                return true;
-                              })
-                              .map((vehicle) => (
-                                <SelectItem key={vehicle.id} value={vehicle.id}>
-                                  {/* The seat count decides how many people can
-                                      come, so it belongs on the choice itself. */}
-                                  {vehicle.make} {vehicle.model} -{' '}
-                                  {vehicle.license_plate} · {vehicle.capacity}{' '}
-                                  {vehicle.capacity === 1 ? 'seat' : 'seats'}
-                                </SelectItem>
-                              ))
-                          ) : (
+                          {ownVehicles.length === 0 &&
+                          borrowableVehicles.length === 0 ? (
                             <div className="text-muted-foreground p-2 text-sm">
-                              No available vehicles in your branch
+                              No vehicles are free
                             </div>
+                          ) : (
+                            <>
+                              {ownVehicles.length > 0 && (
+                                <SelectGroup>
+                                  <SelectLabel>
+                                    {tripBranchName
+                                      ? `${tripBranchName} vehicles`
+                                      : 'Vehicles'}
+                                  </SelectLabel>
+                                  {ownVehicles.map((vehicle) => (
+                                    <SelectItem
+                                      key={vehicle.id}
+                                      value={vehicle.id}
+                                    >
+                                      {/* The seat count decides how many people
+                                          can come, so it belongs on the choice
+                                          itself. */}
+                                      {vehicle.make} {vehicle.model} —{' '}
+                                      {vehicle.license_plate} ·{' '}
+                                      {vehicle.capacity}{' '}
+                                      {vehicle.capacity === 1 ? 'seat' : 'seats'}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                              {borrowableVehicles.length > 0 && (
+                                <SelectGroup>
+                                  <SelectLabel>
+                                    Borrow from another branch
+                                  </SelectLabel>
+                                  {borrowableVehicles.map((vehicle) => (
+                                    <SelectItem
+                                      key={vehicle.id}
+                                      value={vehicle.id}
+                                    >
+                                      <span className="flex w-full items-center gap-2">
+                                        <span>
+                                          {vehicle.make} {vehicle.model} —{' '}
+                                          {vehicle.license_plate} ·{' '}
+                                          {vehicle.capacity}{' '}
+                                          {vehicle.capacity === 1
+                                            ? 'seat'
+                                            : 'seats'}
+                                        </span>
+                                        {vehicle.branch_name && (
+                                          <span className="text-muted-foreground text-xs">
+                                            ({vehicle.branch_name})
+                                          </span>
+                                        )}
+                                      </span>
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                            </>
                           )}
                         </SelectContent>
                       </Select>
+                      {borrowedFrom && (
+                        <p className="text-muted-foreground text-xs">
+                          This borrows {borrowedFrom}&rsquo;s vehicle. Whoever
+                          approves the trip will see that.
+                        </p>
+                      )}
                       {fieldState.invalid && (
                         <FieldError errors={[fieldState.error]} />
                       )}
@@ -479,29 +592,38 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                           />
                         </SelectTrigger>
                         <SelectContent>
-                          {drivers?.data && drivers.data.length > 0 ? (
-                            drivers.data
-                              .filter((driver) => {
-                                // Filter by active status
-                                if (driver.status !== 'active') return false;
-                                // Filter by user's branch (for both requesters and admins)
-                                if (
-                                  userBranchId &&
-                                  driver.branch_id !== userBranchId
-                                ) {
-                                  return false;
-                                }
-                                return true;
-                              })
-                              .map((driver) => (
-                                <SelectItem key={driver.id} value={driver.id}>
-                                  {driver.full_name}
-                                </SelectItem>
-                              ))
-                          ) : (
+                          {ownDrivers.length === 0 &&
+                          otherDrivers.length === 0 ? (
                             <div className="text-muted-foreground p-2 text-sm">
-                              No active drivers in your branch
+                              No active drivers
                             </div>
+                          ) : (
+                            <>
+                              {ownDrivers.length > 0 && (
+                                <SelectGroup>
+                                  <SelectLabel>
+                                    {tripBranchName
+                                      ? `${tripBranchName} drivers`
+                                      : 'Drivers'}
+                                  </SelectLabel>
+                                  {ownDrivers.map((driver) => (
+                                    <SelectItem key={driver.id} value={driver.id}>
+                                      {driver.full_name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                              {otherDrivers.length > 0 && (
+                                <SelectGroup>
+                                  <SelectLabel>Other branches</SelectLabel>
+                                  {otherDrivers.map((driver) => (
+                                    <SelectItem key={driver.id} value={driver.id}>
+                                      {driver.full_name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                            </>
                           )}
                         </SelectContent>
                       </Select>
@@ -721,9 +843,15 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                 <DetailItem
                   label="Vehicle"
                   value={
-                    reviewVehicle
-                      ? `${reviewVehicle.make} ${reviewVehicle.model}`
-                      : undefined
+                    reviewVehicle ? (
+                      <span className="flex flex-wrap items-center gap-2">
+                        {reviewVehicle.make} {reviewVehicle.model}
+                        {/* Borrowing is allowed, but it is the exception. Say so
+                            in the last place the requester looks before sending
+                            it, not only in the place the approver reads it. */}
+                        {borrowedFrom && <BorrowedBadge from={borrowedFrom} />}
+                      </span>
+                    ) : undefined
                   }
                 />
                 <DetailItem

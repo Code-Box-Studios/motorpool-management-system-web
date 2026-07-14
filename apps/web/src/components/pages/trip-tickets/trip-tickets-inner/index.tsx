@@ -28,6 +28,8 @@ import {
   DetailGrid,
   DetailItem
 } from '@/components/shared/detail-view';
+import { BorrowedBadge } from '@/components/shared/borrowed-badge';
+import { isBorrowed } from '@/lib/borrowed';
 import {
   FormLayout,
   FormSection,
@@ -220,6 +222,14 @@ const TripTicketsInner = () => {
   const vehicleName = vehiclesLoading
     ? 'Loading...'
     : vehicle && `${vehicle.make} ${vehicle.model}`;
+
+  // A branch may borrow another branch's van when it needs to — that is allowed.
+  // But the person approving this trip is the one sanctioning the borrow, and
+  // until now nothing on this page told them it was one: the vehicle read the
+  // same whether it belonged to the branch or not.
+  const borrowedFrom = isBorrowed(tripTicket.branch_id, vehicle?.branch)
+    ? (vehicle?.branch_name ?? 'another branch')
+    : null;
 
   const allocationVehicle = vehicleOf(tripTicket.allocation_vehicle_id);
 
@@ -903,7 +913,17 @@ const TripTicketsInner = () => {
           <DetailSection title="Trip">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
               <DetailGrid className="min-w-0 flex-1">
-                <DetailItem label="Vehicle" value={vehicleName} />
+                <DetailItem
+                  label="Vehicle"
+                  value={
+                    vehicleName && (
+                      <span className="flex flex-wrap items-center gap-2">
+                        {vehicleName}
+                        {borrowedFrom && <BorrowedBadge from={borrowedFrom} />}
+                      </span>
+                    )
+                  }
+                />
                 <DetailItem label="Plate" value={vehicle?.license_plate} mono />
                 <DetailItem label="Driver" value={driverName} />
                 <DetailItem label="Branch" value={branchName} />
