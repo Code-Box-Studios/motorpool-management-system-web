@@ -314,6 +314,36 @@
     @apply bg-background text-foreground;
     letter-spacing: var(--tracking-normal);
   }
+
+  /* The platform scrollbar is a slab of grey chrome that belongs to no palette
+     and reads as a seam down the side of every dialog and table. Thin it, tone
+     it from the line colour, and give it the same pill the rest of the app uses.
+     The transparent border + background-clip is what insets the thumb so it does
+     not touch the edge it sits against. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--line-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--whisper);
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 /* FullCalendar ships its own blues and greys. Bind its variables to the design
    tokens so the calendars read as part of this app rather than a widget bolted

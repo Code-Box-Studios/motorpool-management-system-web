@@ -51,22 +51,27 @@ const AppHeader = () => {
     }));
 
   return (
-    <header className="border-border bg-sidebar flex w-full items-center justify-between border-b-2 p-4">
+    // Sticky: the header carries where you are and who you are, and on a long
+    // table or a tall record it used to scroll away and take both with it.
+    <header className="border-border bg-sidebar sticky top-0 z-30 flex w-full items-center justify-between border-b-2 p-4">
       <div className="flex items-center gap-3">
         <SidebarTrigger />
         <Breadcrumb>
           <BreadcrumbList>
-            <BreadcrumbItem></BreadcrumbItem>
             {breadcrumbs.map((crumb, index) => (
               <React.Fragment key={`${crumb.path}-${index}`}>
-                <BreadcrumbSeparator />
+                {/* A separator goes BETWEEN crumbs. It used to be emitted before
+                    every one of them, including the first — with an empty item
+                    ahead of it — so every page opened with a chevron pointing at
+                    nothing: "› Dashboard". */}
+                {index > 0 && <BreadcrumbSeparator />}
                 <BreadcrumbItem>
                   {crumb.isLast ? (
                     <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
                   ) : (
                     <BreadcrumbLink asChild>
                       <Link to={crumb.path}>
-                        <span>{crumb.label}</span>{' '}
+                        <span>{crumb.label}</span>
                       </Link>
                     </BreadcrumbLink>
                   )}

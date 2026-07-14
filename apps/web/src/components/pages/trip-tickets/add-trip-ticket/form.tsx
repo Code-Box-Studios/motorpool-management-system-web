@@ -1,13 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
-import { Controller } from 'react-hook-form';
+import { Controller, type FieldErrors } from 'react-hook-form';
+import { TrashIcon, PlusIcon } from 'lucide-react';
 import {
   useTripTicketForm,
   useAddTripTicketAction,
   type TripTicketFormData
 } from './actions';
-import { useNavigate } from '@tanstack/react-router';
 import { useDrivers } from '@/lib/query/drivers';
 import { useVehicles } from '@/lib/query/vehicles';
 import { useBranches } from '@/lib/query/shared';
@@ -24,7 +24,9 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
-import PageHeader from '@/components/shared/page-header';
+import Stepper from '@/components/shared/stepper';
+import DestinationPicker from '@/components/shared/destination-picker';
+import { DetailGrid, DetailItem } from '@/components/shared/detail-view';
 import {
   FormLayout,
   FormSection,
@@ -32,7 +34,60 @@ import {
   FormActions
 } from '@/components/shared/form-section';
 
-export function AddTripTicket() {
+// One question at a time. Each step owns the fields it validates, so you cannot
+// walk past a step you have not finished — and you never see an error about a
+// field two steps away that you have not been shown yet.
+const STEPS = [
+  { title: "Who it's for", fields: ['branch_id', 'office_id', 'office_head_id'] },
+  {
+    title: 'The trip',
+    fields: [
+      'vehicle_id',
+      'driver_id',
+      'destination',
+      'participants_count',
+      'purpose',
+      'participants'
+    ]
+  },
+  { title: 'When', fields: ['start_ts', 'end_ts'] },
+  { title: 'Review', fields: [] }
+] as const satisfies ReadonlyArray<{
+  title: string;
+  fields: ReadonlyArray<keyof TripTicketFormData>;
+}>;
+
+const LAST = STEPS.length - 1;
+
+// The review reads back what was chosen, so an id has to become the name that was
+// picked — the approver never sees a key and neither should the person reviewing.
+const nameOf = (
+  list: { id: string; name: string }[] | undefined,
+  id: string | undefined
+) => (id ? list?.find((item) => item.id === id)?.name : undefined);
+
+const formatWhen = (value: string | undefined) => {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? undefined
+    : parsed.toLocaleString(undefined, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+};
+
+interface TripTicketFormProps {
+  /** Prefilled departure date — the calendar opens this by clicking a day. */
+  initialDate?: string;
+  /** Close the dialog: called on cancel AND after a successful submit. */
+  onDone: () => void;
+}
+
+export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   const { data: drivers, isLoading: driversLoading } = useDrivers(1, 100);
   const { data: vehicles, isLoading: vehiclesLoading } = useVehicles(1, 100);
   const { data: branches, isLoading: branchesLoading } = useBranches();
@@ -40,7 +95,6 @@ export function AddTripTicket() {
   const { data: officeHeads, isLoading: officeHeadsLoading } = useOfficeHeads();
   const addTripTicketAction = useAddTripTicketAction();
   const form = useTripTicketForm();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
 
@@ -54,6 +108,55 @@ export function AddTripTicket() {
   const selectedVehicleId = form.watch('vehicle_id');
   const seats =
     vehicles?.data?.find((v) => v.id === selectedVehicleId)?.capacity ?? null;
+
+  const [step, setStep] = useState(0);
+  // The furthest step reached: everything up to it can be jumped back to from the
+  // stepper, but you cannot skip ahead past a step you have not completed.
+  const [furthest, setFurthest] = useState(0);
+
+  const goNext = async () => {
+    const fields = STEPS[step]?.fields ?? [];
+    // Validate only THIS step's fields. Validating the whole form here would
+    // light up errors on fields the person has not been shown yet.
+    const ok = fields.length === 0 || (await form.trigger([...fields]));
+    if (!ok) return;
+    const next = Math.min(step + 1, LAST);
+    setStep(next);
+    setFurthest((f) => Math.max(f, next));
+  };
+
+  const goBack = () => setStep((s) => Math.max(0, s - 1));
+
+  // The participant list is the source of truth; the COUNT is derived from it.
+  // It used to be the other way round — you typed a number and the form conjured
+  // that many boxes, so you had to know the headcount before you knew the names,
+  // retyping the number rebuilt the boxes, and the count could drift from the
+  // names it was supposed to describe (the API rejects that: PARTICIPANTS_MISMATCH).
+  const syncParticipants = (next: string[]) => {
+    setParticipants(next);
+    const named = next.map((n) => n.trim()).filter(Boolean);
+    form.setValue('participants', named.join(', '), {
+      shouldValidate: form.formState.isSubmitted
+    });
+    form.setValue('participants_count', Math.max(named.length, 1));
+  };
+
+  const namedCount = participants.filter((p) => p.trim()).length;
+  const full = seats !== null && participants.length >= seats;
+
+  // If the final submit fails validation, the offending field may be on a step
+  // that isn't showing — so land on it rather than failing silently.
+  const onInvalid = (errors: FieldErrors<TripTicketFormData>) => {
+    const bad = STEPS.findIndex((s) =>
+      s.fields.some((f) => f in errors)
+    );
+    if (bad >= 0) setStep(bad);
+  };
+
+  // What the review step reads back.
+  const review = form.watch();
+  const reviewVehicle = vehicles?.data?.find((v) => v.id === review.vehicle_id);
+
   const [pendingData, setPendingData] = useState<TripTicketFormData | null>(
     null
   );
@@ -73,7 +176,11 @@ export function AddTripTicket() {
     }
     const today = new Date().toISOString().split('T')[0];
     form.setValue('date_requested', today);
-  }, [user, form]);
+    // Opened by clicking a day on the calendar: start the trip on that day.
+    if (initialDate) {
+      form.setValue('start_ts', `${initialDate}T08:00`);
+    }
+  }, [user, form, initialDate]);
 
   const onSubmit = (data: TripTicketFormData) => {
     // The last word on the headcount. The count field is capped and re-clamped
@@ -84,10 +191,23 @@ export function AddTripTicket() {
       form.setError('participants_count', {
         message: `That vehicle seats ${seats}`
       });
+      setStep(1); // the step that owns participants_count
       return;
     }
     setPendingData(data);
     setShowConfirm(true);
+  };
+
+  // Enter inside a field submits a form by default. On a stepper that would fire
+  // the whole submit from step one — validating fields nobody has been shown yet
+  // — so up to the last step, Enter means "next" instead.
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    if (e.target instanceof HTMLTextAreaElement) return; // a newline is a newline
+    if (step < LAST) {
+      e.preventDefault();
+      void goNext();
+    }
   };
 
   const handleConfirmAdd = () => {
@@ -98,7 +218,7 @@ export function AddTripTicket() {
         form.reset();
         setShowConfirm(false);
         setPendingData(null);
-        navigate({ to: '/trip-tickets' });
+        onDone();
       })
       .catch((error) => {
         console.error('Error adding trip ticket:', error);
@@ -108,16 +228,23 @@ export function AddTripTicket() {
 
   return (
     <div>
-      <PageHeader
-        title="Request Trip Ticket"
-        description="Submit a trip ticket request for admin approval."
-      />
-
-      <form id="add-trip-ticket-form" onSubmit={form.handleSubmit(onSubmit)}>
+      <form
+        id="add-trip-ticket-form"
+        onSubmit={form.handleSubmit(onSubmit, onInvalid)}
+        onKeyDown={handleKeyDown}
+      >
         <FormLayout>
+          <Stepper
+            steps={STEPS.map((s) => ({ title: s.title }))}
+            current={step}
+            furthest={furthest}
+            onStepClick={setStep}
+          />
+
           <FormSection
             title="Who it's for"
             description="The office making the request, and the head who signs it off."
+            className={step === 0 ? undefined : 'hidden'}
           >
             <div className="flex flex-col gap-5">
               <FormRow>
@@ -257,6 +384,7 @@ export function AddTripTicket() {
           <FormSection
             title="The trip"
             description="Only available vehicles and active drivers from your branch are listed."
+            className={step === 1 ? undefined : 'hidden'}
           >
             <div className="flex flex-col gap-5">
               <FormRow>
@@ -277,17 +405,8 @@ export function AddTripTicket() {
                             (v) => v.id === vehicleId
                           )?.capacity;
                           if (!nextSeats) return;
-                          const count = form.getValues('participants_count');
-                          if (count > nextSeats) {
-                            form.setValue('participants_count', nextSeats, {
-                              shouldValidate: true
-                            });
-                            setParticipants((prev) =>
-                              Array.from(
-                                { length: nextSeats },
-                                (_, i) => prev[i] || ''
-                              )
-                            );
+                          if (participants.length > nextSeats) {
+                            syncParticipants(participants.slice(0, nextSeats));
                           }
                         }}
                         value={field.value}
@@ -403,12 +522,14 @@ export function AddTripTicket() {
                       <FieldLabel htmlFor="destination">
                         Destination *
                       </FieldLabel>
-                      <Input
-                        {...field}
+                      {/* Searchable, and bounded to Mindanao. Still free text:
+                          not every barangay hall is on the map, and the search
+                          being down must never block a request. */}
+                      <DestinationPicker
                         id="destination"
-                        type="text"
-                        aria-invalid={fieldState.invalid}
-                        placeholder="Enter destination"
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        invalid={fieldState.invalid}
                       />
                       {fieldState.invalid && (
                         <FieldError errors={[fieldState.error]} />
@@ -417,51 +538,6 @@ export function AddTripTicket() {
                   )}
                 />
 
-                <Controller
-                  name="participants_count"
-                  control={form.control}
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="participants_count">
-                        Number of Participants *
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        id="participants_count"
-                        type="number"
-                        min="1"
-                        max={seats ?? undefined}
-                        aria-invalid={fieldState.invalid}
-                        placeholder="Enter number of participants"
-                        onChange={(e) => {
-                          const raw = parseInt(e.target.value) || 1;
-                          // Clamp to the seats: the server refuses more, and a
-                          // silently-too-big number would only fail on submit.
-                          const count = seats ? Math.min(raw, seats) : raw;
-                          field.onChange(count);
-                          // Adjust participants array to match count
-                          const newParticipants = Array.from(
-                            { length: count },
-                            (_, i) => participants[i] || ''
-                          );
-                          setParticipants(newParticipants);
-                        }}
-                      />
-                      {seats === null ? (
-                        <p className="text-muted-foreground text-xs">
-                          Pick a vehicle to see how many it seats
-                        </p>
-                      ) : (
-                        <p className="text-muted-foreground text-xs">
-                          This vehicle seats {seats}
-                        </p>
-                      )}
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </Field>
-                  )}
-                />
               </FormRow>
 
               <Controller
@@ -487,36 +563,77 @@ export function AddTripTicket() {
               <Controller
                 name="participants"
                 control={form.control}
-                render={({ field, fieldState }) => (
+                render={({ fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="participants">
-                      Participants *
-                    </FieldLabel>
-                    <p className="text-muted-foreground mb-2 text-sm">
-                      Number of fields matches the participant count above
-                    </p>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <FieldLabel htmlFor="participants">
+                        Participants *
+                      </FieldLabel>
+                      {/* The seat budget, spent and remaining. */}
+                      <span className="text-muted-foreground text-xs tabular-nums">
+                        {seats === null
+                          ? 'Pick a vehicle to see the seats'
+                          : `${namedCount} of ${seats} seat${seats === 1 ? '' : 's'}`}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
                       {participants.map((participant, index) => (
-                        <div key={index} className="flex gap-2">
+                        <div key={index} className="flex items-center gap-2">
                           <Input
                             value={participant}
-                            onChange={(e) => {
-                              const newParticipants = [...participants];
-                              newParticipants[index] = e.target.value;
-                              setParticipants(newParticipants);
-                              // Update form value as comma-separated string
-                              field.onChange(
-                                newParticipants
-                                  .filter((p) => p.trim())
-                                  .join(', ')
-                              );
-                            }}
-                            placeholder={`Participant ${index + 1} name`}
+                            onChange={(e) =>
+                              syncParticipants(
+                                participants.map((p, i) =>
+                                  i === index ? e.target.value : p
+                                )
+                              )
+                            }
+                            placeholder={`Participant ${index + 1}`}
                             aria-invalid={fieldState.invalid}
                           />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Remove participant ${index + 1}`}
+                            // Never zero rows: a trip has to carry someone.
+                            disabled={participants.length === 1}
+                            onClick={() =>
+                              syncParticipants(
+                                participants.filter((_, i) => i !== index)
+                              )
+                            }
+                          >
+                            <TrashIcon className="size-4" />
+                          </Button>
                         </div>
                       ))}
                     </div>
+
+                    {/* Wrapped: Field's vertical variant sets `*:w-full`, which
+                        stretches every direct child — so the button has to sit
+                        inside something else to keep its own size. */}
+                    <div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        // The van fills up; the button stops rather than letting
+                        // someone name a headcount the vehicle cannot carry.
+                        disabled={full}
+                        onClick={() => syncParticipants([...participants, ''])}
+                      >
+                        <PlusIcon className="size-4" />
+                        Add participant
+                      </Button>
+                    </div>
+                    {full && (
+                      <p className="text-muted-foreground text-xs">
+                        That vehicle is full.
+                      </p>
+                    )}
+
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -526,7 +643,10 @@ export function AddTripTicket() {
             </div>
           </FormSection>
 
-          <FormSection title="When">
+          <FormSection
+            title="When"
+            className={step === 2 ? undefined : 'hidden'}
+          >
             <FormRow>
               <Controller
                 name="start_ts"
@@ -589,7 +709,60 @@ export function AddTripTicket() {
             </FormRow>
           </FormSection>
 
-          <FormSection title="Anything else">
+          {step === LAST && (
+            <FormSection
+              title="Review"
+              description="Everything the approver will see. Tap a step above to change anything."
+            >
+              <DetailGrid>
+                <DetailItem label="Branch" value={nameOf(branches, review.branch_id)} />
+                <DetailItem label="Office" value={nameOf(offices, review.office_id)} />
+                <DetailItem label="Office head" value={nameOf(officeHeads, review.office_head_id)} />
+                <DetailItem
+                  label="Vehicle"
+                  value={
+                    reviewVehicle
+                      ? `${reviewVehicle.make} ${reviewVehicle.model}`
+                      : undefined
+                  }
+                />
+                <DetailItem
+                  label="Plate"
+                  value={reviewVehicle?.license_plate}
+                  mono
+                />
+                <DetailItem
+                  label="Driver"
+                  value={
+                    drivers?.data?.find((d) => d.id === review.driver_id)?.full_name
+                  }
+                />
+                <DetailItem label="Destination" value={review.destination} />
+                <DetailItem
+                  label="Depart"
+                  value={formatWhen(review.start_ts)}
+                />
+                <DetailItem label="Return" value={formatWhen(review.end_ts)} />
+                <DetailItem
+                  label="Participants"
+                  value={
+                    participants.filter(Boolean).length > 0
+                      ? `${participants.filter(Boolean).length} — ${participants
+                          .filter(Boolean)
+                          .join(', ')}`
+                      : undefined
+                  }
+                  wide
+                />
+                <DetailItem label="Purpose" value={review.purpose} wide />
+              </DetailGrid>
+            </FormSection>
+          )}
+
+          <FormSection
+            title="Anything else"
+            className={step === LAST ? undefined : 'hidden'}
+          >
             <Controller
               name="remarks"
               control={form.control}
@@ -611,19 +784,31 @@ export function AddTripTicket() {
             />
           </FormSection>
 
+          {/* Cancel sits away on the left; the way FORWARD is on the right, where
+              the eye ends up and the thumb already is. */}
           <FormActions>
-            <Button type="submit" disabled={addTripTicketAction.isLoading}>
-              {addTripTicketAction.isLoading
-                ? 'Submitting...'
-                : 'Submit Request'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate({ to: '/trip-tickets' })}
-            >
+            <Button type="button" variant="ghost" onClick={onDone}>
               Cancel
             </Button>
+
+            <div className="ml-auto flex flex-wrap items-center gap-3">
+              {step > 0 && (
+                <Button type="button" variant="outline" onClick={goBack}>
+                  Back
+                </Button>
+              )}
+              {step === LAST ? (
+                <Button type="submit" disabled={addTripTicketAction.isLoading}>
+                  {addTripTicketAction.isLoading
+                    ? 'Submitting...'
+                    : 'Submit Request'}
+                </Button>
+              ) : (
+                <Button type="button" onClick={() => void goNext()}>
+                  Continue
+                </Button>
+              )}
+            </div>
           </FormActions>
         </FormLayout>
       </form>

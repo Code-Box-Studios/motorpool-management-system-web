@@ -26,7 +26,6 @@ import { Route as AuthenticatedDriversIndexRouteImport } from './routes/_authent
 import { Route as AuthenticatedVehiclesAddVehicleRouteImport } from './routes/_authenticated/vehicles.add-vehicle'
 import { Route as AuthenticatedVehiclesVehicleIdRouteImport } from './routes/_authenticated/vehicles.$vehicleId'
 import { Route as AuthenticatedUserManagementAddUserRouteImport } from './routes/_authenticated/user-management.add-user'
-import { Route as AuthenticatedTripTicketsAddTripTicketRouteImport } from './routes/_authenticated/trip-tickets.add-trip-ticket'
 import { Route as AuthenticatedTripTicketsIdRouteImport } from './routes/_authenticated/trip-tickets.$id'
 import { Route as AuthenticatedTrackerDevicesAddDeviceRouteImport } from './routes/_authenticated/tracker-devices.add-device'
 import { Route as AuthenticatedTrackerDevicesDeviceIdRouteImport } from './routes/_authenticated/tracker-devices.$deviceId'
@@ -134,12 +133,6 @@ const AuthenticatedUserManagementAddUserRoute =
     path: '/user-management/add-user',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedTripTicketsAddTripTicketRoute =
-  AuthenticatedTripTicketsAddTripTicketRouteImport.update({
-    id: '/trip-tickets/add-trip-ticket',
-    path: '/trip-tickets/add-trip-ticket',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedTripTicketsIdRoute =
   AuthenticatedTripTicketsIdRouteImport.update({
     id: '/trip-tickets/$id',
@@ -227,7 +220,6 @@ export interface FileRoutesByFullPath {
   '/tracker-devices/$deviceId': typeof AuthenticatedTrackerDevicesDeviceIdRoute
   '/tracker-devices/add-device': typeof AuthenticatedTrackerDevicesAddDeviceRoute
   '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
-  '/trip-tickets/add-trip-ticket': typeof AuthenticatedTripTicketsAddTripTicketRoute
   '/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
   '/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
@@ -257,7 +249,6 @@ export interface FileRoutesByTo {
   '/tracker-devices/$deviceId': typeof AuthenticatedTrackerDevicesDeviceIdRoute
   '/tracker-devices/add-device': typeof AuthenticatedTrackerDevicesAddDeviceRoute
   '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
-  '/trip-tickets/add-trip-ticket': typeof AuthenticatedTripTicketsAddTripTicketRoute
   '/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
   '/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
@@ -290,7 +281,6 @@ export interface FileRoutesById {
   '/_authenticated/tracker-devices/$deviceId': typeof AuthenticatedTrackerDevicesDeviceIdRoute
   '/_authenticated/tracker-devices/add-device': typeof AuthenticatedTrackerDevicesAddDeviceRoute
   '/_authenticated/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
-  '/_authenticated/trip-tickets/add-trip-ticket': typeof AuthenticatedTripTicketsAddTripTicketRoute
   '/_authenticated/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
   '/_authenticated/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/_authenticated/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
@@ -322,7 +312,6 @@ export interface FileRouteTypes {
     | '/tracker-devices/$deviceId'
     | '/tracker-devices/add-device'
     | '/trip-tickets/$id'
-    | '/trip-tickets/add-trip-ticket'
     | '/user-management/add-user'
     | '/vehicles/$vehicleId'
     | '/vehicles/add-vehicle'
@@ -352,7 +341,6 @@ export interface FileRouteTypes {
     | '/tracker-devices/$deviceId'
     | '/tracker-devices/add-device'
     | '/trip-tickets/$id'
-    | '/trip-tickets/add-trip-ticket'
     | '/user-management/add-user'
     | '/vehicles/$vehicleId'
     | '/vehicles/add-vehicle'
@@ -384,7 +372,6 @@ export interface FileRouteTypes {
     | '/_authenticated/tracker-devices/$deviceId'
     | '/_authenticated/tracker-devices/add-device'
     | '/_authenticated/trip-tickets/$id'
-    | '/_authenticated/trip-tickets/add-trip-ticket'
     | '/_authenticated/user-management/add-user'
     | '/_authenticated/vehicles/$vehicleId'
     | '/_authenticated/vehicles/add-vehicle'
@@ -526,13 +513,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUserManagementAddUserRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/trip-tickets/add-trip-ticket': {
-      id: '/_authenticated/trip-tickets/add-trip-ticket'
-      path: '/trip-tickets/add-trip-ticket'
-      fullPath: '/trip-tickets/add-trip-ticket'
-      preLoaderRoute: typeof AuthenticatedTripTicketsAddTripTicketRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/trip-tickets/$id': {
       id: '/_authenticated/trip-tickets/$id'
       path: '/trip-tickets/$id'
@@ -634,7 +614,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTrackerDevicesDeviceIdRoute: typeof AuthenticatedTrackerDevicesDeviceIdRoute
   AuthenticatedTrackerDevicesAddDeviceRoute: typeof AuthenticatedTrackerDevicesAddDeviceRoute
   AuthenticatedTripTicketsIdRoute: typeof AuthenticatedTripTicketsIdRoute
-  AuthenticatedTripTicketsAddTripTicketRoute: typeof AuthenticatedTripTicketsAddTripTicketRoute
   AuthenticatedUserManagementAddUserRoute: typeof AuthenticatedUserManagementAddUserRoute
   AuthenticatedVehiclesVehicleIdRoute: typeof AuthenticatedVehiclesVehicleIdRoute
   AuthenticatedVehiclesAddVehicleRoute: typeof AuthenticatedVehiclesAddVehicleRoute
@@ -668,8 +647,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTrackerDevicesAddDeviceRoute:
     AuthenticatedTrackerDevicesAddDeviceRoute,
   AuthenticatedTripTicketsIdRoute: AuthenticatedTripTicketsIdRoute,
-  AuthenticatedTripTicketsAddTripTicketRoute:
-    AuthenticatedTripTicketsAddTripTicketRoute,
   AuthenticatedUserManagementAddUserRoute:
     AuthenticatedUserManagementAddUserRoute,
   AuthenticatedVehiclesVehicleIdRoute: AuthenticatedVehiclesVehicleIdRoute,

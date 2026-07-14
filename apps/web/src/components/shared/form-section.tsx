@@ -6,9 +6,11 @@ import { cn } from '@/lib/utils';
 // left. A request has parts — who it's for, what's being asked, when — and the
 // form should show those parts.
 //
-// FormLayout caps the measure (a field wider than ~70ch is harder to scan, not
-// easier), and each FormSection is one titled card on the canvas.
-
+// FormLayout takes the width it is given (the app shell already caps the page at
+// 1600px). It used to cap itself at max-w-4xl on top of that, which left the form
+// hugging the left edge with a band of dead canvas beside it. The measure is kept
+// readable by FormRow's two-up grid instead, which is where a field's width is
+// actually decided.
 export const FormLayout = ({
   children,
   className
@@ -16,9 +18,7 @@ export const FormLayout = ({
   children: ReactNode;
   className?: string;
 }) => (
-  <div className={cn('flex max-w-4xl flex-col gap-5', className)}>
-    {children}
-  </div>
+  <div className={cn('flex w-full flex-col gap-5', className)}>{children}</div>
 );
 
 interface FormSectionProps {

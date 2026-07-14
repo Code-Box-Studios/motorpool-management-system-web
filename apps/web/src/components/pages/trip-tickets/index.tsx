@@ -1,13 +1,21 @@
 import StatusBadge from '@/components/shared/status-badge';
 import { useTripTickets, useAllTripTickets } from '@/lib/query/trip-tickets';
 import { useAllVehicles } from '@/lib/query/vehicles';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { useNavigate } from '@tanstack/react-router';
+import { Button } from '@/components/ui/button';
 import { useUserRole } from '@/hooks/use-user-role';
 import { useAuth } from '@/hooks/use-auth';
-import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/shared/page-header';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import { AddTripTicket } from './add-trip-ticket/form';
 import {
   Select,
   SelectContent,
@@ -40,7 +48,7 @@ import {
   useDisapproveTripTicket,
   useCancelTripTicket
 } from '@/lib/mutation/trip-tickets';
-import { Eye, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import { formatRef } from '@/lib/utils/reference';
 import { statusEventColor, resolveStatus } from '@/lib/status';
@@ -89,6 +97,8 @@ const TripTicketsPage = () => {
   const approveTripTicket = useApproveTripTicket();
   const disapproveTripTicket = useDisapproveTripTicket();
   const cancelTripTicket = useCancelTripTicket();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createDate, setCreateDate] = useState<string | undefined>(undefined);
   const [cancellationReason, setCancellationReason] = useState('');
   const [disapprovedReason, setDisapprovedReason] = useState('');
   const [cancellingTicketId, setCancellingTicketId] = useState<string | null>(
@@ -196,11 +206,11 @@ const TripTicketsPage = () => {
     navigate({ to: `/trip-tickets/${clickInfo.event.id}` });
   };
 
+  // Creating a trip is a dialog, not a page: it is a form you fill and dismiss,
+  // not a place you navigate to and have to find your way back from.
   const handleDateClick = (arg: { dateStr: string }) => {
-    navigate({
-      to: '/trip-tickets/add-trip-ticket',
-      search: { date: arg.dateStr }
-    });
+    setCreateDate(arg.dateStr);
+    setCreateOpen(true);
   };
 
   // Non-admins land on the detail page read-only. Shared by the row click and
@@ -222,14 +232,47 @@ const TripTicketsPage = () => {
         title="Trip Tickets"
         description="Every requested trip and where it is in the approval chain."
         action={
-          <Link
-            to="/trip-tickets/add-trip-ticket"
-            className={cn(buttonVariants())}
+          <Button
+            onClick={() => {
+              setCreateDate(undefined);
+              setCreateOpen(true);
+            }}
           >
             Create Trip Ticket
-          </Link>
+          </Button>
         }
       />
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) setCreateDate(undefined);
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Request Trip Ticket</DialogTitle>
+            <DialogDescription>
+              Submit a trip ticket request for admin approval.
+            </DialogDescription>
+          </DialogHeader>
+          {/* Remounted each time it opens, so a dismissed half-filled request is
+              not still sitting there the next time someone starts one. */}
+          <DialogBody>
+            {createOpen && (
+              <AddTripTicket
+                key={createDate ?? 'new'}
+                initialDate={createDate}
+                onDone={() => {
+                  setCreateOpen(false);
+                  setCreateDate(undefined);
+                }}
+              />
+            )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
       <Card>
         <CardContent className="pt-6">
           {/* The table is the operational view — it answers "what needs doing".
@@ -276,7 +319,7 @@ const TripTicketsPage = () => {
                     { label: 'Purpose', width: 'w-48' },
                     { label: 'Pickup Date', width: 'w-20' },
                     { label: 'Return Date', width: 'w-20' },
-                    { label: 'Actions', width: 'w-24' }
+                    ...(isAdmin ? [] : [{ label: 'Actions', width: 'w-24' }])
                   ]}
                 />
               ) : !tableData?.data?.length ? (
@@ -297,9 +340,16 @@ const TripTicketsPage = () => {
                       <TableHead className="min-w-[220px]">Purpose</TableHead>
                       <TableHead className="w-[116px]">Pickup Date</TableHead>
                       <TableHead className="w-[116px]">Return Date</TableHead>
-                      <TableHead className="w-[190px] text-right">
-                        Actions
-                      </TableHead>
+                      {/* The row itself opens the ticket, so a View button was
+                          the same click twice. All that is left in here is the
+                          requester's Cancel — an admin acts through the status
+                          control, so they get no column at all rather than an
+                          empty one. */}
+                      {!isAdmin && (
+                        <TableHead className="w-[120px] text-right">
+                          Actions
+                        </TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -454,16 +504,9 @@ const TripTicketsPage = () => {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
+                        {!isAdmin && (
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openTicket(ticket.id)}
-                            >
-                              <Eye className="h-4 w-4" />
-                              View
-                            </Button>
                             {!isAdmin && (
                               <AlertDialog
                                 open={cancellingTicketId === ticket.id}
@@ -554,6 +597,7 @@ const TripTicketsPage = () => {
                             )}
                           </div>
                         </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>

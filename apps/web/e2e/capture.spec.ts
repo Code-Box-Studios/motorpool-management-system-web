@@ -70,7 +70,11 @@ test.describe('@capture design screens', () => {
     // --- Trip tickets ---
     await visit(page, '/trip-tickets', '02-trip-tickets-table');
     await snapTab(page, 'Calendar', '03-trip-tickets-calendar');
-    await visit(page, '/trip-tickets/add-trip-ticket', '04-trip-ticket-create');
+    // Creating a trip is a stepped dialog now, not a page of its own.
+    await visit(page, '/trip-tickets', '02b-trip-tickets-table');
+    await page.getByRole('button', { name: 'Create Trip Ticket' }).click();
+    await snap(page, '04-trip-ticket-create');
+    await page.keyboard.press('Escape');
     if (ids.trip) {
       await visit(page, `/trip-tickets/${ids.trip}`, '05-trip-ticket-detail');
     }
