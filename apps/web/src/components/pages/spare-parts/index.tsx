@@ -1,11 +1,22 @@
 import { useSpareParts } from '@/lib/query/spare-parts';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import PageHeader from '@/components/shared/page-header';
 import EntityCard from '@/components/shared/entity-card';
+import EntityImage from '@/components/shared/entity-image';
 import EmptyState from '@/components/shared/empty-state';
+import ViewTabs from '@/components/shared/view-tabs';
 
 // The shelf is the point of this screen, so every part carries a stock pill in
 // the same slot the other grids give a status: what is gone, what is nearly
@@ -21,7 +32,86 @@ const stockBadge = (quantity: number) => {
 
 const SpareParts = () => {
   const { data } = useSpareParts(1, 100);
+  const navigate = useNavigate();
   const spareParts = data?.data ?? [];
+
+  const grid = (
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {spareParts.map((sparePart) => {
+        const quantity = sparePart.quantity ?? 0;
+        return (
+          <EntityCard
+            key={sparePart.id}
+            to={`/spare-parts/${sparePart.id}`}
+            imageSrc={sparePart.image}
+            title={sparePart.name}
+            badge={stockBadge(quantity)}
+            footnote={sparePart.description}
+            fields={[
+              { label: 'Brand', value: sparePart.brand },
+              { label: 'On hand', value: quantity }
+            ]}
+          />
+        );
+      })}
+    </div>
+  );
+
+  const table = (
+    <Card>
+      <CardContent className="pt-6">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[280px]">Part</TableHead>
+              <TableHead className="w-[140px]">Brand</TableHead>
+              <TableHead className="w-[100px]">On hand</TableHead>
+              <TableHead className="w-[140px]">Stock</TableHead>
+              <TableHead>Description</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {spareParts.map((sparePart) => {
+              const quantity = sparePart.quantity ?? 0;
+              return (
+                <TableRow
+                  key={sparePart.id}
+                  className="hover:bg-muted cursor-pointer"
+                  onClick={() =>
+                    navigate({
+                      to: '/spare-parts/$sparePartId',
+                      params: { sparePartId: sparePart.id }
+                    })
+                  }
+                >
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <EntityImage
+                        src={sparePart.image}
+                        alt=""
+                        className="border-border size-10 shrink-0 rounded-md border"
+                      />
+                      <span className="font-medium">{sparePart.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {sparePart.brand || '—'}
+                  </TableCell>
+                  <TableCell className="text-sm tabular-nums">
+                    {quantity}
+                  </TableCell>
+                  <TableCell>{stockBadge(quantity)}</TableCell>
+                  <TableCell className="text-muted-foreground max-w-[320px] truncate text-sm">
+                    {sparePart.description || '—'}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div>
@@ -41,25 +131,7 @@ const SpareParts = () => {
       {spareParts.length === 0 ? (
         <EmptyState message="No spare parts yet." />
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {spareParts.map((sparePart) => {
-            const quantity = sparePart.quantity ?? 0;
-            return (
-              <EntityCard
-                key={sparePart.id}
-                to={`/spare-parts/${sparePart.id}`}
-                imageSrc={sparePart.image}
-                title={sparePart.name}
-                badge={stockBadge(quantity)}
-                footnote={sparePart.description}
-                fields={[
-                  { label: 'Brand', value: sparePart.brand },
-                  { label: 'On hand', value: quantity }
-                ]}
-              />
-            );
-          })}
-        </div>
+        <ViewTabs grid={grid} table={table} />
       )}
     </div>
   );
