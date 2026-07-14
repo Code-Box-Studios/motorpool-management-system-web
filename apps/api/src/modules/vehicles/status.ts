@@ -18,6 +18,58 @@ interface ChangeStatusOpts {
   expectedFrom?: VehicleStatus | VehicleStatus[];
 }
 
+// Claim a vehicle by flipping it out of an expected status — and let the WHERE
+// clause BE the lock.
+//
+// `requireVehicleStatus` + `changeVehicleStatus` is a read, then a write. Under
+// Postgres's default Read Committed, two transactions can BOTH read `available`
+// before either commits, both pass the check, and both flip the van — which put
+// two trips in_progress on one physical vehicle when a guard fired two check-outs
+// at once. A conditional updateMany closes it: the loser blocks on the row lock,
+// re-evaluates the WHERE against the winner's committed status, matches zero
+// rows, and aborts.
+export async function claimVehicleStatus(
+  client: Prisma.TransactionClient,
+  vehicleId: string,
+  from: VehicleStatus[],
+  to: VehicleStatus,
+  opts: ChangeStatusOpts & { code: string; message: (current: VehicleStatus) => string }
+): Promise<{ mileage: number }> {
+  const vehicle = await client.vehicle.findUnique({
+    where: { id: vehicleId },
+    select: { status: true, mileage: true }
+  });
+  if (!vehicle) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
+
+  // Fail early with a message naming the real status, rather than a bare race loss.
+  if (!from.includes(vehicle.status)) {
+    throw new AppError(409, opts.code, opts.message(vehicle.status));
+  }
+
+  const claimed = await client.vehicle.updateMany({
+    where: { id: vehicleId, status: { in: from } },
+    data: { status: to }
+  });
+  if (claimed.count === 0) {
+    // Someone else got there first, inside this transaction's lifetime.
+    throw new AppError(409, opts.code, opts.message(to));
+  }
+
+  if (vehicle.status !== to) {
+    await client.vehicleStatusAudit.create({
+      data: {
+        vehicleId,
+        oldStatus: vehicle.status,
+        newStatus: to,
+        changedBy: opts.changedBy ?? null,
+        changeSource: opts.source,
+        reason: opts.reason ?? null
+      }
+    });
+  }
+  return { mileage: vehicle.mileage };
+}
+
 // A hard precondition on the vehicle's CURRENT status.
 //
 // `expectedFrom` below is deliberately soft — it skips the flip and lets the

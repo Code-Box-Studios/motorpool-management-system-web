@@ -20,12 +20,22 @@ async function scaffold() {
   return { branch, vehicle, driver };
 }
 
+// Windows are relative to NOW, never hardcoded. A trip cannot be booked entirely
+// in the past, and a fixture pinned to a literal date silently rots into one the
+// moment the wall clock passes it.
+const DAY = 24 * 60 * 60 * 1000;
+export const inDays = (days: number, hour = 8) => {
+  const d = new Date(Date.now() + days * DAY);
+  d.setUTCHours(hour, 0, 0, 0);
+  return d.toISOString();
+};
+
 function ticketBody(s: { branch: { id: string }; vehicle: { id: string }; driver: { id: string } }, requestedById: string) {
   return {
     branchId: s.branch.id, driverId: s.driver.id, vehicleId: s.vehicle.id,
-    destination: 'Site A', purpose: 'Delivery', dateRequested: '2026-07-10',
+    destination: 'Site A', purpose: 'Delivery', dateRequested: inDays(1),
     participants: ['Alice', 'Bob'], participantsCount: 2, requestedById,
-    startTs: '2026-07-10T08:00:00.000Z', endTs: '2026-07-10T17:00:00.000Z'
+    startTs: inDays(7, 8), endTs: inDays(7, 17)
   };
 }
 
@@ -67,13 +77,13 @@ describe('trip-tickets module', () => {
     const { user: r1 } = await createTestUser({ email: 'r1@test.local', role: 'requester' });
     const { user: r2 } = await createTestUser({ email: 'r2@test.local', role: 'requester' });
     const { user: admin } = await createTestUser({ email: 'a@test.local', role: 'admin' });
-    // Disjoint windows, and each a valid one. This used to override startTs while
-    // leaving the fixture's endTs behind, so the second ticket ended nine days
-    // before it started — and the two shared one vehicle and one driver.
+    // Disjoint FUTURE windows, and each a valid one. This used to override startTs
+    // while leaving the fixture's endTs behind, so the second ticket ended nine
+    // days before it started — and the two shared one vehicle and one driver.
     await request(app).post('/api/trip-tickets').set('Authorization', authHeader(r1.id, r1.email, 'requester'))
-      .send({ ...ticketBody(s, r1.id), startTs: '2026-07-01T08:00:00.000Z', endTs: '2026-07-01T17:00:00.000Z' });
+      .send({ ...ticketBody(s, r1.id), startTs: inDays(3, 8), endTs: inDays(3, 17) });
     await request(app).post('/api/trip-tickets').set('Authorization', authHeader(r2.id, r2.email, 'requester'))
-      .send({ ...ticketBody(s, r2.id), startTs: '2026-07-20T08:00:00.000Z', endTs: '2026-07-20T17:00:00.000Z' });
+      .send({ ...ticketBody(s, r2.id), startTs: inDays(9, 8), endTs: inDays(9, 17) });
 
     const asR1 = await request(app).get('/api/trip-tickets').set('Authorization', authHeader(r1.id, r1.email, 'requester'));
     expect(asR1.body.count).toBe(1); // only r1's own
@@ -127,7 +137,20 @@ describe('trip-tickets module', () => {
     expect(late.body.error.code).toBe('INVALID_TRANSITION');
 
     const { user: admin } = await createTestUser({ email: 'a@test.local', role: 'admin' });
-    const del = await request(app).delete(`/api/trip-tickets/${id}`).set('Authorization', authHeader(admin.id, admin.email, 'admin'));
+    const adminH = authHeader(admin.id, admin.email, 'admin');
+
+    // Delete is for a draft nobody has acted on. This ticket is `approved` — it
+    // has an admin's sign-off and a fuel allocation hanging off it, and deleting
+    // it would cascade that away. Cancel is the off-ramp.
+    const tooLate = await request(app).delete(`/api/trip-tickets/${id}`).set('Authorization', adminH);
+    expect(tooLate.status).toBe(409);
+
+    // Back to pending: now it is a draft, and DELETE is admin-only.
+    await prisma.tripTicket.update({ where: { id }, data: { status: 'pending_admin_approval' } });
+    const asRequester = await request(app).delete(`/api/trip-tickets/${id}`).set('Authorization', header);
+    expect(asRequester.status).toBe(403);
+
+    const del = await request(app).delete(`/api/trip-tickets/${id}`).set('Authorization', adminH);
     expect(del.status).toBe(204);
   });
 });

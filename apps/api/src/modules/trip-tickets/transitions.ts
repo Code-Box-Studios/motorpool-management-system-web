@@ -2,7 +2,7 @@ import type { ApproveTripTicketBody, CheckInBody, CheckOutBody } from '@mms/shar
 import { AppError } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
-import { advanceOdometer, changeVehicleStatus, requireVehicleStatus } from '../vehicles/status.js';
+import { advanceOdometer, changeVehicleStatus, claimVehicleStatus } from '../vehicles/status.js';
 import { findTripTicketById } from './repository.js';
 
 // Loads the ticket and asserts its current status is in the allowed-from set.
@@ -101,14 +101,21 @@ export async function cancel(id: string, actor: AuthenticatedUser, reason: strin
 export async function checkOut(id: string, actor: AuthenticatedUser, body: CheckOutBody) {
   const ticket = await loadInState(id, ['approved']);
   await prisma.$transaction(async (tx) => {
-    const vehicle = await requireVehicleStatus(
+    // Claim the van FIRST: the conditional flip is what makes two simultaneous
+    // check-outs impossible. A read-then-write let both read `available`.
+    const { mileage } = await claimVehicleStatus(
       tx,
       ticket.vehicleId,
       ['available'],
-      'VEHICLE_NOT_AVAILABLE',
-      (current) => `Vehicle is ${current}, so it cannot leave the gate`
+      'on_trip',
+      {
+        changedBy: actor.id,
+        source: 'trip_check_out',
+        code: 'VEHICLE_NOT_AVAILABLE',
+        message: (current) => `Vehicle is ${current}, so it cannot leave the gate`
+      }
     );
-    await advanceOdometer(tx, ticket.vehicleId, body.startMileage, vehicle.mileage);
+    await advanceOdometer(tx, ticket.vehicleId, body.startMileage, mileage);
     await tx.tripTicket.update({
       where: { id },
       data: {
@@ -118,11 +125,6 @@ export async function checkOut(id: string, actor: AuthenticatedUser, body: Check
         preTripCheckedAt: new Date(),
         startMileage: body.startMileage
       }
-    });
-    await changeVehicleStatus(tx, ticket.vehicleId, 'on_trip', {
-      changedBy: actor.id,
-      source: 'trip_check_out',
-      expectedFrom: 'available'
     });
   });
   return findTripTicketById(id);

@@ -26,9 +26,10 @@ async function scaffold() {
   const deadVehicle = await mk('P3', 'V3', 'out_of_service');
   const driver = await prisma.driver.create({ data: { email: 'd1@test.local', fullName: 'D1', status: 'active', branchId: branch.id } });
   const otherDriver = await prisma.driver.create({ data: { email: 'd2@test.local', fullName: 'D2', status: 'active', branchId: branch.id } });
+  const inactiveDriver = await prisma.driver.create({ data: { email: 'd3@test.local', fullName: 'D3', status: 'inactive', branchId: branch.id } });
   const { user: admin } = await createTestUser({ email: 'a@test.local', role: 'admin' });
   return {
-    branch, vehicle, otherVehicle, deadVehicle, driver, otherDriver,
+    branch, vehicle, otherVehicle, deadVehicle, driver, otherDriver, inactiveDriver,
     header: authHeader(admin.id, admin.email, 'admin'),
     adminId: admin.id
   };
@@ -36,17 +37,26 @@ async function scaffold() {
 
 type Scaffold = Awaited<ReturnType<typeof scaffold>>;
 
+// Windows are relative to NOW. A trip cannot be booked entirely in the past, so a
+// fixture pinned to a literal date silently rots into one as the clock passes it.
+const DAY = 24 * 60 * 60 * 1000;
+const inDays = (days: number, hour = 8) => {
+  const d = new Date(Date.now() + days * DAY);
+  d.setUTCHours(hour, 0, 0, 0);
+  return d.toISOString();
+};
+
 const body = (s: Scaffold, over: Record<string, unknown> = {}) => ({
   branchId: s.branch.id,
   driverId: s.driver.id,
   vehicleId: s.vehicle.id,
   destination: 'Site A',
   purpose: 'Delivery',
-  dateRequested: '2026-07-10',
+  dateRequested: inDays(1),
   participants: ['Alice'],
   requestedById: s.adminId,
-  startTs: '2026-08-01T08:00:00.000Z',
-  endTs: '2026-08-01T17:00:00.000Z',
+  startTs: inDays(14, 8),
+  endTs: inDays(14, 17),
   ...over
 });
 
@@ -67,8 +77,8 @@ describe('trip-ticket booking rules', () => {
   it('refuses a trip that ends before it starts', async () => {
     const s = await scaffold();
     const res = await post(s, {
-      startTs: '2026-08-01T17:00:00.000Z',
-      endTs: '2026-08-01T08:00:00.000Z'
+      startTs: inDays(14, 17),
+      endTs: inDays(14, 8)
     });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('INVALID_TRIP_WINDOW');
@@ -80,8 +90,8 @@ describe('trip-ticket booking rules', () => {
     // Same van, different driver, overlapping hours.
     const clash = await post(s, {
       driverId: s.otherDriver.id,
-      startTs: '2026-08-01T12:00:00.000Z',
-      endTs: '2026-08-01T20:00:00.000Z'
+      startTs: inDays(14, 12),
+      endTs: inDays(14, 20)
     });
     expect(clash.status).toBe(409);
     expect(clash.body.error.code).toBe('VEHICLE_DOUBLE_BOOKED');
@@ -93,8 +103,8 @@ describe('trip-ticket booking rules', () => {
     // Different van, same driver, overlapping hours — one person, two vehicles.
     const clash = await post(s, {
       vehicleId: s.otherVehicle.id,
-      startTs: '2026-08-01T12:00:00.000Z',
-      endTs: '2026-08-01T20:00:00.000Z'
+      startTs: inDays(14, 12),
+      endTs: inDays(14, 20)
     });
     expect(clash.status).toBe(409);
     expect(clash.body.error.code).toBe('DRIVER_DOUBLE_BOOKED');
@@ -104,8 +114,8 @@ describe('trip-ticket booking rules', () => {
     const s = await scaffold();
     expect((await post(s)).status).toBe(201); // 08:00 - 17:00
     const next = await post(s, {
-      startTs: '2026-08-01T17:00:00.000Z', // starts exactly as the first ends
-      endTs: '2026-08-01T20:00:00.000Z'
+      startTs: inDays(14, 17), // starts exactly as the first ends
+      endTs: inDays(14, 20)
     });
     expect(next.status).toBe(201);
   });
@@ -133,7 +143,7 @@ describe('trip-ticket off-ramps', () => {
     const s = await scaffold();
     const created = await post(s);
     await request(app).post(`/api/trip-tickets/${created.body.id}/approve`).set('Authorization', s.header)
-      .send({ liters: 20, fuelType: 'diesel', date: '2026-08-01', purpose: 'p', tripTo: 't' });
+      .send({ liters: 20, fuelType: 'diesel', date: inDays(14), purpose: 'p', tripTo: 't' });
     const { user: evp } = await createTestUser({ email: 'e@test.local', role: 'evp_operations' });
     await request(app).post(`/api/trip-tickets/${created.body.id}/approve-evp`)
       .set('Authorization', authHeader(evp.id, evp.email, 'evp_operations')).send({});
@@ -159,5 +169,153 @@ describe('trip-ticket off-ramps', () => {
     const res = await request(app).delete(`/api/trip-tickets/${created.body.id}`).set('Authorization', s.header);
     expect(res.status).toBe(409);
     expect(await prisma.tripTicket.count({ where: { id: created.body.id } })).toBe(1);
+  });
+
+  it('an APPROVED trip cannot be deleted — its fuel allocation is signed off', async () => {
+    const s = await scaffold();
+    const created = await post(s);
+    await request(app).post(`/api/trip-tickets/${created.body.id}/approve`).set('Authorization', s.header)
+      .send({ liters: 30, fuelType: 'diesel', date: inDays(14), purpose: 'p', tripTo: 't' });
+    const { user: evp } = await createTestUser({ email: 'e@test.local', role: 'evp_operations' });
+    await request(app).post(`/api/trip-tickets/${created.body.id}/approve-evp`)
+      .set('Authorization', authHeader(evp.id, evp.email, 'evp_operations')).send({});
+
+    // Previously 204: the trip AND the EVP-approved 30 L allocation both vanished.
+    const res = await request(app).delete(`/api/trip-tickets/${created.body.id}`).set('Authorization', s.header);
+    expect(res.status).toBe(409);
+    expect(await prisma.fuelAllocation.count({ where: { tripTicketId: created.body.id } })).toBe(1);
+  });
+});
+
+describe('trip-ticket attribution', () => {
+  beforeEach(truncateAll);
+  afterAll(() => prisma.$disconnect());
+
+  it('the requester is the CALLER, not whoever the body names', async () => {
+    const s = await scaffold();
+    const { user: requester } = await createTestUser({ email: 'r@test.local', role: 'requester' });
+
+    // A requester booking a trip in the ADMIN's name. requestedById used to be
+    // spread straight out of the body, so this worked.
+    const res = await request(app).post('/api/trip-tickets')
+      .set('Authorization', authHeader(requester.id, requester.email, 'requester'))
+      .send(body(s, { requestedById: s.adminId }));
+    expect(res.status).toBe(201);
+    expect(res.body.requestedById).toBe(requester.id); // forced back to the caller
+  });
+
+  it('a trip cannot be created with NO owner', async () => {
+    const s = await scaffold();
+    const { user: requester } = await createTestUser({ email: 'r@test.local', role: 'requester' });
+
+    // `requestedById: null` used to be accepted, and cancel/edit compare against
+    // that column — so an unowned ticket locked everyone but an admin out of it.
+    const res = await request(app).post('/api/trip-tickets')
+      .set('Authorization', authHeader(requester.id, requester.email, 'requester'))
+      .send(body(s, { requestedById: null }));
+    expect(res.status).toBe(201);
+    expect(res.body.requestedById).toBe(requester.id);
+  });
+
+  it('an admin may still raise a trip on someone else’s behalf', async () => {
+    const s = await scaffold();
+    const { user: requester } = await createTestUser({ email: 'r@test.local', role: 'requester' });
+    const res = await post(s, { requestedById: requester.id }); // s.header is the admin
+    expect(res.status).toBe(201);
+    expect(res.body.requestedById).toBe(requester.id);
+  });
+
+  it('an edit cannot hand the ticket to someone else', async () => {
+    const s = await scaffold();
+    const { user: requester } = await createTestUser({ email: 'r@test.local', role: 'requester' });
+    const header = authHeader(requester.id, requester.email, 'requester');
+    const created = await request(app).post('/api/trip-tickets').set('Authorization', header).send(body(s));
+    expect(created.body.requestedById).toBe(requester.id);
+
+    const patched = await request(app).patch(`/api/trip-tickets/${created.body.id}`)
+      .set('Authorization', header).send({ requestedById: s.adminId, destination: 'Site B' });
+    expect(patched.status).toBe(200);
+    expect(patched.body.destination).toBe('Site B'); // the real edit lands
+    expect(patched.body.requestedById).toBe(requester.id); // the hand-off does not
+  });
+});
+
+describe('trip-ticket sanity rules', () => {
+  beforeEach(truncateAll);
+  afterAll(() => prisma.$disconnect());
+
+  it('refuses more passengers than the vehicle seats', async () => {
+    const s = await scaffold(); // capacity 5
+    const res = await post(s, {
+      participants: Array.from({ length: 8 }, (_, i) => `P${i}`),
+      participantsCount: 8
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('OVER_CAPACITY');
+  });
+
+  it('refuses a participant count that disagrees with the names given', async () => {
+    const s = await scaffold();
+    const res = await post(s, { participants: ['Alice'], participantsCount: 4 });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('PARTICIPANTS_MISMATCH');
+  });
+
+  it('refuses an INACTIVE driver', async () => {
+    const s = await scaffold();
+    const res = await post(s, { driverId: s.inactiveDriver.id });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('DRIVER_INACTIVE');
+  });
+
+  it('refuses a trip booked entirely in the past', async () => {
+    const s = await scaffold();
+    const res = await post(s, { startTs: inDays(-9, 8), endTs: inDays(-9, 17) });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('TRIP_IN_THE_PAST');
+  });
+
+  it('refuses an absurd fuel allocation', async () => {
+    const s = await scaffold();
+    const created = await post(s);
+    const res = await request(app).post(`/api/trip-tickets/${created.body.id}/approve`)
+      .set('Authorization', s.header)
+      .send({ liters: 9_999_999, fuelType: 'diesel', date: inDays(14), purpose: 'p', tripTo: 't' });
+    expect(res.status).toBe(400); // `positive()` alone accepted this
+  });
+});
+
+describe('trip-ticket concurrency', () => {
+  beforeEach(truncateAll);
+  afterAll(() => prisma.$disconnect());
+
+  it('two SIMULTANEOUS check-outs cannot both claim one vehicle', async () => {
+    const s = await scaffold();
+    const { user: evp } = await createTestUser({ email: 'e@test.local', role: 'evp_operations' });
+    const { user: guard } = await createTestUser({ email: 'g@test.local', role: 'security_guard' });
+    const evpH = authHeader(evp.id, evp.email, 'evp_operations');
+    const guardH = authHeader(guard.id, guard.email, 'security_guard');
+
+    // Two trips on ONE van, back-to-back so the overlap rule permits both.
+    const approvedTrip = async (driverId: string, day: number) => {
+      const t = await post(s, { driverId, startTs: inDays(day, 8), endTs: inDays(day, 17) });
+      await request(app).post(`/api/trip-tickets/${t.body.id}/approve`).set('Authorization', s.header)
+        .send({ liters: 10, fuelType: 'diesel', date: inDays(day), purpose: 'p', tripTo: 't' });
+      await request(app).post(`/api/trip-tickets/${t.body.id}/approve-evp`).set('Authorization', evpH).send({});
+      return t.body.id as string;
+    };
+    const a = await approvedTrip(s.driver.id, 20);
+    const b = await approvedTrip(s.otherDriver.id, 21);
+
+    // Fire both at the same instant. A read-then-write let BOTH read `available`
+    // before either committed, and two trips went in_progress on one van.
+    const fire = (id: string) =>
+      request(app).post(`/api/trip-tickets/${id}/check-out`).set('Authorization', guardH).send({ startMileage: 1000 });
+    const [ra, rb] = await Promise.all([fire(a), fire(b)]);
+
+    const codes = [ra.status, rb.status].sort();
+    expect(codes).toEqual([200, 409]); // exactly one wins
+    expect(await prisma.tripTicket.count({ where: { status: 'in_progress' } })).toBe(1);
+    expect((await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } })).status).toBe('on_trip');
   });
 });

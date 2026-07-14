@@ -29,8 +29,15 @@ export const updateTripTicketBodySchema = createTripTicketBodySchema.partial();
 export type UpdateTripTicketBody = z.infer<typeof updateTripTicketBodySchema>;
 
 // approve(admin) carries the fuel-allocation payload.
+//
+// The litre cap is a typo guard, not physics: `positive()` alone accepted a
+// 9,999,999-litre allocation, which is a fat finger no one would catch until the
+// fuel bill. 1000 L is far above any single trip in a motorpool this size — move
+// it if the fleet grows into it.
+export const MAX_FUEL_ALLOCATION_LITERS = 1000;
+
 export const approveTripTicketBodySchema = z.object({
-  liters: z.coerce.number().positive(),
+  liters: z.coerce.number().positive().max(MAX_FUEL_ALLOCATION_LITERS),
   fuelType: z.nativeEnum(FUEL_TYPE),
   date: z.coerce.date(),
   purpose: z.string().min(1),

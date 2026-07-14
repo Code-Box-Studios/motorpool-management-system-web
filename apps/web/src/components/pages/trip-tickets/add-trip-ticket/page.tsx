@@ -47,6 +47,13 @@ export function AddTripTicket() {
   // State for managing participants list
   const [participants, setParticipants] = useState<string[]>(['']);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // A trip cannot carry more people than the van has seats — the API refuses it
+  // (409 OVER_CAPACITY), so the form says so while the vehicle is being chosen
+  // rather than after the request has been written out in full.
+  const selectedVehicleId = form.watch('vehicle_id');
+  const seats =
+    vehicles?.data?.find((v) => v.id === selectedVehicleId)?.capacity ?? null;
   const [pendingData, setPendingData] = useState<TripTicketFormData | null>(
     null
   );
@@ -388,11 +395,15 @@ export function AddTripTicket() {
                         id="participants_count"
                         type="number"
                         min="1"
+                        max={seats ?? undefined}
                         aria-invalid={fieldState.invalid}
                         placeholder="Enter number of participants"
                         onChange={(e) => {
-                          const count = parseInt(e.target.value) || 1;
-                          field.onChange(e);
+                          const raw = parseInt(e.target.value) || 1;
+                          // Clamp to the seats: the server refuses more, and a
+                          // silently-too-big number would only fail on submit.
+                          const count = seats ? Math.min(raw, seats) : raw;
+                          field.onChange(count);
                           // Adjust participants array to match count
                           const newParticipants = Array.from(
                             { length: count },
@@ -401,6 +412,11 @@ export function AddTripTicket() {
                           setParticipants(newParticipants);
                         }}
                       />
+                      {seats !== null && (
+                        <p className="text-muted-foreground text-xs">
+                          This vehicle seats {seats}
+                        </p>
+                      )}
                       {fieldState.invalid && (
                         <FieldError errors={[fieldState.error]} />
                       )}
