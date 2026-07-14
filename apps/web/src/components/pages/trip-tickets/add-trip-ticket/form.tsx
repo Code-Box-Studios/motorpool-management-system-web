@@ -797,14 +797,33 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                   Back
                 </Button>
               )}
+              {/* The keys matter. Without them React reconciles these two as the
+                  SAME <button> and just swaps type="button" -> type="submit" —
+                  and because a click is a discrete event, React flushes that
+                  re-render BEFORE the browser performs the click's default
+                  action. So the very click that meant "next" arrived at the last
+                  step as a form submit, and Continue threw the "are you sure you
+                  want to submit?" confirmation in your face. Distinct keys mount
+                  a fresh node; preventDefault is the belt to that braces. */}
               {step === LAST ? (
-                <Button type="submit" disabled={addTripTicketAction.isLoading}>
+                <Button
+                  key="submit"
+                  type="submit"
+                  disabled={addTripTicketAction.isLoading}
+                >
                   {addTripTicketAction.isLoading
                     ? 'Submitting...'
                     : 'Submit Request'}
                 </Button>
               ) : (
-                <Button type="button" onClick={() => void goNext()}>
+                <Button
+                  key="next"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void goNext();
+                  }}
+                >
                   Continue
                 </Button>
               )}

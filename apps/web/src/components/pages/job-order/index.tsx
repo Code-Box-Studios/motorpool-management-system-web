@@ -1,12 +1,20 @@
 import { useJobOrders, useAllJobOrders } from '@/lib/query/job-orders';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { useNavigate } from '@tanstack/react-router';
+import { Button } from '@/components/ui/button';
 import StatusBadge from '@/components/shared/status-badge';
 import { formatRef } from '@/lib/utils/reference';
 import { statusEventColor, resolveStatus } from '@/lib/status';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/shared/page-header';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import AddJobOrder from './add-job-order/form';
 import {
   Table,
   TableBody,
@@ -38,7 +46,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 // shadcn paints the ACTIVE tab with --background — a canvas beige that sits
 // *lighter* than the --muted track behind the inactive one, so on a white card
@@ -77,6 +85,7 @@ const JobOrdersPage = () => {
   const approveJobOrder = useApproveJobOrder();
   const completeRepair = useCompleteRepair();
   const navigate = useNavigate();
+  const [createOpen, setCreateOpen] = useState(false);
 
   const isAdmin = userRole?.roles?.name === 'admin';
   const isEVP = userRole?.roles?.name === 'evp_operations';
@@ -121,12 +130,9 @@ const JobOrdersPage = () => {
     navigate({ to: `/job-order/${clickInfo.event.id}` });
   };
 
-  const handleDateClick = (arg: { dateStr: string }) => {
-    navigate({
-      to: '/job-order/add-job-order',
-      search: { date: arg.dateStr }
-    });
-  };
+  // Raising a repair is a dialog, not a page: a form you fill and dismiss, not a
+  // place you navigate to and have to find your way back from.
+  const handleDateClick = () => setCreateOpen(true);
 
   const openOrder = (orderId: string) => {
     navigate({ to: `/job-order/${orderId}` });
@@ -170,11 +176,28 @@ const JobOrdersPage = () => {
         title="Job Orders"
         description="Repairs raised against the fleet, and who is working on them."
         action={
-          <Link to="/job-order/add-job-order" className={cn(buttonVariants())}>
-            Create Job Order
-          </Link>
+          <Button onClick={() => setCreateOpen(true)}>Create Job Order</Button>
         }
       />
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Create Job Order</DialogTitle>
+            <DialogDescription>
+              Raise a repair against a vehicle. An admin assigns the mechanic and
+              the parts.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody>
+            {/* Remounted per open, so a dismissed half-filled request is not
+                still sitting there next time. */}
+            {createOpen && (
+              <AddJobOrder onDone={() => setCreateOpen(false)} />
+            )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
       <Card>
         <CardContent className="pt-6">
           {/* Table first: it answers "what needs doing". The calendar is for planning. */}

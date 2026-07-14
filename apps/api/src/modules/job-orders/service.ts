@@ -35,8 +35,27 @@ export async function getById(id: string, actor: AuthenticatedUser) {
   return order;
 }
 
-export async function create(body: CreateJobOrderBody) {
-  return prisma.jobOrder.create({ data: { ...body, status: 'pending' }, include: jobOrderInclude });
+export async function create(body: CreateJobOrderBody, actor: AuthenticatedUser) {
+  // WHO RAISED IT is the authenticated caller — the same hole the trip tickets
+  // had, still open here. `requestedById` came straight out of the body, so a
+  // driver could raise a job order in the admin's name, or with no owner at all
+  // (`requestedById: null`) — and since scopeFor() above filters on exactly that
+  // column, an unowned job order becomes invisible to everyone but admin/EVP.
+  //
+  // An admin raising one on someone's behalf is a real workflow, so they may
+  // still name the requester. Nobody else can.
+  const requestedById =
+    actor.role === 'admin' && body.requestedById ? body.requestedById : actor.id;
+
+  // The incident cannot have happened tomorrow.
+  if (body.incidentDate && body.incidentDate.getTime() > Date.now()) {
+    throw new AppError(400, 'INCIDENT_IN_THE_FUTURE', 'An incident date cannot be in the future');
+  }
+
+  return prisma.jobOrder.create({
+    data: { ...body, requestedById, status: 'pending' },
+    include: jobOrderInclude
+  });
 }
 
 export async function update(id: string, body: UpdateJobOrderBody) {

@@ -4,26 +4,32 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCreateJobOrder } from '@/lib/mutation/job-orders';
 import type { NewJobOrder } from '@/lib/types';
-import { JOB_ORDER_STATUS } from '@/lib/enums';
 
-// Driver form - initial job order submission
+// Raising a repair. These are the ONLY six fields the API accepts on create
+// (createJobOrderBodySchema) — the schema used to also carry status,
+// assigned_mechanic, target_date, repair_done, approved_by and friends, which
+// read as though this form could open a job order already assigned, or already
+// repaired. It never could: the API strips them and hard-codes `pending`, and
+// every one of them is reached through a transition (note -> approve ->
+// complete-repair) with its own guard. Carrying them here only invited someone
+// to wire up a control that would silently do nothing.
 const jobOrderSchema = z.object({
   vehicle_id: z.string().uuid('Please select a vehicle'),
   branch_id: z.string().uuid('Please select a branch'),
-  incident_date: z.string().min(1, 'Incident date is required'),
-  incident_details: z.string().optional(),
+  // A fault cannot have happened tomorrow. The API refuses it
+  // (400 INCIDENT_IN_THE_FUTURE) — catch it here so it lands on the field
+  // instead of coming back as a failed submit.
+  incident_date: z
+    .string()
+    .min(1, 'Incident date is required')
+    .refine((v) => new Date(v).getTime() <= Date.now(), {
+      message: 'The incident cannot be in the future'
+    }),
+  // The admin assigns a mechanic and notes the parts off the back of this, so a
+  // repair request that says nothing is one nobody can work.
+  incident_details: z.string().min(1, 'Describe what is wrong'),
   remarks: z.string().optional(),
-  status: z.enum(Object.values(JOB_ORDER_STATUS) as [string, ...string[]]),
-  requested_by: z.string().optional(),
-  noted_by: z.string().optional(),
-  approved_by: z.string().optional(),
-  // Admin fields - not filled during initial creation
-  date_of_request: z.string().optional(),
-  target_date: z.string().optional(),
-  assigned_mechanic: z.string().optional(),
-  actual_date_of_release: z.string().optional(),
-  repair_done: z.string().optional(),
-  date_approved: z.string().optional()
+  requested_by: z.string().optional()
 });
 
 export type JobOrderFormData = z.infer<typeof jobOrderSchema>;
@@ -37,16 +43,7 @@ export const useJobOrderForm = () => {
       incident_date: '',
       incident_details: '',
       remarks: '',
-      status: 'pending',
-      requested_by: '',
-      noted_by: '',
-      approved_by: '',
-      date_of_request: '',
-      target_date: '',
-      assigned_mechanic: '',
-      actual_date_of_release: '',
-      repair_done: '',
-      date_approved: ''
+      requested_by: ''
     }
   });
 };

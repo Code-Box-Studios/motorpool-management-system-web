@@ -19,8 +19,16 @@ async function scaffold() {
   return { branch, vehicle };
 }
 
+// A job order has to say WHEN and WHAT — both were optional, so a repair request
+// could carry neither and still be raised. The date cannot be in the future.
 function orderBody(s: { branch: { id: string }; vehicle: { id: string } }, requestedById?: string) {
-  return { vehicleId: s.vehicle.id, branchId: s.branch.id, incidentDetails: 'Brakes', requestedById };
+  return {
+    vehicleId: s.vehicle.id,
+    branchId: s.branch.id,
+    incidentDate: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // an hour ago
+    incidentDetails: 'Brakes',
+    requestedById
+  };
 }
 
 describe('job-orders module', () => {
@@ -89,5 +97,73 @@ describe('job-orders module', () => {
 
     const del = await request(app).delete(`/api/job-orders/${id}`).set('Authorization', header);
     expect(del.status).toBe(204);
+  });
+});
+
+describe('job-order request rules', () => {
+  beforeEach(truncateAll);
+  afterAll(() => prisma.$disconnect());
+
+  it('the requester is the CALLER, not whoever the body names', async () => {
+    const s = await scaffold();
+    const { user: requester } = await createTestUser({ email: 'r@test.local', role: 'requester' });
+    const { user: admin } = await createTestUser({ email: 'a@test.local', role: 'admin' });
+
+    // A requester raising a repair in the ADMIN's name. requestedById used to be
+    // spread straight out of the body, and job-order VISIBILITY is scoped on that
+    // column — so this both misattributed the request and hid it from its author.
+    const res = await request(app).post('/api/job-orders')
+      .set('Authorization', authHeader(requester.id, requester.email, 'requester'))
+      .send(orderBody(s, admin.id));
+    expect(res.status).toBe(201);
+    expect(res.body.requested_by ?? res.body.requestedById).toBe(requester.id);
+  });
+
+  it('a job order cannot be raised with NO owner', async () => {
+    const s = await scaffold();
+    const { user: requester } = await createTestUser({ email: 'r@test.local', role: 'requester' });
+
+    const res = await request(app).post('/api/job-orders')
+      .set('Authorization', authHeader(requester.id, requester.email, 'requester'))
+      .send({ ...orderBody(s), requestedById: null });
+    expect(res.status).toBe(201);
+    expect(res.body.requested_by ?? res.body.requestedById).toBe(requester.id);
+  });
+
+  it('an admin may still raise a repair on someone else’s behalf', async () => {
+    const s = await scaffold();
+    const { user: requester } = await createTestUser({ email: 'r@test.local', role: 'requester' });
+    const { user: admin } = await createTestUser({ email: 'a@test.local', role: 'admin' });
+
+    const res = await request(app).post('/api/job-orders')
+      .set('Authorization', authHeader(admin.id, admin.email, 'admin'))
+      .send(orderBody(s, requester.id));
+    expect(res.status).toBe(201);
+    expect(res.body.requested_by ?? res.body.requestedById).toBe(requester.id);
+  });
+
+  it('refuses a repair request that does not say what happened', async () => {
+    const s = await scaffold();
+    const { user: admin } = await createTestUser({ email: 'a@test.local', role: 'admin' });
+    const body = orderBody(s) as Record<string, unknown>;
+    delete body.incidentDetails;
+
+    const res = await request(app).post('/api/job-orders')
+      .set('Authorization', authHeader(admin.id, admin.email, 'admin')).send(body);
+    expect(res.status).toBe(400); // the admin has to assign a mechanic off the back of this
+  });
+
+  it('refuses an incident dated in the future', async () => {
+    const s = await scaffold();
+    const { user: admin } = await createTestUser({ email: 'a@test.local', role: 'admin' });
+
+    const res = await request(app).post('/api/job-orders')
+      .set('Authorization', authHeader(admin.id, admin.email, 'admin'))
+      .send({
+        ...orderBody(s),
+        incidentDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('INCIDENT_IN_THE_FUTURE');
   });
 });

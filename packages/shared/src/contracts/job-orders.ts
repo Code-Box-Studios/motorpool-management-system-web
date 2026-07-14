@@ -5,8 +5,11 @@ import { paginationQuerySchema } from './common.js';
 export const createJobOrderBodySchema = z.object({
   vehicleId: z.string().uuid(),
   branchId: z.string().uuid(),
-  incidentDate: z.coerce.date().nullable().optional(),
-  incidentDetails: z.string().nullable().optional(),
+  // A repair request that does not say what happened is a repair request nobody
+  // can act on: the admin has to assign a mechanic and note the parts off the
+  // back of it. Both were optional.
+  incidentDate: z.coerce.date(),
+  incidentDetails: z.string().min(1),
   requestedById: z.string().uuid().nullable().optional(),
   remarks: z.string().nullable().optional()
 });

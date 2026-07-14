@@ -13,7 +13,7 @@ export async function getById(req: Request, res: Response): Promise<void> {
 }
 
 export async function create(req: Request, res: Response): Promise<void> {
-  res.status(201).json(await service.create(req.body as CreateJobOrderBody));
+  res.status(201).json(await service.create(req.body as CreateJobOrderBody, requireUser(req)));
 }
 
 export async function update(req: Request, res: Response): Promise<void> {

@@ -82,7 +82,11 @@ test.describe('@capture design screens', () => {
     // --- Job orders ---
     await visit(page, '/job-order', '06-job-orders-table');
     await snapTab(page, 'Calendar', '07-job-orders-calendar');
-    await visit(page, '/job-order/add-job-order', '08-job-order-create');
+    // Raising a repair is a stepped dialog now, not a page of its own.
+    await visit(page, '/job-order', '07b-job-orders-table');
+    await page.getByRole('button', { name: 'Create Job Order' }).click();
+    await snap(page, '08-job-order-create');
+    await page.keyboard.press('Escape');
     if (ids.job) {
       await visit(page, `/job-order/${ids.job}`, '09-job-order-detail');
     }

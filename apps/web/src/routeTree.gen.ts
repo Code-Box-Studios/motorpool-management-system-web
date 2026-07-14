@@ -35,7 +35,6 @@ import { Route as AuthenticatedSparePartsAddSparePartRouteImport } from './route
 import { Route as AuthenticatedSparePartsSparePartIdRouteImport } from './routes/_authenticated/spare-parts.$sparePartId'
 import { Route as AuthenticatedMaintenanceAddMaintenanceRouteImport } from './routes/_authenticated/maintenance.add-maintenance'
 import { Route as AuthenticatedMaintenanceIdRouteImport } from './routes/_authenticated/maintenance.$id'
-import { Route as AuthenticatedJobOrderAddJobOrderRouteImport } from './routes/_authenticated/job-order.add-job-order'
 import { Route as AuthenticatedJobOrderIdRouteImport } from './routes/_authenticated/job-order.$id'
 import { Route as AuthenticatedDriversIdRouteImport } from './routes/_authenticated/drivers.$id'
 
@@ -187,12 +186,6 @@ const AuthenticatedMaintenanceIdRoute =
     path: '/maintenance/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedJobOrderAddJobOrderRoute =
-  AuthenticatedJobOrderAddJobOrderRouteImport.update({
-    id: '/job-order/add-job-order',
-    path: '/job-order/add-job-order',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedJobOrderIdRoute = AuthenticatedJobOrderIdRouteImport.update({
   id: '/job-order/$id',
   path: '/job-order/$id',
@@ -210,7 +203,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/job-order/$id': typeof AuthenticatedJobOrderIdRoute
-  '/job-order/add-job-order': typeof AuthenticatedJobOrderAddJobOrderRoute
   '/maintenance/$id': typeof AuthenticatedMaintenanceIdRoute
   '/maintenance/add-maintenance': typeof AuthenticatedMaintenanceAddMaintenanceRoute
   '/spare-parts/$sparePartId': typeof AuthenticatedSparePartsSparePartIdRoute
@@ -239,7 +231,6 @@ export interface FileRoutesByTo {
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/job-order/$id': typeof AuthenticatedJobOrderIdRoute
-  '/job-order/add-job-order': typeof AuthenticatedJobOrderAddJobOrderRoute
   '/maintenance/$id': typeof AuthenticatedMaintenanceIdRoute
   '/maintenance/add-maintenance': typeof AuthenticatedMaintenanceAddMaintenanceRoute
   '/spare-parts/$sparePartId': typeof AuthenticatedSparePartsSparePartIdRoute
@@ -271,7 +262,6 @@ export interface FileRoutesById {
   '/_public/login': typeof PublicLoginRoute
   '/_authenticated/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/_authenticated/job-order/$id': typeof AuthenticatedJobOrderIdRoute
-  '/_authenticated/job-order/add-job-order': typeof AuthenticatedJobOrderAddJobOrderRoute
   '/_authenticated/maintenance/$id': typeof AuthenticatedMaintenanceIdRoute
   '/_authenticated/maintenance/add-maintenance': typeof AuthenticatedMaintenanceAddMaintenanceRoute
   '/_authenticated/spare-parts/$sparePartId': typeof AuthenticatedSparePartsSparePartIdRoute
@@ -302,7 +292,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/drivers/$id'
     | '/job-order/$id'
-    | '/job-order/add-job-order'
     | '/maintenance/$id'
     | '/maintenance/add-maintenance'
     | '/spare-parts/$sparePartId'
@@ -331,7 +320,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/drivers/$id'
     | '/job-order/$id'
-    | '/job-order/add-job-order'
     | '/maintenance/$id'
     | '/maintenance/add-maintenance'
     | '/spare-parts/$sparePartId'
@@ -362,7 +350,6 @@ export interface FileRouteTypes {
     | '/_public/login'
     | '/_authenticated/drivers/$id'
     | '/_authenticated/job-order/$id'
-    | '/_authenticated/job-order/add-job-order'
     | '/_authenticated/maintenance/$id'
     | '/_authenticated/maintenance/add-maintenance'
     | '/_authenticated/spare-parts/$sparePartId'
@@ -576,13 +563,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMaintenanceIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/job-order/add-job-order': {
-      id: '/_authenticated/job-order/add-job-order'
-      path: '/job-order/add-job-order'
-      fullPath: '/job-order/add-job-order'
-      preLoaderRoute: typeof AuthenticatedJobOrderAddJobOrderRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/job-order/$id': {
       id: '/_authenticated/job-order/$id'
       path: '/job-order/$id'
@@ -604,7 +584,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDriversIdRoute: typeof AuthenticatedDriversIdRoute
   AuthenticatedJobOrderIdRoute: typeof AuthenticatedJobOrderIdRoute
-  AuthenticatedJobOrderAddJobOrderRoute: typeof AuthenticatedJobOrderAddJobOrderRoute
   AuthenticatedMaintenanceIdRoute: typeof AuthenticatedMaintenanceIdRoute
   AuthenticatedMaintenanceAddMaintenanceRoute: typeof AuthenticatedMaintenanceAddMaintenanceRoute
   AuthenticatedSparePartsSparePartIdRoute: typeof AuthenticatedSparePartsSparePartIdRoute
@@ -632,7 +611,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDriversIdRoute: AuthenticatedDriversIdRoute,
   AuthenticatedJobOrderIdRoute: AuthenticatedJobOrderIdRoute,
-  AuthenticatedJobOrderAddJobOrderRoute: AuthenticatedJobOrderAddJobOrderRoute,
   AuthenticatedMaintenanceIdRoute: AuthenticatedMaintenanceIdRoute,
   AuthenticatedMaintenanceAddMaintenanceRoute:
     AuthenticatedMaintenanceAddMaintenanceRoute,
