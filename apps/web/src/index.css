@@ -154,7 +154,9 @@
   --status-stop-fg: #e59c8a;
   --status-stop-bg: #382420;
   --status-neut-fg: #b8b1a8;
-  --status-neut-bg: #2c2825;
+  /* Must clear the card (#2a2724), or Approved/Inactive read as no pill at
+     all — quiet is the intent, invisible is not. */
+  --status-neut-bg: #3a352f;
 
   --chart-1: #a83b4a;
   --chart-2: #9fb8ea;
