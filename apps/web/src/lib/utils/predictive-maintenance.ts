@@ -20,6 +20,10 @@ export interface VehicleRiskAssessment {
   maintFreq12m: number;
   riskScore: number;
   priority: 'high' | 'medium' | 'low';
+  // True when the API scored this vehicle with the deterministic rule-based
+  // fallback because the ML risk model wasn't loaded. Surfaced so the UI can
+  // label a rule-based estimate honestly instead of passing it off as the model.
+  usedFallback: boolean;
   lastMaintenanceDate: string | null;
   predictedFailureDate: string;
   reason: string;
@@ -99,6 +103,7 @@ export function buildAssessmentFromApi(
     maintFreq12m,
     riskScore: apiRow.riskScore,
     priority: apiRow.priority,
+    usedFallback: apiRow.usedFallback,
     lastMaintenanceDate,
     predictedFailureDate,
     reason: buildReason(kmSinceLastMaint, avgDailyKm, maintFreq12m)

@@ -6,6 +6,7 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Typography } from '@/components/ui/typography';
 import { useNavigate } from '@tanstack/react-router';
 import { PredictiveMaintenanceCard } from '@/components/shared/preventive-maintenance-card';
@@ -54,6 +55,10 @@ const PredictiveMaintenance = ({
       search: { tab: 'predictive' }
     });
   };
+
+  // `usedFallback` is per-request, so all rows agree; show one honest indicator
+  // when the scores are the rule-based estimate rather than the ML model.
+  const usedFallback = (predictions ?? []).some((v) => v.usedFallback);
 
   const predictedVehicles = (predictions ?? []).map((v) => ({
     id: v.vehicleId,
@@ -109,14 +114,19 @@ const PredictiveMaintenance = ({
                           Predictive Maintenance
                         </p>
                         <p className="text-xs">
-                          Uses historical data and usage patterns to predict
-                          when vehicle components are likely to fail, allowing
-                          proactive maintenance scheduling.
+                          {usedFallback
+                            ? 'Scores are a rule-based estimate (mileage, usage rate, and service frequency) because the risk model is not loaded — not a trained model.'
+                            : 'Uses historical data and usage patterns to predict when vehicle components are likely to fail, allowing proactive maintenance scheduling.'}
                         </p>
                       </div>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+                {usedFallback && (
+                  <Badge variant="outline" className="font-normal">
+                    Rule-based estimate
+                  </Badge>
+                )}
               </div>
               <Typography
                 variant={'p-sm'}

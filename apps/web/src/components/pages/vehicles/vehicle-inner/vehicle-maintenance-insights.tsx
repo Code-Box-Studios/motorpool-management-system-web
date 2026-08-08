@@ -88,6 +88,21 @@ export const VehicleMaintenanceInsights = ({
         ? `Approaching ${maintenanceDue.toLocaleString()} km service interval`
         : `${kmRemaining.toLocaleString()} km until next scheduled service`;
 
+  // Be honest about where the risk score came from: when the API used its
+  // rule-based fallback (the ML model wasn't loaded), don't dress it up as the
+  // model. `usedFallback` is per-request, so every row shares the same value.
+  const scoreSource = prediction.usedFallback
+    ? {
+        badge: 'Rule-based estimate',
+        tooltip:
+          'The risk model is not loaded, so this score is a rule-based estimate from mileage since last service, daily usage, and service frequency — not a trained model.'
+      }
+    : {
+        badge: 'Risk model',
+        tooltip:
+          'Scored by the risk model (random forest) from usage patterns and maintenance history.'
+      };
+
   return (
     <div className="mt-8 space-y-4">
       <h2 className="text-xl font-semibold">Maintenance Insights</h2>
@@ -191,13 +206,13 @@ export const VehicleMaintenanceInsights = ({
                     <Info className="text-muted-foreground h-4 w-4 cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
-                    <p className="text-xs">
-                      AI-powered analysis using usage patterns & maintenance
-                      history to predict component failures.
-                    </p>
+                    <p className="text-xs">{scoreSource.tooltip}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              <Badge variant="outline" className="ml-auto font-normal">
+                {scoreSource.badge}
+              </Badge>
             </CardTitle>
             <CardDescription>
               Risk assessment based on data analysis

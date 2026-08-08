@@ -26,6 +26,7 @@ import { Route as AuthenticatedDriversIndexRouteImport } from './routes/_authent
 import { Route as AuthenticatedVehiclesAddVehicleRouteImport } from './routes/_authenticated/vehicles.add-vehicle'
 import { Route as AuthenticatedVehiclesVehicleIdRouteImport } from './routes/_authenticated/vehicles.$vehicleId'
 import { Route as AuthenticatedUserManagementAddUserRouteImport } from './routes/_authenticated/user-management.add-user'
+import { Route as AuthenticatedUserManagementUserIdRouteImport } from './routes/_authenticated/user-management.$userId'
 import { Route as AuthenticatedTripTicketsIdRouteImport } from './routes/_authenticated/trip-tickets.$id'
 import { Route as AuthenticatedTrackerDevicesAddDeviceRouteImport } from './routes/_authenticated/tracker-devices.add-device'
 import { Route as AuthenticatedTrackerDevicesDeviceIdRouteImport } from './routes/_authenticated/tracker-devices.$deviceId'
@@ -132,6 +133,12 @@ const AuthenticatedUserManagementAddUserRoute =
     path: '/user-management/add-user',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedUserManagementUserIdRoute =
+  AuthenticatedUserManagementUserIdRouteImport.update({
+    id: '/user-management/$userId',
+    path: '/user-management/$userId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedTripTicketsIdRoute =
   AuthenticatedTripTicketsIdRouteImport.update({
     id: '/trip-tickets/$id',
@@ -212,6 +219,7 @@ export interface FileRoutesByFullPath {
   '/tracker-devices/$deviceId': typeof AuthenticatedTrackerDevicesDeviceIdRoute
   '/tracker-devices/add-device': typeof AuthenticatedTrackerDevicesAddDeviceRoute
   '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
+  '/user-management/$userId': typeof AuthenticatedUserManagementUserIdRoute
   '/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
   '/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
@@ -240,6 +248,7 @@ export interface FileRoutesByTo {
   '/tracker-devices/$deviceId': typeof AuthenticatedTrackerDevicesDeviceIdRoute
   '/tracker-devices/add-device': typeof AuthenticatedTrackerDevicesAddDeviceRoute
   '/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
+  '/user-management/$userId': typeof AuthenticatedUserManagementUserIdRoute
   '/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
   '/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
@@ -271,6 +280,7 @@ export interface FileRoutesById {
   '/_authenticated/tracker-devices/$deviceId': typeof AuthenticatedTrackerDevicesDeviceIdRoute
   '/_authenticated/tracker-devices/add-device': typeof AuthenticatedTrackerDevicesAddDeviceRoute
   '/_authenticated/trip-tickets/$id': typeof AuthenticatedTripTicketsIdRoute
+  '/_authenticated/user-management/$userId': typeof AuthenticatedUserManagementUserIdRoute
   '/_authenticated/user-management/add-user': typeof AuthenticatedUserManagementAddUserRoute
   '/_authenticated/vehicles/$vehicleId': typeof AuthenticatedVehiclesVehicleIdRoute
   '/_authenticated/vehicles/add-vehicle': typeof AuthenticatedVehiclesAddVehicleRoute
@@ -301,6 +311,7 @@ export interface FileRouteTypes {
     | '/tracker-devices/$deviceId'
     | '/tracker-devices/add-device'
     | '/trip-tickets/$id'
+    | '/user-management/$userId'
     | '/user-management/add-user'
     | '/vehicles/$vehicleId'
     | '/vehicles/add-vehicle'
@@ -329,6 +340,7 @@ export interface FileRouteTypes {
     | '/tracker-devices/$deviceId'
     | '/tracker-devices/add-device'
     | '/trip-tickets/$id'
+    | '/user-management/$userId'
     | '/user-management/add-user'
     | '/vehicles/$vehicleId'
     | '/vehicles/add-vehicle'
@@ -359,6 +371,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tracker-devices/$deviceId'
     | '/_authenticated/tracker-devices/add-device'
     | '/_authenticated/trip-tickets/$id'
+    | '/_authenticated/user-management/$userId'
     | '/_authenticated/user-management/add-user'
     | '/_authenticated/vehicles/$vehicleId'
     | '/_authenticated/vehicles/add-vehicle'
@@ -500,6 +513,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUserManagementAddUserRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/user-management/$userId': {
+      id: '/_authenticated/user-management/$userId'
+      path: '/user-management/$userId'
+      fullPath: '/user-management/$userId'
+      preLoaderRoute: typeof AuthenticatedUserManagementUserIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/trip-tickets/$id': {
       id: '/_authenticated/trip-tickets/$id'
       path: '/trip-tickets/$id'
@@ -593,6 +613,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTrackerDevicesDeviceIdRoute: typeof AuthenticatedTrackerDevicesDeviceIdRoute
   AuthenticatedTrackerDevicesAddDeviceRoute: typeof AuthenticatedTrackerDevicesAddDeviceRoute
   AuthenticatedTripTicketsIdRoute: typeof AuthenticatedTripTicketsIdRoute
+  AuthenticatedUserManagementUserIdRoute: typeof AuthenticatedUserManagementUserIdRoute
   AuthenticatedUserManagementAddUserRoute: typeof AuthenticatedUserManagementAddUserRoute
   AuthenticatedVehiclesVehicleIdRoute: typeof AuthenticatedVehiclesVehicleIdRoute
   AuthenticatedVehiclesAddVehicleRoute: typeof AuthenticatedVehiclesAddVehicleRoute
@@ -625,6 +646,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTrackerDevicesAddDeviceRoute:
     AuthenticatedTrackerDevicesAddDeviceRoute,
   AuthenticatedTripTicketsIdRoute: AuthenticatedTripTicketsIdRoute,
+  AuthenticatedUserManagementUserIdRoute:
+    AuthenticatedUserManagementUserIdRoute,
   AuthenticatedUserManagementAddUserRoute:
     AuthenticatedUserManagementAddUserRoute,
   AuthenticatedVehiclesVehicleIdRoute: AuthenticatedVehiclesVehicleIdRoute,

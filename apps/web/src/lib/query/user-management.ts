@@ -15,3 +15,13 @@ export const useAllUsers = () => {
     queryFn: getAllUsers
   });
 };
+
+// A single user, selected from the shared 'allUsers' cache (there is no
+// GET /users/:id endpoint). `data` is undefined while loading or if not found.
+export const useUser = (userId: string) => {
+  return useQuery({
+    queryKey: ['allUsers'],
+    queryFn: getAllUsers,
+    select: (users) => users.find((u) => u.id === userId)
+  });
+};

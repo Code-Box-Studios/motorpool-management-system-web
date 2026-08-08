@@ -1,6 +1,6 @@
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import type { UserProfileData } from '@/lib/types';
 import {
   Table,
@@ -37,6 +37,7 @@ const COLUMNS = ['User', 'Role', 'Branch', 'Status', 'Created'];
 
 const UserManagement = () => {
   const { data: users, isLoading, error } = useAllUsers();
+  const navigate = useNavigate();
 
   return (
     <div>
@@ -81,7 +82,16 @@ const UserManagement = () => {
                       </TableRow>
                     ))
                   : users?.map((user: UserProfileData) => (
-                      <TableRow key={user.id}>
+                      <TableRow
+                        key={user.id}
+                        className="hover:bg-muted cursor-pointer"
+                        onClick={() =>
+                          navigate({
+                            to: '/user-management/$userId',
+                            params: { userId: user.id }
+                          })
+                        }
+                      >
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar>

@@ -175,7 +175,9 @@ const TrackerDeviceInner = ({ deviceId }: { deviceId: string }) => {
   );
 
   return (
-    <div>
+    // Cap the record to a comfortable, centred column so a device's few facts
+    // read as one card rather than spread across the full 1600px shell.
+    <div className="mx-auto w-full max-w-4xl">
       <RecordHeader
         reference={device.imei}
         title={device.label?.trim() || 'Tracker device'}

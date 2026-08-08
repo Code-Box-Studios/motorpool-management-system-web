@@ -164,7 +164,9 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
   ) : undefined;
 
   return (
-    <div>
+    // Cap the record to a comfortable, centred column so a tool's few facts read
+    // as one card rather than marooned across the full 1600px shell.
+    <div className="mx-auto w-full max-w-4xl">
       <RecordHeader
         title={tool.name}
         status={status}

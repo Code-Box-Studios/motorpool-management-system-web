@@ -106,7 +106,11 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
   const quantity = sparePart.quantity ?? 0;
 
   return (
-    <div>
+    // A part carries only a handful of facts; letting the record stretch the
+    // full 1600px shell left the values marooned with dead canvas between them.
+    // Cap it to a comfortable, centred reading column so the card reads as one
+    // record, not a sparse band. The same width holds in view and edit mode.
+    <div className="mx-auto w-full max-w-4xl">
       <RecordHeader
         title={sparePart.name}
         meta={sparePart.brand || undefined}

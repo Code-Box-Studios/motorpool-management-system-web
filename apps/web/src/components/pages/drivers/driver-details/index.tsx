@@ -119,7 +119,9 @@ export function DriverDetails({ id }: { id: string }) {
     return <div className="text-muted-foreground">Driver not found</div>;
 
   return (
-    <div>
+    // Cap the record to a comfortable, centred column so the details read as one
+    // card rather than spread across the full 1600px shell.
+    <div className="mx-auto w-full max-w-4xl">
       <RecordHeader
         title={driver.full_name}
         status={driver.status ?? undefined}
