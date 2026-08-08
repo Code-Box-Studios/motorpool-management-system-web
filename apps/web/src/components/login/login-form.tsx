@@ -1,4 +1,6 @@
 // src/components/login/login-form.tsx
+import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,6 +21,7 @@ export function LoginForm({
   const { login } = useAuth();
   const navigate = useNavigate();
   const form = useLoginForm();
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (data: LoginFormData) => {
     try {
@@ -73,14 +76,31 @@ export function LoginForm({
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="login-password">Password</FieldLabel>
-                    <Input
-                      {...field}
-                      id="login-password"
-                      type="password"
-                      aria-invalid={fieldState.invalid}
-                      placeholder="Enter your password"
-                      autoComplete="current-password"
-                    />
+                    <div className="relative">
+                      <Input
+                        {...field}
+                        id="login-password"
+                        type={showPassword ? 'text' : 'password'}
+                        aria-invalid={fieldState.invalid}
+                        placeholder="Enter your password"
+                        autoComplete="current-password"
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={
+                          showPassword ? 'Hide password' : 'Show password'
+                        }
+                        className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="size-4" />
+                        ) : (
+                          <Eye className="size-4" />
+                        )}
+                      </button>
+                    </div>
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}

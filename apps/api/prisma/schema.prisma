@@ -3,8 +3,11 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Migrations need a non-pooled connection (e.g. Neon's direct endpoint);
+  // locally this is just the same URL as DATABASE_URL.
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------- Enums (spec §4.2) ----------
