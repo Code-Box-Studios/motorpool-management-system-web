@@ -1,19 +1,19 @@
 import { useTools } from '@/lib/query/tools';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useListControls } from '@/hooks/use-list-controls';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import PageHeader from '@/components/shared/page-header';
+import SortableTableHead from '@/components/shared/sortable-table-head';
 import EntityCard from '@/components/shared/entity-card';
 import EntityImage from '@/components/shared/entity-image';
 import EmptyState from '@/components/shared/empty-state';
@@ -24,10 +24,19 @@ import ViewTabs from '@/components/shared/view-tabs';
 const formatDate = (value: string | null) =>
   value ? new Date(value).toLocaleDateString() : undefined;
 
+// sortKey values come from the API's TOOL_SORT_COLUMNS allowlist.
+const COLUMNS = [
+  { label: 'Tool', sortKey: 'name' },
+  { label: 'Status', sortKey: 'status' },
+  { label: 'Signed out to', sortKey: 'borrowedBy' },
+  { label: 'Due back', sortKey: 'estimatedReturnDate' },
+  { label: 'Description', sortKey: 'description' }
+];
+
 const Tools = () => {
-  const [page, setPage] = useState(1);
+  const { page, sort, setPage, handleSort } = useListControls();
   const limit = 10;
-  const { data } = useTools(page, limit);
+  const { data } = useTools(page, limit, sort ?? undefined);
   // `borrowed_by` is a driver id; a row must show the person, never the key.
   const { data: drivers } = useAllDrivers();
   const navigate = useNavigate();
@@ -87,11 +96,15 @@ const Tools = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Tool</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Signed out to</TableHead>
-              <TableHead>Due back</TableHead>
-              <TableHead>Description</TableHead>
+              {COLUMNS.map((column) => (
+                <SortableTableHead
+                  key={column.label}
+                  label={column.label}
+                  sortKey={column.sortKey}
+                  sort={sort}
+                  onSort={handleSort}
+                />
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>

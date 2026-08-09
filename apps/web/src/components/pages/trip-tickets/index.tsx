@@ -34,10 +34,11 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow
 } from '@/components/ui/table';
+import SortableTableHead from '@/components/shared/sortable-table-head';
+import { useListControls } from '@/hooks/use-list-controls';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -172,13 +173,15 @@ const TripTicketsPage = () => {
   const filterUserId = isRequester ? user?.id : undefined;
   const filterBranchId = isAdmin ? userRole?.branch_id : undefined;
 
-  const [page, setPage] = useState(1);
+  const { page, sort, setPage, handleSort } = useListControls();
   const limit = 10;
   const { data: tableData, isLoading: isTableLoading } = useTripTickets(
     page,
     limit,
     filterUserId,
-    filterBranchId
+    filterBranchId,
+    undefined,
+    sort ?? undefined
   );
   const totalPages = Math.ceil((tableData?.count || 0) / limit);
 
@@ -186,7 +189,7 @@ const TripTicketsPage = () => {
   // already paged, the dataset changed underneath them, so snap back to page 1.
   useEffect(() => {
     setPage(1);
-  }, [filterUserId, filterBranchId]);
+  }, [filterUserId, filterBranchId, setPage]);
   const { data: calendarData, isLoading: isCalendarLoading } =
     useAllTripTickets(filterUserId, filterBranchId);
   const { data: vehiclesData } = useAllVehicles();
@@ -526,20 +529,54 @@ const TripTicketsPage = () => {
                   <Table className="min-w-[1040px]">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[80px]">Ref</TableHead>
-                        <TableHead className="min-w-[180px]">
-                          Destination
-                        </TableHead>
-                        <TableHead className="min-w-[220px]">Purpose</TableHead>
-                        <TableHead className="w-[116px]">Pickup Date</TableHead>
-                        <TableHead className="w-[116px]">Return Date</TableHead>
+                        {/* sortKey values come from the API's
+                            TRIP_TICKET_SORT_COLUMNS allowlist. */}
+                        <SortableTableHead
+                          label="Ref"
+                          sortKey="ticketNo"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="w-[80px]"
+                        />
+                        <SortableTableHead
+                          label="Destination"
+                          sortKey="destination"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="min-w-[180px]"
+                        />
+                        <SortableTableHead
+                          label="Purpose"
+                          sortKey="purpose"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="min-w-[220px]"
+                        />
+                        <SortableTableHead
+                          label="Pickup Date"
+                          sortKey="startTs"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="w-[116px]"
+                        />
+                        <SortableTableHead
+                          label="Return Date"
+                          sortKey="endTs"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="w-[116px]"
+                        />
                         {/* Status reads at the end of the row, with whatever can
                             change it right beside it — the requester's Cancel or
                             the admin's ⋯ menu. The row itself opens the ticket,
                             so there is no View button. */}
-                        <TableHead className="w-[200px] text-right">
-                          Status
-                        </TableHead>
+                        <SortableTableHead
+                          label="Status"
+                          sortKey="status"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="w-[200px] text-right"
+                        />
                       </TableRow>
                     </TableHeader>
                     <TableBody>

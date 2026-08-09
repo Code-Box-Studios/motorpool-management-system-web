@@ -5,29 +5,34 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow
 } from '@/components/ui/table';
 import { useDrivers, useAllDrivers } from '@/lib/query/drivers';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
 import EntityImage from '@/components/shared/entity-image';
 import TablePagination from '@/components/shared/table-pagination';
+import SortableTableHead from '@/components/shared/sortable-table-head';
+import { useListControls } from '@/hooks/use-list-controls';
 import PageHeader from '@/components/shared/page-header';
 import StatusBadge from '@/components/shared/status-badge';
 
+// sortKey values come from the API's DRIVER_SORT_COLUMNS allowlist.
 const COLUMNS = [
-  { label: 'Driver', width: 'w-40' },
-  { label: 'License', width: 'w-32' },
-  { label: 'Contact', width: 'w-32' },
-  { label: 'Status', width: 'w-20' }
+  { label: 'Driver', width: 'w-40', sortKey: 'fullName' },
+  { label: 'License', width: 'w-32', sortKey: 'licenseNumber' },
+  { label: 'Contact', width: 'w-32', sortKey: 'phone' },
+  { label: 'Status', width: 'w-20', sortKey: 'status' }
 ];
 
 const Drivers = () => {
-  const [page, setPage] = useState(1);
+  const { page, sort, setPage, handleSort } = useListControls();
   const limit = 10;
-  const { data: driversData, isLoading } = useDrivers(page, limit);
+  const { data: driversData, isLoading } = useDrivers(
+    page,
+    limit,
+    sort ?? undefined
+  );
   const { data: allDrivers } = useAllDrivers();
   const navigate = useNavigate();
   const drivers = driversData?.data || [];
@@ -69,7 +74,13 @@ const Drivers = () => {
                 <TableHeader>
                   <TableRow>
                     {COLUMNS.map((column) => (
-                      <TableHead key={column.label}>{column.label}</TableHead>
+                      <SortableTableHead
+                        key={column.label}
+                        label={column.label}
+                        sortKey={column.sortKey}
+                        sort={sort}
+                        onSort={handleSort}
+                      />
                     ))}
                   </TableRow>
                 </TableHeader>

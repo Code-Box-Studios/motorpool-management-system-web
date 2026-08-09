@@ -18,7 +18,9 @@ export const formatMaintenanceDate = (
   if (!value) return fallback;
 
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toLocaleDateString();
+  return Number.isNaN(parsed.getTime())
+    ? fallback
+    : parsed.toLocaleDateString();
 };
 
 /**

@@ -1,13 +1,11 @@
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
 import type { UserProfileData } from '@/lib/types';
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow
 } from '@/components/ui/table';
@@ -17,6 +15,8 @@ import PageHeader from '@/components/shared/page-header';
 import EmptyState from '@/components/shared/empty-state';
 import StatusBadge from '@/components/shared/status-badge';
 import TablePagination from '@/components/shared/table-pagination';
+import SortableTableHead from '@/components/shared/sortable-table-head';
+import { useListControls } from '@/hooks/use-list-controls';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUsers } from '@/lib/query/user-management';
 import { present, roleLabel } from '@/lib/role-label';
@@ -35,12 +35,23 @@ const getInitials = (user: UserProfileData): string => {
   return 'U';
 };
 
-const COLUMNS = ['User', 'Role', 'Branch', 'Status', 'Created'];
+// sortKey values come from the API's USER_SORT_COLUMNS allowlist.
+const COLUMNS = [
+  { label: 'User', sortKey: 'fullName' },
+  { label: 'Role', sortKey: 'role' },
+  { label: 'Branch', sortKey: 'branch' },
+  { label: 'Status', sortKey: 'status' },
+  { label: 'Created', sortKey: 'createdAt' }
+];
 
 const UserManagement = () => {
-  const [page, setPage] = useState(1);
+  const { page, sort, setPage, handleSort } = useListControls();
   const limit = 10;
-  const { data: usersData, isLoading, error } = useUsers(page, limit);
+  const {
+    data: usersData,
+    isLoading,
+    error
+  } = useUsers(page, limit, sort ?? undefined);
   const navigate = useNavigate();
   const users = usersData?.data;
   const totalCount = usersData?.count ?? 0;
@@ -73,7 +84,13 @@ const UserManagement = () => {
               <TableHeader>
                 <TableRow>
                   {COLUMNS.map((column) => (
-                    <TableHead key={column}>{column}</TableHead>
+                    <SortableTableHead
+                      key={column.label}
+                      label={column.label}
+                      sortKey={column.sortKey}
+                      sort={sort}
+                      onSort={handleSort}
+                    />
                   ))}
                 </TableRow>
               </TableHeader>
@@ -82,7 +99,7 @@ const UserManagement = () => {
                   ? Array.from({ length: 5 }).map((_, row) => (
                       <TableRow key={row}>
                         {COLUMNS.map((column) => (
-                          <TableCell key={column}>
+                          <TableCell key={column.label}>
                             <Skeleton className="h-5 w-full" />
                           </TableCell>
                         ))}

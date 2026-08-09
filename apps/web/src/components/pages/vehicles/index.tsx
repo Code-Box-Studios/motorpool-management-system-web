@@ -6,13 +6,13 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useListControls } from '@/hooks/use-list-controls';
 import PageHeader from '@/components/shared/page-header';
+import SortableTableHead from '@/components/shared/sortable-table-head';
 import EntityCard from '@/components/shared/entity-card';
 import EntityImage from '@/components/shared/entity-image';
 import EmptyState from '@/components/shared/empty-state';
@@ -39,9 +39,9 @@ const vehicleTitle = (vehicle: VehicleWithBranch) =>
   `${vehicle.make} ${vehicle.model} ${vehicle.year ?? ''}`.trim();
 
 const Vehicles = () => {
-  const [page, setPage] = useState(1);
+  const { page, sort, setPage, handleSort } = useListControls();
   const limit = 10;
-  const { data } = useVehicles(page, limit);
+  const { data } = useVehicles(page, limit, sort ?? undefined);
   const navigate = useNavigate();
   const vehicles = data?.data ?? [];
   const totalCount = data?.count ?? 0;
@@ -94,13 +94,53 @@ const Vehicles = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Vehicle</TableHead>
-              <TableHead>Plate</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Odometer</TableHead>
-              <TableHead>Fuel</TableHead>
-              <TableHead className="text-right">Seats</TableHead>
-              <TableHead>Branch</TableHead>
+              {/* sortKey values come from the API's VEHICLE_SORT_COLUMNS
+                  allowlist: `make` orders the composite Vehicle title,
+                  `branch` orders by the related branch's name. */}
+              <SortableTableHead
+                label="Vehicle"
+                sortKey="make"
+                sort={sort}
+                onSort={handleSort}
+              />
+              <SortableTableHead
+                label="Plate"
+                sortKey="licensePlate"
+                sort={sort}
+                onSort={handleSort}
+              />
+              <SortableTableHead
+                label="Status"
+                sortKey="status"
+                sort={sort}
+                onSort={handleSort}
+              />
+              <SortableTableHead
+                label="Odometer"
+                sortKey="mileage"
+                sort={sort}
+                onSort={handleSort}
+                className="text-right"
+              />
+              <SortableTableHead
+                label="Fuel"
+                sortKey="fuelType"
+                sort={sort}
+                onSort={handleSort}
+              />
+              <SortableTableHead
+                label="Seats"
+                sortKey="capacity"
+                sort={sort}
+                onSort={handleSort}
+                className="text-right"
+              />
+              <SortableTableHead
+                label="Branch"
+                sortKey="branch"
+                sort={sort}
+                onSort={handleSort}
+              />
             </TableRow>
           </TableHeader>
           <TableBody>

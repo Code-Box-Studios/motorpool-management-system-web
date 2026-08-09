@@ -42,7 +42,10 @@ import {
 // walk past a step you have not finished — and you never see an error about a
 // field two steps away that you have not been shown yet.
 const STEPS = [
-  { title: "Who it's for", fields: ['branch_id', 'office_id', 'office_head_id'] },
+  {
+    title: "Who it's for",
+    fields: ['branch_id', 'office_id', 'office_head_id']
+  },
   {
     title: 'The trip',
     fields: [
@@ -151,9 +154,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // If the final submit fails validation, the offending field may be on a step
   // that isn't showing — so land on it rather than failing silently.
   const onInvalid = (errors: FieldErrors<TripTicketFormData>) => {
-    const bad = STEPS.findIndex((s) =>
-      s.fields.some((f) => f in errors)
-    );
+    const bad = STEPS.findIndex((s) => s.fields.some((f) => f in errors));
     if (bad >= 0) setStep(bad);
   };
 
@@ -226,7 +227,10 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // branch you just left. Drop them rather than submit a trip whose office is
   // somebody else's.
   useEffect(() => {
-    if (review.office_id && !branchOffices.some((o) => o.id === review.office_id)) {
+    if (
+      review.office_id &&
+      !branchOffices.some((o) => o.id === review.office_id)
+    ) {
       form.setValue('office_id', '');
       form.setValue('office_head_id', '');
     }
@@ -522,7 +526,9 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                                       {vehicle.make} {vehicle.model} —{' '}
                                       {vehicle.license_plate} ·{' '}
                                       {vehicle.capacity}{' '}
-                                      {vehicle.capacity === 1 ? 'seat' : 'seats'}
+                                      {vehicle.capacity === 1
+                                        ? 'seat'
+                                        : 'seats'}
                                     </SelectItem>
                                   ))}
                                 </SelectGroup>
@@ -607,7 +613,10 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                                       : 'Drivers'}
                                   </SelectLabel>
                                   {ownDrivers.map((driver) => (
-                                    <SelectItem key={driver.id} value={driver.id}>
+                                    <SelectItem
+                                      key={driver.id}
+                                      value={driver.id}
+                                    >
                                       {driver.full_name}
                                     </SelectItem>
                                   ))}
@@ -617,7 +626,10 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                                 <SelectGroup>
                                   <SelectLabel>Other branches</SelectLabel>
                                   {otherDrivers.map((driver) => (
-                                    <SelectItem key={driver.id} value={driver.id}>
+                                    <SelectItem
+                                      key={driver.id}
+                                      value={driver.id}
+                                    >
                                       {driver.full_name}
                                     </SelectItem>
                                   ))}
@@ -659,7 +671,6 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                     </Field>
                   )}
                 />
-
               </FormRow>
 
               <Controller
@@ -837,9 +848,18 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
               description="Everything the approver will see. Tap a step above to change anything."
             >
               <DetailGrid>
-                <DetailItem label="Branch" value={nameOf(branches, review.branch_id)} />
-                <DetailItem label="Office" value={nameOf(offices, review.office_id)} />
-                <DetailItem label="Office head" value={nameOf(officeHeads, review.office_head_id)} />
+                <DetailItem
+                  label="Branch"
+                  value={nameOf(branches, review.branch_id)}
+                />
+                <DetailItem
+                  label="Office"
+                  value={nameOf(offices, review.office_id)}
+                />
+                <DetailItem
+                  label="Office head"
+                  value={nameOf(officeHeads, review.office_head_id)}
+                />
                 <DetailItem
                   label="Vehicle"
                   value={
@@ -862,7 +882,8 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                 <DetailItem
                   label="Driver"
                   value={
-                    drivers?.data?.find((d) => d.id === review.driver_id)?.full_name
+                    drivers?.data?.find((d) => d.id === review.driver_id)
+                      ?.full_name
                   }
                 />
                 <DetailItem label="Destination" value={review.destination} />

@@ -1,6 +1,5 @@
 import { useSpareParts } from '@/lib/query/spare-parts';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,7 +17,9 @@ import EntityCard from '@/components/shared/entity-card';
 import EntityImage from '@/components/shared/entity-image';
 import EmptyState from '@/components/shared/empty-state';
 import TablePagination from '@/components/shared/table-pagination';
+import SortableTableHead from '@/components/shared/sortable-table-head';
 import ViewTabs from '@/components/shared/view-tabs';
+import { useListControls } from '@/hooks/use-list-controls';
 
 // The shelf is the point of this screen, so every part carries a stock pill in
 // the same slot the other grids give a status: what is gone, what is nearly
@@ -33,9 +34,9 @@ const stockBadge = (quantity: number) => {
 };
 
 const SpareParts = () => {
-  const [page, setPage] = useState(1);
+  const { page, sort, setPage, handleSort } = useListControls();
   const limit = 10;
-  const { data } = useSpareParts(page, limit);
+  const { data } = useSpareParts(page, limit, sort ?? undefined);
   const navigate = useNavigate();
   const spareParts = data?.data ?? [];
   const totalCount = data?.count ?? 0;
@@ -85,11 +86,35 @@ const SpareParts = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Part</TableHead>
-              <TableHead>Brand</TableHead>
-              <TableHead className="text-right">On hand</TableHead>
+              {/* sortKey values come from the API's SPARE_PART_SORT_COLUMNS
+                  allowlist. Stock is derived client-side from quantity, so it
+                  stays a plain head. */}
+              <SortableTableHead
+                label="Part"
+                sortKey="name"
+                sort={sort}
+                onSort={handleSort}
+              />
+              <SortableTableHead
+                label="Brand"
+                sortKey="brand"
+                sort={sort}
+                onSort={handleSort}
+              />
+              <SortableTableHead
+                label="On hand"
+                sortKey="quantity"
+                sort={sort}
+                onSort={handleSort}
+                className="text-right"
+              />
               <TableHead>Stock</TableHead>
-              <TableHead>Description</TableHead>
+              <SortableTableHead
+                label="Description"
+                sortKey="description"
+                sort={sort}
+                onSort={handleSort}
+              />
             </TableRow>
           </TableHeader>
           <TableBody>

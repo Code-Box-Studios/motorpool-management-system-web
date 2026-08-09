@@ -26,6 +26,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import TablePagination from '@/components/shared/table-pagination';
+import SortableTableHead from '@/components/shared/sortable-table-head';
+import { useListControls } from '@/hooks/use-list-controls';
 import EmptyState from '@/components/shared/empty-state';
 import { NoteJobOrderModal } from './job-order-inner/note-job-order-modal';
 import { ApproveJobOrderModal } from './job-order-inner/approve-job-order-modal';
@@ -39,7 +41,6 @@ import {
 } from '@/lib/mutation/job-orders';
 import type { NoteJobOrderData } from './job-order-inner/note-job-order-modal';
 import type { CompleteRepairData } from './job-order-inner/complete-repair-modal';
-import { Eye } from 'lucide-react';
 import { useUserRole } from '@/hooks/use-user-role';
 import { useAuth } from '@/hooks/use-auth';
 import FullCalendar from '@fullcalendar/react';
@@ -87,7 +88,7 @@ const JobOrdersPage = () => {
   const completeRepair = useCompleteRepair();
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
-  const [page, setPage] = useState(1);
+  const { page, sort, setPage, handleSort } = useListControls();
   const limit = 10;
 
   const isAdmin = userRole?.roles?.name === 'admin';
@@ -99,7 +100,8 @@ const JobOrdersPage = () => {
     page,
     limit,
     shouldFilter ? user?.id : undefined,
-    shouldFilter ? 'driver' : undefined
+    shouldFilter ? 'driver' : undefined,
+    sort ?? undefined
   );
   const totalPages = Math.ceil((data?.count || 0) / limit);
 
@@ -263,21 +265,61 @@ const JobOrdersPage = () => {
                   <Table className="min-w-[1180px]">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[80px]">Ref</TableHead>
-                        <TableHead className="w-[150px]">Status</TableHead>
-                        <TableHead className="min-w-[200px]">Vehicle</TableHead>
-                        <TableHead className="w-[130px]">
-                          Incident Date
-                        </TableHead>
-                        <TableHead className="w-[160px]">
-                          Assigned Mechanic
-                        </TableHead>
-                        <TableHead className="w-[130px]">Target Date</TableHead>
-                        <TableHead className="w-[110px]">Repair Type</TableHead>
+                        {/* sortKey values come from the API's
+                            JOB_ORDER_SORT_COLUMNS allowlist. */}
+                        <SortableTableHead
+                          label="Ref"
+                          sortKey="orderNo"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="w-[80px]"
+                        />
+                        <SortableTableHead
+                          label="Status"
+                          sortKey="status"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="w-[150px]"
+                        />
+                        <SortableTableHead
+                          label="Vehicle"
+                          sortKey="vehicle"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="min-w-[200px]"
+                        />
+                        <SortableTableHead
+                          label="Incident Date"
+                          sortKey="incidentDate"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="w-[130px]"
+                        />
+                        <SortableTableHead
+                          label="Assigned Mechanic"
+                          sortKey="assignedMechanic"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="w-[160px]"
+                        />
+                        <SortableTableHead
+                          label="Target Date"
+                          sortKey="targetDate"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="w-[130px]"
+                        />
+                        <SortableTableHead
+                          label="Repair Type"
+                          sortKey="repairDone"
+                          sort={sort}
+                          onSort={handleSort}
+                          className="w-[110px]"
+                        />
                         {/* Pinned: the row's transition ("Note Job Order",
                             "Mark as Repaired") is the point of the row, and it sat
                             past the scroll edge where it had to be hunted for. */}
-                        <TableHead className="bg-card border-border sticky right-0 z-10 w-[260px] border-l text-right">
+                        <TableHead className="bg-card border-border sticky right-0 z-10 w-[180px] border-l text-right">
                           Actions
                         </TableHead>
                       </TableRow>
@@ -369,14 +411,6 @@ const JobOrdersPage = () => {
                                   }
                                 />
                               )}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openOrder(order.id)}
-                              >
-                                <Eye className="h-4 w-4" />
-                                View
-                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>

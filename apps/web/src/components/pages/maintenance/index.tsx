@@ -30,6 +30,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import TablePagination from '@/components/shared/table-pagination';
+import SortableTableHead from '@/components/shared/sortable-table-head';
+import { useListControls } from '@/hooks/use-list-controls';
 import EmptyState from '@/components/shared/empty-state';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -51,11 +53,12 @@ const ACTIVE_TAB =
 const EmDash = () => <span className="text-muted-foreground">—</span>;
 
 const MaintenancePage = () => {
-  const [page, setPage] = useState(1);
+  const { page, sort, setPage, handleSort } = useListControls();
   const limit = 10;
   const { data: tableData, isLoading: isTableLoading } = useMaintenances(
     page,
-    limit
+    limit,
+    sort ?? undefined
   );
   const { data: calendarData, isLoading: isCalendarLoading } =
     useAllMaintenances();
@@ -71,10 +74,12 @@ const MaintenancePage = () => {
   const totalCount = tableData?.count ?? 0;
   const totalPages = Math.ceil(totalCount / limit);
 
+  // Functional update: switching tabs must not wipe the table's ?page/?sortBy
+  // params now that they live in the URL too.
   const handleTabChange = (value: string) => {
     navigate({
       to: '/maintenance',
-      search: { tab: value }
+      search: (prev: Record<string, unknown>) => ({ ...prev, tab: value })
     });
   };
 
@@ -242,23 +247,55 @@ const MaintenancePage = () => {
                       <Table className="min-w-[1080px]">
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-[110px]">Date</TableHead>
-                            <TableHead className="min-w-[200px]">
-                              Vehicle
-                            </TableHead>
-                            <TableHead className="w-[120px]">Type</TableHead>
-                            <TableHead className="min-w-[220px]">
-                              Description
-                            </TableHead>
-                            <TableHead className="w-[100px] text-right">
-                              Cost
-                            </TableHead>
-                            <TableHead className="w-[110px] text-right">
-                              Mileage
-                            </TableHead>
-                            <TableHead className="w-[110px]">
-                              Next Due
-                            </TableHead>
+                            <SortableTableHead
+                              label="Date"
+                              sortKey="date"
+                              sort={sort}
+                              onSort={handleSort}
+                              className="w-[110px]"
+                            />
+                            <SortableTableHead
+                              label="Vehicle"
+                              sortKey="vehicle"
+                              sort={sort}
+                              onSort={handleSort}
+                              className="min-w-[200px]"
+                            />
+                            <SortableTableHead
+                              label="Type"
+                              sortKey="type"
+                              sort={sort}
+                              onSort={handleSort}
+                              className="w-[120px]"
+                            />
+                            <SortableTableHead
+                              label="Description"
+                              sortKey="description"
+                              sort={sort}
+                              onSort={handleSort}
+                              className="min-w-[220px]"
+                            />
+                            <SortableTableHead
+                              label="Cost"
+                              sortKey="cost"
+                              sort={sort}
+                              onSort={handleSort}
+                              className="w-[100px] text-right"
+                            />
+                            <SortableTableHead
+                              label="Mileage"
+                              sortKey="mileage"
+                              sort={sort}
+                              onSort={handleSort}
+                              className="w-[110px] text-right"
+                            />
+                            <SortableTableHead
+                              label="Next Due"
+                              sortKey="nextDue"
+                              sort={sort}
+                              onSort={handleSort}
+                              className="w-[110px]"
+                            />
                             <TableHead className="w-[170px] text-right">
                               Actions
                             </TableHead>

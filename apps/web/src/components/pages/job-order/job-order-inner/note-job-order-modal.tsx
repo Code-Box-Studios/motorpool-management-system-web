@@ -152,7 +152,9 @@ export function NoteJobOrderModal({
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogTrigger asChild>
-        <Button type="button" variant="default">
+        {/* Fixed width shared with the Mark as Repaired trigger so the
+            Actions column lines up whichever transition a row offers. */}
+        <Button type="button" variant="default" size="sm" className="w-40">
           Note Job Order
         </Button>
       </AlertDialogTrigger>

@@ -1,5 +1,4 @@
 import { Link } from '@tanstack/react-router';
-import { useState } from 'react';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,24 +15,32 @@ import StatusBadge from '@/components/shared/status-badge';
 import { DeviceOnlineIndicator } from '@/components/shared/device-online-indicator';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import TablePagination from '@/components/shared/table-pagination';
+import SortableTableHead from '@/components/shared/sortable-table-head';
+import { useListControls } from '@/hooks/use-list-controls';
 import { useTrackerDevices } from '@/lib/query/tracker-devices';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import { assignedVehicleLabel } from '@/lib/utils/tracker-devices';
 
-const COLUMNS = [
-  { label: 'IMEI', width: 'w-40' },
-  { label: 'Label', width: 'w-32' },
+// sortKey values come from the API's TRACKER_DEVICE_SORT_COLUMNS allowlist.
+// Vehicle is resolved client-side from a lookup, and Connectivity is derived
+// from lastSeenAt on the client — neither maps to a sortable DB column.
+const COLUMNS: { label: string; width: string; sortKey?: string }[] = [
+  { label: 'IMEI', width: 'w-40', sortKey: 'imei' },
+  { label: 'Label', width: 'w-32', sortKey: 'label' },
   { label: 'Vehicle', width: 'w-40' },
-  { label: 'SIM Number', width: 'w-32' },
-  { label: 'Status', width: 'w-24' },
+  { label: 'SIM Number', width: 'w-32', sortKey: 'simNumber' },
+  { label: 'Status', width: 'w-24', sortKey: 'status' },
   { label: 'Connectivity', width: 'w-24' },
-  { label: 'Last Seen', width: 'w-32' }
+  { label: 'Last Seen', width: 'w-32', sortKey: 'lastSeenAt' }
 ];
 
 const TrackerDevices = () => {
-  const [page, setPage] = useState(1);
+  const { page, sort, setPage, handleSort } = useListControls();
   const limit = 10;
-  const { data, isLoading, error } = useTrackerDevices({ page, limit });
+  const { data, isLoading, error } = useTrackerDevices(
+    { page, limit },
+    sort ?? undefined
+  );
   // A device's vehicleId is a key; the row has to name the vehicle instead.
   const { data: vehicles, isLoading: vehiclesLoading } = useAllVehicles();
   const devices = data?.data;
@@ -68,9 +75,19 @@ const TrackerDevices = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {COLUMNS.map((c) => (
-                      <TableHead key={c.label}>{c.label}</TableHead>
-                    ))}
+                    {COLUMNS.map((c) =>
+                      c.sortKey ? (
+                        <SortableTableHead
+                          key={c.label}
+                          label={c.label}
+                          sortKey={c.sortKey}
+                          sort={sort}
+                          onSort={handleSort}
+                        />
+                      ) : (
+                        <TableHead key={c.label}>{c.label}</TableHead>
+                      )
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>

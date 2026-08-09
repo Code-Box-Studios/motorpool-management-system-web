@@ -119,7 +119,7 @@ export function CompleteRepairModal({
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogTrigger asChild>
-        <Button type="button" variant="default" size="sm">
+        <Button type="button" variant="default" size="sm" className="w-40">
           Mark as Repaired
         </Button>
       </AlertDialogTrigger>
