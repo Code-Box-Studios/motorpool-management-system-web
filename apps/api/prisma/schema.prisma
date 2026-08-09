@@ -117,18 +117,18 @@ model User {
   refreshTokens RefreshToken[]
   driver        Driver?
 
-  requestedTripTickets TripTicket[] @relation("TicketRequestedBy")
-  adminApprovedTickets TripTicket[] @relation("TicketApprovedByAdmin")
-  preTripGuardTickets  TripTicket[] @relation("TicketPreTripGuard")
-  postTripGuardTickets TripTicket[] @relation("TicketPostTripGuard")
-  preTripCheckedTickets  TripTicket[] @relation("TicketPreTripCheckedBy")
-  postTripCheckedTickets TripTicket[] @relation("TicketPostTripCheckedBy")
-  requestedAllocations FuelAllocation[] @relation("AllocationRequestedBy")
-  evpApprovedAllocations FuelAllocation[] @relation("AllocationApprovedByEvp")
-  notedJobOrders       JobOrder[]   @relation("JobOrderNotedBy")
-  approvedJobOrders    JobOrder[]   @relation("JobOrderApprovedBy")
-  requestedJobOrders   JobOrder[]   @relation("JobOrderRequestedBy")
-  approvedBorrowRequests BorrowRequest[] @relation("BorrowApprovedBy")
+  requestedTripTickets     TripTicket[]               @relation("TicketRequestedBy")
+  adminApprovedTickets     TripTicket[]               @relation("TicketApprovedByAdmin")
+  preTripGuardTickets      TripTicket[]               @relation("TicketPreTripGuard")
+  postTripGuardTickets     TripTicket[]               @relation("TicketPostTripGuard")
+  preTripCheckedTickets    TripTicket[]               @relation("TicketPreTripCheckedBy")
+  postTripCheckedTickets   TripTicket[]               @relation("TicketPostTripCheckedBy")
+  requestedAllocations     FuelAllocation[]           @relation("AllocationRequestedBy")
+  evpApprovedAllocations   FuelAllocation[]           @relation("AllocationApprovedByEvp")
+  notedJobOrders           JobOrder[]                 @relation("JobOrderNotedBy")
+  approvedJobOrders        JobOrder[]                 @relation("JobOrderApprovedBy")
+  requestedJobOrders       JobOrder[]                 @relation("JobOrderRequestedBy")
+  approvedBorrowRequests   BorrowRequest[]            @relation("BorrowApprovedBy")
   completedMaintenanceLogs MaintenanceCompletionLog[]
 
   @@map("users")
@@ -139,6 +139,7 @@ model Role {
   name        String     @unique
   description String?
   createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at")
   userRoles   UserRole[]
 
   @@map("roles")
@@ -148,6 +149,8 @@ model UserRole {
   userId     String   @unique @map("user_id") @db.Uuid
   roleId     String   @map("role_id") @db.Uuid
   assignedAt DateTime @default(now()) @map("assigned_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   role Role @relation(fields: [roleId], references: [id])
@@ -163,6 +166,7 @@ model RefreshToken {
   expiresAt DateTime  @map("expires_at")
   revokedAt DateTime? @map("revoked_at")
   createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -173,9 +177,11 @@ model RefreshToken {
 // ---------- Org reference (spec §4.2) ----------
 
 model Branch {
-  id       String  @id @default(uuid()) @db.Uuid
-  name     String
-  location String?
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  location  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   users             User[]
   drivers           Driver[]
@@ -195,6 +201,7 @@ model DepartmentOffice {
   branchId  String?  @map("branch_id") @db.Uuid
   headId    String?  @map("head_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   branch      Branch?      @relation(fields: [branchId], references: [id])
   head        OfficeHead?  @relation("OfficeHeadOf", fields: [headId], references: [id])
@@ -205,13 +212,15 @@ model DepartmentOffice {
 }
 
 model OfficeHead {
-  id       String  @id @default(uuid()) @db.Uuid
-  name     String
-  branchId String? @map("branch_id") @db.Uuid
-  officeId String? @map("office_id") @db.Uuid
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  branchId  String?  @map("branch_id") @db.Uuid
+  officeId  String?  @map("office_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
-  branch      Branch?           @relation(fields: [branchId], references: [id])
-  office      DepartmentOffice? @relation("HeadBelongsToOffice", fields: [officeId], references: [id])
+  branch      Branch?            @relation(fields: [branchId], references: [id])
+  office      DepartmentOffice?  @relation("HeadBelongsToOffice", fields: [officeId], references: [id])
   headsOffice DepartmentOffice[] @relation("OfficeHeadOf")
   tripTickets TripTicket[]
 
@@ -242,8 +251,8 @@ model Vehicle {
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
 
-  branch              Branch?              @relation(fields: [branchId], references: [id])
-  maintenanceStandard MaintenanceStandard? @relation(fields: [maintenanceStandardId], references: [id])
+  branch              Branch?                      @relation(fields: [branchId], references: [id])
+  maintenanceStandard MaintenanceStandard?         @relation(fields: [maintenanceStandardId], references: [id])
   assignedDrivers     Driver[]
   tripTickets         TripTicket[]
   fuelAllocations     FuelAllocation[]
@@ -284,13 +293,13 @@ model Driver {
   createdAt             DateTime     @default(now()) @map("created_at")
   updatedAt             DateTime     @updatedAt @map("updated_at")
 
-  user            User?      @relation(fields: [userId], references: [id])
-  assignedVehicle Vehicle?   @relation(fields: [assignedVehicleId], references: [id])
-  branch          Branch?    @relation(fields: [branchId], references: [id])
-  tripTickets     TripTicket[]
-  mechanicJobOrders JobOrder[] @relation("JobOrderMechanic")
-  borrowedTools   Tool[]
-  borrowRequests  BorrowRequest[]
+  user              User?           @relation(fields: [userId], references: [id])
+  assignedVehicle   Vehicle?        @relation(fields: [assignedVehicleId], references: [id])
+  branch            Branch?         @relation(fields: [branchId], references: [id])
+  tripTickets       TripTicket[]
+  mechanicJobOrders JobOrder[]      @relation("JobOrderMechanic")
+  borrowedTools     Tool[]
+  borrowRequests    BorrowRequest[]
 
   @@map("drivers")
 }
@@ -298,56 +307,56 @@ model Driver {
 // ---------- Trip tickets + fuel (spec §4.2, §6.1) ----------
 
 model TripTicket {
-  id                 String           @id @default(uuid()) @db.Uuid
+  id                  String           @id @default(uuid()) @db.Uuid
   // The number people say out loud ("approve TT-2050"). The uuid stays the key.
-  ticketNo           Int              @unique @default(autoincrement()) @map("ticket_no")
-  branchId           String           @map("branch_id") @db.Uuid
-  driverId           String           @map("driver_id") @db.Uuid
-  vehicleId          String           @map("vehicle_id") @db.Uuid
-  officeId           String?          @map("office_id") @db.Uuid
-  officeHeadId       String?          @map("office_head_id") @db.Uuid
-  destination        String
-  purpose            String
-  dateRequested      DateTime         @map("date_requested") @db.Date
-  participants       String[]         @default([])
-  participantsCount  Int?             @map("participants_count")
-  preparedBy         String           @map("prepared_by")
-  requestedById      String?          @map("requested_by") @db.Uuid
-  remarks            String?
-  qrId               String?          @map("qr_id")
-  status             TripTicketStatus @default(pending_admin_approval)
-  approvedByAdminId  String?          @map("approved_by_admin") @db.Uuid
-  disapprovedReason  String?          @map("disapproved_reason")
-  cancellationReason String?          @map("cancellation_reason")
-  preTripGuardId     String?          @map("pre_trip_guard") @db.Uuid
-  preTripCheckedById String?          @map("pre_trip_checked_by") @db.Uuid
-  preTripCheckedAt   DateTime?        @map("pre_trip_checked_at")
-  postTripGuardId    String?          @map("post_trip_guard") @db.Uuid
-  postTripCheckedById String?         @map("post_trip_checked_by") @db.Uuid
-  postTripCheckedAt  DateTime?        @map("post_trip_checked_at")
+  ticketNo            Int              @unique @default(autoincrement()) @map("ticket_no")
+  branchId            String           @map("branch_id") @db.Uuid
+  driverId            String           @map("driver_id") @db.Uuid
+  vehicleId           String           @map("vehicle_id") @db.Uuid
+  officeId            String?          @map("office_id") @db.Uuid
+  officeHeadId        String?          @map("office_head_id") @db.Uuid
+  destination         String
+  purpose             String
+  dateRequested       DateTime         @map("date_requested") @db.Date
+  participants        String[]         @default([])
+  participantsCount   Int?             @map("participants_count")
+  preparedBy          String           @map("prepared_by")
+  requestedById       String?          @map("requested_by") @db.Uuid
+  remarks             String?
+  qrId                String?          @map("qr_id")
+  status              TripTicketStatus @default(pending_admin_approval)
+  approvedByAdminId   String?          @map("approved_by_admin") @db.Uuid
+  disapprovedReason   String?          @map("disapproved_reason")
+  cancellationReason  String?          @map("cancellation_reason")
+  preTripGuardId      String?          @map("pre_trip_guard") @db.Uuid
+  preTripCheckedById  String?          @map("pre_trip_checked_by") @db.Uuid
+  preTripCheckedAt    DateTime?        @map("pre_trip_checked_at")
+  postTripGuardId     String?          @map("post_trip_guard") @db.Uuid
+  postTripCheckedById String?          @map("post_trip_checked_by") @db.Uuid
+  postTripCheckedAt   DateTime?        @map("post_trip_checked_at")
   // The odometer as the guard reads it at the gate, out and back. This is the
   // only thing that moves vehicles.mileage — and preventive AND predictive
   // maintenance are both computed from that number.
-  startMileage       Int?             @map("start_mileage")
-  endMileage         Int?             @map("end_mileage")
-  startTs            DateTime?        @map("start_ts")
-  endTs              DateTime?        @map("end_ts")
-  createdAt          DateTime         @default(now()) @map("created_at")
-  updatedAt          DateTime         @updatedAt @map("updated_at")
+  startMileage        Int?             @map("start_mileage")
+  endMileage          Int?             @map("end_mileage")
+  startTs             DateTime?        @map("start_ts")
+  endTs               DateTime?        @map("end_ts")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
 
-  branch          Branch            @relation(fields: [branchId], references: [id])
-  driver          Driver            @relation(fields: [driverId], references: [id])
-  vehicle         Vehicle           @relation(fields: [vehicleId], references: [id])
-  office          DepartmentOffice? @relation(fields: [officeId], references: [id])
-  officeHead      OfficeHead?       @relation(fields: [officeHeadId], references: [id])
-  requestedBy     User?             @relation("TicketRequestedBy", fields: [requestedById], references: [id])
-  approvedByAdmin User?             @relation("TicketApprovedByAdmin", fields: [approvedByAdminId], references: [id])
-  preTripGuard    User?             @relation("TicketPreTripGuard", fields: [preTripGuardId], references: [id])
-  postTripGuard   User?             @relation("TicketPostTripGuard", fields: [postTripGuardId], references: [id])
-  preTripCheckedBy  User?           @relation("TicketPreTripCheckedBy", fields: [preTripCheckedById], references: [id])
-  postTripCheckedBy User?           @relation("TicketPostTripCheckedBy", fields: [postTripCheckedById], references: [id])
-  fuelAllocation  FuelAllocation?
-  gpsData         GpsData[]
+  branch             Branch              @relation(fields: [branchId], references: [id])
+  driver             Driver              @relation(fields: [driverId], references: [id])
+  vehicle            Vehicle             @relation(fields: [vehicleId], references: [id])
+  office             DepartmentOffice?   @relation(fields: [officeId], references: [id])
+  officeHead         OfficeHead?         @relation(fields: [officeHeadId], references: [id])
+  requestedBy        User?               @relation("TicketRequestedBy", fields: [requestedById], references: [id])
+  approvedByAdmin    User?               @relation("TicketApprovedByAdmin", fields: [approvedByAdminId], references: [id])
+  preTripGuard       User?               @relation("TicketPreTripGuard", fields: [preTripGuardId], references: [id])
+  postTripGuard      User?               @relation("TicketPostTripGuard", fields: [postTripGuardId], references: [id])
+  preTripCheckedBy   User?               @relation("TicketPreTripCheckedBy", fields: [preTripCheckedById], references: [id])
+  postTripCheckedBy  User?               @relation("TicketPostTripCheckedBy", fields: [postTripCheckedById], references: [id])
+  fuelAllocation     FuelAllocation?
+  gpsData            GpsData[]
   geofenceViolations GeofenceViolation[]
 
   @@index([status])
@@ -357,21 +366,21 @@ model TripTicket {
 }
 
 model FuelAllocation {
-  id              String           @id @default(uuid()) @db.Uuid
-  tripTicketId    String           @unique @map("trip_ticket_id") @db.Uuid
-  vehicleId       String           @map("vehicle_id") @db.Uuid
-  branchId        String?          @map("branch_id") @db.Uuid
-  requestedById   String           @map("requested_by") @db.Uuid
-  approvedByEvpId String?          @map("approved_by_evp") @db.Uuid
-  liters          Float
-  fuelType        FuelType         @map("fuel_type")
-  date            DateTime         @db.Date
-  purpose         String
-  tripTo          String           @map("trip_to")
-  status          AllocationStatus @default(pending)
-  disapprovedReason String?        @map("disapproved_reason")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
+  id                String           @id @default(uuid()) @db.Uuid
+  tripTicketId      String           @unique @map("trip_ticket_id") @db.Uuid
+  vehicleId         String           @map("vehicle_id") @db.Uuid
+  branchId          String?          @map("branch_id") @db.Uuid
+  requestedById     String           @map("requested_by") @db.Uuid
+  approvedByEvpId   String?          @map("approved_by_evp") @db.Uuid
+  liters            Float
+  fuelType          FuelType         @map("fuel_type")
+  date              DateTime         @db.Date
+  purpose           String
+  tripTo            String           @map("trip_to")
+  status            AllocationStatus @default(pending)
+  disapprovedReason String?          @map("disapproved_reason")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
 
   tripTicket    TripTicket @relation(fields: [tripTicketId], references: [id], onDelete: Cascade)
   vehicle       Vehicle    @relation(fields: [vehicleId], references: [id])
@@ -406,12 +415,12 @@ model JobOrder {
   createdAt           DateTime       @default(now()) @map("created_at")
   updatedAt           DateTime       @updatedAt @map("updated_at")
 
-  vehicle          Vehicle  @relation(fields: [vehicleId], references: [id])
-  branch           Branch   @relation(fields: [branchId], references: [id])
-  requestedBy      User?    @relation("JobOrderRequestedBy", fields: [requestedById], references: [id])
-  notedBy          User?    @relation("JobOrderNotedBy", fields: [notedById], references: [id])
-  approvedBy       User?    @relation("JobOrderApprovedBy", fields: [approvedById], references: [id])
-  assignedMechanic Driver?  @relation("JobOrderMechanic", fields: [assignedMechanicId], references: [id])
+  vehicle          Vehicle             @relation(fields: [vehicleId], references: [id])
+  branch           Branch              @relation(fields: [branchId], references: [id])
+  requestedBy      User?               @relation("JobOrderRequestedBy", fields: [requestedById], references: [id])
+  notedBy          User?               @relation("JobOrderNotedBy", fields: [notedById], references: [id])
+  approvedBy       User?               @relation("JobOrderApprovedBy", fields: [approvedById], references: [id])
+  assignedMechanic Driver?             @relation("JobOrderMechanic", fields: [assignedMechanicId], references: [id])
   spareParts       JobOrderSparePart[]
 
   @@index([status])
@@ -419,9 +428,11 @@ model JobOrder {
 }
 
 model JobOrderSparePart {
-  jobOrderId  String @map("job_order_id") @db.Uuid
-  sparePartId String @map("spare_part_id") @db.Uuid
-  quantity    Int    @default(1)
+  jobOrderId  String   @map("job_order_id") @db.Uuid
+  sparePartId String   @map("spare_part_id") @db.Uuid
+  quantity    Int      @default(1)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
   jobOrder  JobOrder  @relation(fields: [jobOrderId], references: [id], onDelete: Cascade)
   sparePart SparePart @relation(fields: [sparePartId], references: [id])
@@ -454,6 +465,7 @@ model MaintenanceStandard {
   name        String
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
   scheduleItems MaintenanceScheduleItem[]
   vehicles      Vehicle[]
@@ -462,13 +474,15 @@ model MaintenanceStandard {
 }
 
 model MaintenanceScheduleItem {
-  id                    String  @id @default(uuid()) @db.Uuid
-  maintenanceStandardId String  @map("maintenance_standard_id") @db.Uuid
-  taskName              String  @map("task_name")
-  taskDescription       String? @map("task_description")
-  intervalType          String  @map("interval_type")
-  intervalMileage       Int?    @map("interval_mileage")
-  intervalMonths        Int?    @map("interval_months")
+  id                    String   @id @default(uuid()) @db.Uuid
+  maintenanceStandardId String   @map("maintenance_standard_id") @db.Uuid
+  taskName              String   @map("task_name")
+  taskDescription       String?  @map("task_description")
+  intervalType          String   @map("interval_type")
+  intervalMileage       Int?     @map("interval_mileage")
+  intervalMonths        Int?     @map("interval_months")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at")
 
   standard MaintenanceStandard          @relation(fields: [maintenanceStandardId], references: [id], onDelete: Cascade)
   tracking VehicleMaintenanceTracking[]
@@ -485,9 +499,11 @@ model VehicleMaintenanceTracking {
   nextDueDate               DateTime? @map("next_due_date") @db.Date
   nextDueMileage            Int?      @map("next_due_mileage")
   status                    String?
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  vehicle      Vehicle                    @relation(fields: [vehicleId], references: [id])
-  scheduleItem MaintenanceScheduleItem    @relation(fields: [maintenanceScheduleItemId], references: [id])
+  vehicle        Vehicle                    @relation(fields: [vehicleId], references: [id])
+  scheduleItem   MaintenanceScheduleItem    @relation(fields: [maintenanceScheduleItemId], references: [id])
   completionLogs MaintenanceCompletionLog[]
 
   @@unique([vehicleId, maintenanceScheduleItemId])
@@ -501,6 +517,8 @@ model MaintenanceCompletionLog {
   completedDate                DateTime @default(now()) @map("completed_date")
   completedMileage             Int      @map("completed_mileage")
   notes                        String?
+  createdAt                    DateTime @default(now()) @map("created_at")
+  updatedAt                    DateTime @default(now()) @updatedAt @map("updated_at")
 
   tracking    VehicleMaintenanceTracking @relation(fields: [vehicleMaintenanceTrackingId], references: [id], onDelete: Cascade)
   completedBy User                       @relation(fields: [completedById], references: [id])
@@ -552,10 +570,12 @@ model BorrowRequest {
   requestDate         DateTime            @default(now()) @map("request_date")
   approvedAt          DateTime?           @map("approved_at")
   estimatedReturnDate DateTime            @map("estimated_return_date") @db.Date
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @default(now()) @updatedAt @map("updated_at")
 
-  tool        Tool    @relation(fields: [toolId], references: [id])
-  requestedBy Driver  @relation(fields: [requestedById], references: [id])
-  approvedBy  User?   @relation("BorrowApprovedBy", fields: [approvedById], references: [id])
+  tool        Tool   @relation(fields: [toolId], references: [id])
+  requestedBy Driver @relation(fields: [requestedById], references: [id])
+  approvedBy  User?  @relation("BorrowApprovedBy", fields: [approvedById], references: [id])
 
   @@map("borrow_requests")
 }
@@ -572,6 +592,7 @@ model GpsData {
   heading      Float?
   engineStatus String?  @map("engine_status")
   createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
   vehicle Vehicle?    @relation(fields: [vehicleId], references: [id])
   trip    TripTicket? @relation(fields: [tripId], references: [id])
@@ -600,11 +621,13 @@ model TrackerDevice {
 }
 
 model GeofenceArea {
-  id             String  @id @default(uuid()) @map("geofence_id") @db.Uuid
-  name           String? @map("geofence_name")
-  latitudeCenter Float?  @map("latitude_center")
-  longitudeCenter Float? @map("longitude_center")
-  radiusMeters   Float?  @map("radius_meters")
+  id              String   @id @default(uuid()) @map("geofence_id") @db.Uuid
+  name            String?  @map("geofence_name")
+  latitudeCenter  Float?   @map("latitude_center")
+  longitudeCenter Float?   @map("longitude_center")
+  radiusMeters    Float?   @map("radius_meters")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
 
   violations GeofenceViolation[]
 
@@ -620,6 +643,7 @@ model GeofenceViolation {
   longitude  Float?   @map("gfv_longitude")
   remarks    String?
   createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 
   geofence GeofenceArea? @relation(fields: [geofenceId], references: [id])
   trip     TripTicket?   @relation(fields: [tripId], references: [id])
@@ -636,6 +660,7 @@ model VehicleStatusAudit {
   changeSource String?  @map("change_source")
   reason       String?
   createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
   vehicle Vehicle @relation(fields: [vehicleId], references: [id])
 
