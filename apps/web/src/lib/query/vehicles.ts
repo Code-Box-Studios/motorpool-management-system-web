@@ -8,7 +8,9 @@ import type { VehicleWithBranch } from '@/lib/types';
 
 export const useVehicles = (page: number = 1, limit: number = 10) => {
   return useQuery<{ data: VehicleWithBranch[]; count: number | null }>({
-    queryKey: ['vehicles', page],
+    // `limit` is part of the key: the pickers fetch page 1 at limit 100/200
+    // and must not share a cache entry with the vehicles list's page 1 of 10.
+    queryKey: ['vehicles', page, limit],
     queryFn: () => getVehicles(page, limit)
   });
 };

@@ -13,7 +13,7 @@ export const useTripTickets = (
   driverId?: string
 ) => {
   return useQuery({
-    queryKey: ['trip_tickets', page, userId, branchId, driverId],
+    queryKey: ['trip_tickets', page, limit, userId, branchId, driverId],
     queryFn: () => getTripTickets(page, limit, userId, branchId, driverId)
   });
 };

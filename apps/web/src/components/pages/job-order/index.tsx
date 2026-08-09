@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
+import TablePagination from '@/components/shared/table-pagination';
 import EmptyState from '@/components/shared/empty-state';
 import { NoteJobOrderModal } from './job-order-inner/note-job-order-modal';
 import { ApproveJobOrderModal } from './job-order-inner/approve-job-order-modal';
@@ -86,6 +87,8 @@ const JobOrdersPage = () => {
   const completeRepair = useCompleteRepair();
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const limit = 10;
 
   const isAdmin = userRole?.roles?.name === 'admin';
   const isEVP = userRole?.roles?.name === 'evp_operations';
@@ -93,11 +96,12 @@ const JobOrdersPage = () => {
   const shouldFilter = user?.id && !isAdmin && !isEVP;
 
   const { data, isLoading } = useJobOrders(
-    1,
-    100,
+    page,
+    limit,
     shouldFilter ? user?.id : undefined,
     shouldFilter ? 'driver' : undefined
   );
+  const totalPages = Math.ceil((data?.count || 0) / limit);
 
   const { data: calendarData, isLoading: isCalendarLoading } = useAllJobOrders(
     shouldFilter ? user?.id : undefined,
@@ -185,16 +189,14 @@ const JobOrdersPage = () => {
           <DialogHeader>
             <DialogTitle>Create Job Order</DialogTitle>
             <DialogDescription>
-              Raise a repair against a vehicle. An admin assigns the mechanic and
-              the parts.
+              Raise a repair against a vehicle. An admin assigns the mechanic
+              and the parts.
             </DialogDescription>
           </DialogHeader>
           <DialogBody>
             {/* Remounted per open, so a dismissed half-filled request is not
                 still sitting there next time. */}
-            {createOpen && (
-              <AddJobOrder onDone={() => setCreateOpen(false)} />
-            )}
+            {createOpen && <AddJobOrder onDone={() => setCreateOpen(false)} />}
           </DialogBody>
         </DialogContent>
       </Dialog>
@@ -247,131 +249,146 @@ const JobOrdersPage = () => {
                     { label: 'Actions', width: 'w-40' }
                   ]}
                 />
-              ) : !data?.data?.length ? (
+              ) : !data?.count ? (
+                /* Keyed on count, not the current page's rows, so a mid page
+                   left empty by a stale `page` never masquerades as "no job
+                   orders at all". */
                 <EmptyState message="No job orders yet." />
               ) : (
-                /* Table already renders its own overflow-x-auto container; the
-                   min-width is what actually makes it scroll rather than letting
-                   the browser squeeze the row actions — "Note Job Order",
-                   "Approve", "Mark as Repaired" — until they clip. */
-                <Table className="min-w-[1180px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[80px]">Ref</TableHead>
-                      <TableHead className="w-[150px]">Status</TableHead>
-                      <TableHead className="min-w-[200px]">Vehicle</TableHead>
-                      <TableHead className="w-[130px]">Incident Date</TableHead>
-                      <TableHead className="w-[160px]">
-                        Assigned Mechanic
-                      </TableHead>
-                      <TableHead className="w-[130px]">Target Date</TableHead>
-                      <TableHead className="w-[110px]">Repair Type</TableHead>
-                      {/* Pinned: the row's transition ("Note Job Order",
-                          "Mark as Repaired") is the point of the row, and it sat
-                          past the scroll edge where it had to be hunted for. */}
-                      <TableHead className="bg-card border-border sticky right-0 z-10 w-[260px] border-l text-right">
-                        Actions
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.data.map((order) => (
-                      <TableRow
-                        key={order.id}
-                        className="cursor-pointer"
-                        onClick={() => openOrder(order.id)}
-                      >
-                        <TableCell className="text-ink-soft font-mono text-sm whitespace-nowrap">
-                          {formatRef('JO', order.order_no)}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={order.status || 'pending'} />
-                        </TableCell>
-                        <TableCell>
-                          {order.vehicles ? (
-                            <span className="flex flex-col leading-tight">
-                              <span>
-                                {order.vehicles.make} {order.vehicles.model}
-                              </span>
-                              <span className="text-muted-foreground font-mono text-xs">
-                                {order.vehicles.license_plate}
-                              </span>
-                            </span>
-                          ) : (
-                            <EmDash />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <DateTimeCell value={order.incident_date} />
-                        </TableCell>
-                        <TableCell>
-                          {getDriverName(order.assigned_mechanic)}
-                        </TableCell>
-                        <TableCell>
-                          <DateTimeCell value={order.target_date} />
-                        </TableCell>
-                        <TableCell>
-                          {order.repair_done ? (
-                            order.repair_done.charAt(0).toUpperCase() +
-                            order.repair_done.slice(1)
-                          ) : (
-                            <EmDash />
-                          )}
-                        </TableCell>
-                        {/* The transition modals below are the real approval
-                            controls; a click on one must not also open the record. */}
-                        <TableCell
-                          className="bg-card border-border sticky right-0 z-10 border-l"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex items-center justify-end gap-2">
-                            {isAdmin && order.status === 'pending' && (
-                              <NoteJobOrderModal
-                                drivers={drivers}
-                                onSubmit={(data) =>
-                                  handleNoteJobOrder(order.id, data)
-                                }
-                                isLoading={noteJobOrder.isPending}
-                                currentSparePartsUsed={
-                                  Array.isArray(order.spare_parts_used)
-                                    ? order.spare_parts_used
-                                    : []
-                                }
-                              />
-                            )}
-                            {isEVP && order.status === 'assigned_mechanic' && (
-                              <ApproveJobOrderModal
-                                onSubmit={() => handleApproveJobOrder(order.id)}
-                                isLoading={approveJobOrder.isPending}
-                              />
-                            )}
-                            {isAdmin && order.status === 'ongoing_repair' && (
-                              <CompleteRepairModal
-                                onSubmit={(data) =>
-                                  handleCompleteRepair(order.id, data)
-                                }
-                                isLoading={completeRepair.isPending}
-                                currentMileage={
-                                  vehicles?.find(
-                                    (v) => v.id === order.vehicle_id
-                                  )?.mileage ?? 0
-                                }
-                              />
-                            )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openOrder(order.id)}
-                            >
-                              <Eye className="h-4 w-4" />
-                              View
-                            </Button>
-                          </div>
-                        </TableCell>
+                <>
+                  {/* Table already renders its own overflow-x-auto container; the
+                      min-width is what actually makes it scroll rather than letting
+                      the browser squeeze the row actions — "Note Job Order",
+                      "Approve", "Mark as Repaired" — until they clip. */}
+                  <Table className="min-w-[1180px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[80px]">Ref</TableHead>
+                        <TableHead className="w-[150px]">Status</TableHead>
+                        <TableHead className="min-w-[200px]">Vehicle</TableHead>
+                        <TableHead className="w-[130px]">
+                          Incident Date
+                        </TableHead>
+                        <TableHead className="w-[160px]">
+                          Assigned Mechanic
+                        </TableHead>
+                        <TableHead className="w-[130px]">Target Date</TableHead>
+                        <TableHead className="w-[110px]">Repair Type</TableHead>
+                        {/* Pinned: the row's transition ("Note Job Order",
+                            "Mark as Repaired") is the point of the row, and it sat
+                            past the scroll edge where it had to be hunted for. */}
+                        <TableHead className="bg-card border-border sticky right-0 z-10 w-[260px] border-l text-right">
+                          Actions
+                        </TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {data.data.map((order) => (
+                        <TableRow
+                          key={order.id}
+                          className="cursor-pointer"
+                          onClick={() => openOrder(order.id)}
+                        >
+                          <TableCell className="text-ink-soft font-mono text-sm whitespace-nowrap">
+                            {formatRef('JO', order.order_no)}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={order.status || 'pending'} />
+                          </TableCell>
+                          <TableCell>
+                            {order.vehicles ? (
+                              <span className="flex flex-col leading-tight">
+                                <span>
+                                  {order.vehicles.make} {order.vehicles.model}
+                                </span>
+                                <span className="text-muted-foreground font-mono text-xs">
+                                  {order.vehicles.license_plate}
+                                </span>
+                              </span>
+                            ) : (
+                              <EmDash />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <DateTimeCell value={order.incident_date} />
+                          </TableCell>
+                          <TableCell>
+                            {getDriverName(order.assigned_mechanic)}
+                          </TableCell>
+                          <TableCell>
+                            <DateTimeCell value={order.target_date} />
+                          </TableCell>
+                          <TableCell>
+                            {order.repair_done ? (
+                              order.repair_done.charAt(0).toUpperCase() +
+                              order.repair_done.slice(1)
+                            ) : (
+                              <EmDash />
+                            )}
+                          </TableCell>
+                          {/* The transition modals below are the real approval
+                              controls; a click on one must not also open the record. */}
+                          <TableCell
+                            className="bg-card border-border sticky right-0 z-10 border-l"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-end gap-2">
+                              {isAdmin && order.status === 'pending' && (
+                                <NoteJobOrderModal
+                                  drivers={drivers}
+                                  onSubmit={(data) =>
+                                    handleNoteJobOrder(order.id, data)
+                                  }
+                                  isLoading={noteJobOrder.isPending}
+                                  currentSparePartsUsed={
+                                    Array.isArray(order.spare_parts_used)
+                                      ? order.spare_parts_used
+                                      : []
+                                  }
+                                />
+                              )}
+                              {isEVP &&
+                                order.status === 'assigned_mechanic' && (
+                                  <ApproveJobOrderModal
+                                    onSubmit={() =>
+                                      handleApproveJobOrder(order.id)
+                                    }
+                                    isLoading={approveJobOrder.isPending}
+                                  />
+                                )}
+                              {isAdmin && order.status === 'ongoing_repair' && (
+                                <CompleteRepairModal
+                                  onSubmit={(data) =>
+                                    handleCompleteRepair(order.id, data)
+                                  }
+                                  isLoading={completeRepair.isPending}
+                                  currentMileage={
+                                    vehicles?.find(
+                                      (v) => v.id === order.vehicle_id
+                                    )?.mileage ?? 0
+                                  }
+                                />
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openOrder(order.id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                                View
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                  />
+                </>
               )}
             </TabsContent>
           </Tabs>

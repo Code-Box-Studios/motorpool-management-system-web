@@ -1,5 +1,6 @@
 import { useSpareParts } from '@/lib/query/spare-parts';
 import { Link, useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +17,7 @@ import PageHeader from '@/components/shared/page-header';
 import EntityCard from '@/components/shared/entity-card';
 import EntityImage from '@/components/shared/entity-image';
 import EmptyState from '@/components/shared/empty-state';
+import TablePagination from '@/components/shared/table-pagination';
 import ViewTabs from '@/components/shared/view-tabs';
 
 // The shelf is the point of this screen, so every part carries a stock pill in
@@ -31,30 +33,47 @@ const stockBadge = (quantity: number) => {
 };
 
 const SpareParts = () => {
-  const { data } = useSpareParts(1, 100);
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const { data } = useSpareParts(page, limit);
   const navigate = useNavigate();
   const spareParts = data?.data ?? [];
+  const totalCount = data?.count ?? 0;
+  const totalPages = Math.ceil(totalCount / limit);
+
+  // Both views page through the same server slice, so the pager sits under
+  // whichever one is showing.
+  const pager = (
+    <TablePagination
+      page={page}
+      totalPages={totalPages}
+      onPageChange={setPage}
+    />
+  );
 
   const grid = (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {spareParts.map((sparePart) => {
-        const quantity = sparePart.quantity ?? 0;
-        return (
-          <EntityCard
-            key={sparePart.id}
-            to={`/spare-parts/${sparePart.id}`}
-            imageSrc={sparePart.image}
-            title={sparePart.name}
-            badge={stockBadge(quantity)}
-            footnote={sparePart.description}
-            fields={[
-              { label: 'Brand', value: sparePart.brand },
-              { label: 'On hand', value: quantity }
-            ]}
-          />
-        );
-      })}
-    </div>
+    <>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {spareParts.map((sparePart) => {
+          const quantity = sparePart.quantity ?? 0;
+          return (
+            <EntityCard
+              key={sparePart.id}
+              to={`/spare-parts/${sparePart.id}`}
+              imageSrc={sparePart.image}
+              title={sparePart.name}
+              badge={stockBadge(quantity)}
+              footnote={sparePart.description}
+              fields={[
+                { label: 'Brand', value: sparePart.brand },
+                { label: 'On hand', value: quantity }
+              ]}
+            />
+          );
+        })}
+      </div>
+      {pager}
+    </>
   );
 
   const table = (
@@ -112,6 +131,7 @@ const SpareParts = () => {
             })}
           </TableBody>
         </Table>
+        {pager}
       </CardContent>
     </Card>
   );
@@ -131,7 +151,9 @@ const SpareParts = () => {
         }
       />
 
-      {spareParts.length === 0 ? (
+      {/* Count, not the page slice: a mid page can come back empty while the
+          shelf itself is not. */}
+      {totalCount === 0 ? (
         <EmptyState message="No spare parts yet." />
       ) : (
         <ViewTabs grid={grid} table={table} />

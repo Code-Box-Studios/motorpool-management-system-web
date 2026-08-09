@@ -47,6 +47,22 @@ export const getAllUsers = async (): Promise<UserProfileData[]> => {
   return res.data.map((u) => toUserProfileData(u, branchMap));
 };
 
+// One page of users plus the total count, for the paginated user-management table.
+export const getUsers = async (
+  page: number = 1,
+  limit: number = 10
+): Promise<{ data: UserProfileData[]; count: number }> => {
+  const [res, branches] = await Promise.all([
+    api.get<{ data: UserResponse[]; count: number }>('/users', { page, limit }),
+    getAllBranches()
+  ]);
+  const branchMap = new Map(branches.map((b) => [b.id, b.name]));
+  return {
+    data: res.data.map((u) => toUserProfileData(u, branchMap)),
+    count: res.count
+  };
+};
+
 // Reshape a user row into the Admin shape (the API tracks no admin-specific timestamp).
 function toAdmin(u: UserResponse): Admin {
   return {

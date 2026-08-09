@@ -10,12 +10,10 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { useDrivers, useAllDrivers } from '@/lib/query/drivers';
-import { Button } from '@/components/ui/button';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import { Typography } from '@/components/ui/typography';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import EntityImage from '@/components/shared/entity-image';
+import TablePagination from '@/components/shared/table-pagination';
 import PageHeader from '@/components/shared/page-header';
 import StatusBadge from '@/components/shared/status-badge';
 
@@ -138,27 +136,11 @@ const Drivers = () => {
                 </TableBody>
               </Table>
 
-              {totalPages > 1 && (
-                <div className="mt-5 flex items-center justify-center">
-                  <Button
-                    variant={'ghost'}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                  >
-                    <ChevronLeft />
-                  </Button>
-                  <Typography variant={'p-xs'}>
-                    {page} of {totalPages}
-                  </Typography>
-                  <Button
-                    variant={'ghost'}
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                  >
-                    <ChevronRight />
-                  </Button>
-                </div>
-              )}
+              <TablePagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
             </>
           )}
         </CardContent>

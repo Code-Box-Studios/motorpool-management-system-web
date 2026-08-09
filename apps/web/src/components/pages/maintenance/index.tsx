@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
+import TablePagination from '@/components/shared/table-pagination';
 import EmptyState from '@/components/shared/empty-state';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -50,9 +51,11 @@ const ACTIVE_TAB =
 const EmDash = () => <span className="text-muted-foreground">—</span>;
 
 const MaintenancePage = () => {
+  const [page, setPage] = useState(1);
+  const limit = 10;
   const { data: tableData, isLoading: isTableLoading } = useMaintenances(
-    1,
-    100
+    page,
+    limit
   );
   const { data: calendarData, isLoading: isCalendarLoading } =
     useAllMaintenances();
@@ -64,6 +67,9 @@ const MaintenancePage = () => {
   const [scheduleView, setScheduleView] = useState<'calendar' | 'table'>(
     'calendar'
   );
+  const maintenances = tableData?.data ?? [];
+  const totalCount = tableData?.count ?? 0;
+  const totalPages = Math.ceil(totalCount / limit);
 
   const handleTabChange = (value: string) => {
     navigate({
@@ -225,154 +231,166 @@ const MaintenancePage = () => {
                         { label: 'Actions', width: 'w-32' }
                       ]}
                     />
-                  ) : !tableData?.data?.length ? (
+                  ) : totalCount === 0 ? (
                     <EmptyState message="No maintenance records yet." />
                   ) : (
-                    /* Table already renders its own overflow-x-auto container;
-                       the min-width is what actually makes it scroll rather than
-                       letting the browser squeeze the row actions until they
-                       clip. */
-                    <Table className="min-w-[1080px]">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[110px]">Date</TableHead>
-                          <TableHead className="min-w-[200px]">
-                            Vehicle
-                          </TableHead>
-                          <TableHead className="w-[120px]">Type</TableHead>
-                          <TableHead className="min-w-[220px]">
-                            Description
-                          </TableHead>
-                          <TableHead className="w-[100px] text-right">
-                            Cost
-                          </TableHead>
-                          <TableHead className="w-[110px] text-right">
-                            Mileage
-                          </TableHead>
-                          <TableHead className="w-[110px]">Next Due</TableHead>
-                          <TableHead className="w-[170px] text-right">
-                            Actions
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {tableData.data.map((maintenance) => (
-                          <TableRow
-                            key={maintenance.id}
-                            className="cursor-pointer"
-                            onClick={() => openMaintenance(maintenance.id)}
-                          >
-                            <TableCell>
-                              {new Date(maintenance.date).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              {vehicleCell(maintenance.vehicle_id)}
-                            </TableCell>
-                            <TableCell className="capitalize">
-                              {maintenance.type}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground max-w-xs truncate">
-                              {maintenance.description || <EmDash />}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {maintenance.cost !== null ? (
-                                `$${maintenance.cost.toFixed(2)}`
-                              ) : (
-                                <EmDash />
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {maintenance.mileage !== null ? (
-                                `${maintenance.mileage} km`
-                              ) : (
-                                <EmDash />
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {maintenance.next_due ? (
-                                new Date(
-                                  maintenance.next_due
-                                ).toLocaleDateString()
-                              ) : (
-                                <EmDash />
-                              )}
-                            </TableCell>
-                            {/* Edit and delete are destructive-adjacent; a click
-                                on one must not also open the record. */}
-                            <TableCell onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center justify-end gap-1">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    openMaintenance(maintenance.id)
-                                  }
-                                >
-                                  <Eye className="h-4 w-4" />
-                                  View
-                                </Button>
-
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label="Edit maintenance record"
-                                  title="Edit"
-                                  onClick={() =>
-                                    navigate({
-                                      to: `/maintenance/${maintenance.id}`,
-                                      search: { edit: true }
-                                    })
-                                  }
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon-sm"
-                                      aria-label="Delete maintenance record"
-                                      title="Delete"
-                                      disabled={deleteMaintenance.isPending}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>
-                                        Are you sure?
-                                      </AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        This action cannot be undone. This will
-                                        permanently delete the maintenance
-                                        record and remove the data from the
-                                        server.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>
-                                        Cancel
-                                      </AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() =>
-                                          deleteMaintenance.mutate(
-                                            maintenance.id
-                                          )
-                                        }
-                                      >
-                                        Delete
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            </TableCell>
+                    <>
+                      {/* Table already renders its own overflow-x-auto container;
+                          the min-width is what actually makes it scroll rather than
+                          letting the browser squeeze the row actions until they
+                          clip. */}
+                      <Table className="min-w-[1080px]">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[110px]">Date</TableHead>
+                            <TableHead className="min-w-[200px]">
+                              Vehicle
+                            </TableHead>
+                            <TableHead className="w-[120px]">Type</TableHead>
+                            <TableHead className="min-w-[220px]">
+                              Description
+                            </TableHead>
+                            <TableHead className="w-[100px] text-right">
+                              Cost
+                            </TableHead>
+                            <TableHead className="w-[110px] text-right">
+                              Mileage
+                            </TableHead>
+                            <TableHead className="w-[110px]">
+                              Next Due
+                            </TableHead>
+                            <TableHead className="w-[170px] text-right">
+                              Actions
+                            </TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {maintenances.map((maintenance) => (
+                            <TableRow
+                              key={maintenance.id}
+                              className="cursor-pointer"
+                              onClick={() => openMaintenance(maintenance.id)}
+                            >
+                              <TableCell>
+                                {new Date(
+                                  maintenance.date
+                                ).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell>
+                                {vehicleCell(maintenance.vehicle_id)}
+                              </TableCell>
+                              <TableCell className="capitalize">
+                                {maintenance.type}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground max-w-xs truncate">
+                                {maintenance.description || <EmDash />}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {maintenance.cost !== null ? (
+                                  `$${maintenance.cost.toFixed(2)}`
+                                ) : (
+                                  <EmDash />
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {maintenance.mileage !== null ? (
+                                  `${maintenance.mileage} km`
+                                ) : (
+                                  <EmDash />
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {maintenance.next_due ? (
+                                  new Date(
+                                    maintenance.next_due
+                                  ).toLocaleDateString()
+                                ) : (
+                                  <EmDash />
+                                )}
+                              </TableCell>
+                              {/* Edit and delete are destructive-adjacent; a click
+                                  on one must not also open the record. */}
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      openMaintenance(maintenance.id)
+                                    }
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                    View
+                                  </Button>
+
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label="Edit maintenance record"
+                                    title="Edit"
+                                    onClick={() =>
+                                      navigate({
+                                        to: `/maintenance/${maintenance.id}`,
+                                        search: { edit: true }
+                                      })
+                                    }
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        aria-label="Delete maintenance record"
+                                        title="Delete"
+                                        disabled={deleteMaintenance.isPending}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                          Are you sure?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          This action cannot be undone. This
+                                          will permanently delete the
+                                          maintenance record and remove the data
+                                          from the server.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                          Cancel
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() =>
+                                            deleteMaintenance.mutate(
+                                              maintenance.id
+                                            )
+                                          }
+                                        >
+                                          Delete
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+
+                      <TablePagination
+                        page={page}
+                        totalPages={totalPages}
+                        onPageChange={setPage}
+                      />
+                    </>
                   )}
                 </TabsContent>
               </Tabs>

@@ -1,6 +1,6 @@
 // src/lib/query/user-management.ts
 import { useQuery } from '@tanstack/react-query';
-import { getAllAdmins, getAllUsers } from '../api/user-management';
+import { getAllAdmins, getAllUsers, getUsers } from '../api/user-management';
 
 export const useAdmins = () => {
   return useQuery({
@@ -13,6 +13,15 @@ export const useAllUsers = () => {
   return useQuery({
     queryKey: ['allUsers'],
     queryFn: getAllUsers
+  });
+};
+
+// One page of users for the user-management table. Keeps the 'allUsers' key
+// prefix so the existing mutations' invalidations cover paged queries too.
+export const useUsers = (page: number = 1, limit: number = 10) => {
+  return useQuery({
+    queryKey: ['allUsers', page, limit],
+    queryFn: () => getUsers(page, limit)
   });
 };
 

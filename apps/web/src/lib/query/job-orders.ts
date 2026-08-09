@@ -12,7 +12,7 @@ export const useJobOrders = (
   userRole?: string
 ) => {
   return useQuery({
-    queryKey: ['job_orders', page, userId, userRole],
+    queryKey: ['job_orders', page, limit, userId, userRole],
     queryFn: () => getJobOrders(page, limit, userId, userRole)
   });
 };

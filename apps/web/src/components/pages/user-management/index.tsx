@@ -1,6 +1,7 @@
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
 import type { UserProfileData } from '@/lib/types';
 import {
   Table,
@@ -15,8 +16,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import PageHeader from '@/components/shared/page-header';
 import EmptyState from '@/components/shared/empty-state';
 import StatusBadge from '@/components/shared/status-badge';
+import TablePagination from '@/components/shared/table-pagination';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAllUsers } from '@/lib/query/user-management';
+import { useUsers } from '@/lib/query/user-management';
 import { present, roleLabel } from '@/lib/role-label';
 
 const getInitials = (user: UserProfileData): string => {
@@ -36,8 +38,13 @@ const getInitials = (user: UserProfileData): string => {
 const COLUMNS = ['User', 'Role', 'Branch', 'Status', 'Created'];
 
 const UserManagement = () => {
-  const { data: users, isLoading, error } = useAllUsers();
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const { data: usersData, isLoading, error } = useUsers(page, limit);
   const navigate = useNavigate();
+  const users = usersData?.data;
+  const totalCount = usersData?.count ?? 0;
+  const totalPages = Math.ceil(totalCount / limit);
 
   return (
     <div>
@@ -57,7 +64,7 @@ const UserManagement = () => {
             Error loading users: {error.message}
           </CardContent>
         </Card>
-      ) : !isLoading && (!users || users.length === 0) ? (
+      ) : !isLoading && totalCount === 0 ? (
         <EmptyState message="No users yet." />
       ) : (
         <Card>
@@ -138,6 +145,12 @@ const UserManagement = () => {
                     ))}
               </TableBody>
             </Table>
+
+            <TablePagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
           </CardContent>
         </Card>
       )}

@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { useState } from 'react';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,6 +15,7 @@ import PageHeader from '@/components/shared/page-header';
 import StatusBadge from '@/components/shared/status-badge';
 import { DeviceOnlineIndicator } from '@/components/shared/device-online-indicator';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
+import TablePagination from '@/components/shared/table-pagination';
 import { useTrackerDevices } from '@/lib/query/tracker-devices';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import { assignedVehicleLabel } from '@/lib/utils/tracker-devices';
@@ -29,10 +31,13 @@ const COLUMNS = [
 ];
 
 const TrackerDevices = () => {
-  const { data, isLoading, error } = useTrackerDevices();
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const { data, isLoading, error } = useTrackerDevices({ page, limit });
   // A device's vehicleId is a key; the row has to name the vehicle instead.
   const { data: vehicles, isLoading: vehiclesLoading } = useAllVehicles();
   const devices = data?.data;
+  const totalPages = Math.ceil((data?.count ?? 0) / limit);
   const vehiclesById = new Map((vehicles ?? []).map((v) => [v.id, v]));
 
   return (
@@ -59,68 +64,78 @@ const TrackerDevices = () => {
               Error loading devices: {error.message}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {COLUMNS.map((c) => (
-                    <TableHead key={c.label}>{c.label}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {devices && devices.length > 0 ? (
-                  devices.map((device) => (
-                    <TableRow key={device.id}>
-                      <TableCell>
-                        <Link
-                          to="/tracker-devices/$deviceId"
-                          params={{ deviceId: device.id }}
-                          className="font-mono text-sm font-medium hover:underline"
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {COLUMNS.map((c) => (
+                      <TableHead key={c.label}>{c.label}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {devices && devices.length > 0 ? (
+                    devices.map((device) => (
+                      <TableRow key={device.id}>
+                        <TableCell>
+                          <Link
+                            to="/tracker-devices/$deviceId"
+                            params={{ deviceId: device.id }}
+                            className="font-mono text-sm font-medium hover:underline"
+                          >
+                            {device.imei}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{device.label || '—'}</TableCell>
+                        <TableCell
+                          className={cn(
+                            'text-sm',
+                            !device.vehicleId && 'text-muted-foreground'
+                          )}
                         >
-                          {device.imei}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{device.label || '—'}</TableCell>
+                          {assignedVehicleLabel(
+                            device.vehicleId,
+                            vehiclesById.get(device.vehicleId ?? ''),
+                            vehiclesLoading
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {device.simNumber || '—'}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={device.status} />
+                        </TableCell>
+                        <TableCell>
+                          <DeviceOnlineIndicator
+                            lastSeenAt={device.lastSeenAt}
+                          />
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {device.lastSeenAt
+                            ? new Date(device.lastSeenAt).toLocaleString()
+                            : 'Never'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
                       <TableCell
-                        className={cn(
-                          'text-sm',
-                          !device.vehicleId && 'text-muted-foreground'
-                        )}
+                        colSpan={COLUMNS.length}
+                        className="text-muted-foreground py-8 text-center"
                       >
-                        {assignedVehicleLabel(
-                          device.vehicleId,
-                          vehiclesById.get(device.vehicleId ?? ''),
-                          vehiclesLoading
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {device.simNumber || '—'}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={device.status} />
-                      </TableCell>
-                      <TableCell>
-                        <DeviceOnlineIndicator lastSeenAt={device.lastSeenAt} />
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {device.lastSeenAt
-                          ? new Date(device.lastSeenAt).toLocaleString()
-                          : 'Never'}
+                        No tracker devices found
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={COLUMNS.length}
-                      className="text-muted-foreground py-8 text-center"
-                    >
-                      No tracker devices found
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+
+              <TablePagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
+            </>
           )}
         </CardContent>
       </Card>

@@ -1,6 +1,7 @@
 import { useTools } from '@/lib/query/tools';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { Link, useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -17,43 +18,64 @@ import EntityCard from '@/components/shared/entity-card';
 import EntityImage from '@/components/shared/entity-image';
 import EmptyState from '@/components/shared/empty-state';
 import StatusBadge from '@/components/shared/status-badge';
+import TablePagination from '@/components/shared/table-pagination';
 import ViewTabs from '@/components/shared/view-tabs';
 
 const formatDate = (value: string | null) =>
   value ? new Date(value).toLocaleDateString() : undefined;
 
 const Tools = () => {
-  const { data } = useTools(1, 12);
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const { data } = useTools(page, limit);
   // `borrowed_by` is a driver id; a row must show the person, never the key.
   const { data: drivers } = useAllDrivers();
   const navigate = useNavigate();
   const tools = data?.data ?? [];
+  const totalCount = data?.count ?? 0;
+  const totalPages = Math.ceil(totalCount / limit);
 
   const borrowerName = (driverId: string | null) =>
     driverId
       ? drivers?.find((driver) => driver.id === driverId)?.full_name
       : undefined;
 
+  // Both views page through the same server slice, so the pager sits under
+  // each of them and the page survives a table/grid toggle.
   const grid = (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {tools.map((tool) => (
-        <EntityCard
-          key={tool.id}
-          to={`/tools/${tool.id}`}
-          imageSrc={tool.image}
-          status={tool.status || 'available'}
-          title={tool.name}
-          footnote={tool.description}
-          // Every tool answers the same two questions — who has it and when it
-          // is due back — so a tool that is on the shelf answers them with an em
-          // dash rather than dropping the rows and going ragged.
-          fields={[
-            { label: 'Signed out to', value: borrowerName(tool.borrowed_by) },
-            { label: 'Due back', value: formatDate(tool.estimated_return_date) }
-          ]}
-        />
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {tools.map((tool) => (
+          <EntityCard
+            key={tool.id}
+            to={`/tools/${tool.id}`}
+            imageSrc={tool.image}
+            status={tool.status || 'available'}
+            title={tool.name}
+            footnote={tool.description}
+            // Every tool answers the same two questions — who has it and when it
+            // is due back — so a tool that is on the shelf answers them with an em
+            // dash rather than dropping the rows and going ragged.
+            fields={[
+              {
+                label: 'Signed out to',
+                value: borrowerName(tool.borrowed_by)
+              },
+              {
+                label: 'Due back',
+                value: formatDate(tool.estimated_return_date)
+              }
+            ]}
+          />
+        ))}
+      </div>
+
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
+    </>
   );
 
   const table = (
@@ -110,6 +132,12 @@ const Tools = () => {
             ))}
           </TableBody>
         </Table>
+
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
       </CardContent>
     </Card>
   );
@@ -126,7 +154,9 @@ const Tools = () => {
         }
       />
 
-      {tools.length === 0 ? (
+      {/* Keyed to the dataset count, not the page slice, so a mid page that
+          happens to be empty never reads as "no tools". */}
+      {totalCount === 0 ? (
         <EmptyState message="No tools yet." />
       ) : (
         <ViewTabs grid={grid} table={table} />

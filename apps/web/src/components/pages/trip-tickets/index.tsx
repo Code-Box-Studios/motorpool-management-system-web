@@ -44,12 +44,13 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import EmptyState from '@/components/shared/empty-state';
+import TablePagination from '@/components/shared/table-pagination';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   useApproveTripTicket,
   useDisapproveTripTicket,
@@ -171,12 +172,21 @@ const TripTicketsPage = () => {
   const filterUserId = isRequester ? user?.id : undefined;
   const filterBranchId = isAdmin ? userRole?.branch_id : undefined;
 
+  const [page, setPage] = useState(1);
+  const limit = 10;
   const { data: tableData, isLoading: isTableLoading } = useTripTickets(
-    1,
-    100,
+    page,
+    limit,
     filterUserId,
     filterBranchId
   );
+  const totalPages = Math.ceil((tableData?.count || 0) / limit);
+
+  // The role-derived filters resolve async — if they land after the user has
+  // already paged, the dataset changed underneath them, so snap back to page 1.
+  useEffect(() => {
+    setPage(1);
+  }, [filterUserId, filterBranchId]);
   const { data: calendarData, isLoading: isCalendarLoading } =
     useAllTripTickets(filterUserId, filterBranchId);
   const { data: vehiclesData } = useAllVehicles();
@@ -505,83 +515,91 @@ const TripTicketsPage = () => {
                     { label: 'Status', width: 'w-32' }
                   ]}
                 />
-              ) : !tableData?.data?.length ? (
+              ) : !tableData?.count ? (
                 <EmptyState message="No trip tickets yet." />
               ) : (
                 /* Table already renders its own overflow-x-auto container; the
                    min-width is what actually makes it scroll rather than letting
                    the browser squeeze the status control and the row actions
                    until they clip. */
-                <Table className="min-w-[1040px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[80px]">Ref</TableHead>
-                      <TableHead className="min-w-[180px]">
-                        Destination
-                      </TableHead>
-                      <TableHead className="min-w-[220px]">Purpose</TableHead>
-                      <TableHead className="w-[116px]">Pickup Date</TableHead>
-                      <TableHead className="w-[116px]">Return Date</TableHead>
-                      {/* Status reads at the end of the row, with whatever can
-                          change it right beside it — the requester's Cancel or
-                          the admin's ⋯ menu. The row itself opens the ticket,
-                          so there is no View button. */}
-                      <TableHead className="w-[200px] text-right">
-                        Status
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {tableData.data.map((ticket) => (
-                      <TableRow
-                        key={ticket.id}
-                        className="cursor-pointer"
-                        onClick={() => openTicket(ticket.id)}
-                      >
-                        <TableCell className="text-ink-soft font-mono text-sm whitespace-nowrap">
-                          {formatRef('TT', ticket.ticket_no)}
-                        </TableCell>
-                        <TableCell className="max-w-[220px] truncate">
-                          {ticket.destination}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground max-w-xs truncate">
-                          {ticket.purpose}
-                        </TableCell>
-                        <TableCell>
-                          {ticket.start_ts ? (
-                            new Date(ticket.start_ts).toLocaleDateString()
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {ticket.end_ts ? (
-                            new Date(ticket.end_ts).toLocaleDateString()
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end">
-                            <StatusMenu
-                              status={ticket.status || 'pending'}
-                              busy={
-                                approveTripTicket.isPending ||
-                                disapproveTripTicket.isPending ||
-                                cancelTripTicket.isPending
-                              }
-                              actions={
-                                isAdmin
-                                  ? adminActionsFor(ticket)
-                                  : requesterActionsFor(ticket)
-                              }
-                            />
-                          </div>
-                        </TableCell>
+                <>
+                  <Table className="min-w-[1040px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[80px]">Ref</TableHead>
+                        <TableHead className="min-w-[180px]">
+                          Destination
+                        </TableHead>
+                        <TableHead className="min-w-[220px]">Purpose</TableHead>
+                        <TableHead className="w-[116px]">Pickup Date</TableHead>
+                        <TableHead className="w-[116px]">Return Date</TableHead>
+                        {/* Status reads at the end of the row, with whatever can
+                            change it right beside it — the requester's Cancel or
+                            the admin's ⋯ menu. The row itself opens the ticket,
+                            so there is no View button. */}
+                        <TableHead className="w-[200px] text-right">
+                          Status
+                        </TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {tableData?.data?.map((ticket) => (
+                        <TableRow
+                          key={ticket.id}
+                          className="cursor-pointer"
+                          onClick={() => openTicket(ticket.id)}
+                        >
+                          <TableCell className="text-ink-soft font-mono text-sm whitespace-nowrap">
+                            {formatRef('TT', ticket.ticket_no)}
+                          </TableCell>
+                          <TableCell className="max-w-[220px] truncate">
+                            {ticket.destination}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground max-w-xs truncate">
+                            {ticket.purpose}
+                          </TableCell>
+                          <TableCell>
+                            {ticket.start_ts ? (
+                              new Date(ticket.start_ts).toLocaleDateString()
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {ticket.end_ts ? (
+                              new Date(ticket.end_ts).toLocaleDateString()
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex justify-end">
+                              <StatusMenu
+                                status={ticket.status || 'pending'}
+                                busy={
+                                  approveTripTicket.isPending ||
+                                  disapproveTripTicket.isPending ||
+                                  cancelTripTicket.isPending
+                                }
+                                actions={
+                                  isAdmin
+                                    ? adminActionsFor(ticket)
+                                    : requesterActionsFor(ticket)
+                                }
+                              />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                  />
+                </>
               )}
             </TabsContent>
           </Tabs>

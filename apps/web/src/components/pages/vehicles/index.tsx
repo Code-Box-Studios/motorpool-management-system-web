@@ -11,11 +11,13 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 import PageHeader from '@/components/shared/page-header';
 import EntityCard from '@/components/shared/entity-card';
 import EntityImage from '@/components/shared/entity-image';
 import EmptyState from '@/components/shared/empty-state';
 import StatusBadge from '@/components/shared/status-badge';
+import TablePagination from '@/components/shared/table-pagination';
 import ViewTabs from '@/components/shared/view-tabs';
 import type { VehicleWithBranch } from '@/lib/types';
 
@@ -37,34 +39,48 @@ const vehicleTitle = (vehicle: VehicleWithBranch) =>
   `${vehicle.make} ${vehicle.model} ${vehicle.year ?? ''}`.trim();
 
 const Vehicles = () => {
-  const { data } = useVehicles(1, 12);
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const { data } = useVehicles(page, limit);
   const navigate = useNavigate();
   const vehicles = data?.data ?? [];
+  const totalCount = data?.count ?? 0;
+  const totalPages = Math.ceil(totalCount / limit);
 
+  // Grid and table are two shapes of the same paged slice, so the pager sits
+  // under both and they stay in step when the view toggles.
   const grid = (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {vehicles.map((vehicle) => (
-        <EntityCard
-          key={vehicle.id}
-          to={`/vehicles/${vehicle.id}`}
-          imageSrc={vehicle.images?.[0]}
-          status={vehicle.status}
-          title={vehicleTitle(vehicle)}
-          fields={[
-            { label: 'Plate', value: vehicle.license_plate, mono: true },
-            { label: 'Odometer', value: odometer(vehicle.mileage) },
-            {
-              label: 'Fuel',
-              value: vehicle.fuel_type
-                ? titleCase(vehicle.fuel_type)
-                : undefined
-            },
-            { label: 'Seats', value: vehicle.capacity },
-            { label: 'Branch', value: branchLabel(vehicle) }
-          ]}
-        />
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {vehicles.map((vehicle) => (
+          <EntityCard
+            key={vehicle.id}
+            to={`/vehicles/${vehicle.id}`}
+            imageSrc={vehicle.images?.[0]}
+            status={vehicle.status}
+            title={vehicleTitle(vehicle)}
+            fields={[
+              { label: 'Plate', value: vehicle.license_plate, mono: true },
+              { label: 'Odometer', value: odometer(vehicle.mileage) },
+              {
+                label: 'Fuel',
+                value: vehicle.fuel_type
+                  ? titleCase(vehicle.fuel_type)
+                  : undefined
+              },
+              { label: 'Seats', value: vehicle.capacity },
+              { label: 'Branch', value: branchLabel(vehicle) }
+            ]}
+          />
+        ))}
+      </div>
+
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
+    </>
   );
 
   const table = (
@@ -115,7 +131,7 @@ const Vehicles = () => {
                 <TableCell>
                   <StatusBadge status={vehicle.status ?? ''} />
                 </TableCell>
-                <TableCell className="text-right text-sm tabular-nums whitespace-nowrap">
+                <TableCell className="text-right text-sm whitespace-nowrap tabular-nums">
                   {odometer(vehicle.mileage) ?? '—'}
                 </TableCell>
                 <TableCell className="text-sm whitespace-nowrap">
@@ -131,6 +147,12 @@ const Vehicles = () => {
             ))}
           </TableBody>
         </Table>
+
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
       </CardContent>
     </Card>
   );
@@ -147,7 +169,9 @@ const Vehicles = () => {
         }
       />
 
-      {vehicles.length === 0 ? (
+      {/* The server count drives the empty state, so a page past the end of
+          the list never reads as an empty fleet. */}
+      {totalCount === 0 ? (
         <EmptyState message="No vehicles yet." />
       ) : (
         <ViewTabs grid={grid} table={table} />
