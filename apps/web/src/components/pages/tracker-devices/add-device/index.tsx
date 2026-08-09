@@ -23,7 +23,7 @@ import {
   FormActions
 } from '@/components/shared/form-section';
 import { useCreateTrackerDevice } from '@/lib/mutation/tracker-devices';
-import { useVehicles } from '@/lib/query/vehicles';
+import { useAllVehicles } from '@/lib/query/vehicles';
 import { titleize, vehicleLabel } from '@/lib/utils/tracker-devices';
 import {
   useTrackerDeviceForm,
@@ -36,7 +36,7 @@ export function AddTrackerDevice() {
   const navigate = useNavigate();
   const createDevice = useCreateTrackerDevice();
   const form = useTrackerDeviceForm();
-  const { data: vehicles } = useVehicles(1, 200);
+  const { data: vehicles } = useAllVehicles();
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingData, setPendingData] = useState<TrackerDeviceFormData | null>(
     null
@@ -178,7 +178,7 @@ export function AddTrackerDevice() {
                         <SelectItem value={UNASSIGNED_VEHICLE}>
                           Unassigned
                         </SelectItem>
-                        {vehicles?.data?.map((v) => (
+                        {vehicles?.map((v) => (
                           <SelectItem key={v.id} value={v.id}>
                             {vehicleLabel(v)}
                           </SelectItem>

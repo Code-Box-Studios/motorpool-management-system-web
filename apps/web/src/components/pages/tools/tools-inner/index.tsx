@@ -33,7 +33,7 @@ import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
 import { useToolUpdateForm, type UpdateToolFormData } from './actions';
 import { useTool } from '@/lib/query/tools';
 import { useUpdateTool } from '@/lib/mutation/tools';
-import { useDrivers } from '@/lib/query/drivers';
+import { useAllDrivers } from '@/lib/query/drivers';
 import { TOOL_STATUS } from '@/lib/enums';
 import { resolveStatus } from '@/lib/status';
 
@@ -78,7 +78,9 @@ const localToday = () => {
 
 const ToolsInner = ({ toolId }: { toolId: string }) => {
   const { data: tool } = useTool(toolId);
-  const { data: drivers, isPending: driversLoading } = useDrivers(1, 100);
+  // The whole roster, not a page of it: the borrower lookup and the picker below
+  // both need every driver, not just the most recently updated ones.
+  const { data: drivers, isPending: driversLoading } = useAllDrivers();
   const updateTool = useUpdateTool();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
@@ -141,7 +143,7 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
   if (!tool || driversLoading) return <Loading />;
 
   const status = tool.status || 'available';
-  const borrowedByName = drivers?.data?.find(
+  const borrowedByName = drivers?.find(
     (d) => d.id === tool.borrowed_by
   )?.full_name;
   // Borrow state lives on the tool row itself (no borrow-request entity): a tool
@@ -332,7 +334,7 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
                             <SelectValue placeholder="Select a driver" />
                           </SelectTrigger>
                           <SelectContent>
-                            {drivers?.data?.map((driver) => (
+                            {drivers?.map((driver) => (
                               <SelectItem key={driver.id} value={driver.id}>
                                 {driver.full_name}
                               </SelectItem>

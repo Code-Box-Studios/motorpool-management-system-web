@@ -8,8 +8,8 @@ import {
   useAddTripTicketAction,
   type TripTicketFormData
 } from './actions';
-import { useDrivers } from '@/lib/query/drivers';
-import { useVehicles } from '@/lib/query/vehicles';
+import { useAllDrivers } from '@/lib/query/drivers';
+import { useAllVehicles } from '@/lib/query/vehicles';
 import { useBranches } from '@/lib/query/shared';
 import { useDepartmentOffices, useOfficeHeads } from '@/lib/query/offices';
 import {
@@ -95,8 +95,14 @@ interface TripTicketFormProps {
 }
 
 export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
-  const { data: drivers, isLoading: driversLoading } = useDrivers(1, 100);
-  const { data: vehicles, isLoading: vehiclesLoading } = useVehicles(1, 100);
+  // The WHOLE fleet and roster, not a page of them. Both lists below are
+  // filtered down here on the client — free vehicles, active drivers — so a
+  // capped fetch filters what it happened to be sent, not what exists: a page
+  // full of vans that are all out on trips leaves the picker empty while free
+  // ones sit past the cap. The server orders by updatedAt, so which records
+  // fall inside a cap also shifts as they are edited.
+  const { data: drivers, isLoading: driversLoading } = useAllDrivers();
+  const { data: vehicles, isLoading: vehiclesLoading } = useAllVehicles();
   const { data: branches, isLoading: branchesLoading } = useBranches();
   const { data: offices, isLoading: officesLoading } = useDepartmentOffices();
   const { data: officeHeads, isLoading: officeHeadsLoading } = useOfficeHeads();
@@ -114,7 +120,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // rather than after the request has been written out in full.
   const selectedVehicleId = form.watch('vehicle_id');
   const seats =
-    vehicles?.data?.find((v) => v.id === selectedVehicleId)?.capacity ?? null;
+    vehicles?.find((v) => v.id === selectedVehicleId)?.capacity ?? null;
 
   const [step, setStep] = useState(0);
   // The furthest step reached: everything up to it can be jumped back to from the
@@ -160,7 +166,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
 
   // What the review step reads back.
   const review = form.watch();
-  const reviewVehicle = vehicles?.data?.find((v) => v.id === review.vehicle_id);
+  const reviewVehicle = vehicles?.find((v) => v.id === review.vehicle_id);
 
   const [pendingData, setPendingData] = useState<TripTicketFormData | null>(
     null
@@ -181,9 +187,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // The vans it owns are the default and come first; another branch's are
   // reachable, but under their own heading and tagged with whose they are — a
   // borrow should be a decision, not something you do by not noticing.
-  const freeVehicles = (vehicles?.data ?? []).filter(
-    (v) => v.status === 'available'
-  );
+  const freeVehicles = (vehicles ?? []).filter((v) => v.status === 'available');
   const ownVehicles = freeVehicles.filter(
     (v) => !isBorrowed(tripBranchId, v.branch)
   );
@@ -194,9 +198,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // Drivers get the same shape for the same reason — and because keying them to
   // the trip's branch WITHOUT a fallback group would hand an admin an empty
   // dropdown the moment they booked for a branch whose drivers they cannot see.
-  const activeDrivers = (drivers?.data ?? []).filter(
-    (d) => d.status === 'active'
-  );
+  const activeDrivers = (drivers ?? []).filter((d) => d.status === 'active');
   const ownDrivers = activeDrivers.filter(
     (d) => !isBorrowed(tripBranchId, d.branch_id)
   );
@@ -480,7 +482,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                           // this, picking a 9-seater, entering 9, then switching
                           // to a 4-seater left the count at 9 and the trip only
                           // failed on submit.
-                          const nextSeats = vehicles?.data?.find(
+                          const nextSeats = vehicles?.find(
                             (v) => v.id === vehicleId
                           )?.capacity;
                           if (!nextSeats) return;
@@ -882,8 +884,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                 <DetailItem
                   label="Driver"
                   value={
-                    drivers?.data?.find((d) => d.id === review.driver_id)
-                      ?.full_name
+                    drivers?.find((d) => d.id === review.driver_id)?.full_name
                   }
                 />
                 <DetailItem label="Destination" value={review.destination} />

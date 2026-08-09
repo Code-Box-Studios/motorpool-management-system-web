@@ -11,7 +11,7 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useVehicles } from '@/lib/query/vehicles';
+import { useAllVehicles } from '@/lib/query/vehicles';
 import { useBranches } from '@/lib/query/shared';
 import { useAuth } from '@/hooks/use-auth';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
@@ -71,7 +71,7 @@ interface JobOrderFormProps {
 }
 
 export function AddJobOrder({ onDone }: JobOrderFormProps) {
-  const { data: vehicles } = useVehicles(1, 100);
+  const { data: vehicles } = useAllVehicles();
   const { data: branches } = useBranches();
   const addJobOrderAction = useAddJobOrderAction();
   const form = useJobOrderForm();
@@ -137,7 +137,7 @@ export function AddJobOrder({ onDone }: JobOrderFormProps) {
   };
 
   const review = form.watch();
-  const reviewVehicle = vehicles?.data?.find((v) => v.id === review.vehicle_id);
+  const reviewVehicle = vehicles?.find((v) => v.id === review.vehicle_id);
 
   return (
     <div>
@@ -202,7 +202,7 @@ export function AddJobOrder({ onDone }: JobOrderFormProps) {
                             (409 VEHICLE_ON_TRIP) until it is back — so carry the
                             status on the option rather than let someone raise a
                             repair that cannot be worked. */}
-                        {vehicles?.data?.map((vehicle) => (
+                        {vehicles?.map((vehicle) => (
                           <SelectItem key={vehicle.id} value={vehicle.id}>
                             <span className="flex w-full items-center gap-2">
                               <span>

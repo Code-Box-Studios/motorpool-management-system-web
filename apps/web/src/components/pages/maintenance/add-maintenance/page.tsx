@@ -8,7 +8,7 @@ import {
   type MaintenanceFormData
 } from './actions';
 import { useNavigate } from '@tanstack/react-router';
-import { useVehicles } from '@/lib/query/vehicles';
+import { useAllVehicles } from '@/lib/query/vehicles';
 import {
   Select,
   SelectContent,
@@ -29,7 +29,7 @@ import {
 } from '@/components/shared/form-section';
 
 export function AddMaintenance() {
-  const { data: vehicles } = useVehicles(1, 100);
+  const { data: vehicles } = useAllVehicles();
   const addMaintenanceAction = useAddMaintenanceAction();
   const form = useMaintenanceForm();
   const navigate = useNavigate();
@@ -85,7 +85,7 @@ export function AddMaintenance() {
                           <SelectValue placeholder="Select a vehicle" />
                         </SelectTrigger>
                         <SelectContent>
-                          {vehicles?.data?.map((vehicle) => (
+                          {vehicles?.map((vehicle) => (
                             <SelectItem key={vehicle.id} value={vehicle.id}>
                               {vehicle.make} {vehicle.model} -{' '}
                               {vehicle.license_plate}

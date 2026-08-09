@@ -9,7 +9,7 @@ import {
 } from './actions';
 import { useParams, useNavigate, useSearch } from '@tanstack/react-router';
 import { useMaintenance } from '@/lib/query/maintenance';
-import { useVehicles } from '@/lib/query/vehicles';
+import { useAllVehicles } from '@/lib/query/vehicles';
 import {
   Select,
   SelectContent,
@@ -49,7 +49,9 @@ export function MaintenanceInner() {
   const { data: maintenance, isLoading: isLoadingMaintenance } = useMaintenance(
     id as string
   );
-  const { data: vehicles, isLoading: isLoadingVehicles } = useVehicles(1, 100);
+  // The whole fleet, not a page of it: the lookup below and the edit-mode
+  // picker both have to resolve any vehicle, however old the record is.
+  const { data: vehicles, isLoading: isLoadingVehicles } = useAllVehicles();
   const updateMaintenanceAction = useUpdateMaintenanceAction(id as string);
   const form = useMaintenanceForm();
   const navigate = useNavigate();
@@ -59,7 +61,7 @@ export function MaintenanceInner() {
     null
   );
 
-  const vehicle = vehicles?.data?.find((v) => v.id === maintenance?.vehicle_id);
+  const vehicle = vehicles?.find((v) => v.id === maintenance?.vehicle_id);
 
   // A maintenance row has no reference code of its own, so it is named by the
   // vehicle it was for — falling back to its date.
@@ -180,7 +182,7 @@ export function MaintenanceInner() {
                             <SelectValue placeholder="Select a vehicle" />
                           </SelectTrigger>
                           <SelectContent>
-                            {vehicles?.data?.map((v) => (
+                            {vehicles?.map((v) => (
                               <SelectItem key={v.id} value={v.id}>
                                 {v.make} {v.model} - {v.license_plate}
                               </SelectItem>

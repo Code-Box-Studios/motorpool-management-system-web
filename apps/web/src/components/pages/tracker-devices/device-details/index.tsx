@@ -41,7 +41,7 @@ import {
   useUpdateTrackerDevice,
   useDeleteTrackerDevice
 } from '@/lib/mutation/tracker-devices';
-import { useVehicle, useVehicles } from '@/lib/query/vehicles';
+import { useVehicle, useAllVehicles } from '@/lib/query/vehicles';
 import {
   useTrackerDeviceForm,
   toUpdateBody,
@@ -78,9 +78,12 @@ const relativeTime = (from: Date) => {
 
 const TrackerDeviceInner = ({ deviceId }: { deviceId: string }) => {
   const { data: device, isLoading, error } = useTrackerDevice(deviceId);
-  const { data: vehicles, isPending: vehiclesLoading } = useVehicles(1, 200);
-  // The assigned vehicle is read by id, not reverse-looked-up in the paginated
-  // list above — that list can't be trusted to contain it (page size, shared cache).
+  // The whole fleet, unpaginated: a capped page can't offer a vehicle that falls
+  // outside it, so the picker would be unable to assign it at all.
+  const { data: vehicles, isPending: vehiclesLoading } = useAllVehicles();
+  // The assigned vehicle is still read by id rather than reverse-looked-up in
+  // the list above — the by-id row is authoritative regardless of that query's
+  // cache state.
   const { data: assignedVehicle, isLoading: assignedVehicleLoading } =
     useVehicle(device?.vehicleId ?? '');
   const updateDevice = useUpdateTrackerDevice();
@@ -325,7 +328,7 @@ const TrackerDeviceInner = ({ deviceId }: { deviceId: string }) => {
                             <SelectItem value={UNASSIGNED_VEHICLE}>
                               Unassigned
                             </SelectItem>
-                            {vehicles?.data?.map((v) => (
+                            {vehicles?.map((v) => (
                               <SelectItem key={v.id} value={v.id}>
                                 {vehicleLabel(v)}
                               </SelectItem>

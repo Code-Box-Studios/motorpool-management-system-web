@@ -42,8 +42,8 @@ import {
 } from './actions';
 import { useTripTicket } from '@/lib/query/trip-tickets';
 import { useUpdateTripTicket } from '@/lib/mutation/trip-tickets';
-import { useDrivers } from '@/lib/query/drivers';
-import { useVehicles } from '@/lib/query/vehicles';
+import { useAllDrivers } from '@/lib/query/drivers';
+import { useAllVehicles } from '@/lib/query/vehicles';
 import { useBranches } from '@/lib/query/shared';
 import { useDepartmentOffices } from '@/lib/query/offices';
 import { useAdmins, useAllUsers } from '@/lib/query/user-management';
@@ -91,8 +91,10 @@ const TripTicketsInner = () => {
   const tripTicketId = id;
 
   const { data: tripTicket } = useTripTicket(tripTicketId);
-  const { data: drivers, isPending: driversLoading } = useDrivers(1, 100);
-  const { data: vehicles, isPending: vehiclesLoading } = useVehicles(1, 100);
+  // Unpaginated: this ticket's vehicle/driver may sit past any page, and the
+  // pickers have to be able to offer every one of them.
+  const { data: drivers, isPending: driversLoading } = useAllDrivers();
+  const { data: vehicles, isPending: vehiclesLoading } = useAllVehicles();
   const { data: branches, isPending: branchesLoading } = useBranches();
   const { data: offices } = useDepartmentOffices();
   const { data: admins } = useAdmins();
@@ -216,7 +218,7 @@ const TripTicketsInner = () => {
   };
 
   const vehicleOf = (vehicleId: string | null | undefined) =>
-    vehicleId ? vehicles?.data?.find((v) => v.id === vehicleId) : undefined;
+    vehicleId ? vehicles?.find((v) => v.id === vehicleId) : undefined;
 
   const vehicle = vehicleOf(tripTicket.vehicle_id);
   const vehicleName = vehiclesLoading
@@ -235,7 +237,7 @@ const TripTicketsInner = () => {
 
   const driverName = driversLoading
     ? 'Loading...'
-    : drivers?.data?.find((d) => d.id === tripTicket.driver_id)?.full_name;
+    : drivers?.find((d) => d.id === tripTicket.driver_id)?.full_name;
 
   const branchName = branchesLoading
     ? 'Loading...'
@@ -323,7 +325,7 @@ const TripTicketsInner = () => {
                                 Loading vehicles...
                               </SelectItem>
                             ) : (
-                              vehicles?.data
+                              vehicles
                                 ?.filter(
                                   (v) =>
                                     v.status === 'available' ||
@@ -363,7 +365,7 @@ const TripTicketsInner = () => {
                                 Loading drivers...
                               </SelectItem>
                             ) : (
-                              drivers?.data
+                              drivers
                                 ?.filter(
                                   (driver) =>
                                     driver.status === 'active' ||
@@ -787,7 +789,7 @@ const TripTicketsInner = () => {
                                 Loading vehicles...
                               </SelectItem>
                             ) : (
-                              vehicles?.data
+                              vehicles
                                 ?.filter(
                                   (v) =>
                                     v.status === 'available' ||

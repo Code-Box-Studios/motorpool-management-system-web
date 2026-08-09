@@ -4,7 +4,7 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Controller } from 'react-hook-form';
 import { useToolForm, useAddToolAction, type ToolFormData } from './action';
 import { useNavigate } from '@tanstack/react-router';
-import { useDrivers } from '@/lib/query/drivers';
+import { useAllDrivers } from '@/lib/query/drivers';
 import {
   Select,
   SelectContent,
@@ -25,7 +25,9 @@ import {
 } from '@/components/shared/form-section';
 
 export function AddTool() {
-  const { data: drivers } = useDrivers(1, 100);
+  // The whole roster: a paged fetch would silently drop drivers past the cap
+  // out of the picker, so a tool could not be signed out to them at all.
+  const { data: drivers } = useAllDrivers();
   const addToolAction = useAddToolAction();
   const form = useToolForm();
   const navigate = useNavigate();
@@ -185,7 +187,7 @@ export function AddTool() {
                           <SelectValue placeholder="Select a driver" />
                         </SelectTrigger>
                         <SelectContent>
-                          {drivers?.data?.map((driver) => (
+                          {drivers?.map((driver) => (
                             <SelectItem key={driver.id} value={driver.id}>
                               {driver.full_name}
                             </SelectItem>

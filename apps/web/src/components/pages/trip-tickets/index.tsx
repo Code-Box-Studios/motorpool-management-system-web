@@ -51,7 +51,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   useApproveTripTicket,
   useDisapproveTripTicket,
@@ -169,9 +169,12 @@ const TripTicketsPage = () => {
   const isAdmin = userRole?.roles?.name?.toLowerCase() === 'admin';
   const isRequester = userRole?.roles?.name?.toLowerCase() === 'requester';
 
-  // Filter by userId for requesters, by branchId for admins
+  // A requester only ever sees their own requests. An admin sees the WHOLE
+  // fleet: this used to narrow the list to the admin's own branch, which hid
+  // other branches' trips from the one role meant to oversee all of them —
+  // and misleadingly so, since the admin could still open and approve those
+  // same tickets by URL (the server scopes admins to everything).
   const filterUserId = isRequester ? user?.id : undefined;
-  const filterBranchId = isAdmin ? userRole?.branch_id : undefined;
 
   const { page, sort, setPage, handleSort } = useListControls();
   const limit = 10;
@@ -179,19 +182,25 @@ const TripTicketsPage = () => {
     page,
     limit,
     filterUserId,
-    filterBranchId,
+    undefined,
     undefined,
     sort ?? undefined
   );
   const totalPages = Math.ceil((tableData?.count || 0) / limit);
 
-  // The role-derived filters resolve async — if they land after the user has
-  // already paged, the dataset changed underneath them, so snap back to page 1.
+  // The role-derived filter resolves async — if it CHANGES after the user has
+  // already paged, the dataset moved underneath them, so snap back to page 1.
+  // The ref is what keeps this from firing on mount: an unconditional reset
+  // rewrote the URL on first render and threw away a shared /trip-tickets?page=3
+  // link before the user ever saw it.
+  const previousFilterUserId = useRef(filterUserId);
   useEffect(() => {
+    if (previousFilterUserId.current === filterUserId) return;
+    previousFilterUserId.current = filterUserId;
     setPage(1);
-  }, [filterUserId, filterBranchId, setPage]);
+  }, [filterUserId, setPage]);
   const { data: calendarData, isLoading: isCalendarLoading } =
-    useAllTripTickets(filterUserId, filterBranchId);
+    useAllTripTickets(filterUserId, undefined);
   const { data: vehiclesData } = useAllVehicles();
   const navigate = useNavigate();
   const approveTripTicket = useApproveTripTicket();
