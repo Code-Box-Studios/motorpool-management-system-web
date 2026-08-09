@@ -31,17 +31,16 @@ function toSnake(p: SparePartApiResponse): SparePart {
   };
 }
 
-// Fetch a page of spare parts, reshaped (API sorts updatedAt desc).
+// Fetch a page of spare parts, reshaped (API sorts updatedAt desc unless a
+// sort is asked for).
 export async function getSpareParts(
   page = 1,
-  limit = 10
+  limit = 10,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
 ): Promise<{ data: SparePart[]; count: number | null }> {
   const res = await api.get<{ data: SparePartApiResponse[]; count: number }>(
     '/spare-parts',
-    {
-      page,
-      limit
-    }
+    { page, limit, ...(sort ?? {}) }
   );
   return { data: res.data.map(toSnake), count: res.count };
 }

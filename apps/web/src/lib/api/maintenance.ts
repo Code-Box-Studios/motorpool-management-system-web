@@ -64,17 +64,15 @@ function toMaintenanceBody(
   };
 }
 
-// Fetch a page of maintenance records (date desc, server-sorted).
+// Fetch a page of maintenance records (date desc by default, server-sorted).
 export const getMaintenances = async (
   page: number = 1,
-  limit: number = 10
+  limit: number = 10,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
 ): Promise<{ data: Maintenance[]; count: number | null }> => {
   const res = await api.get<{ data: MaintenanceApiResponse[]; count: number }>(
     '/maintenance',
-    {
-      page,
-      limit
-    }
+    { page, limit, ...(sort ?? {}) }
   );
   return { data: res.data.map(toSnake), count: res.count };
 };

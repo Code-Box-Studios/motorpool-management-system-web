@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import type { CreateSparePartBody, UpdateSparePartBody } from '@mms/shared';
-import { paginationQuerySchema } from '@mms/shared';
+import { sparePartsListQuerySchema } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { publicUploadPath } from '../../lib/uploads.js';
 import * as service from './service.js';
@@ -16,7 +16,7 @@ function imagePath(req: Request): string | null {
 }
 
 export async function list(req: Request, res: Response): Promise<void> {
-  res.json(await service.list(paginationQuerySchema.parse(req.query)));
+  res.json(await service.list(sparePartsListQuerySchema.parse(req.query)));
 }
 
 export async function getById(req: Request, res: Response): Promise<void> {

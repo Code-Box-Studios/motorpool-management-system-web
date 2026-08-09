@@ -123,11 +123,12 @@ function toDriverBody(d: NewDriver | UpdateDriver): DriverRequestBody {
 
 export const getDrivers = async (
   page: number = 1,
-  limit: number = 10
+  limit: number = 10,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
 ): Promise<{ data: Driver[]; count: number | null }> => {
   const res = await api.get<{ data: DriverApiResponse[]; count: number }>(
     '/drivers',
-    { page, limit }
+    { page, limit, ...(sort ?? {}) }
   );
   return { data: res.data.map(toSnakeDriver), count: res.count };
 };
@@ -168,7 +169,10 @@ export const createDriver = async (
     );
   }
   return toSnakeDriver(
-    await api.postForm<DriverApiResponse>('/drivers', driverFormData(driver, file))
+    await api.postForm<DriverApiResponse>(
+      '/drivers',
+      driverFormData(driver, file)
+    )
   );
 };
 
@@ -180,7 +184,10 @@ export const updateDriver = async (
 ): Promise<Driver> => {
   if (!file && !removePhoto) {
     return toSnakeDriver(
-      await api.patch<DriverApiResponse>(`/drivers/${id}`, toDriverBody(updates))
+      await api.patch<DriverApiResponse>(
+        `/drivers/${id}`,
+        toDriverBody(updates)
+      )
     );
   }
   const fd = driverFormData(updates, file);

@@ -1,12 +1,26 @@
 import type { CreateTrackerDeviceBody, ResolveDeviceResponse, TrackerDevicesListQuery, UpdateTrackerDeviceBody } from '@mms/shared';
+import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
+import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
 import { findTrackerDeviceById, findTrackerDeviceByImei, listTrackerDevices } from './repository.js';
 
 export async function list(query: TrackerDevicesListQuery) {
-  const { vehicleId, status, ...page } = query;
-  return listTrackerDevices(toSkipTake(page), { vehicleId, status });
+  const { vehicleId, status, sortBy, sortOrder, ...page } = query;
+  const orderBy = toOrderBy<Prisma.TrackerDeviceOrderByWithRelationInput>(
+    sortBy,
+    sortOrder,
+    {
+      imei: (order) => ({ imei: order }),
+      label: (order) => ({ label: order }),
+      simNumber: (order) => ({ simNumber: order }),
+      status: (order) => ({ status: order }),
+      lastSeenAt: (order) => ({ lastSeenAt: order })
+    },
+    { updatedAt: 'desc' }
+  );
+  return listTrackerDevices(toSkipTake(page), { vehicleId, status }, orderBy);
 }
 
 export async function getById(id: string) {

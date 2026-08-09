@@ -1,15 +1,28 @@
 import { USER_ROLES } from '@mms/shared';
-import type { CreateDriverBody, PaginationQuery, UpdateDriverBody } from '@mms/shared';
+import type { CreateDriverBody, DriversListQuery, UpdateDriverBody } from '@mms/shared';
+import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
+import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import { findDriverByEmail, findDriverById, listDrivers } from './repository.js';
 
-export async function list(query: PaginationQuery, actor: AuthenticatedUser) {
+export async function list(query: DriversListQuery, actor: AuthenticatedUser) {
   // Driver-role callers are scoped to their own row (spec §5 matrix).
   const onlyUserId = actor.role === USER_ROLES.driver ? actor.id : undefined;
-  return listDrivers(toSkipTake(query), onlyUserId);
+  const orderBy = toOrderBy<Prisma.DriverOrderByWithRelationInput>(
+    query.sortBy,
+    query.sortOrder,
+    {
+      fullName: (order) => ({ fullName: order }),
+      licenseNumber: (order) => ({ licenseNumber: order }),
+      phone: (order) => ({ phone: order }),
+      status: (order) => ({ status: order })
+    },
+    { updatedAt: 'desc' }
+  );
+  return listDrivers(toSkipTake(query), onlyUserId, orderBy);
 }
 
 export async function getById(id: string, actor: AuthenticatedUser) {

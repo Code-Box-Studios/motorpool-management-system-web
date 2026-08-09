@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { TRACKER_DEVICE_STATUS } from '../enums.js';
-import { paginationQuerySchema } from './common.js';
+import { paginationQuerySchema, sortQuerySchema } from './common.js';
 
 const statusSchema = z.nativeEnum(TRACKER_DEVICE_STATUS);
 
@@ -19,10 +19,21 @@ export type CreateTrackerDeviceBody = z.infer<typeof createTrackerDeviceBodySche
 export const updateTrackerDeviceBodySchema = createTrackerDeviceBodySchema.partial();
 export type UpdateTrackerDeviceBody = z.infer<typeof updateTrackerDeviceBodySchema>;
 
-export const trackerDevicesListQuerySchema = paginationQuerySchema.extend({
-  vehicleId: z.string().uuid().optional(),
-  status: statusSchema.optional()
-});
+// The list's sortable columns — the table's visible columns, nothing more.
+// (Vehicle is resolved client-side from a lookup, so it is not sortable here.)
+export const TRACKER_DEVICE_SORT_COLUMNS = [
+  'imei',
+  'label',
+  'simNumber',
+  'status',
+  'lastSeenAt'
+] as const;
+export const trackerDevicesListQuerySchema = paginationQuerySchema
+  .extend({
+    vehicleId: z.string().uuid().optional(),
+    status: statusSchema.optional()
+  })
+  .merge(sortQuerySchema(TRACKER_DEVICE_SORT_COLUMNS));
 export type TrackerDevicesListQuery = z.infer<typeof trackerDevicesListQuerySchema>;
 
 // The gateway sends the identifier the tracker reported; we resolve it to a vehicle.

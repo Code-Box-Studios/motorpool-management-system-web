@@ -5,10 +5,14 @@ import {
   getSparePartById
 } from '@/lib/api/spare-parts';
 
-export const useSpareParts = (page: number = 1, limit: number = 10) => {
+export const useSpareParts = (
+  page: number = 1,
+  limit: number = 10,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+) => {
   return useQuery({
-    queryKey: ['spare_parts', page],
-    queryFn: () => getSpareParts(page, limit)
+    queryKey: ['spare_parts', page, limit, sort?.sortBy, sort?.sortOrder],
+    queryFn: () => getSpareParts(page, limit, sort)
   });
 };
 

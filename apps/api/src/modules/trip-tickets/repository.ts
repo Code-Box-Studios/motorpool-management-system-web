@@ -17,9 +17,13 @@ export function findTripTicketById(id: string) {
   return prisma.tripTicket.findUnique({ where: { id }, include: tripTicketInclude });
 }
 
-export async function listTripTickets(where: Prisma.TripTicketWhereInput, skipTake: SkipTake) {
+export async function listTripTickets(
+  where: Prisma.TripTicketWhereInput,
+  skipTake: SkipTake,
+  orderBy: Prisma.TripTicketOrderByWithRelationInput = { updatedAt: 'desc' }
+) {
   const [data, count] = await Promise.all([
-    prisma.tripTicket.findMany({ where, include: tripTicketInclude, orderBy: { startTs: 'desc' }, ...skipTake }),
+    prisma.tripTicket.findMany({ where, include: tripTicketInclude, orderBy, ...skipTake }),
     prisma.tripTicket.count({ where })
   ]);
   return { data, count };

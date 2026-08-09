@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import type { CreateTripTicketBody, TripTicketsListQuery, UpdateTripTicketBody } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
+import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import { findDriverByUserId } from '../drivers/repository.js';
@@ -32,7 +33,20 @@ export async function list(query: TripTicketsListQuery, actor: AuthenticatedUser
   // scope key and read others' tickets (spec §5 IDOR). AND keeps scope binding:
   // admin/evp/guard scope is {} so their filters apply unchanged.
   const where: Prisma.TripTicketWhereInput = { AND: [scope, filters] };
-  return listTripTickets(where, toSkipTake(query));
+  const orderBy = toOrderBy<Prisma.TripTicketOrderByWithRelationInput>(
+    query.sortBy,
+    query.sortOrder,
+    {
+      ticketNo: (order) => ({ ticketNo: order }),
+      destination: (order) => ({ destination: order }),
+      purpose: (order) => ({ purpose: order }),
+      startTs: (order) => ({ startTs: order }),
+      endTs: (order) => ({ endTs: order }),
+      status: (order) => ({ status: order })
+    },
+    { updatedAt: 'desc' }
+  );
+  return listTripTickets(where, toSkipTake(query), orderBy);
 }
 
 export async function getById(id: string, actor: AuthenticatedUser) {

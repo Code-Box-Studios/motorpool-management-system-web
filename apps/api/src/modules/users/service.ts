@@ -1,7 +1,9 @@
 import { USER_ROLES } from '@mms/shared';
 import type { ChangePasswordBody, CreateUserBody, UpdateUserBody, UserResponse, UsersListQuery } from '@mms/shared';
+import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
+import { toOrderBy } from '../../lib/sorting.js';
 import { hashPassword, verifyPassword } from '../../lib/password.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
@@ -23,7 +25,20 @@ export function toUserResponse(user: UserRow): UserResponse {
 
 // Lists users, optionally filtered by role name, with pagination.
 export async function list(query: UsersListQuery) {
-  const { data, count } = await listUsers(query.role, toSkipTake(query));
+  const orderBy = toOrderBy<Prisma.UserOrderByWithRelationInput>(
+    query.sortBy,
+    query.sortOrder,
+    {
+      fullName: (order) => ({ fullName: order }),
+      // Role and branch are to-one relations — sort by their display name.
+      role: (order) => ({ userRole: { role: { name: order } } }),
+      branch: (order) => ({ branch: { name: order } }),
+      status: (order) => ({ status: order }),
+      createdAt: (order) => ({ createdAt: order })
+    },
+    { updatedAt: 'desc' }
+  );
+  const { data, count } = await listUsers(query.role, toSkipTake(query), orderBy);
   return { data: data.map(toUserResponse), count };
 }
 

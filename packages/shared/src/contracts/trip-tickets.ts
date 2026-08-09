@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { FUEL_TYPE, TRIP_TICKET_STATUS } from '../enums.js';
-import { paginationQuerySchema } from './common.js';
+import { paginationQuerySchema, sortQuerySchema } from './common.js';
 
 // Create: a new ticket is always born pending_admin_approval; the client cannot
 // choose a status. preparedBy is DB-required but the FE leaves it blank → default ''.
@@ -63,10 +63,22 @@ export const checkInBodySchema = z.object({
 });
 export type CheckInBody = z.infer<typeof checkInBodySchema>;
 
-export const tripTicketsListQuerySchema = paginationQuerySchema.extend({
-  requestedBy: z.string().uuid().optional(),
-  branchId: z.string().uuid().optional(),
-  driverId: z.string().uuid().optional(),
-  status: z.nativeEnum(TRIP_TICKET_STATUS).optional()
-});
+// The list's sortable columns — the table's visible columns, nothing more.
+export const TRIP_TICKET_SORT_COLUMNS = [
+  'ticketNo',
+  'destination',
+  'purpose',
+  'startTs',
+  'endTs',
+  'status'
+] as const;
+
+export const tripTicketsListQuerySchema = paginationQuerySchema
+  .extend({
+    requestedBy: z.string().uuid().optional(),
+    branchId: z.string().uuid().optional(),
+    driverId: z.string().uuid().optional(),
+    status: z.nativeEnum(TRIP_TICKET_STATUS).optional()
+  })
+  .merge(sortQuerySchema(TRIP_TICKET_SORT_COLUMNS));
 export type TripTicketsListQuery = z.infer<typeof tripTicketsListQuerySchema>;

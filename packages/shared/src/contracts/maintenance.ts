@@ -1,7 +1,24 @@
 import { z } from 'zod';
 import { INTERVAL_TYPE, MAINTENANCE_TYPE } from '../enums.js';
+import { paginationQuerySchema, sortQuerySchema } from './common.js';
 
 // ----- Simple service-history rows (/maintenance) -----
+
+// The list's sortable columns — the table's visible columns, nothing more.
+// `vehicle` sorts by the related vehicle's make.
+export const MAINTENANCE_SORT_COLUMNS = [
+  'date',
+  'vehicle',
+  'type',
+  'description',
+  'cost',
+  'mileage',
+  'nextDue'
+] as const;
+export const maintenanceListQuerySchema = paginationQuerySchema
+  .merge(sortQuerySchema(MAINTENANCE_SORT_COLUMNS))
+  .extend({ vehicleId: z.string().uuid().optional() });
+export type MaintenanceListQuery = z.infer<typeof maintenanceListQuerySchema>;
 export const createMaintenanceBodySchema = z.object({
   vehicleId: z.string().uuid(),
   type: z.nativeEnum(MAINTENANCE_TYPE),

@@ -16,9 +16,13 @@ export function findJobOrderById(id: string) {
   return prisma.jobOrder.findUnique({ where: { id }, include: jobOrderInclude });
 }
 
-export async function listJobOrders(where: Prisma.JobOrderWhereInput, skipTake: SkipTake) {
+export async function listJobOrders(
+  where: Prisma.JobOrderWhereInput,
+  skipTake: SkipTake,
+  orderBy: Prisma.JobOrderOrderByWithRelationInput = { updatedAt: 'desc' }
+) {
   const [data, count] = await Promise.all([
-    prisma.jobOrder.findMany({ where, include: jobOrderInclude, orderBy: { targetDate: 'asc' }, ...skipTake }),
+    prisma.jobOrder.findMany({ where, include: jobOrderInclude, orderBy, ...skipTake }),
     prisma.jobOrder.count({ where })
   ]);
   return { data, count };

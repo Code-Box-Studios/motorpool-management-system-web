@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import type { CreateJobOrderBody, JobOrdersListQuery, UpdateJobOrderBody } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
+import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import { findDriverByUserId } from '../drivers/repository.js';
@@ -21,7 +22,22 @@ async function scopeFor(actor: AuthenticatedUser): Promise<Prisma.JobOrderWhereI
 export async function list(query: JobOrdersListQuery, actor: AuthenticatedUser) {
   const scope = await scopeFor(actor);
   const where: Prisma.JobOrderWhereInput = { ...scope, ...(query.status ? { status: query.status } : {}) };
-  return listJobOrders(where, toSkipTake(query));
+  const orderBy = toOrderBy<Prisma.JobOrderOrderByWithRelationInput>(
+    query.sortBy,
+    query.sortOrder,
+    {
+      orderNo: (order) => ({ orderNo: order }),
+      status: (order) => ({ status: order }),
+      // Vehicle and mechanic are to-one relations — sort by their display name.
+      vehicle: (order) => ({ vehicle: { make: order } }),
+      incidentDate: (order) => ({ incidentDate: order }),
+      assignedMechanic: (order) => ({ assignedMechanic: { fullName: order } }),
+      targetDate: (order) => ({ targetDate: order }),
+      repairDone: (order) => ({ repairDone: order })
+    },
+    { updatedAt: 'desc' }
+  );
+  return listJobOrders(where, toSkipTake(query), orderBy);
 }
 
 export async function getById(id: string, actor: AuthenticatedUser) {

@@ -1,11 +1,27 @@
-import type { CreateToolBody, PaginationQuery, UpdateToolBody } from '@mms/shared';
+import type { CreateToolBody, ToolsListQuery, UpdateToolBody } from '@mms/shared';
+import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
+import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
 import { findToolById, listTools } from './repository.js';
 
-export async function list(query: PaginationQuery) {
-  return listTools(toSkipTake(query));
+export async function list(query: ToolsListQuery) {
+  const orderBy = toOrderBy<Prisma.ToolOrderByWithRelationInput>(
+    query.sortBy,
+    query.sortOrder,
+    {
+      name: (order) => ({ name: order }),
+      status: (order) => ({ status: order }),
+      // "Signed out to" shows the borrowing driver's name, so sort through the
+      // to-one relation rather than by the raw foreign key.
+      borrowedBy: (order) => ({ borrowedBy: { fullName: order } }),
+      estimatedReturnDate: (order) => ({ estimatedReturnDate: order }),
+      description: (order) => ({ description: order })
+    },
+    { updatedAt: 'desc' }
+  );
+  return listTools(toSkipTake(query), orderBy);
 }
 
 export async function getById(id: string) {

@@ -5,10 +5,13 @@ import {
   type TrackerDeviceListParams
 } from '@/lib/api/tracker-devices';
 
-export const useTrackerDevices = (params: TrackerDeviceListParams = {}) => {
+export const useTrackerDevices = (
+  params: TrackerDeviceListParams = {},
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+) => {
   return useQuery({
-    queryKey: ['tracker-devices', params],
-    queryFn: () => getTrackerDevices(params)
+    queryKey: ['tracker-devices', params, sort?.sortBy, sort?.sortOrder],
+    queryFn: () => getTrackerDevices(params, sort)
   });
 };
 

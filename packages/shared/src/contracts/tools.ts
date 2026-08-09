@@ -1,6 +1,27 @@
 import { z } from 'zod';
 import { TOOL_STATUS } from '../enums.js';
-import { booleanFromString, nullableDate, nullableString, nullableUuid } from './common.js';
+import {
+  booleanFromString,
+  nullableDate,
+  nullableString,
+  nullableUuid,
+  paginationQuerySchema,
+  sortQuerySchema
+} from './common.js';
+
+// The list's sortable columns — the table's visible columns, nothing more.
+// `borrowedBy` sorts by the borrowing driver's name through the to-one relation.
+export const TOOL_SORT_COLUMNS = [
+  'name',
+  'status',
+  'borrowedBy',
+  'estimatedReturnDate',
+  'description'
+] as const;
+export const toolsListQuerySchema = paginationQuerySchema.merge(
+  sortQuerySchema(TOOL_SORT_COLUMNS)
+);
+export type ToolsListQuery = z.infer<typeof toolsListQuerySchema>;
 
 // Permissive by design: the tools UI writes borrow/return state directly onto
 // the tool row (no borrow-request entity, no enforced invariants — spec §6).

@@ -5,10 +5,14 @@ import {
   getMaintenanceById
 } from '@/lib/api/maintenance';
 
-export const useMaintenances = (page: number = 1, limit: number = 10) => {
+export const useMaintenances = (
+  page: number = 1,
+  limit: number = 10,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+) => {
   return useQuery({
-    queryKey: ['maintenances', page],
-    queryFn: () => getMaintenances(page, limit)
+    queryKey: ['maintenances', page, limit, sort?.sortBy, sort?.sortOrder],
+    queryFn: () => getMaintenances(page, limit, sort)
   });
 };
 

@@ -149,11 +149,12 @@ export async function getJobOrders(
   page = 1,
   limit = 10,
   _userId?: string,
-  _userRole?: string
+  _userRole?: string,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
 ): Promise<{ data: JobOrderWithRelations[]; count: number | null }> {
   const res = await api.get<{ data: JobOrderApiResponse[]; count: number }>(
     '/job-orders',
-    { page, limit }
+    { page, limit, ...(sort ?? {}) }
   );
   return { data: res.data.map(toSnake), count: res.count };
 }

@@ -28,16 +28,18 @@ export interface TrackerDeviceListParams {
   status?: TrackerDevice['status'];
 }
 
-// Fetch tracker devices (API sorts updatedAt desc). Filters + pagination are
-// forwarded as query params per trackerDevicesListQuerySchema. Passed as an
-// object literal so it satisfies the client's Record index signature.
+// Fetch tracker devices (API sorts updatedAt desc unless a sort is given).
+// Filters + pagination are forwarded as query params per
+// trackerDevicesListQuerySchema. Passed as an object literal so it satisfies
+// the client's Record index signature.
 export async function getTrackerDevices(
-  params: TrackerDeviceListParams = {}
+  params: TrackerDeviceListParams = {},
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
 ): Promise<{ data: TrackerDevice[]; count: number }> {
   const { page, limit, vehicleId, status } = params;
   const res = await api.get<{ data: TrackerDevice[]; count: number }>(
     '/tracker-devices',
-    { page, limit, vehicleId, status }
+    { page, limit, vehicleId, status, ...(sort ?? {}) }
   );
   return { data: res.data, count: res.count };
 }

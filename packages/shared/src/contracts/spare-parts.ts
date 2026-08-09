@@ -1,5 +1,22 @@
 import { z } from 'zod';
-import { booleanFromString, nullableString } from './common.js';
+import {
+  booleanFromString,
+  nullableString,
+  paginationQuerySchema,
+  sortQuerySchema
+} from './common.js';
+
+// The list's sortable columns — the table's visible columns, nothing more.
+export const SPARE_PART_SORT_COLUMNS = [
+  'name',
+  'brand',
+  'quantity',
+  'description'
+] as const;
+export const sparePartsListQuerySchema = paginationQuerySchema.merge(
+  sortQuerySchema(SPARE_PART_SORT_COLUMNS)
+);
+export type SparePartsListQuery = z.infer<typeof sparePartsListQuerySchema>;
 
 export const createSparePartBodySchema = z.object({
   name: z.string().min(1),

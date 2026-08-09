@@ -206,7 +206,8 @@ export async function getTripTickets(
   limit = 10,
   userId?: string,
   branchId?: string,
-  driverId?: string
+  driverId?: string,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
 ): Promise<{ data: TripTicket[]; count: number | null }> {
   const res = await api.get<{ data: TripTicketApiResponse[]; count: number }>(
     '/trip-tickets',
@@ -215,7 +216,8 @@ export async function getTripTickets(
       limit,
       requestedBy: userId,
       branchId,
-      driverId
+      driverId,
+      ...(sort ?? {})
     }
   );
   return { data: res.data.map(toSnake), count: res.count };

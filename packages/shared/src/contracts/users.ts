@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { paginationQuerySchema } from './common.js';
+import { paginationQuerySchema, sortQuerySchema } from './common.js';
 
 export const userResponseSchema = z.object({
   id: z.string().uuid(),
@@ -40,7 +40,18 @@ export const changePasswordBodySchema = z.object({
 });
 export type ChangePasswordBody = z.infer<typeof changePasswordBodySchema>;
 
-export const usersListQuerySchema = paginationQuerySchema.extend({
-  role: z.string().optional()
-});
+// The list's sortable columns — the table's visible columns, nothing more.
+// `role` and `branch` sort through their to-one relations server-side.
+export const USER_SORT_COLUMNS = [
+  'fullName',
+  'role',
+  'branch',
+  'status',
+  'createdAt'
+] as const;
+export const usersListQuerySchema = paginationQuerySchema
+  .extend({
+    role: z.string().optional()
+  })
+  .merge(sortQuerySchema(USER_SORT_COLUMNS));
 export type UsersListQuery = z.infer<typeof usersListQuerySchema>;

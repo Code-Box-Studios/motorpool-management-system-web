@@ -37,14 +37,16 @@ function toSnake(t: ToolApiResponse): Tool {
   };
 }
 
-// Fetch a page of tools, reshaped (API sorts updatedAt desc).
+// Fetch a page of tools, reshaped (API sorts updatedAt desc unless a sort is
+// requested).
 export async function getTools(
   page = 1,
-  limit = 10
+  limit = 10,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
 ): Promise<{ data: Tool[]; count: number | null }> {
   const res = await api.get<{ data: ToolApiResponse[]; count: number }>(
     '/tools',
-    { page, limit }
+    { page, limit, ...(sort ?? {}) }
   );
   return { data: res.data.map(toSnake), count: res.count };
 }

@@ -1,14 +1,33 @@
 import { Prisma } from '@prisma/client';
-import type { CreateVehicleBody, PaginationQuery, UpdateVehicleBody } from '@mms/shared';
+import type { CreateVehicleBody, UpdateVehicleBody, VehiclesListQuery } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
+import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import { findVehicleById, listVehicles } from './repository.js';
 import { changeVehicleStatus } from './status.js';
 
-export async function list(query: PaginationQuery) {
-  return listVehicles(toSkipTake(query));
+export async function list(query: VehiclesListQuery) {
+  // The Vehicle column shows "make model year", so sorting it orders by make
+  // with model as the tiebreak; `branch` sorts on the related branch's name.
+  const orderBy = toOrderBy<
+    Prisma.VehicleOrderByWithRelationInput | Prisma.VehicleOrderByWithRelationInput[]
+  >(
+    query.sortBy,
+    query.sortOrder,
+    {
+      make: (order) => [{ make: order }, { model: order }],
+      licensePlate: (order) => ({ licensePlate: order }),
+      status: (order) => ({ status: order }),
+      mileage: (order) => ({ mileage: order }),
+      fuelType: (order) => ({ fuelType: order }),
+      capacity: (order) => ({ capacity: order }),
+      branch: (order) => ({ branch: { name: order } })
+    },
+    [{ updatedAt: 'desc' }]
+  );
+  return listVehicles(toSkipTake(query), orderBy);
 }
 
 export async function getById(id: string) {

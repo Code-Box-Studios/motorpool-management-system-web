@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 
 export function findDriverById(id: string) {
@@ -10,12 +11,13 @@ export function findDriverByEmail(email: string) {
 
 export async function listDrivers(
   skipTake: { skip: number; take: number } | Record<string, never>,
-  onlyUserId?: string
+  onlyUserId?: string,
+  orderBy: Prisma.DriverOrderByWithRelationInput = { updatedAt: 'desc' }
 ) {
   // Spec §5 matrix: driver-role callers see only their own personnel row.
   const where = onlyUserId ? { userId: onlyUserId } : undefined;
   const [data, count] = await Promise.all([
-    prisma.driver.findMany({ where, orderBy: { fullName: 'asc' }, ...skipTake }),
+    prisma.driver.findMany({ where, orderBy, ...skipTake }),
     prisma.driver.count({ where })
   ]);
   return { data, count };

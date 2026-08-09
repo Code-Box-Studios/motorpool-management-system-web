@@ -18,10 +18,14 @@ export const useAllUsers = () => {
 
 // One page of users for the user-management table. Keeps the 'allUsers' key
 // prefix so the existing mutations' invalidations cover paged queries too.
-export const useUsers = (page: number = 1, limit: number = 10) => {
+export const useUsers = (
+  page: number = 1,
+  limit: number = 10,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+) => {
   return useQuery({
-    queryKey: ['allUsers', page, limit],
-    queryFn: () => getUsers(page, limit)
+    queryKey: ['allUsers', page, limit, sort?.sortBy, sort?.sortOrder],
+    queryFn: () => getUsers(page, limit, sort)
   });
 };
 

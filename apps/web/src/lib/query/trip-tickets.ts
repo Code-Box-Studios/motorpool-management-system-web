@@ -10,11 +10,21 @@ export const useTripTickets = (
   limit: number = 10,
   userId?: string,
   branchId?: string,
-  driverId?: string
+  driverId?: string,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
 ) => {
   return useQuery({
-    queryKey: ['trip_tickets', page, limit, userId, branchId, driverId],
-    queryFn: () => getTripTickets(page, limit, userId, branchId, driverId)
+    queryKey: [
+      'trip_tickets',
+      page,
+      limit,
+      userId,
+      branchId,
+      driverId,
+      sort?.sortBy,
+      sort?.sortOrder
+    ],
+    queryFn: () => getTripTickets(page, limit, userId, branchId, driverId, sort)
   });
 };
 

@@ -50,10 +50,15 @@ export const getAllUsers = async (): Promise<UserProfileData[]> => {
 // One page of users plus the total count, for the paginated user-management table.
 export const getUsers = async (
   page: number = 1,
-  limit: number = 10
+  limit: number = 10,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
 ): Promise<{ data: UserProfileData[]; count: number }> => {
   const [res, branches] = await Promise.all([
-    api.get<{ data: UserResponse[]; count: number }>('/users', { page, limit }),
+    api.get<{ data: UserResponse[]; count: number }>('/users', {
+      page,
+      limit,
+      ...(sort ?? {})
+    }),
     getAllBranches()
   ]);
   const branchMap = new Map(branches.map((b) => [b.id, b.name]));

@@ -1,7 +1,23 @@
 import { z } from 'zod';
-import { booleanFromString } from './common.js';
+import {
+  booleanFromString,
+  paginationQuerySchema,
+  sortQuerySchema
+} from './common.js';
 
 export const driverStatusSchema = z.enum(['active', 'inactive', 'on_trip']);
+
+// The list's sortable columns — the table's visible columns, nothing more.
+export const DRIVER_SORT_COLUMNS = [
+  'fullName',
+  'licenseNumber',
+  'phone',
+  'status'
+] as const;
+export const driversListQuerySchema = paginationQuerySchema.merge(
+  sortQuerySchema(DRIVER_SORT_COLUMNS)
+);
+export type DriversListQuery = z.infer<typeof driversListQuerySchema>;
 
 // The photo rides in as a multipart file (field name `photo`), never in the
 // body — the server derives its path. Everything else still accepts JSON, so

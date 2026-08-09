@@ -1,4 +1,5 @@
 import type { TrackerDevicesListQuery } from '@mms/shared';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 
 type SkipTake = { skip: number; take: number } | Record<string, never>;
@@ -13,14 +14,15 @@ export function findTrackerDeviceByImei(imei: string) {
 
 export async function listTrackerDevices(
   skipTake: SkipTake,
-  filters: Pick<TrackerDevicesListQuery, 'vehicleId' | 'status'>
+  filters: Pick<TrackerDevicesListQuery, 'vehicleId' | 'status'>,
+  orderBy: Prisma.TrackerDeviceOrderByWithRelationInput = { updatedAt: 'desc' }
 ) {
   const where = {
     ...(filters.vehicleId ? { vehicleId: filters.vehicleId } : {}),
     ...(filters.status ? { status: filters.status } : {})
   };
   const [data, count] = await Promise.all([
-    prisma.trackerDevice.findMany({ where, orderBy: { updatedAt: 'desc' }, ...skipTake }),
+    prisma.trackerDevice.findMany({ where, orderBy, ...skipTake }),
     prisma.trackerDevice.count({ where })
   ]);
   return { data, count };

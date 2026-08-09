@@ -9,11 +9,20 @@ export const useJobOrders = (
   page: number = 1,
   limit: number = 10,
   userId?: string,
-  userRole?: string
+  userRole?: string,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
 ) => {
   return useQuery({
-    queryKey: ['job_orders', page, limit, userId, userRole],
-    queryFn: () => getJobOrders(page, limit, userId, userRole)
+    queryKey: [
+      'job_orders',
+      page,
+      limit,
+      userId,
+      userRole,
+      sort?.sortBy,
+      sort?.sortOrder
+    ],
+    queryFn: () => getJobOrders(page, limit, userId, userRole, sort)
   });
 };
 

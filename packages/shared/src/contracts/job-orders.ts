@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { JOB_ORDER_STATUS, REPAIR_DONE_TYPE } from '../enums.js';
-import { paginationQuerySchema } from './common.js';
+import { paginationQuerySchema, sortQuerySchema } from './common.js';
 
 export const createJobOrderBodySchema = z.object({
   vehicleId: z.string().uuid(),
@@ -43,7 +43,22 @@ export const completeRepairBodySchema = z.object({
 });
 export type CompleteRepairBody = z.infer<typeof completeRepairBodySchema>;
 
-export const jobOrdersListQuerySchema = paginationQuerySchema.extend({
-  status: z.nativeEnum(JOB_ORDER_STATUS).optional()
-});
+// The list's sortable columns — the table's visible columns, nothing more.
+// `vehicle` and `assignedMechanic` sort through their to-one relations
+// server-side (vehicle make / mechanic full name).
+export const JOB_ORDER_SORT_COLUMNS = [
+  'orderNo',
+  'status',
+  'vehicle',
+  'incidentDate',
+  'assignedMechanic',
+  'targetDate',
+  'repairDone'
+] as const;
+
+export const jobOrdersListQuerySchema = paginationQuerySchema
+  .extend({
+    status: z.nativeEnum(JOB_ORDER_STATUS).optional()
+  })
+  .merge(sortQuerySchema(JOB_ORDER_SORT_COLUMNS));
 export type JobOrdersListQuery = z.infer<typeof jobOrdersListQuerySchema>;

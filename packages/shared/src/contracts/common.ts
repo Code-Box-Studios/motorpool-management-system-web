@@ -7,6 +7,19 @@ export const paginationQuerySchema = z.object({
 });
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
 
+// ?sortBy= / ?sortOrder= — sortBy is allow-listed per entity, so a caller can
+// never order a list by a private or unindexed column. Both optional: omitting
+// them keeps the list's default ordering.
+export const SORT_ORDERS = ['asc', 'desc'] as const;
+export type SortOrder = (typeof SORT_ORDERS)[number];
+export const sortQuerySchema = <T extends readonly [string, ...string[]]>(
+  columns: T
+) =>
+  z.object({
+    sortBy: z.enum(columns).optional(),
+    sortOrder: z.enum(SORT_ORDERS).optional()
+  });
+
 // ----- Multipart preprocessors -----
 // Everything in a multipart/form-data body arrives as a string. These coerce
 // the three-valued "absent = leave / '' = clear / value = set" convention the

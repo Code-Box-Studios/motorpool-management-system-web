@@ -1,9 +1,29 @@
 import { z } from 'zod';
 import { FUEL_TYPE, VEHICLE_STATUS } from '../enums.js';
-import { nullableUuid } from './common.js';
+import {
+  nullableUuid,
+  paginationQuerySchema,
+  sortQuerySchema
+} from './common.js';
 
 const vehicleStatusSchema = z.nativeEnum(VEHICLE_STATUS);
 const fuelTypeSchema = z.nativeEnum(FUEL_TYPE);
+
+// The list's sortable columns — the table's visible columns, nothing more.
+// `branch` sorts on the to-one relation's name.
+export const VEHICLE_SORT_COLUMNS = [
+  'make',
+  'licensePlate',
+  'status',
+  'mileage',
+  'fuelType',
+  'capacity',
+  'branch'
+] as const;
+export const vehiclesListQuerySchema = paginationQuerySchema.merge(
+  sortQuerySchema(VEHICLE_SORT_COLUMNS)
+);
+export type VehiclesListQuery = z.infer<typeof vehiclesListQuerySchema>;
 
 // Validation deliberately mirrors the current (lax) FE rules: year floor 1900
 // with no ceiling, plate/vin any non-empty string, dates any parseable value.

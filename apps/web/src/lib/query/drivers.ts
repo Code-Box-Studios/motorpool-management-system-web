@@ -1,10 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAllDrivers, getDriverById, getDrivers } from '../api/drivers';
 
-export const useDrivers = (page: number = 1, limit: number = 10) => {
+export const useDrivers = (
+  page: number = 1,
+  limit: number = 10,
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+) => {
   return useQuery({
-    queryKey: ['drivers', page, limit],
-    queryFn: () => getDrivers(page, limit)
+    queryKey: ['drivers', page, limit, sort?.sortBy, sort?.sortOrder],
+    queryFn: () => getDrivers(page, limit, sort)
   });
 };
 

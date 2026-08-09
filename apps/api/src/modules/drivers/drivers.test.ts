@@ -56,13 +56,21 @@ describe('drivers module', () => {
         data: { email: `${n.toLowerCase()}@test.local`, fullName: n, status: 'active' }
       });
     }
+    // Explicit sort keeps the page content deterministic (the DEFAULT order is
+    // updatedAt desc, which ties within this test's single transaction).
     const res = await request(app)
-      .get('/api/drivers?page=2&limit=2')
+      .get('/api/drivers?page=2&limit=2&sortBy=fullName&sortOrder=asc')
       .set('Authorization', header);
     expect(res.status).toBe(200);
     expect(res.body.count).toBe(3);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].fullName).toBe('Charlie');
+
+    // The sort allowlist is enforced: unknown columns are rejected.
+    const bad = await request(app)
+      .get('/api/drivers?sortBy=passwordHash')
+      .set('Authorization', header);
+    expect(bad.status).toBe(400);
   });
 
   it('404s on a missing driver and 403s writes for non-admins', async () => {
