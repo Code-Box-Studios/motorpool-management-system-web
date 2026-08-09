@@ -171,7 +171,9 @@ export function DriverDetails({ id }: { id: string }) {
 
                 <Field className="flex-1">
                   <FieldLabel htmlFor="driver_photo">
-                    {driver.photo && !removePhoto ? 'Replace photo' : 'Add photo'}
+                    {driver.photo && !removePhoto
+                      ? 'Replace photo'
+                      : 'Add photo'}
                   </FieldLabel>
                   <Input
                     id="driver_photo"
@@ -440,28 +442,28 @@ export function DriverDetails({ id }: { id: string }) {
                 className="border-border aspect-square w-full max-w-[180px] shrink-0 rounded-[20px] border"
               />
               <DetailGrid className="flex-1 lg:grid-cols-2">
-              <DetailItem label="Phone" value={driver.phone} />
-              <DetailItem label="Email" value={driver.email} />
-              <DetailItem
-                label="Date of Birth"
-                value={formatDate(driver.date_of_birth)}
-              />
-              <DetailItem
-                label="Hire Date"
-                value={formatDate(driver.hire_date)}
-              />
-              <DetailItem
-                label="Emergency Contact"
-                value={driver.emergency_contact_name}
-              />
-              <DetailItem
-                label="Emergency Contact Phone"
-                value={driver.emergency_contact_phone}
-              />
-              <DetailItem label="SSS Number" value={driver.sss_number} mono />
-              <DetailItem label="TIN" value={driver.tin} mono />
-              <DetailItem label="Address" value={driver.address} wide />
-              <DetailItem label="Notes" value={driver.notes} wide />
+                <DetailItem label="Phone" value={driver.phone} />
+                <DetailItem label="Email" value={driver.email} />
+                <DetailItem
+                  label="Date of Birth"
+                  value={formatDate(driver.date_of_birth)}
+                />
+                <DetailItem
+                  label="Hire Date"
+                  value={formatDate(driver.hire_date)}
+                />
+                <DetailItem
+                  label="Emergency Contact"
+                  value={driver.emergency_contact_name}
+                />
+                <DetailItem
+                  label="Emergency Contact Phone"
+                  value={driver.emergency_contact_phone}
+                />
+                <DetailItem label="SSS Number" value={driver.sss_number} mono />
+                <DetailItem label="TIN" value={driver.tin} mono />
+                <DetailItem label="Address" value={driver.address} wide />
+                <DetailItem label="Notes" value={driver.notes} wide />
               </DetailGrid>
             </div>
           </DetailSection>

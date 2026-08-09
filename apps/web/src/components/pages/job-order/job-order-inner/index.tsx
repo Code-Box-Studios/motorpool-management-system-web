@@ -69,9 +69,7 @@ export const JobOrderInner = () => {
   const { data: spareParts, isLoading: isLoadingSpareParts } =
     useAllSpareParts();
 
-  useBreadcrumbLabel(
-    jobOrder ? formatRef('JO', jobOrder.order_no) : undefined
-  );
+  useBreadcrumbLabel(jobOrder ? formatRef('JO', jobOrder.order_no) : undefined);
 
   // The API stores people as ids and embeds no user object, so a name has to be
   // found in one of the three directories. An id we cannot name is NOT shown —
@@ -196,7 +194,10 @@ export const JobOrderInner = () => {
               label="Repair Done"
               value={titleCase(jobOrder.repair_done)}
             />
-            <DetailItem label="Noted By" value={personName(jobOrder.noted_by)} />
+            <DetailItem
+              label="Noted By"
+              value={personName(jobOrder.noted_by)}
+            />
             <DetailItem
               label="Approved By"
               value={personName(jobOrder.approved_by)}

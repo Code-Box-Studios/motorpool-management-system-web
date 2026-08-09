@@ -270,7 +270,9 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
                 form="edit-spare-part-form"
                 disabled={updateSparePart.isPending}
               >
-                {updateSparePart.isPending ? 'Updating...' : 'Update Spare Part'}
+                {updateSparePart.isPending
+                  ? 'Updating...'
+                  : 'Update Spare Part'}
               </Button>
               <Button type="button" variant="outline" onClick={cancelEditing}>
                 Cancel

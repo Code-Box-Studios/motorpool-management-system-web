@@ -200,8 +200,9 @@ const Dashboard = () => {
           {/* The demo note belongs to the map it describes, not to the page. */}
           {isDemoRunning && (
             <p className="bg-status-move-bg text-status-move-fg rounded-[14px] px-4 py-3 text-sm">
-              Demo vehicle is moving through Davao City. The marker updates every
-              3 seconds with GPS coordinates, speed, heading, and engine status.
+              Demo vehicle is moving through Davao City. The marker updates
+              every 3 seconds with GPS coordinates, speed, heading, and engine
+              status.
             </p>
           )}
         </CardContent>

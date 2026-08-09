@@ -390,7 +390,10 @@ const UserInner = ({ userId }: { userId: string }) => {
                 <DetailItem label="Email" value={user.email} />
                 <DetailItem label="Role" value={roleLabel(user.role)} />
                 <DetailItem label="Branch" value={present(user.branch_name)} />
-                <DetailItem label="Joined" value={formatDate(user.created_at)} />
+                <DetailItem
+                  label="Joined"
+                  value={formatDate(user.created_at)}
+                />
               </DetailGrid>
             </div>
           </DetailSection>
@@ -454,10 +457,7 @@ const UserInner = ({ userId }: { userId: string }) => {
               title="Danger zone"
               description="Deleting a user is permanent. If the account is referenced by existing records, deactivate it (set status to Inactive) instead."
             >
-              <Button
-                variant="destructive"
-                onClick={() => setShowDelete(true)}
-              >
+              <Button variant="destructive" onClick={() => setShowDelete(true)}>
                 Delete user
               </Button>
             </DetailSection>

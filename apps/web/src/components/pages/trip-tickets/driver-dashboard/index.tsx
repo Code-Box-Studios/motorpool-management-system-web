@@ -135,10 +135,10 @@ const DriverDashboard = () => {
               </span>
             </div>
 
-            <h2 className="break-words text-2xl font-semibold tracking-tight">
+            <h2 className="text-2xl font-semibold tracking-tight break-words">
               {next.destination}
             </h2>
-            <p className="text-slate mt-1 break-words text-sm">
+            <p className="text-slate mt-1 text-sm break-words">
               {next.purpose}
             </p>
 
