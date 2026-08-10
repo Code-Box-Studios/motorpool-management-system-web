@@ -2,21 +2,33 @@ import type { CompleteRepairBody, NoteJobOrderBody } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
-import { advanceOdometer, changeVehicleStatus, claimVehicleStatus } from '../vehicles/status.js';
+import {
+  advanceOdometer,
+  changeVehicleStatus,
+  claimVehicleStatus
+} from '../vehicles/status.js';
 import { findJobOrderById } from './repository.js';
 
 async function loadInState(id: string, allowedFrom: string[]) {
   const order = await prisma.jobOrder.findUnique({ where: { id } });
   if (!order) throw new AppError(404, 'NOT_FOUND', 'Job order not found');
   if (!allowedFrom.includes(order.status)) {
-    throw new AppError(409, 'INVALID_TRANSITION', `Not allowed from status ${order.status}`);
+    throw new AppError(
+      409,
+      'INVALID_TRANSITION',
+      `Not allowed from status ${order.status}`
+    );
   }
   return order;
 }
 
 // admin note → assigned_mechanic; records the mechanic + spare-parts join rows
 // and flips the vehicle to under_maintenance. One transaction.
-export async function note(id: string, actor: AuthenticatedUser, body: NoteJobOrderBody) {
+export async function note(
+  id: string,
+  actor: AuthenticatedUser,
+  body: NoteJobOrderBody
+) {
   const order = await loadInState(id, ['pending']);
   await prisma.$transaction(async (tx) => {
     // A van that is out on a trip is not in the workshop. This used to be a soft
@@ -58,7 +70,10 @@ export async function note(id: string, actor: AuthenticatedUser, body: NoteJobOr
     // The same part can appear twice in one note, so sum by part before checking.
     const wanted = new Map<string, number>();
     for (const line of body.spareParts) {
-      wanted.set(line.sparePartId, (wanted.get(line.sparePartId) ?? 0) + line.quantity);
+      wanted.set(
+        line.sparePartId,
+        (wanted.get(line.sparePartId) ?? 0) + line.quantity
+      );
     }
 
     for (const [sparePartId, quantity] of wanted) {
@@ -80,7 +95,11 @@ export async function note(id: string, actor: AuthenticatedUser, body: NoteJobOr
     await tx.jobOrderSparePart.deleteMany({ where: { jobOrderId: id } });
     if (body.spareParts.length > 0) {
       await tx.jobOrderSparePart.createMany({
-        data: body.spareParts.map((p) => ({ jobOrderId: id, sparePartId: p.sparePartId, quantity: p.quantity }))
+        data: body.spareParts.map((p) => ({
+          jobOrderId: id,
+          sparePartId: p.sparePartId,
+          quantity: p.quantity
+        }))
       });
     }
     for (const [sparePartId, quantity] of wanted) {
@@ -93,12 +112,16 @@ export async function note(id: string, actor: AuthenticatedUser, body: NoteJobOr
   return findJobOrderById(id);
 }
 
-// evp approve → ongoing_repair.
+// evp approve → ongoing_repair (admin too, as the stand-in when no EVP is on).
 export async function approve(id: string, actor: AuthenticatedUser) {
   await loadInState(id, ['assigned_mechanic']);
   await prisma.jobOrder.update({
     where: { id },
-    data: { status: 'ongoing_repair', approvedById: actor.id, dateApproved: new Date() }
+    data: {
+      status: 'ongoing_repair',
+      approvedById: actor.id,
+      dateApproved: new Date()
+    }
   });
   return findJobOrderById(id);
 }
@@ -110,11 +133,19 @@ export async function approve(id: string, actor: AuthenticatedUser) {
 // were committed to this repair. Decrementing here — with no stock floor — was
 // what let two job orders each claim the last part and both complete, taking
 // stock negative and quietly corrupting every "In stock" / "Low stock" badge.
-export async function completeRepair(id: string, actor: AuthenticatedUser, body: CompleteRepairBody) {
+export async function completeRepair(
+  id: string,
+  actor: AuthenticatedUser,
+  body: CompleteRepairBody
+) {
   const order = await prisma.jobOrder.findUnique({ where: { id } });
   if (!order) throw new AppError(404, 'NOT_FOUND', 'Job order not found');
   if (order.status !== 'ongoing_repair') {
-    throw new AppError(409, 'INVALID_TRANSITION', `Not allowed from status ${order.status}`);
+    throw new AppError(
+      409,
+      'INVALID_TRANSITION',
+      `Not allowed from status ${order.status}`
+    );
   }
   const releaseDate = body.actualDateOfRelease ?? new Date();
   await prisma.$transaction(async (tx) => {
@@ -132,7 +163,11 @@ export async function completeRepair(id: string, actor: AuthenticatedUser, body:
       }
     });
     if (flipped.count === 0) {
-      throw new AppError(409, 'INVALID_TRANSITION', `Not allowed from status ${order.status}`);
+      throw new AppError(
+        409,
+        'INVALID_TRANSITION',
+        `Not allowed from status ${order.status}`
+      );
     }
     // The odometer the repair was signed off at. Without it this row was written
     // with `mileage: null`, and the risk model reads a null last-service mileage
@@ -143,7 +178,12 @@ export async function completeRepair(id: string, actor: AuthenticatedUser, body:
       where: { id: order.vehicleId },
       select: { mileage: true }
     });
-    await advanceOdometer(tx, order.vehicleId, body.completedMileage, vehicle.mileage);
+    await advanceOdometer(
+      tx,
+      order.vehicleId,
+      body.completedMileage,
+      vehicle.mileage
+    );
     await tx.maintenance.create({
       data: {
         vehicleId: order.vehicleId,
