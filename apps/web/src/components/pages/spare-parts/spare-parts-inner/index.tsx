@@ -22,12 +22,17 @@ import {
   FormActions
 } from '@/components/shared/form-section';
 import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
+import { useUserRole } from '@/hooks/use-user-role';
 import {
   useSparePartUpdateForm,
   type UpdateSparePartFormData
 } from './actions';
 import { useSparePart } from '@/lib/query/spare-parts';
-import { useUpdateSparePart } from '@/lib/mutation/spare-parts';
+import {
+  useUpdateSparePart,
+  useDeleteSparePart
+} from '@/lib/mutation/spare-parts';
+import { USER_ROLES } from '@/lib/enums';
 import { cn } from '@/lib/utils';
 
 const formatDateTime = (value?: string | null) => {
@@ -45,13 +50,20 @@ const formatDateTime = (value?: string | null) => {
 
 const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
   const { data: sparePart } = useSparePart(sparePartId);
+  const { data: userRole } = useUserRole();
   const updateSparePart = useUpdateSparePart();
+  const deleteSparePart = useDeleteSparePart();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [removeImage, setRemoveImage] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const [pendingData, setPendingData] =
     useState<UpdateSparePartFormData | null>(null);
+
+  // Removing a part is an admin capability, matching the API's admin-only
+  // DELETE — everyone else never sees the action offered.
+  const isAdmin = userRole?.roles?.name === USER_ROLES.admin;
 
   const form = useSparePartUpdateForm();
 
@@ -94,6 +106,17 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
         }
       );
     }
+  };
+
+  // A part still listed on a job order is refused with a 409; the mutation
+  // toasts the server's message, so the dialog just closes and the record stays
+  // put.
+  const handleConfirmDelete = () => {
+    if (!sparePart) return;
+    deleteSparePart.mutate(sparePart.id, {
+      onSuccess: () => navigate({ to: '/spare-parts' }),
+      onSettled: () => setShowDelete(false)
+    });
   };
 
   const cancelEditing = () => {
@@ -313,6 +336,17 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
               </DetailGrid>
             </div>
           </DetailSection>
+
+          {isAdmin && (
+            <DetailSection
+              title="Danger zone"
+              description="Deleting a part is permanent. If it appears on an existing job order, set its quantity to 0 instead."
+            >
+              <Button variant="destructive" onClick={() => setShowDelete(true)}>
+                Delete spare part
+              </Button>
+            </DetailSection>
+          )}
         </div>
       )}
 
@@ -325,6 +359,17 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
         loading={updateSparePart.isPending}
         onConfirm={handleConfirmUpdate}
         onCancel={() => setPendingData(null)}
+      />
+
+      <ConfirmationModal
+        open={showDelete}
+        onOpenChange={setShowDelete}
+        title="Delete Spare Part"
+        description={`This permanently removes ${sparePart.name} from the parts catalogue. This action cannot be undone.`}
+        confirmLabel="Delete permanently"
+        variant="destructive"
+        loading={deleteSparePart.isPending}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

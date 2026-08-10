@@ -318,8 +318,12 @@ const JobOrdersPage = () => {
                         />
                         {/* Pinned: the row's transition ("Note Job Order",
                             "Mark as Repaired") is the point of the row, and it sat
-                            past the scroll edge where it had to be hunted for. */}
-                        <TableHead className="bg-card border-border sticky right-0 z-10 w-[180px] border-l text-right">
+                            past the scroll edge where it had to be hunted for.
+                            From md up only — a phone's scroll port inside the card
+                            is ~280px, so pinning 180px of it would leave a slit to
+                            read the other seven columns through. Below md the
+                            column just scrolls into view with the rest of the row. */}
+                        <TableHead className="md:bg-card md:border-border w-[180px] text-right md:sticky md:right-0 md:z-10 md:border-l">
                           Actions
                         </TableHead>
                       </TableRow>
@@ -369,9 +373,11 @@ const JobOrdersPage = () => {
                             )}
                           </TableCell>
                           {/* The transition modals below are the real approval
-                              controls; a click on one must not also open the record. */}
+                              controls; a click on one must not also open the record.
+                              Same md gate as the Actions header, so the pin turns on
+                              and off for both at once and the column stays aligned. */}
                           <TableCell
-                            className="bg-card border-border sticky right-0 z-10 border-l"
+                            className="md:bg-card md:border-border md:sticky md:right-0 md:z-10 md:border-l"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="flex items-center justify-end gap-2">

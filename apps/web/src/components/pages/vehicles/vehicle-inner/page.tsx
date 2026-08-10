@@ -7,7 +7,7 @@ import { Controller } from 'react-hook-form';
 import { useVehicleUpdateForm, type UpdateVehicleFormData } from './actions';
 import type { UpdateVehicle } from '@/lib/types';
 import { useVehicle } from '@/lib/query/vehicles';
-import { useUpdateVehicle } from '@/lib/mutation/vehicles';
+import { useUpdateVehicle, useDeleteVehicle } from '@/lib/mutation/vehicles';
 import { useNavigate } from '@tanstack/react-router';
 import { useBranches } from '@/lib/query/shared';
 import {
@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { VEHICLE_STATUS, FUEL_TYPE } from '@/lib/enums';
+import { VEHICLE_STATUS, FUEL_TYPE, USER_ROLES } from '@/lib/enums';
 import { TrashIcon } from 'lucide-react';
 import { Loading } from '@/components/ui/loader';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
@@ -34,6 +34,7 @@ import {
   FormActions
 } from '@/components/shared/form-section';
 import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
+import { useUserRole } from '@/hooks/use-user-role';
 import { VehicleMaintenanceInsights } from './vehicle-maintenance-insights';
 import { VehicleTrackerSummary } from './vehicle-tracker-summary';
 
@@ -48,14 +49,21 @@ const formatDate = (value?: string | null) =>
 const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   const { data: vehicle } = useVehicle(vehicleId);
   const { data: branches, isPending: branchesLoading } = useBranches();
+  const { data: userRole } = useUserRole();
   const updateVehicle = useUpdateVehicle();
+  const deleteVehicle = useDeleteVehicle();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const [pendingData, setPendingData] = useState<UpdateVehicleFormData | null>(
     null
   );
+
+  // Removing a vehicle is an admin capability, matching the API's admin-only
+  // DELETE — everyone else never sees the action offered.
+  const isAdmin = userRole?.roles?.name === USER_ROLES.admin;
 
   const form = useVehicleUpdateForm();
 
@@ -109,6 +117,17 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
         }
       );
     }
+  };
+
+  // The server refuses a vehicle that is still referenced (409 VEHICLE_IN_USE,
+  // "set it out of service instead"); the mutation toasts that message, so the
+  // dialog just closes and the record stays put.
+  const handleConfirmDelete = () => {
+    if (!vehicle) return;
+    deleteVehicle.mutate(vehicle.id, {
+      onSuccess: () => navigate({ to: '/vehicles' }),
+      onSettled: () => setShowDelete(false)
+    });
   };
 
   if (!vehicle || branchesLoading) return <Loading />;
@@ -539,8 +558,30 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
         onCancel={() => setPendingData(null)}
       />
 
+      <ConfirmationModal
+        open={showDelete}
+        onOpenChange={setShowDelete}
+        title="Delete Vehicle"
+        description={`This permanently removes ${title} (${vehicle.license_plate}) from the fleet. This action cannot be undone.`}
+        confirmLabel="Delete permanently"
+        variant="destructive"
+        loading={deleteVehicle.isPending}
+        onConfirm={handleConfirmDelete}
+      />
+
       <VehicleMaintenanceInsights vehicleId={vehicleId} />
       <VehicleTrackerSummary vehicleId={vehicleId} />
+
+      {!isEditing && isAdmin && (
+        <DetailSection
+          title="Danger zone"
+          description="Deleting a vehicle is permanent. If it is referenced by trips, job orders or maintenance, set its status to Out of Service instead."
+        >
+          <Button variant="destructive" onClick={() => setShowDelete(true)}>
+            Delete vehicle
+          </Button>
+        </DetailSection>
+      )}
     </div>
   );
 };

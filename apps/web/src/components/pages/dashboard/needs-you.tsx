@@ -16,13 +16,30 @@ interface AttentionItem {
   status: string;
   actionLabel: string;
   to: string;
-  params: Record<string, string>;
+  search: Record<string, string>;
 }
+
+// These buttons used to open the record's DETAIL page, which is read-only — it
+// names no approval and no assignment, so "Assign" landed the admin somewhere
+// they could not assign and had to walk back to the list to find the row again.
+// The controls live on the LIST pages (the job-order row's Note Job Order
+// modal, the trip-ticket row's status menu), so that is where these go.
+//
+// Both lists order on the API's `status` column, and both statuses are Postgres
+// enums declared in workflow order, so the state that is waiting on someone is
+// the first value of each — `pending` for job orders, `pending_admin_approval`
+// for trip tickets. Ascending therefore floats exactly the rows this panel
+// names to the top of page 1, riding the ?sortBy/?sortOrder params the list
+// pages already read through useListControls — nothing new has to exist there.
+// It sorts, it does not filter: past the ten rows a page holds, the rest of
+// the waiting work is a page away, and the ref column is how you spot a row.
+const WAITING_FIRST = { sortBy: 'status', sortOrder: 'asc' };
 
 /**
  * The first thing an admin should see is not a number — it is the list of
  * things that will not move until a human touches them. Trips waiting to be
- * approved, repairs waiting for a mechanic.
+ * approved, repairs waiting for a mechanic. Each row hands off to the list page
+ * that owns the action, sorted so the waiting work is what loads first.
  */
 const NeedsYou = () => {
   const { data: trips, isLoading: tripsLoading } = useAllTripTickets();
@@ -49,9 +66,11 @@ const NeedsYou = () => {
         title: `Trip approval — ${t.destination}`,
         subtitle: vehicleLabel(t.vehicle_id),
         status: t.status ?? '',
-        actionLabel: 'Review',
-        to: '/trip-tickets/$id',
-        params: { id: t.id }
+        // Named for where it lands: the Trip Tickets table, whose status pill
+        // is the menu carrying Approve and allocate fuel / Disapprove.
+        actionLabel: 'Review in Trip Tickets',
+        to: '/trip-tickets',
+        search: WAITING_FIRST
       })),
     ...(jobOrders ?? [])
       .filter((o) => o.status === JOB_ORDER_STATUS.PENDING)
@@ -61,9 +80,12 @@ const NeedsYou = () => {
         title: `Assign mechanic — ${o.incident_details ?? 'repair'}`,
         subtitle: vehicleLabel(o.vehicle_id),
         status: o.status ?? '',
-        actionLabel: 'Assign',
-        to: '/job-order/$id',
-        params: { id: o.id }
+        // The Job Orders table's row action for a pending order is "Note Job
+        // Order" — the modal that picks the mechanic, so the assignment really
+        // does happen at the other end of this button.
+        actionLabel: 'Assign in Job Orders',
+        to: '/job-order',
+        search: WAITING_FIRST
       }))
   ];
 
@@ -110,7 +132,7 @@ const NeedsYou = () => {
               <div className="ml-auto flex items-center gap-3">
                 <StatusBadge status={item.status} />
                 <Button size="sm" asChild>
-                  <Link to={item.to} params={item.params}>
+                  <Link to={item.to} search={item.search}>
                     {item.actionLabel}
                   </Link>
                 </Button>

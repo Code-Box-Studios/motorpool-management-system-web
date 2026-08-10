@@ -40,13 +40,21 @@ import {
   useTripTicketUpdateForm,
   type UpdateTripTicketFormData
 } from './actions';
+import { FuelAllocationDialog, ReasonDialog } from '../transition-dialogs';
 import { useTripTicket } from '@/lib/query/trip-tickets';
-import { useUpdateTripTicket } from '@/lib/mutation/trip-tickets';
+import {
+  useApproveTripTicket,
+  useCancelTripTicket,
+  useDisapproveTripTicket,
+  useUpdateTripTicket
+} from '@/lib/mutation/trip-tickets';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import { useBranches } from '@/lib/query/shared';
 import { useDepartmentOffices } from '@/lib/query/offices';
 import { useAdmins, useAllUsers } from '@/lib/query/user-management';
+import { useAuth } from '@/hooks/use-auth';
+import { useUserRole } from '@/hooks/use-user-role';
 import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
 import { formatRef } from '@/lib/utils/reference';
 import { FUEL_TYPE, TRIP_TICKET_STATUS } from '@/lib/enums';
@@ -99,13 +107,21 @@ const TripTicketsInner = () => {
   const { data: offices } = useDepartmentOffices();
   const { data: admins } = useAdmins();
   const { data: allUsers } = useAllUsers();
+  const { user } = useAuth();
+  const { data: userRole } = useUserRole();
   const updateTripTicket = useUpdateTripTicket();
+  const approveTripTicket = useApproveTripTicket();
+  const disapproveTripTicket = useDisapproveTripTicket();
+  const cancelTripTicket = useCancelTripTicket();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [participants, setParticipants] = useState<string[]>(['']);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingData, setPendingData] =
     useState<UpdateTripTicketFormData | null>(null);
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [disapproveOpen, setDisapproveOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const form = useTripTicketUpdateForm();
 
@@ -276,6 +292,33 @@ const TripTicketsInner = () => {
     driverName
   ].filter(Boolean);
 
+  // Opening a ticket used to be a dead end: the page named its status and gave
+  // no way to move it, so an admin who came here to decide had to go back to
+  // the list to do it. The decisions belong on the record you are reading.
+  //
+  // What is offered mirrors the server's transitions (api transitions.ts) —
+  // both the allowed-from sets and cancel's rule that the actor is an admin or
+  // the requester who owns the ticket (`requestedById`, which is why
+  // `prepared_by` is not a fallback here). A terminal ticket offers nothing.
+  const isAdmin = userRole?.roles?.name?.toLowerCase() === 'admin';
+  const isOwner = Boolean(user?.id && tripTicket.requested_by === user.id);
+  const status = tripTicket.status || TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL;
+  const canApprove =
+    isAdmin && status === TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL;
+  const canDisapprove =
+    isAdmin &&
+    (status === TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL ||
+      status === TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL);
+  const canCancel =
+    (isAdmin || isOwner) &&
+    (status === TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL ||
+      status === TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL ||
+      status === TRIP_TICKET_STATUS.APPROVED);
+  const transitionPending =
+    approveTripTicket.isPending ||
+    disapproveTripTicket.isPending ||
+    cancelTripTicket.isPending;
+
   return (
     <div>
       <RecordHeader
@@ -294,6 +337,40 @@ const TripTicketsInner = () => {
         }
         backTo="/trip-tickets"
         backLabel="Trip Tickets"
+        actions={
+          canApprove || canDisapprove || canCancel ? (
+            <>
+              {canApprove && (
+                <Button
+                  onClick={() => setApproveOpen(true)}
+                  disabled={transitionPending}
+                >
+                  Approve and allocate fuel
+                </Button>
+              )}
+              {canDisapprove && (
+                // A normal decision in the approval chain, not a destructive
+                // one — red is reserved for cancel, which discards the request.
+                <Button
+                  variant="outline"
+                  onClick={() => setDisapproveOpen(true)}
+                  disabled={transitionPending}
+                >
+                  Disapprove
+                </Button>
+              )}
+              {canCancel && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setCancelOpen(true)}
+                  disabled={transitionPending}
+                >
+                  Cancel trip ticket
+                </Button>
+              )}
+            </>
+          ) : undefined
+        }
       />
 
       {isEditing ? (
@@ -1055,6 +1132,48 @@ const TripTicketsInner = () => {
           </DetailSection>
         </div>
       )}
+
+      {/* The same dialogs the list opens from its status menu — the wording of
+          a decision must not depend on which screen it was taken from. Each
+          mutation refetches this ticket, so the header's actions follow the
+          status they just moved it to. */}
+      <FuelAllocationDialog
+        open={approveOpen}
+        ticket={tripTicket}
+        onOpenChange={setApproveOpen}
+        isLoading={approveTripTicket.isPending}
+        onConfirm={(allocation) =>
+          approveTripTicket.mutate({ id: tripTicket.id, ...allocation })
+        }
+      />
+
+      <ReasonDialog
+        open={disapproveOpen}
+        onOpenChange={setDisapproveOpen}
+        title="Disapprove Trip Ticket"
+        description="Please provide a reason for disapproving this trip ticket."
+        label="Disapproved Reason *"
+        placeholder="Enter reason for disapproval"
+        confirmLabel="Confirm Disapproval"
+        isLoading={disapproveTripTicket.isPending}
+        onConfirm={(reason) =>
+          disapproveTripTicket.mutate({ id: tripTicket.id, reason })
+        }
+      />
+
+      <ReasonDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="Cancel Trip Ticket"
+        description="Please provide a reason for cancelling this trip ticket."
+        label="Cancellation Reason *"
+        placeholder="Enter reason for cancellation..."
+        confirmLabel="Confirm Cancellation"
+        isLoading={cancelTripTicket.isPending}
+        onConfirm={(reason) =>
+          cancelTripTicket.mutate({ id: tripTicket.id, reason })
+        }
+      />
 
       <ConfirmationModal
         open={showConfirm}

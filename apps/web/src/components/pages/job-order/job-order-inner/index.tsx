@@ -1,7 +1,7 @@
 import { useParams } from '@tanstack/react-router';
 import { useJobOrder } from '@/lib/query/job-orders';
 import { useAllDrivers } from '@/lib/query/drivers';
-import { useVehicles } from '@/lib/query/vehicles';
+import { useAllVehicles } from '@/lib/query/vehicles';
 import { useAdmins, useAllUsers } from '@/lib/query/user-management';
 import { useBranches } from '@/lib/query/shared';
 import { useAllSpareParts } from '@/lib/query/spare-parts';
@@ -15,6 +15,17 @@ import EmptyState from '@/components/shared/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
 import { formatRef } from '@/lib/utils/reference';
+import { NoteJobOrderModal } from './note-job-order-modal';
+import { ApproveJobOrderModal } from './approve-job-order-modal';
+import { CompleteRepairModal } from './complete-repair-modal';
+import type { NoteJobOrderData } from './note-job-order-modal';
+import type { CompleteRepairData } from './complete-repair-modal';
+import {
+  useNoteJobOrder,
+  useApproveJobOrder,
+  useCompleteRepair
+} from '@/lib/mutation/job-orders';
+import { useUserRole } from '@/hooks/use-user-role';
 
 // Dates arrive as ISO strings (some columns are `@db.Date`). A missing or
 // unparseable one resolves to undefined so DetailItem prints an em dash
@@ -58,16 +69,25 @@ const DetailSkeleton = () => (
 
 export const JobOrderInner = () => {
   const { id } = useParams({ strict: false });
-  const { data: jobOrder, isLoading: isLoadingJobOrder } = useJobOrder(
-    id as string
-  );
+  const jobOrderId = id as string;
+  const { data: jobOrder, isLoading: isLoadingJobOrder } =
+    useJobOrder(jobOrderId);
   const { data: drivers, isLoading: isLoadingDrivers } = useAllDrivers();
-  const { data: vehicles, isLoading: isLoadingVehicles } = useVehicles(1, 100);
+  // The whole fleet, not a page of it: this is both the fallback for a payload
+  // served without its embedded vehicle AND where the odometer comes from — the
+  // embedded summary carries make/model/plate but no mileage, and
+  // complete-repair has to record a reading against it.
+  const { data: vehicles, isLoading: isLoadingVehicles } = useAllVehicles();
   const { data: branches, isLoading: isLoadingBranches } = useBranches();
   const { data: admins, isLoading: isLoadingAdmins } = useAdmins();
   const { data: allUsers, isLoading: isLoadingUsers } = useAllUsers();
   const { data: spareParts, isLoading: isLoadingSpareParts } =
     useAllSpareParts();
+
+  const { data: userRole } = useUserRole();
+  const noteJobOrder = useNoteJobOrder();
+  const approveJobOrder = useApproveJobOrder();
+  const completeRepair = useCompleteRepair();
 
   useBreadcrumbLabel(jobOrder ? formatRef('JO', jobOrder.order_no) : undefined);
 
@@ -82,6 +102,37 @@ export const JobOrderInner = () => {
       allUsers?.find((user) => user.id === personId)?.full_name ||
       undefined
     );
+  };
+
+  const isAdmin = userRole?.roles?.name === 'admin';
+  const isEVP = userRole?.roles?.name === 'evp_operations';
+
+  // Same handlers the list page uses — the transition is the same transition
+  // whether it is fired from a row or from the record itself.
+  const handleNoteJobOrder = (data: NoteJobOrderData) => {
+    noteJobOrder.mutateAsync({ id: jobOrderId, ...data }).catch((error) => {
+      console.error('Error noting job order:', error);
+    });
+  };
+
+  const handleApproveJobOrder = () => {
+    approveJobOrder.mutateAsync({ id: jobOrderId }).catch((error) => {
+      console.error('Error approving job order:', error);
+    });
+  };
+
+  const handleCompleteRepair = (data: CompleteRepairData) => {
+    completeRepair
+      .mutateAsync({
+        id: jobOrderId,
+        repairDone: data.repairDone,
+        completedMileage: Number(data.completedMileage),
+        remarks: data.remarks || undefined,
+        actualDateOfRelease: data.actualDateOfRelease || undefined
+      })
+      .catch((error) => {
+        console.error('Error completing repair:', error);
+      });
   };
 
   if (
@@ -100,11 +151,10 @@ export const JobOrderInner = () => {
     return <EmptyState message="Job order not found." />;
   }
 
-  // The read endpoint embeds the vehicle; the fleet list is the fallback for a
-  // payload served without it.
-  const vehicle =
-    jobOrder.vehicles ??
-    vehicles?.data?.find((v) => v.id === jobOrder.vehicle_id);
+  // The read endpoint embeds the vehicle; the fleet row is the fallback for a
+  // payload served without it, and the only place the odometer lives.
+  const fleetVehicle = vehicles?.find((v) => v.id === jobOrder.vehicle_id);
+  const vehicle = jobOrder.vehicles ?? fleetVehicle;
   const vehicleName = vehicle ? `${vehicle.make} ${vehicle.model}` : undefined;
   const plate = vehicle?.license_plate;
 
@@ -127,6 +177,10 @@ export const JobOrderInner = () => {
 
   return (
     <div>
+      {/* The record has to offer the same transition its row does — an admin who
+          opens a job order from the dashboard, the calendar or a link would
+          otherwise have to go back to the list to act on it. Same modals, same
+          status rules; RecordHeader lays the actions out. */}
       <RecordHeader
         reference={formatRef('JO', jobOrder.order_no)}
         title={incident || 'Job order'}
@@ -146,6 +200,37 @@ export const JobOrderInner = () => {
         }
         backTo="/job-order"
         backLabel="Job Orders"
+        actions={
+          <>
+            {isAdmin && jobOrder.status === 'pending' && (
+              <NoteJobOrderModal
+                drivers={drivers}
+                onSubmit={handleNoteJobOrder}
+                isLoading={noteJobOrder.isPending}
+                currentSparePartsUsed={
+                  Array.isArray(jobOrder.spare_parts_used)
+                    ? jobOrder.spare_parts_used
+                    : []
+                }
+              />
+            )}
+            {/* Admin as well as EVP: the approve endpoint takes both, and the
+                admin is the superuser. */}
+            {(isAdmin || isEVP) && jobOrder.status === 'assigned_mechanic' && (
+              <ApproveJobOrderModal
+                onSubmit={handleApproveJobOrder}
+                isLoading={approveJobOrder.isPending}
+              />
+            )}
+            {isAdmin && jobOrder.status === 'ongoing_repair' && (
+              <CompleteRepairModal
+                onSubmit={handleCompleteRepair}
+                isLoading={completeRepair.isPending}
+                currentMileage={fleetVehicle?.mileage ?? 0}
+              />
+            )}
+          </>
+        }
       />
 
       <div className="space-y-6">

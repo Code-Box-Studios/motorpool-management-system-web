@@ -30,11 +30,12 @@ import {
   FormActions
 } from '@/components/shared/form-section';
 import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
+import { useUserRole } from '@/hooks/use-user-role';
 import { useToolUpdateForm, type UpdateToolFormData } from './actions';
 import { useTool } from '@/lib/query/tools';
-import { useUpdateTool } from '@/lib/mutation/tools';
+import { useUpdateTool, useDeleteTool } from '@/lib/mutation/tools';
 import { useAllDrivers } from '@/lib/query/drivers';
-import { TOOL_STATUS } from '@/lib/enums';
+import { TOOL_STATUS, USER_ROLES } from '@/lib/enums';
 import { resolveStatus } from '@/lib/status';
 
 // Borrow dates are `@db.Date` (YYYY-MM-DD). `new Date('2026-07-14')` parses as
@@ -81,14 +82,21 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
   // The whole roster, not a page of it: the borrower lookup and the picker below
   // both need every driver, not just the most recently updated ones.
   const { data: drivers, isPending: driversLoading } = useAllDrivers();
+  const { data: userRole } = useUserRole();
   const updateTool = useUpdateTool();
+  const deleteTool = useDeleteTool();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [removeImage, setRemoveImage] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const [pendingData, setPendingData] = useState<UpdateToolFormData | null>(
     null
   );
+
+  // Removing a tool is an admin capability, matching the API's admin-only
+  // DELETE — everyone else never sees the action offered.
+  const isAdmin = userRole?.roles?.name === USER_ROLES.admin;
 
   const form = useToolUpdateForm();
 
@@ -133,6 +141,17 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
         }
       );
     }
+  };
+
+  // A tool still attached to a borrow request is refused with a 409; the
+  // mutation toasts the server's message, so the dialog just closes and the
+  // record stays put.
+  const handleConfirmDelete = () => {
+    if (!tool) return;
+    deleteTool.mutate(tool.id, {
+      onSuccess: () => navigate({ to: '/tools' }),
+      onSettled: () => setShowDelete(false)
+    });
   };
 
   const cancelEditing = () => {
@@ -443,6 +462,17 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
               </DetailGrid>
             </DetailSection>
           )}
+
+          {isAdmin && (
+            <DetailSection
+              title="Danger zone"
+              description="Deleting a tool is permanent. If it has borrow history, return it and mark it Under Maintenance instead."
+            >
+              <Button variant="destructive" onClick={() => setShowDelete(true)}>
+                Delete tool
+              </Button>
+            </DetailSection>
+          )}
         </div>
       )}
 
@@ -455,6 +485,17 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
         loading={updateTool.isPending}
         onConfirm={handleConfirmUpdate}
         onCancel={() => setPendingData(null)}
+      />
+
+      <ConfirmationModal
+        open={showDelete}
+        onOpenChange={setShowDelete}
+        title="Delete Tool"
+        description={`This permanently removes ${tool.name} from the tool inventory. This action cannot be undone.`}
+        confirmLabel="Delete permanently"
+        variant="destructive"
+        loading={deleteTool.isPending}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

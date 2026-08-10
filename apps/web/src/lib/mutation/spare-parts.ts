@@ -65,9 +65,12 @@ export const useDeleteSparePart = () => {
       queryClient.invalidateQueries({ queryKey: ['spare_parts'] });
       toast.success('Spare part deleted successfully');
     },
+    // A part still listed on a job order is refused with a 409; the server's
+    // message says why, so it goes through verbatim instead of a generic
+    // "Failed to delete" that leaves the admin with nowhere to go.
     onError: (error) => {
       console.error('Error deleting spare part:', error);
-      toast.error('Failed to delete spare part');
+      toast.error(error.message);
     }
   });
 };
