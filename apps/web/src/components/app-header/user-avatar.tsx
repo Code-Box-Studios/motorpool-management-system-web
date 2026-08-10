@@ -6,6 +6,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/use-auth';
+import { Link } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { Typography } from '../ui/typography';
 
@@ -42,6 +43,13 @@ const UserAvatar = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem disabled>{user.email}</DropdownMenuItem>
+        {/* This menu is the only entry point to the profile, and it is the one
+            piece of chrome BOTH shells render — the sidebar header and the
+            focus header for guard/EVP — so every role can reach their own
+            details and password from here. */}
+        <DropdownMenuItem asChild>
+          <Link to="/profile">Profile</Link>
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

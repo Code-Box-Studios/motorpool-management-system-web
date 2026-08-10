@@ -121,7 +121,7 @@ export default function EvpApprovalPage() {
   const total = pendingTickets.length + pendingJobOrders.length;
 
   return (
-    <div className="mx-auto w-full max-w-[880px] px-4 py-8 md:px-6 md:py-12">
+    <div className="mx-auto w-full max-w-[880px] md:py-6">
       <SectionLabel>Awaiting your sign-off</SectionLabel>
 
       {loading ? (

@@ -2,6 +2,8 @@ import { USER_ROLES } from '@mms/shared';
 import type {
   ChangePasswordBody,
   CreateUserBody,
+  OwnProfileResponse,
+  UpdateOwnProfileBody,
   UpdateUserBody,
   UserResponse,
   UsersListQuery
@@ -161,6 +163,57 @@ export async function update(
     });
   });
   return toUserResponse(updated);
+}
+
+// ---- Own profile (self-service) ----
+
+// The branch name is resolved here rather than sent as an id: the profile
+// screen shows a user where they belong, and a non-admin has no branch list
+// to look the id up in.
+async function toOwnProfile(userId: string): Promise<OwnProfileResponse> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { ...userInclude, branch: true }
+  });
+  if (!user) throw new AppError(404, 'NOT_FOUND', 'User not found');
+  return {
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    avatarUrl: user.avatarUrl,
+    phone: user.phone,
+    address: user.address,
+    status: user.status,
+    role: user.userRole?.role.name ?? null,
+    branchId: user.branchId,
+    branchName: user.branch?.name ?? null,
+    createdAt: user.createdAt.toISOString()
+  };
+}
+
+export function getOwnProfile(userId: string): Promise<OwnProfileResponse> {
+  return toOwnProfile(userId);
+}
+
+// Self-service edit. The id comes from the verified token, never from the
+// path, so there is no record to point this at but your own; and the body
+// schema carries no roleId/status/branchId, so the fields that decide what a
+// user may do are not writable here at all.
+export async function updateOwnProfile(
+  userId: string,
+  body: UpdateOwnProfileBody,
+  avatarPath: string | null
+): Promise<OwnProfileResponse> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      fullName: body.fullName,
+      phone: body.phone,
+      address: body.address,
+      ...(avatarPath ? { avatarUrl: avatarPath } : {})
+    }
+  });
+  return toOwnProfile(userId);
 }
 
 // Changes a user's password; self-change requires currentPassword, admin

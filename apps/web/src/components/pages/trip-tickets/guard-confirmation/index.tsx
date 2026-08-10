@@ -196,7 +196,7 @@ export default function GuardConfirmationPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto w-full max-w-md px-4 py-6">
+      <div className="mx-auto w-full max-w-md">
         <Skeleton className="h-[420px] w-full rounded-[28px]" />
       </div>
     );
@@ -204,7 +204,7 @@ export default function GuardConfirmationPage() {
 
   if (!current) {
     return (
-      <div className="mx-auto w-full max-w-md px-4 py-16 text-center">
+      <div className="mx-auto w-full max-w-md py-10 text-center">
         <div className="border-border text-muted-foreground rounded-[28px] border border-dashed px-6 py-20">
           Nothing at the gate. Approved trips will appear here.
         </div>
@@ -217,7 +217,7 @@ export default function GuardConfirmationPage() {
   const isReturning = current.status === TRIP_TICKET_STATUS.IN_PROGRESS;
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-6">
+    <div className="mx-auto w-full max-w-md">
       {/* ---------- The vehicle in front of you ---------- */}
       <div className="mb-3 flex items-center gap-2">
         <span className="bg-signal size-2 rounded-full" />

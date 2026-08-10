@@ -3,6 +3,7 @@ import {
   USER_ROLES,
   changePasswordBodySchema,
   createUserBodySchema,
+  updateOwnProfileBodySchema,
   updateUserBodySchema
 } from '@mms/shared';
 import { requireAuth } from '../../middleware/require-auth.js';
@@ -16,6 +17,18 @@ const avatarUpload = createUploader('avatars');
 export const usersRouter = Router();
 
 usersRouter.use(requireAuth);
+
+// Self-service, any role. MUST be declared before the '/:id' routes below or
+// Express matches 'me' as an id and the admin-only guard rejects everyone.
+// No id is accepted: the caller is taken from the verified token.
+usersRouter.get('/me', controller.getMe);
+usersRouter.patch(
+  '/me',
+  avatarUpload.single('avatar'),
+  validateBody(updateOwnProfileBodySchema),
+  controller.updateMe
+);
+
 usersRouter.get('/', controller.list);
 usersRouter.post(
   '/',

@@ -33,12 +33,10 @@ describe('upload infrastructure', () => {
   afterAll(() => rmSync(config.uploadsDir, { recursive: true, force: true }));
 
   it('stores an allowed image and returns its public path', async () => {
-    const res = await request(buildApp())
-      .post('/upload')
-      .attach('image', PNG, {
-        filename: 'photo.png',
-        contentType: 'image/png'
-      });
+    const res = await request(buildApp()).post('/upload').attach('image', PNG, {
+      filename: 'photo.png',
+      contentType: 'image/png'
+    });
     expect(res.status).toBe(200);
     expect(res.body.path).toMatch(/^\/uploads\/test\/[\w-]+\.png$/);
     const onDisk = res.body.path.replace('/uploads/', `${config.uploadsDir}/`);
@@ -46,12 +44,10 @@ describe('upload infrastructure', () => {
   });
 
   it('derives the stored extension from the validated mimetype, not the client filename', async () => {
-    const res = await request(buildApp())
-      .post('/upload')
-      .attach('image', PNG, {
-        filename: 'evil.html',
-        contentType: 'image/png'
-      });
+    const res = await request(buildApp()).post('/upload').attach('image', PNG, {
+      filename: 'evil.html',
+      contentType: 'image/png'
+    });
     expect(res.status).toBe(200);
     expect(res.body.path).toMatch(/\.png$/);
   });

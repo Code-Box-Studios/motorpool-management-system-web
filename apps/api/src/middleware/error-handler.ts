@@ -28,14 +28,12 @@ export function errorHandler(
   // USER_IN_USE) catch P2003 locally before it reaches this middleware.
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === 'P2002' || err.code === 'P2003') {
-      res
-        .status(409)
-        .json({
-          error: {
-            code: 'CONFLICT',
-            message: 'The request conflicts with existing data'
-          }
-        });
+      res.status(409).json({
+        error: {
+          code: 'CONFLICT',
+          message: 'The request conflicts with existing data'
+        }
+      });
       return;
     }
   }

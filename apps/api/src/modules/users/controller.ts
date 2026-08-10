@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import type {
   ChangePasswordBody,
   CreateUserBody,
+  UpdateOwnProfileBody,
   UpdateUserBody
 } from '@mms/shared';
 import { usersListQuerySchema } from '@mms/shared';
@@ -49,6 +50,26 @@ export async function update(req: Request, res: Response): Promise<void> {
     await service.update(
       requireIdParam(req),
       req.body as UpdateUserBody,
+      avatarPath
+    )
+  );
+}
+
+// GET /api/users/me — the signed-in user's own profile, any role.
+export async function getMe(req: Request, res: Response): Promise<void> {
+  res.json(await service.getOwnProfile(requireUser(req).id));
+}
+
+// PATCH /api/users/me — self-service edit; the id comes from the token, so
+// this can only ever write the caller's own row.
+export async function updateMe(req: Request, res: Response): Promise<void> {
+  const avatarPath = req.file
+    ? publicUploadPath('avatars', req.file.filename)
+    : null;
+  res.json(
+    await service.updateOwnProfile(
+      requireUser(req).id,
+      req.body as UpdateOwnProfileBody,
       avatarPath
     )
   );
