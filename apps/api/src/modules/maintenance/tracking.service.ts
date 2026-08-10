@@ -13,21 +13,30 @@ import {
 // 'pending'). Existing tracking rows — and their completion history — are left
 // intact. Returns { data, count } of the NEWLY created rows.
 export async function assign(vehicleId: string, maintenanceStandardId: string) {
-  const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId }, select: { mileage: true } });
+  const vehicle = await prisma.vehicle.findUnique({
+    where: { id: vehicleId },
+    select: { mileage: true }
+  });
   if (!vehicle) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
   const standard = await prisma.maintenanceStandard.findUnique({
     where: { id: maintenanceStandardId },
     include: { scheduleItems: true }
   });
-  if (!standard) throw new AppError(404, 'NOT_FOUND', 'Maintenance standard not found');
+  if (!standard)
+    throw new AppError(404, 'NOT_FOUND', 'Maintenance standard not found');
 
   const trackedIds = new Set(
-    (await findTrackedItemIds(vehicleId)).map((t) => t.maintenanceScheduleItemId)
+    (await findTrackedItemIds(vehicleId)).map(
+      (t) => t.maintenanceScheduleItemId
+    )
   );
   const now = new Date();
 
   const created = await prisma.$transaction(async (tx) => {
-    await tx.vehicle.update({ where: { id: vehicleId }, data: { maintenanceStandardId } });
+    await tx.vehicle.update({
+      where: { id: vehicleId },
+      data: { maintenanceStandardId }
+    });
     const rows = [];
     for (const item of standard.scheduleItems) {
       if (trackedIds.has(item.id)) continue;
@@ -56,22 +65,38 @@ export async function assign(vehicleId: string, maintenanceStandardId: string) {
 }
 
 export async function listForVehicle(vehicleId: string) {
-  const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId }, select: { mileage: true } });
+  const vehicle = await prisma.vehicle.findUnique({
+    where: { id: vehicleId },
+    select: { mileage: true }
+  });
   if (!vehicle) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
   const now = new Date();
   const rows = await listTrackingForVehicle(vehicleId);
-  const priority = { overdue: 0, due_soon: 1, pending: 2, completed: 3 } as const;
+  const priority = {
+    overdue: 0,
+    due_soon: 1,
+    pending: 2,
+    completed: 3
+  } as const;
   const data = rows
-    .map((t) => ({ ...t, displayStatus: deriveTrackingStatus(t, now, vehicle.mileage) }))
+    .map((t) => ({
+      ...t,
+      displayStatus: deriveTrackingStatus(t, now, vehicle.mileage)
+    }))
     .sort((a, b) => priority[a.displayStatus] - priority[b.displayStatus]);
   return { data, count: data.length };
 }
 
 // Records a completion and recomputes next-due in ONE transaction (the FE did
 // these as separate calls; the API makes them atomic).
-export async function complete(trackingId: string, actorId: string, body: CompleteTrackingBody) {
+export async function complete(
+  trackingId: string,
+  actorId: string,
+  body: CompleteTrackingBody
+) {
   const tracking = await findTrackingWithItem(trackingId);
-  if (!tracking) throw new AppError(404, 'NOT_FOUND', 'Tracking record not found');
+  if (!tracking)
+    throw new AppError(404, 'NOT_FOUND', 'Tracking record not found');
   const now = new Date();
   const { nextDueDate, nextDueMileage } = computeNextDue(
     now,

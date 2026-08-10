@@ -2,13 +2,20 @@ import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { prisma } from '../../lib/prisma.js';
-import { authHeader, createTestBranch, createTestUser } from '../../test/factories.js';
+import {
+  authHeader,
+  createTestBranch,
+  createTestUser
+} from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
 
 const app = createApp();
 
 async function admin() {
-  const { user } = await createTestUser({ email: 'boss@test.local', role: 'admin' });
+  const { user } = await createTestUser({
+    email: 'boss@test.local',
+    role: 'admin'
+  });
   return { id: user.id, header: authHeader(user.id, user.email, 'admin') };
 }
 
@@ -16,9 +23,17 @@ async function vehicleWithStandard(mileage = 40000) {
   const branch = await createTestBranch();
   const vehicle = await prisma.vehicle.create({
     data: {
-      make: 'Toyota', model: 'Hiace', year: 2021, vin: 'V1', licensePlate: 'P1',
-      capacity: 12, fuelType: 'diesel', mileage, branchId: branch.id,
-      insuranceExpiry: new Date('2027-01-01'), registrationExpiry: new Date('2027-03-01')
+      make: 'Toyota',
+      model: 'Hiace',
+      year: 2021,
+      vin: 'V1',
+      licensePlate: 'P1',
+      capacity: 12,
+      fuelType: 'diesel',
+      mileage,
+      branchId: branch.id,
+      insuranceExpiry: new Date('2027-01-01'),
+      registrationExpiry: new Date('2027-03-01')
     }
   });
   const standard = await prisma.maintenanceStandard.create({
@@ -27,7 +42,12 @@ async function vehicleWithStandard(mileage = 40000) {
       scheduleItems: {
         create: [
           { taskName: 'Oil', intervalType: 'mileage', intervalMileage: 10000 },
-          { taskName: 'Belt', intervalType: 'both', intervalMileage: 60000, intervalMonths: 48 }
+          {
+            taskName: 'Belt',
+            intervalType: 'both',
+            intervalMileage: 60000,
+            intervalMonths: 48
+          }
         ]
       }
     },
@@ -51,7 +71,10 @@ describe('vehicle maintenance tracking', () => {
     expect(assigned.status).toBe(201);
     expect(assigned.body.count).toBe(2);
     // Vehicle now carries the standard.
-    expect((await prisma.vehicle.findUnique({ where: { id: vehicle.id } }))?.maintenanceStandardId).toBe(standard.id);
+    expect(
+      (await prisma.vehicle.findUnique({ where: { id: vehicle.id } }))
+        ?.maintenanceStandardId
+    ).toBe(standard.id);
     // next_due_mileage = currentMileage + interval (40000 + 10000).
     const oil = await prisma.vehicleMaintenanceTracking.findFirst({
       where: { vehicleId: vehicle.id, scheduleItem: { taskName: 'Oil' } }
@@ -73,7 +96,11 @@ describe('vehicle maintenance tracking', () => {
       .set('Authorization', a.header)
       .send({ maintenanceStandardId: standard.id });
     expect(again.body.count).toBe(0); // nothing new created
-    expect(await prisma.vehicleMaintenanceTracking.count({ where: { vehicleId: vehicle.id } })).toBe(2);
+    expect(
+      await prisma.vehicleMaintenanceTracking.count({
+        where: { vehicleId: vehicle.id }
+      })
+    ).toBe(2);
   });
 
   it('completes a task: writes a log, updates last-completed + next-due, sets status completed', async () => {
@@ -96,7 +123,11 @@ describe('vehicle maintenance tracking', () => {
     expect(res.body.lastCompletedMileage).toBe(52000);
     expect(res.body.nextDueMileage).toBe(62000); // 52000 + 10000
 
-    expect(await prisma.maintenanceCompletionLog.count({ where: { vehicleMaintenanceTrackingId: oil.id } })).toBe(1);
+    expect(
+      await prisma.maintenanceCompletionLog.count({
+        where: { vehicleMaintenanceTrackingId: oil.id }
+      })
+    ).toBe(1);
     const log = await prisma.maintenanceCompletionLog.findFirstOrThrow({
       where: { vehicleMaintenanceTrackingId: oil.id }
     });
@@ -106,13 +137,19 @@ describe('vehicle maintenance tracking', () => {
 
   it('403s tracking reads for security_guard and 403s writes for non-admins', async () => {
     const { vehicle, standard } = await vehicleWithStandard();
-    const { user: g } = await createTestUser({ email: 'g@test.local', role: 'security_guard' });
+    const { user: g } = await createTestUser({
+      email: 'g@test.local',
+      role: 'security_guard'
+    });
     const guardRead = await request(app)
       .get(`/api/vehicles/${vehicle.id}/maintenance-tracking`)
       .set('Authorization', authHeader(g.id, g.email, 'security_guard'));
     expect(guardRead.status).toBe(403);
 
-    const { user: d } = await createTestUser({ email: 'd@test.local', role: 'driver' });
+    const { user: d } = await createTestUser({
+      email: 'd@test.local',
+      role: 'driver'
+    });
     const driverAssign = await request(app)
       .post(`/api/vehicles/${vehicle.id}/maintenance-tracking`)
       .set('Authorization', authHeader(d.id, d.email, 'driver'))
@@ -127,7 +164,9 @@ describe('vehicle maintenance tracking', () => {
       .post(`/api/vehicles/${vehicle.id}/maintenance-tracking`)
       .set('Authorization', a.header)
       .send({ maintenanceStandardId: standard.id });
-    const before = await prisma.vehicleMaintenanceTracking.count({ where: { vehicleId: vehicle.id } });
+    const before = await prisma.vehicleMaintenanceTracking.count({
+      where: { vehicleId: vehicle.id }
+    });
     // Re-assign: no new rows, and no crash from the unique constraint.
     const again = await request(app)
       .post(`/api/vehicles/${vehicle.id}/maintenance-tracking`)
@@ -135,6 +174,10 @@ describe('vehicle maintenance tracking', () => {
       .send({ maintenanceStandardId: standard.id });
     expect(again.status).toBe(201);
     expect(again.body.count).toBe(0);
-    expect(await prisma.vehicleMaintenanceTracking.count({ where: { vehicleId: vehicle.id } })).toBe(before);
+    expect(
+      await prisma.vehicleMaintenanceTracking.count({
+        where: { vehicleId: vehicle.id }
+      })
+    ).toBe(before);
   });
 });

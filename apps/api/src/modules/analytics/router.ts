@@ -10,5 +10,8 @@ export const analyticsRouter = Router();
 
 analyticsRouter.use(requireAuth, requireRole(...ANALYTICS_ROLES));
 analyticsRouter.get('/dashboard', controller.dashboard);
-analyticsRouter.get('/predictive-maintenance', controller.predictiveMaintenance);
+analyticsRouter.get(
+  '/predictive-maintenance',
+  controller.predictiveMaintenance
+);
 analyticsRouter.get('/association-rules', controller.associationRules);

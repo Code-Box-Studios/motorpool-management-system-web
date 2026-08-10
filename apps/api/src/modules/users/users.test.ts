@@ -8,7 +8,10 @@ import { truncateAll } from '../../test/db.js';
 const app = createApp();
 
 async function adminHeader() {
-  const { user } = await createTestUser({ email: 'boss@test.local', role: 'admin' });
+  const { user } = await createTestUser({
+    email: 'boss@test.local',
+    role: 'admin'
+  });
   return { admin: user, header: authHeader(user.id, user.email, 'admin') };
 }
 
@@ -20,13 +23,20 @@ describe('GET /api/users', () => {
     const { header } = await adminHeader();
     await createTestUser({ email: 'd1@test.local', role: 'driver' });
 
-    const all = await request(app).get('/api/users').set('Authorization', header);
+    const all = await request(app)
+      .get('/api/users')
+      .set('Authorization', header);
     expect(all.status).toBe(200);
     expect(all.body.count).toBe(2);
 
-    const admins = await request(app).get('/api/users?role=admin').set('Authorization', header);
+    const admins = await request(app)
+      .get('/api/users?role=admin')
+      .set('Authorization', header);
     expect(admins.body.count).toBe(1);
-    expect(admins.body.data[0]).toMatchObject({ email: 'boss@test.local', role: 'admin' });
+    expect(admins.body.data[0]).toMatchObject({
+      email: 'boss@test.local',
+      role: 'admin'
+    });
   });
 
   it('paginates with a total count', async () => {
@@ -69,9 +79,14 @@ describe('POST /api/users', () => {
       .field('roleId', driverRole.id);
 
     expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ email: 'newdriver@test.local', role: 'driver' });
+    expect(res.body).toMatchObject({
+      email: 'newdriver@test.local',
+      role: 'driver'
+    });
 
-    const driver = await prisma.driver.findUnique({ where: { email: 'newdriver@test.local' } });
+    const driver = await prisma.driver.findUnique({
+      where: { email: 'newdriver@test.local' }
+    });
     expect(driver).not.toBeNull();
     expect(driver?.userId).toBe(res.body.id);
   });
@@ -84,7 +99,11 @@ describe('POST /api/users', () => {
       create: { name: 'driver' }
     });
     const personnel = await prisma.driver.create({
-      data: { email: 'vet@test.local', fullName: 'Veteran Driver', status: 'active' }
+      data: {
+        email: 'vet@test.local',
+        fullName: 'Veteran Driver',
+        status: 'active'
+      }
     });
 
     const res = await request(app)
@@ -96,13 +115,20 @@ describe('POST /api/users', () => {
       .field('roleId', driverRole.id);
     expect(res.status).toBe(201);
     expect(await prisma.driver.count()).toBe(1);
-    const linked = await prisma.driver.findUnique({ where: { id: personnel.id } });
+    const linked = await prisma.driver.findUnique({
+      where: { id: personnel.id }
+    });
     expect(linked?.userId).toBe(res.body.id);
 
     // a login attempt for a driver email already linked to a user must conflict,
     // even though no users-table row shares that email (the driver's own row does)
     const alreadyLinkedDriver = await prisma.driver.create({
-      data: { email: 'linked@test.local', fullName: 'Linked Driver', status: 'active', userId: admin.id }
+      data: {
+        email: 'linked@test.local',
+        fullName: 'Linked Driver',
+        status: 'active',
+        userId: admin.id
+      }
     });
     const again = await request(app)
       .post('/api/users')
@@ -191,7 +217,10 @@ describe('POST /api/users', () => {
       .field('password', 'Password123!')
       .field('fullName', 'Avatar User')
       .field('roleId', role.id)
-      .attach('avatar', Buffer.from('fakepng'), { filename: 'me.png', contentType: 'image/png' });
+      .attach('avatar', Buffer.from('fakepng'), {
+        filename: 'me.png',
+        contentType: 'image/png'
+      });
     expect(res.status).toBe(201);
     expect(res.body.avatarUrl).toMatch(/^\/uploads\/avatars\/.+\.png$/);
   });

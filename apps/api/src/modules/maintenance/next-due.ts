@@ -38,14 +38,16 @@ export function deriveTrackingStatus(
   currentMileage: number
 ): 'overdue' | 'due_soon' | 'pending' | 'completed' {
   const dateOverdue = t.nextDueDate !== null && t.nextDueDate <= now;
-  const mileageOverdue = t.nextDueMileage !== null && currentMileage >= t.nextDueMileage;
+  const mileageOverdue =
+    t.nextDueMileage !== null && currentMileage >= t.nextDueMileage;
 
   if (t.status === 'completed') {
     if (dateOverdue || mileageOverdue) return 'overdue';
     const soonDate = new Date(now);
     soonDate.setDate(soonDate.getDate() + 30);
     const dateSoon = t.nextDueDate !== null && t.nextDueDate <= soonDate;
-    const mileageSoon = t.nextDueMileage !== null && currentMileage >= t.nextDueMileage - 500;
+    const mileageSoon =
+      t.nextDueMileage !== null && currentMileage >= t.nextDueMileage - 500;
     if (dateSoon || mileageSoon) return 'due_soon';
     return 'completed';
   }

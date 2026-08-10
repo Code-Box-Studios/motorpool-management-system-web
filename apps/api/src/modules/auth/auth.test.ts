@@ -19,7 +19,10 @@ describe('POST /api/auth/login', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.accessToken).toEqual(expect.any(String));
-    expect(res.body.user).toMatchObject({ email: 'admin@test.local', role: 'admin' });
+    expect(res.body.user).toMatchObject({
+      email: 'admin@test.local',
+      role: 'admin'
+    });
     const cookie = res.headers['set-cookie']?.[0] ?? '';
     expect(cookie).toContain('mms_refresh=');
     expect(cookie).toContain('HttpOnly');
@@ -54,7 +57,9 @@ describe('POST /api/auth/login', () => {
   });
 
   it('rejects a malformed body with 400 VALIDATION_ERROR', async () => {
-    const res = await request(app).post('/api/auth/login').send({ email: 'not-an-email' });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'not-an-email' });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
@@ -87,7 +92,10 @@ describe('GET /api/auth/me', () => {
       .get('/api/auth/me')
       .set('Authorization', `Bearer ${login.body.accessToken}`);
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ email: 'driver@test.local', role: 'driver' });
+    expect(res.body).toMatchObject({
+      email: 'driver@test.local',
+      role: 'driver'
+    });
   });
 
   it('rejects a missing token with 401', async () => {
@@ -97,7 +105,9 @@ describe('GET /api/auth/me', () => {
   });
 
   it('rejects a tampered token with 401', async () => {
-    const res = await request(app).get('/api/auth/me').set('Authorization', 'Bearer nonsense');
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', 'Bearer nonsense');
     expect(res.status).toBe(401);
   });
 });

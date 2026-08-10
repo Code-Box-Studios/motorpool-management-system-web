@@ -90,7 +90,9 @@ export function createApp(): express.Express {
   // Domain routers mount here in later plans.
 
   app.use((_req, res) => {
-    res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route not found' } });
+    res
+      .status(404)
+      .json({ error: { code: 'NOT_FOUND', message: 'Route not found' } });
   });
   app.use(errorHandler);
 

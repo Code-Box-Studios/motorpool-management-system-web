@@ -1,5 +1,10 @@
 import { Router } from 'express';
-import { USER_ROLES, createScheduleItemBodySchema, createStandardBodySchema, updateStandardBodySchema } from '@mms/shared';
+import {
+  USER_ROLES,
+  createScheduleItemBodySchema,
+  createStandardBodySchema,
+  updateStandardBodySchema
+} from '@mms/shared';
 import { INVENTORY_READ_ROLES } from '../../lib/access.js';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { requireRole } from '../../middleware/require-role.js';
@@ -24,7 +29,25 @@ standardsRouter.post(
   controller.addScheduleItem
 );
 
-standardsRouter.get('/:id', requireRole(...INVENTORY_READ_ROLES), controller.getById);
-standardsRouter.post('/', requireRole(USER_ROLES.admin), validateBody(createStandardBodySchema), controller.create);
-standardsRouter.patch('/:id', requireRole(USER_ROLES.admin), validateBody(updateStandardBodySchema), controller.update);
-standardsRouter.delete('/:id', requireRole(USER_ROLES.admin), controller.remove);
+standardsRouter.get(
+  '/:id',
+  requireRole(...INVENTORY_READ_ROLES),
+  controller.getById
+);
+standardsRouter.post(
+  '/',
+  requireRole(USER_ROLES.admin),
+  validateBody(createStandardBodySchema),
+  controller.create
+);
+standardsRouter.patch(
+  '/:id',
+  requireRole(USER_ROLES.admin),
+  validateBody(updateStandardBodySchema),
+  controller.update
+);
+standardsRouter.delete(
+  '/:id',
+  requireRole(USER_ROLES.admin),
+  controller.remove
+);

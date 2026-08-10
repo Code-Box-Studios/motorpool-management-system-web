@@ -1,5 +1,11 @@
 import { USER_ROLES } from '@mms/shared';
-import type { ChangePasswordBody, CreateUserBody, UpdateUserBody, UserResponse, UsersListQuery } from '@mms/shared';
+import type {
+  ChangePasswordBody,
+  CreateUserBody,
+  UpdateUserBody,
+  UserResponse,
+  UsersListQuery
+} from '@mms/shared';
 import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
@@ -7,7 +13,13 @@ import { toOrderBy } from '../../lib/sorting.js';
 import { hashPassword, verifyPassword } from '../../lib/password.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
-import { findUserByEmail, findUserById, listUsers, userInclude, type UserRow } from './repository.js';
+import {
+  findUserByEmail,
+  findUserById,
+  listUsers,
+  userInclude,
+  type UserRow
+} from './repository.js';
 
 // Maps a Prisma user row (with its role join) to the API response shape.
 export function toUserResponse(user: UserRow): UserResponse {
@@ -38,7 +50,11 @@ export async function list(query: UsersListQuery) {
     },
     { updatedAt: 'desc' }
   );
-  const { data, count } = await listUsers(query.role, toSkipTake(query), orderBy);
+  const { data, count } = await listUsers(
+    query.role,
+    toSkipTake(query),
+    orderBy
+  );
   return { data: data.map(toUserResponse), count };
 }
 
@@ -48,7 +64,11 @@ export async function create(
   avatarPath: string | null
 ): Promise<UserResponse> {
   if (await findUserByEmail(body.email)) {
-    throw new AppError(409, 'EMAIL_TAKEN', 'A user with this email already exists');
+    throw new AppError(
+      409,
+      'EMAIL_TAKEN',
+      'A user with this email already exists'
+    );
   }
   const role = await prisma.role.findUnique({ where: { id: body.roleId } });
   if (!role) {
@@ -151,7 +171,11 @@ export async function changePassword(
   body: ChangePasswordBody
 ): Promise<void> {
   if (actor.id !== targetId && actor.role !== USER_ROLES.admin) {
-    throw new AppError(403, 'FORBIDDEN', 'You may only change your own password');
+    throw new AppError(
+      403,
+      'FORBIDDEN',
+      'You may only change your own password'
+    );
   }
   const target = await findUserById(targetId);
   if (!target) throw new AppError(404, 'NOT_FOUND', 'User not found');
@@ -161,8 +185,15 @@ export async function changePassword(
   // owner). Only admin-changes-ANOTHER-user skips it. NOT 401: the FE client
   // treats 401 as an expired access token and would force a logout loop.
   if (actor.id === targetId) {
-    if (!body.currentPassword || !(await verifyPassword(body.currentPassword, target.passwordHash))) {
-      throw new AppError(400, 'INVALID_CURRENT_PASSWORD', 'Current password is incorrect');
+    if (
+      !body.currentPassword ||
+      !(await verifyPassword(body.currentPassword, target.passwordHash))
+    ) {
+      throw new AppError(
+        400,
+        'INVALID_CURRENT_PASSWORD',
+        'Current password is incorrect'
+      );
     }
   }
   const passwordHash = await hashPassword(body.newPassword);
@@ -178,9 +209,16 @@ export async function changePassword(
 
 // Deletes a user; admins cannot delete their own account, and users
 // referenced by RESTRICT FKs surface as a domain conflict instead of a 500.
-export async function remove(actor: AuthenticatedUser, id: string): Promise<void> {
+export async function remove(
+  actor: AuthenticatedUser,
+  id: string
+): Promise<void> {
   if (actor.id === id) {
-    throw new AppError(400, 'CANNOT_DELETE_SELF', 'You cannot delete your own account');
+    throw new AppError(
+      400,
+      'CANNOT_DELETE_SELF',
+      'You cannot delete your own account'
+    );
   }
   const existing = await findUserById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'User not found');
@@ -195,7 +233,11 @@ export async function remove(actor: AuthenticatedUser, id: string): Promise<void
       'code' in err &&
       (err as { code: string }).code === 'P2003'
     ) {
-      throw new AppError(409, 'USER_IN_USE', 'User is referenced by existing records; deactivate instead');
+      throw new AppError(
+        409,
+        'USER_IN_USE',
+        'User is referenced by existing records; deactivate instead'
+      );
     }
     throw err;
   }

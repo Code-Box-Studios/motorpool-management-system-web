@@ -6,7 +6,8 @@ import * as service from './service.js';
 
 function requireIdParam(req: Request): string {
   const id = req.params.id;
-  if (!id || typeof id !== 'string') throw new AppError(400, 'VALIDATION_ERROR', 'Missing id parameter');
+  if (!id || typeof id !== 'string')
+    throw new AppError(400, 'VALIDATION_ERROR', 'Missing id parameter');
   return id;
 }
 
@@ -24,7 +25,9 @@ export async function create(req: Request, res: Response): Promise<void> {
 }
 
 export async function update(req: Request, res: Response): Promise<void> {
-  res.json(await service.update(requireIdParam(req), req.body as UpdateMaintenanceBody));
+  res.json(
+    await service.update(requireIdParam(req), req.body as UpdateMaintenanceBody)
+  );
 }
 
 export async function remove(req: Request, res: Response): Promise<void> {

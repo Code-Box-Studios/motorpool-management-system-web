@@ -90,3 +90,7 @@ export async function updateTool(
   if (removeImage) fd.append('removeImage', 'true');
   return toSnake(await api.patchForm<ToolApiResponse>(`/tools/${id}`, fd));
 }
+
+export async function deleteTool(id: string): Promise<void> {
+  await api.del(`/tools/${id}`);
+}

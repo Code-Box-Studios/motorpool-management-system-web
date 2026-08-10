@@ -1,5 +1,9 @@
 import type { Request, Response } from 'express';
-import type { ChangePasswordBody, CreateUserBody, UpdateUserBody } from '@mms/shared';
+import type {
+  ChangePasswordBody,
+  CreateUserBody,
+  UpdateUserBody
+} from '@mms/shared';
 import { usersListQuerySchema } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { publicUploadPath } from '../../lib/uploads.js';
@@ -15,32 +19,51 @@ export async function list(req: Request, res: Response): Promise<void> {
 // POST /api/users — creates a login (admin only); multipart avatar optional.
 export async function create(req: Request, res: Response): Promise<void> {
   const body = req.body as CreateUserBody;
-  const avatarPath = req.file ? publicUploadPath('avatars', req.file.filename) : null;
+  const avatarPath = req.file
+    ? publicUploadPath('avatars', req.file.filename)
+    : null;
   res.status(201).json(await service.create(body, avatarPath));
 }
 
 // Narrows req.user (populated by requireAuth) or throws 401.
 function requireUser(req: Request) {
-  if (!req.user) throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+  if (!req.user)
+    throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
   return req.user;
 }
 
 // Narrows the :id route param or throws 400.
 function requireIdParam(req: Request): string {
   const id = req.params.id;
-  if (typeof id !== 'string' || !id) throw new AppError(400, 'VALIDATION_ERROR', 'Missing id parameter');
+  if (typeof id !== 'string' || !id)
+    throw new AppError(400, 'VALIDATION_ERROR', 'Missing id parameter');
   return id;
 }
 
 // PATCH /api/users/:id — updates profile fields and role (admin only); multipart avatar optional.
 export async function update(req: Request, res: Response): Promise<void> {
-  const avatarPath = req.file ? publicUploadPath('avatars', req.file.filename) : null;
-  res.json(await service.update(requireIdParam(req), req.body as UpdateUserBody, avatarPath));
+  const avatarPath = req.file
+    ? publicUploadPath('avatars', req.file.filename)
+    : null;
+  res.json(
+    await service.update(
+      requireIdParam(req),
+      req.body as UpdateUserBody,
+      avatarPath
+    )
+  );
 }
 
 // PATCH /api/users/:id/password — self (with currentPassword) or admin (without).
-export async function changePassword(req: Request, res: Response): Promise<void> {
-  await service.changePassword(requireUser(req), requireIdParam(req), req.body as ChangePasswordBody);
+export async function changePassword(
+  req: Request,
+  res: Response
+): Promise<void> {
+  await service.changePassword(
+    requireUser(req),
+    requireIdParam(req),
+    req.body as ChangePasswordBody
+  );
   res.status(204).end();
 }
 

@@ -45,7 +45,10 @@ const Stepper = ({
         const reachable = index <= furthest;
 
         return (
-          <li key={step.title} className="flex flex-1 items-center gap-2 sm:gap-3">
+          <li
+            key={step.title}
+            className="flex flex-1 items-center gap-2 sm:gap-3"
+          >
             <button
               type="button"
               onClick={reachable ? () => onStepClick?.(index) : undefined}

@@ -20,26 +20,36 @@ export function refreshCookieOptions(): CookieOptions {
 
 export async function login(req: Request, res: Response): Promise<void> {
   const { email, password } = req.body as LoginBody;
-  const { accessToken, refreshToken, user } = await authService.login(email, password);
+  const { accessToken, refreshToken, user } = await authService.login(
+    email,
+    password
+  );
   res.cookie(REFRESH_COOKIE, refreshToken, refreshCookieOptions());
   res.json({ accessToken, user });
 }
 
 export async function me(req: Request, res: Response): Promise<void> {
-  if (!req.user) throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+  if (!req.user)
+    throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
   res.json(await authService.me(req.user.id));
 }
 
 export async function refresh(req: Request, res: Response): Promise<void> {
-  const presented = (req.cookies as Record<string, string | undefined>)[REFRESH_COOKIE];
-  if (!presented) throw new AppError(401, 'UNAUTHORIZED', 'Missing refresh token');
-  const { accessToken, refreshToken, user } = await authService.refresh(presented);
+  const presented = (req.cookies as Record<string, string | undefined>)[
+    REFRESH_COOKIE
+  ];
+  if (!presented)
+    throw new AppError(401, 'UNAUTHORIZED', 'Missing refresh token');
+  const { accessToken, refreshToken, user } =
+    await authService.refresh(presented);
   res.cookie(REFRESH_COOKIE, refreshToken, refreshCookieOptions());
   res.json({ accessToken, user });
 }
 
 export async function logout(req: Request, res: Response): Promise<void> {
-  const presented = (req.cookies as Record<string, string | undefined>)[REFRESH_COOKIE];
+  const presented = (req.cookies as Record<string, string | undefined>)[
+    REFRESH_COOKIE
+  ];
   await authService.logout(presented);
   // Clear with the SAME attributes used to set (minus maxAge) — a cross-site
   // SameSite=None cookie can only be deleted by a matching SameSite=None header.

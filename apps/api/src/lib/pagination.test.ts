@@ -8,15 +8,23 @@ describe('pagination', () => {
   });
 
   it('computes skip/take from 1-indexed page', () => {
-    expect(toSkipTake(paginationQuerySchema.parse({ page: '3', limit: '10' }))).toEqual({
+    expect(
+      toSkipTake(paginationQuerySchema.parse({ page: '3', limit: '10' }))
+    ).toEqual({
       skip: 20,
       take: 10
     });
   });
 
   it('defaults the missing half when only one is provided', () => {
-    expect(toSkipTake(paginationQuerySchema.parse({ page: '2' }))).toEqual({ skip: 10, take: 10 });
-    expect(toSkipTake(paginationQuerySchema.parse({ limit: '5' }))).toEqual({ skip: 0, take: 5 });
+    expect(toSkipTake(paginationQuerySchema.parse({ page: '2' }))).toEqual({
+      skip: 10,
+      take: 10
+    });
+    expect(toSkipTake(paginationQuerySchema.parse({ limit: '5' }))).toEqual({
+      skip: 0,
+      take: 5
+    });
   });
 
   it('rejects out-of-range values', () => {

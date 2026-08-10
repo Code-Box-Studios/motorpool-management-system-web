@@ -14,11 +14,21 @@ export async function getById(req: Request, res: Response): Promise<void> {
 }
 
 export async function create(req: Request, res: Response): Promise<void> {
-  res.status(201).json(await service.create(req.body as CreateTripTicketBody, requireUser(req)));
+  res
+    .status(201)
+    .json(
+      await service.create(req.body as CreateTripTicketBody, requireUser(req))
+    );
 }
 
 export async function update(req: Request, res: Response): Promise<void> {
-  res.json(await service.update(requireIdParam(req), req.body as UpdateTripTicketBody, requireUser(req)));
+  res.json(
+    await service.update(
+      requireIdParam(req),
+      req.body as UpdateTripTicketBody,
+      requireUser(req)
+    )
+  );
 }
 
 export async function remove(req: Request, res: Response): Promise<void> {

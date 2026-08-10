@@ -14,28 +14,42 @@ describe('random forest (golden values from the committed model)', () => {
   // Golden rawScores computed by replicating the traversal over the committed model.
   const cases: [Record<string, number>, number][] = [
     [{ KM_SINCE_LAST_MAINT: 0, AVG_DAILY_KM: 0, MAINT_FREQ_12M: 0 }, 0.18],
-    [{ KM_SINCE_LAST_MAINT: 15000, AVG_DAILY_KM: 80, MAINT_FREQ_12M: 2 }, 0.30],
+    [{ KM_SINCE_LAST_MAINT: 15000, AVG_DAILY_KM: 80, MAINT_FREQ_12M: 2 }, 0.3],
     [{ KM_SINCE_LAST_MAINT: 5000, AVG_DAILY_KM: 50, MAINT_FREQ_12M: 1 }, 0.33],
     [{ KM_SINCE_LAST_MAINT: 2000, AVG_DAILY_KM: 30, MAINT_FREQ_12M: 3 }, 0.38],
-    [{ KM_SINCE_LAST_MAINT: 100000, AVG_DAILY_KM: 200, MAINT_FREQ_12M: 0 }, 0.915]
+    [
+      { KM_SINCE_LAST_MAINT: 100000, AVG_DAILY_KM: 200, MAINT_FREQ_12M: 0 },
+      0.915
+    ]
   ];
   it.each(cases)('scores %o → %f', (features, expected) => {
     expect(predictRandomForest(model!, features)).toBeCloseTo(expected, 5);
   });
 
   it('computeVehicleRisk applies canonical 0.70/0.45 thresholds and rounds riskScore', () => {
-    const high = computeVehicleRisk(model, { kmSinceLastMaint: 100000, avgDailyKm: 200, maintFreq12m: 0 });
+    const high = computeVehicleRisk(model, {
+      kmSinceLastMaint: 100000,
+      avgDailyKm: 200,
+      maintFreq12m: 0
+    });
     expect(high.riskScore).toBe(92); // round(0.915*100)
     expect(high.priority).toBe('high');
     expect(high.usedFallback).toBe(false);
-    const low = computeVehicleRisk(model, { kmSinceLastMaint: 0, avgDailyKm: 0, maintFreq12m: 0 });
+    const low = computeVehicleRisk(model, {
+      kmSinceLastMaint: 0,
+      avgDailyKm: 0,
+      maintFreq12m: 0
+    });
     expect(low.riskScore).toBe(18);
     expect(low.priority).toBe('low');
   });
 });
 
 describe('fallback scoring (golden values)', () => {
-  const cases: [{ kmSinceLastMaint: number; avgDailyKm: number; maintFreq12m: number }, number][] = [
+  const cases: [
+    { kmSinceLastMaint: number; avgDailyKm: number; maintFreq12m: number },
+    number
+  ][] = [
     [{ kmSinceLastMaint: 0, avgDailyKm: 0, maintFreq12m: 0 }, 0.25],
     [{ kmSinceLastMaint: 5000, avgDailyKm: 50, maintFreq12m: 1 }, 0.58333],
     [{ kmSinceLastMaint: 15000, avgDailyKm: 80, maintFreq12m: 2 }, 0.85667],
@@ -46,7 +60,11 @@ describe('fallback scoring (golden values)', () => {
   });
 
   it('computeVehicleRisk(null model, …) uses the fallback and reports usedFallback', () => {
-    const r = computeVehicleRisk(null, { kmSinceLastMaint: 5000, avgDailyKm: 50, maintFreq12m: 1 });
+    const r = computeVehicleRisk(null, {
+      kmSinceLastMaint: 5000,
+      avgDailyKm: 50,
+      maintFreq12m: 1
+    });
     expect(r.usedFallback).toBe(true);
     expect(r.riskScore).toBe(58); // round(0.58333*100)
     expect(r.priority).toBe('medium'); // 0.583 >= 0.45
@@ -57,7 +75,11 @@ describe('feature extraction (frozen clock for determinism)', () => {
   const now = new Date('2026-07-01T00:00:00.000Z');
 
   it('no maintenance → kmSinceLastMaint = mileage, avgDailyKm 0, freq 0', () => {
-    expect(extractFeatures({ mileage: 12000 }, [], now)).toEqual({ kmSinceLastMaint: 12000, avgDailyKm: 0, maintFreq12m: 0 });
+    expect(extractFeatures({ mileage: 12000 }, [], now)).toEqual({
+      kmSinceLastMaint: 12000,
+      avgDailyKm: 0,
+      maintFreq12m: 0
+    });
   });
 
   it('two maintenances → km between newest/oldest over days between; freq counts last 12m', () => {
@@ -72,7 +94,9 @@ describe('feature extraction (frozen clock for determinism)', () => {
   });
 
   it('single maintenance → avgDailyKm = kmSinceLast / days since that maintenance', () => {
-    const maints = [{ date: new Date('2026-06-01T00:00:00.000Z'), mileage: 11000 }]; // 30 days before now
+    const maints = [
+      { date: new Date('2026-06-01T00:00:00.000Z'), mileage: 11000 }
+    ]; // 30 days before now
     const f = extractFeatures({ mileage: 12000 }, maints, now);
     expect(f.avgDailyKm).toBeCloseTo(1000 / 30, 4);
   });
@@ -83,7 +107,9 @@ describe('feature extraction (frozen clock for determinism)', () => {
   // row — so repairing a van was what made it look like it was about to break
   // (a clean repair drove one vehicle from 36/100 to 95/100).
   it('a service with an UNKNOWN odometer does not read as a service at 0 km', () => {
-    const maints = [{ date: new Date('2026-06-01T00:00:00.000Z'), mileage: null }];
+    const maints = [
+      { date: new Date('2026-06-01T00:00:00.000Z'), mileage: null }
+    ];
     const f = extractFeatures({ mileage: 33000 }, maints, now);
     expect(f.kmSinceLastMaint).toBe(0); // NOT 33000
     expect(f.maintFreq12m).toBe(1); // it still counts as a service

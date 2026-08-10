@@ -34,7 +34,13 @@ export function createUploader(domain: string): multer.Multer {
     limits: { fileSize: MAX_FILE_SIZE_BYTES },
     fileFilter: (_req, file, cb) => {
       if (!ALLOWED_MIME.has(file.mimetype)) {
-        cb(new AppError(400, 'INVALID_FILE_TYPE', 'Only jpeg, png, or webp images are allowed'));
+        cb(
+          new AppError(
+            400,
+            'INVALID_FILE_TYPE',
+            'Only jpeg, png, or webp images are allowed'
+          )
+        );
         return;
       }
       cb(null, true);

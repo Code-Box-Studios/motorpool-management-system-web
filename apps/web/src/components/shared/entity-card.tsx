@@ -44,10 +44,7 @@ const EntityCard = ({
     to={to}
     className="bg-card border-border hover:border-foreground/25 focus-visible:ring-ring group flex h-full flex-col overflow-hidden rounded-[20px] border transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-2 focus-visible:outline-none"
   >
-    <EntityImage
-      src={imageSrc}
-      className="aspect-video w-full"
-    />
+    <EntityImage src={imageSrc} className="aspect-video w-full" />
 
     <div className="flex flex-1 flex-col gap-3 p-5">
       {/* Badge above, not beside: in a narrow column a badge on the title's row
@@ -62,7 +59,9 @@ const EntityCard = ({
         <h3 className="leading-snug font-semibold tracking-tight">{title}</h3>
       </div>
 
-      {footnote && <p className="text-slate line-clamp-2 text-sm">{footnote}</p>}
+      {footnote && (
+        <p className="text-slate line-clamp-2 text-sm">{footnote}</p>
+      )}
 
       {fields && fields.length > 0 && (
         // Pinned to the bottom of the card so that the facts line up across a

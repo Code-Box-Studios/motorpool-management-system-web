@@ -18,7 +18,9 @@ function buildApp() {
   app.post('/upload', upload.single('image'), (req, res) => {
     const file = req.file;
     if (!file) {
-      res.status(400).json({ error: { code: 'UPLOAD_ERROR', message: 'No file' } });
+      res
+        .status(400)
+        .json({ error: { code: 'UPLOAD_ERROR', message: 'No file' } });
       return;
     }
     res.json({ path: publicUploadPath('test', file.filename) });
@@ -33,7 +35,10 @@ describe('upload infrastructure', () => {
   it('stores an allowed image and returns its public path', async () => {
     const res = await request(buildApp())
       .post('/upload')
-      .attach('image', PNG, { filename: 'photo.png', contentType: 'image/png' });
+      .attach('image', PNG, {
+        filename: 'photo.png',
+        contentType: 'image/png'
+      });
     expect(res.status).toBe(200);
     expect(res.body.path).toMatch(/^\/uploads\/test\/[\w-]+\.png$/);
     const onDisk = res.body.path.replace('/uploads/', `${config.uploadsDir}/`);
@@ -43,7 +48,10 @@ describe('upload infrastructure', () => {
   it('derives the stored extension from the validated mimetype, not the client filename', async () => {
     const res = await request(buildApp())
       .post('/upload')
-      .attach('image', PNG, { filename: 'evil.html', contentType: 'image/png' });
+      .attach('image', PNG, {
+        filename: 'evil.html',
+        contentType: 'image/png'
+      });
     expect(res.status).toBe(200);
     expect(res.body.path).toMatch(/\.png$/);
   });
@@ -71,7 +79,10 @@ describe('upload infrastructure', () => {
   it('serves stored files at /uploads with a cross-origin resource policy', async () => {
     const uploaded = await request(buildApp())
       .post('/upload')
-      .attach('image', PNG, { filename: 'photo.png', contentType: 'image/png' });
+      .attach('image', PNG, {
+        filename: 'photo.png',
+        contentType: 'image/png'
+      });
     // the REAL app (with helmet) must serve it embeddable cross-origin
     const { createApp } = await import('../app.js');
     const res = await request(createApp()).get(uploaded.body.path as string);

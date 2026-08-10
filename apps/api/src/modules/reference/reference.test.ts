@@ -2,7 +2,11 @@ import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { prisma } from '../../lib/prisma.js';
-import { authHeader, createTestBranch, createTestUser } from '../../test/factories.js';
+import {
+  authHeader,
+  createTestBranch,
+  createTestUser
+} from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
 
 const app = createApp();
@@ -27,10 +31,15 @@ describe('reference module', () => {
     await createTestBranch('Beta');
     const header = authHeader(user.id, user.email, 'security_guard');
 
-    const res = await request(app).get('/api/branches').set('Authorization', header);
+    const res = await request(app)
+      .get('/api/branches')
+      .set('Authorization', header);
     expect(res.status).toBe(200);
     expect(res.body.count).toBe(2);
-    expect(res.body.data.map((b: { name: string }) => b.name)).toEqual(['Alpha', 'Beta']);
+    expect(res.body.data.map((b: { name: string }) => b.name)).toEqual([
+      'Alpha',
+      'Beta'
+    ]);
 
     const page2 = await request(app)
       .get('/api/branches?page=2&limit=1')
@@ -49,7 +58,10 @@ describe('reference module', () => {
     const head = await prisma.officeHead.create({
       data: { name: 'Maria', branchId: branch.id, officeId: office.id }
     });
-    await prisma.departmentOffice.update({ where: { id: office.id }, data: { headId: head.id } });
+    await prisma.departmentOffice.update({
+      where: { id: office.id },
+      data: { headId: head.id }
+    });
 
     const res = await request(app)
       .get('/api/offices')
@@ -64,7 +76,12 @@ describe('reference module', () => {
   });
 
   it('rejects unauthenticated requests with 401', async () => {
-    for (const path of ['/api/roles', '/api/branches', '/api/offices', '/api/office-heads']) {
+    for (const path of [
+      '/api/roles',
+      '/api/branches',
+      '/api/offices',
+      '/api/office-heads'
+    ]) {
       const res = await request(app).get(path);
       expect(res.status).toBe(401);
     }

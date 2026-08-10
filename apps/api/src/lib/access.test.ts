@@ -67,7 +67,10 @@ describe('access + multipart contracts', () => {
   });
 
   it('completeTrackingBodySchema requires a numeric completedMileage', () => {
-    expect(completeTrackingBodySchema.parse({ completedMileage: '52000' }).completedMileage).toBe(52000);
+    expect(
+      completeTrackingBodySchema.parse({ completedMileage: '52000' })
+        .completedMileage
+    ).toBe(52000);
     expect(() => completeTrackingBodySchema.parse({})).toThrow();
   });
 });

@@ -3,7 +3,11 @@ import { AppError } from '../../lib/errors.js';
 import { signAccessToken } from '../../lib/jwt.js';
 import { verifyPassword } from '../../lib/password.js';
 import { prisma } from '../../lib/prisma.js';
-import { findUserByEmail, findUserById, type UserWithRole } from './repository.js';
+import {
+  findUserByEmail,
+  findUserById,
+  type UserWithRole
+} from './repository.js';
 import { hashToken, issueRefreshToken } from './tokens.js';
 
 interface AuthResult {
@@ -36,9 +40,17 @@ function toAuthUser(user: UserWithRole, role: string): AuthUser {
 }
 
 // Issues a fresh access + refresh pair for the user (used by login and refresh).
-async function issuePair(user: UserWithRole, role: string): Promise<AuthResult> {
+async function issuePair(
+  user: UserWithRole,
+  role: string
+): Promise<AuthResult> {
   return {
-    accessToken: signAccessToken({ sub: user.id, email: user.email, role, branchId: user.branchId }),
+    accessToken: signAccessToken({
+      sub: user.id,
+      email: user.email,
+      role,
+      branchId: user.branchId
+    }),
     refreshToken: await issueRefreshToken(user.id),
     user: toAuthUser(user, role)
   };
@@ -46,9 +58,13 @@ async function issuePair(user: UserWithRole, role: string): Promise<AuthResult> 
 
 // A valid bcrypt hash of a throwaway string; used so unknown emails still
 // cost one bcrypt compare (timing-side-channel hardening).
-const DUMMY_PASSWORD_HASH = '$2a$12$4Ep/qTHS1MLtUTIPsu9NDe0vF99wuwmYd2qnCaeEmoWfBkc2KM/Ty';
+const DUMMY_PASSWORD_HASH =
+  '$2a$12$4Ep/qTHS1MLtUTIPsu9NDe0vF99wuwmYd2qnCaeEmoWfBkc2KM/Ty';
 
-export async function login(email: string, password: string): Promise<AuthResult> {
+export async function login(
+  email: string,
+  password: string
+): Promise<AuthResult> {
   const user = await findUserByEmail(email);
   if (!user) {
     await verifyPassword(password, DUMMY_PASSWORD_HASH);
@@ -112,7 +128,9 @@ export async function refresh(presentedToken: string): Promise<AuthResult> {
   return issuePair(stored.user, role);
 }
 
-export async function logout(presentedToken: string | undefined): Promise<void> {
+export async function logout(
+  presentedToken: string | undefined
+): Promise<void> {
   if (!presentedToken) return;
   await prisma.refreshToken.updateMany({
     where: { tokenHash: hashToken(presentedToken), revokedAt: null },

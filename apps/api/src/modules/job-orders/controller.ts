@@ -5,7 +5,12 @@ import { requireIdParam, requireUser } from '../../lib/http.js';
 import * as service from './service.js';
 
 export async function list(req: Request, res: Response): Promise<void> {
-  res.json(await service.list(jobOrdersListQuerySchema.parse(req.query), requireUser(req)));
+  res.json(
+    await service.list(
+      jobOrdersListQuerySchema.parse(req.query),
+      requireUser(req)
+    )
+  );
 }
 
 export async function getById(req: Request, res: Response): Promise<void> {
@@ -13,11 +18,17 @@ export async function getById(req: Request, res: Response): Promise<void> {
 }
 
 export async function create(req: Request, res: Response): Promise<void> {
-  res.status(201).json(await service.create(req.body as CreateJobOrderBody, requireUser(req)));
+  res
+    .status(201)
+    .json(
+      await service.create(req.body as CreateJobOrderBody, requireUser(req))
+    );
 }
 
 export async function update(req: Request, res: Response): Promise<void> {
-  res.json(await service.update(requireIdParam(req), req.body as UpdateJobOrderBody));
+  res.json(
+    await service.update(requireIdParam(req), req.body as UpdateJobOrderBody)
+  );
 }
 
 export async function remove(req: Request, res: Response): Promise<void> {

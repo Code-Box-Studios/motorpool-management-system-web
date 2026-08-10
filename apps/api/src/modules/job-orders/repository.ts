@@ -5,7 +5,9 @@ import { prisma } from '../../lib/prisma.js';
 // and the assigned mechanic. noted/approved/requested users are resolved
 // client-side (matching current behavior).
 export const jobOrderInclude = {
-  vehicle: { select: { id: true, make: true, model: true, licensePlate: true } },
+  vehicle: {
+    select: { id: true, make: true, model: true, licensePlate: true }
+  },
   spareParts: { include: { sparePart: true } },
   assignedMechanic: true
 } satisfies Prisma.JobOrderInclude;
@@ -13,7 +15,10 @@ export const jobOrderInclude = {
 type SkipTake = { skip: number; take: number } | Record<string, never>;
 
 export function findJobOrderById(id: string) {
-  return prisma.jobOrder.findUnique({ where: { id }, include: jobOrderInclude });
+  return prisma.jobOrder.findUnique({
+    where: { id },
+    include: jobOrderInclude
+  });
 }
 
 export async function listJobOrders(
@@ -22,7 +27,12 @@ export async function listJobOrders(
   orderBy: Prisma.JobOrderOrderByWithRelationInput = { updatedAt: 'desc' }
 ) {
   const [data, count] = await Promise.all([
-    prisma.jobOrder.findMany({ where, include: jobOrderInclude, orderBy, ...skipTake }),
+    prisma.jobOrder.findMany({
+      where,
+      include: jobOrderInclude,
+      orderBy,
+      ...skipTake
+    }),
     prisma.jobOrder.count({ where })
   ]);
   return { data, count };

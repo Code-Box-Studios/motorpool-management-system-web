@@ -11,8 +11,23 @@ const ANALYTICS_ROLES = [USER_ROLES.admin, USER_ROLES.evp_operations] as const;
 export const gpsRouter = Router();
 
 // Device-key auth, NOT requireAuth. Auth runs BEFORE body validation.
-gpsRouter.post('/ingest', requireDeviceKey, validateBody(ingestGpsBodySchema), controller.ingest);
+gpsRouter.post(
+  '/ingest',
+  requireDeviceKey,
+  validateBody(ingestGpsBodySchema),
+  controller.ingest
+);
 
 // User-JWT reads, admin/evp only.
-gpsRouter.get('/latest', requireAuth, requireRole(...ANALYTICS_ROLES), controller.latest);
-gpsRouter.get('/history', requireAuth, requireRole(...ANALYTICS_ROLES), controller.history);
+gpsRouter.get(
+  '/latest',
+  requireAuth,
+  requireRole(...ANALYTICS_ROLES),
+  controller.latest
+);
+gpsRouter.get(
+  '/history',
+  requireAuth,
+  requireRole(...ANALYTICS_ROLES),
+  controller.history
+);

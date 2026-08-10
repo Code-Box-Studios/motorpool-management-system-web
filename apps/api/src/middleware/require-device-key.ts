@@ -13,10 +13,20 @@ function safeEqual(a: string, b: string): boolean {
 // Fail-CLOSED device auth (spec §10): reads GPS_DEVICE_API_KEY live from the env
 // (not the cached config) so it reflects deployment/test setup at request time.
 // Unset → 500 GPS_NOT_CONFIGURED; missing/mismatched header → 401.
-export function requireDeviceKey(req: Request, _res: Response, next: NextFunction): void {
+export function requireDeviceKey(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): void {
   const expected = process.env.GPS_DEVICE_API_KEY;
   if (!expected) {
-    next(new AppError(500, 'GPS_NOT_CONFIGURED', 'GPS device key is not configured'));
+    next(
+      new AppError(
+        500,
+        'GPS_NOT_CONFIGURED',
+        'GPS device key is not configured'
+      )
+    );
     return;
   }
   const provided = req.header('x-device-api-key');

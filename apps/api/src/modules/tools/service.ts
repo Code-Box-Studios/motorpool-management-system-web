@@ -1,4 +1,8 @@
-import type { CreateToolBody, ToolsListQuery, UpdateToolBody } from '@mms/shared';
+import type {
+  CreateToolBody,
+  ToolsListQuery,
+  UpdateToolBody
+} from '@mms/shared';
 import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
@@ -37,7 +41,11 @@ export async function create(body: CreateToolBody, imagePath: string | null) {
 // Permissive passthrough (spec §6): whatever borrow fields the caller sends are
 // written verbatim. '' already became null in the contract, so a "return" that
 // sends empty borrow fields clears them. No borrow/return invariants enforced.
-export async function update(id: string, body: UpdateToolBody, newImagePath: string | null) {
+export async function update(
+  id: string,
+  body: UpdateToolBody,
+  newImagePath: string | null
+) {
   const existing = await findToolById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Tool not found');
   const { removeImage, ...rest } = body;

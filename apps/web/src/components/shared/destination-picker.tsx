@@ -176,7 +176,9 @@ const DestinationPicker = ({
           if (e instanceof DOMException && e.name === 'AbortError') return;
           // A destination is a free-text field. If the search is down you type
           // the place and carry on — it must never block the request.
-          setError('Search is unavailable. You can still type the destination.');
+          setError(
+            'Search is unavailable. You can still type the destination.'
+          );
           setResults([]);
         })
         .finally(() => setLoading(false));

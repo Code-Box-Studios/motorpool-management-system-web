@@ -1,7 +1,13 @@
 import { test, expect } from '@playwright/test';
 import {
-  login, shot, CREDENTIALS,
-  apiLogin, apiGet, apiPost, listData, tripStatus
+  login,
+  shot,
+  CREDENTIALS,
+  apiLogin,
+  apiGet,
+  apiPost,
+  listData,
+  tripStatus
 } from './helpers';
 
 // Full trip-ticket lifecycle. The EVP fuel approval is exercised through the real
@@ -9,22 +15,32 @@ import {
 // large multi-field form and the guard check-out/in is gated behind a physical
 // camera QR scan — neither runs reliably headless, so those are staged/completed
 // via the API, with each transition asserted. See notes inline.
-test('trip lifecycle: requester → admin → EVP (UI) → guard → completed', async ({ page, request }) => {
+test('trip lifecycle: requester → admin → EVP (UI) → guard → completed', async ({
+  page,
+  request
+}) => {
   // ---------- Stage the trip via the API ----------
   const admin = await apiLogin(request, CREDENTIALS.admin);
   const requester = await apiLogin(request, CREDENTIALS.requester);
   const driver = await apiLogin(request, CREDENTIALS.driver);
   const guard = await apiLogin(request, CREDENTIALS.guard);
 
-  const branches = listData(await apiGet(request, '/api/branches', admin.token));
+  const branches = listData(
+    await apiGet(request, '/api/branches', admin.token)
+  );
   const offices = listData(await apiGet(request, '/api/offices', admin.token));
-  const heads = listData(await apiGet(request, '/api/office-heads', admin.token));
-  const vehicles = listData(await apiGet(request, '/api/vehicles', admin.token));
+  const heads = listData(
+    await apiGet(request, '/api/office-heads', admin.token)
+  );
+  const vehicles = listData(
+    await apiGet(request, '/api/vehicles', admin.token)
+  );
   const drivers = listData(await apiGet(request, '/api/drivers', admin.token));
 
   const vehicle = vehicles.find((v) => v.status === 'available');
   expect(vehicle, 'a free vehicle is available for the sim').toBeTruthy();
-  const linkedDriver = drivers.find((d) => d.userId === driver.user.id) ?? drivers[0];
+  const linkedDriver =
+    drivers.find((d) => d.userId === driver.user.id) ?? drivers[0];
   const destination = `UI-E2E ${Date.now()}`;
 
   // Requester submits → always born pending_admin_approval.
@@ -34,23 +50,39 @@ test('trip lifecycle: requester → admin → EVP (UI) → guard → completed',
     vehicleId: vehicle!.id as string,
     officeId: (offices[0]?.id as string) ?? null,
     officeHeadId: (heads[0]?.id as string) ?? null,
-    destination, purpose: 'E2E UI lifecycle',
+    destination,
+    purpose: 'E2E UI lifecycle',
     dateRequested: new Date().toISOString(),
-    participants: ['E2E'], participantsCount: 1, preparedBy: 'E2E',
+    participants: ['E2E'],
+    participantsCount: 1,
+    preparedBy: 'E2E',
     requestedById: requester.user.id,
     startTs: new Date().toISOString(),
     endTs: new Date(Date.now() + 3_600_000).toISOString()
   });
   expect(created.ok, 'requester creates trip').toBeTruthy();
   const tripId = (created.body as { id: string }).id;
-  expect(await tripStatus(request, tripId, admin.token)).toBe('pending_admin_approval');
+  expect(await tripStatus(request, tripId, admin.token)).toBe(
+    'pending_admin_approval'
+  );
 
   // Admin approve (prepares the fuel allocation) → pending_fuel_allocation_approval.
-  const adminApprove = await apiPost(request, `/api/trip-tickets/${tripId}/approve`, admin.token, {
-    liters: 25, fuelType: 'diesel', date: new Date().toISOString(), purpose: 'E2E', tripTo: destination
-  });
+  const adminApprove = await apiPost(
+    request,
+    `/api/trip-tickets/${tripId}/approve`,
+    admin.token,
+    {
+      liters: 25,
+      fuelType: 'diesel',
+      date: new Date().toISOString(),
+      purpose: 'E2E',
+      tripTo: destination
+    }
+  );
   expect(adminApprove.ok, 'admin approve + fuel allocation').toBeTruthy();
-  expect(await tripStatus(request, tripId, admin.token)).toBe('pending_fuel_allocation_approval');
+  expect(await tripStatus(request, tripId, admin.token)).toBe(
+    'pending_fuel_allocation_approval'
+  );
 
   // ---------- The UI transition: EVP approves the fuel allocation ----------
   // The approvals queue is a list of cards (an <article> per decision), not a
@@ -78,25 +110,43 @@ test('trip lifecycle: requester → admin → EVP (UI) → guard → completed',
   // cannot run in headless Chromium — so these transitions go through the API.)
   // The guard reads the odometer at the gate, out and back. It is the only thing
   // that advances the vehicle's mileage, which every maintenance figure uses.
-  const vehicleBefore = (await apiGet(request, `/api/vehicles/${vehicle!.id}`, admin.token)) as {
+  const vehicleBefore = (await apiGet(
+    request,
+    `/api/vehicles/${vehicle!.id}`,
+    admin.token
+  )) as {
     mileage: number;
   };
   const startMileage = vehicleBefore.mileage;
   const endMileage = startMileage + 120;
 
-  const checkOut = await apiPost(request, `/api/trip-tickets/${tripId}/check-out`, guard.token, {
-    startMileage
-  });
+  const checkOut = await apiPost(
+    request,
+    `/api/trip-tickets/${tripId}/check-out`,
+    guard.token,
+    {
+      startMileage
+    }
+  );
   expect(checkOut.ok, 'guard check-out').toBeTruthy();
   expect(await tripStatus(request, tripId, admin.token)).toBe('in_progress');
 
-  const checkIn = await apiPost(request, `/api/trip-tickets/${tripId}/check-in`, guard.token, {
-    endMileage
-  });
+  const checkIn = await apiPost(
+    request,
+    `/api/trip-tickets/${tripId}/check-in`,
+    guard.token,
+    {
+      endMileage
+    }
+  );
   expect(checkIn.ok, 'guard check-in').toBeTruthy();
   expect(await tripStatus(request, tripId, admin.token)).toBe('completed');
 
-  const vehicleAfter = (await apiGet(request, `/api/vehicles/${vehicle!.id}`, admin.token)) as {
+  const vehicleAfter = (await apiGet(
+    request,
+    `/api/vehicles/${vehicle!.id}`,
+    admin.token
+  )) as {
     mileage: number;
   };
   expect(vehicleAfter.mileage, 'the trip moved the odometer').toBe(endMileage);
@@ -104,12 +154,17 @@ test('trip lifecycle: requester → admin → EVP (UI) → guard → completed',
   // ---------- Verify the completed trip is visible in the admin UI ----------
   await page.context().clearCookies();
   await login(page, 'admin');
-  await page.getByRole('link', { name: 'Trip Tickets', exact: true }).first().click();
+  await page
+    .getByRole('link', { name: 'Trip Tickets', exact: true })
+    .first()
+    .click();
   await page.waitForURL(/\/trip-tickets/, { timeout: 15_000 });
   // Switch to the Table view for an unambiguous status-cell check.
   await page.getByRole('tab', { name: 'Table' }).click();
   const adminRow = page.getByRole('row').filter({ hasText: destination });
-  await expect(adminRow, 'completed trip shows in admin table').toBeVisible({ timeout: 15_000 });
+  await expect(adminRow, 'completed trip shows in admin table').toBeVisible({
+    timeout: 15_000
+  });
   await expect(adminRow).toContainText(/completed/i);
   await shot(page, 'lifecycle-3-admin-completed');
 });

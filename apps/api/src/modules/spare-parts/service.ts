@@ -1,4 +1,8 @@
-import type { CreateSparePartBody, SparePartsListQuery, UpdateSparePartBody } from '@mms/shared';
+import type {
+  CreateSparePartBody,
+  SparePartsListQuery,
+  UpdateSparePartBody
+} from '@mms/shared';
 import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
@@ -27,11 +31,18 @@ export async function getById(id: string) {
   return part;
 }
 
-export async function create(body: CreateSparePartBody, imagePath: string | null) {
+export async function create(
+  body: CreateSparePartBody,
+  imagePath: string | null
+) {
   return prisma.sparePart.create({ data: { ...body, image: imagePath } });
 }
 
-export async function update(id: string, body: UpdateSparePartBody, newImagePath: string | null) {
+export async function update(
+  id: string,
+  body: UpdateSparePartBody,
+  newImagePath: string | null
+) {
   const existing = await findSparePartById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Spare part not found');
   const { removeImage, ...rest } = body;

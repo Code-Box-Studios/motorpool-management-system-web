@@ -3,9 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 
 export const userInclude = { userRole: { include: { role: true } } } as const;
 
-export type UserRow = NonNullable<
-  Awaited<ReturnType<typeof findUserById>>
->;
+export type UserRow = NonNullable<Awaited<ReturnType<typeof findUserById>>>;
 
 export function findUserById(id: string) {
   return prisma.user.findUnique({ where: { id }, include: userInclude });
@@ -20,7 +18,9 @@ export async function listUsers(
   skipTake: { skip: number; take: number } | Record<string, never>,
   orderBy: Prisma.UserOrderByWithRelationInput = { updatedAt: 'desc' }
 ) {
-  const where = roleName ? { userRole: { role: { name: roleName } } } : undefined;
+  const where = roleName
+    ? { userRole: { role: { name: roleName } } }
+    : undefined;
   const [data, count] = await Promise.all([
     prisma.user.findMany({
       where,

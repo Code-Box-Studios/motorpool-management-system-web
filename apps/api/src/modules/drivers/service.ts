@@ -1,12 +1,20 @@
 import { USER_ROLES } from '@mms/shared';
-import type { CreateDriverBody, DriversListQuery, UpdateDriverBody } from '@mms/shared';
+import type {
+  CreateDriverBody,
+  DriversListQuery,
+  UpdateDriverBody
+} from '@mms/shared';
 import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
-import { findDriverByEmail, findDriverById, listDrivers } from './repository.js';
+import {
+  findDriverByEmail,
+  findDriverById,
+  listDrivers
+} from './repository.js';
 
 export async function list(query: DriversListQuery, actor: AuthenticatedUser) {
   // Driver-role callers are scoped to their own row (spec §5 matrix).
@@ -28,7 +36,10 @@ export async function list(query: DriversListQuery, actor: AuthenticatedUser) {
 export async function getById(id: string, actor: AuthenticatedUser) {
   const driver = await findDriverById(id);
   // Not-found masking: a driver probing someone else's id learns nothing.
-  if (!driver || (actor.role === USER_ROLES.driver && driver.userId !== actor.id)) {
+  if (
+    !driver ||
+    (actor.role === USER_ROLES.driver && driver.userId !== actor.id)
+  ) {
     throw new AppError(404, 'NOT_FOUND', 'Driver not found');
   }
   return driver;
@@ -41,19 +52,34 @@ async function mustExist(id: string) {
   return driver;
 }
 
-export async function create(body: CreateDriverBody, photoPath: string | null = null) {
+export async function create(
+  body: CreateDriverBody,
+  photoPath: string | null = null
+) {
   if (await findDriverByEmail(body.email)) {
-    throw new AppError(409, 'EMAIL_TAKEN', 'A driver with this email already exists');
+    throw new AppError(
+      409,
+      'EMAIL_TAKEN',
+      'A driver with this email already exists'
+    );
   }
   return prisma.driver.create({ data: { ...body, photo: photoPath } });
 }
 
-export async function update(id: string, body: UpdateDriverBody, newPhotoPath: string | null = null) {
+export async function update(
+  id: string,
+  body: UpdateDriverBody,
+  newPhotoPath: string | null = null
+) {
   await mustExist(id);
   if (body.email) {
     const clash = await findDriverByEmail(body.email);
     if (clash && clash.id !== id) {
-      throw new AppError(409, 'EMAIL_TAKEN', 'A driver with this email already exists');
+      throw new AppError(
+        409,
+        'EMAIL_TAKEN',
+        'A driver with this email already exists'
+      );
     }
   }
   // Three-valued, as with tools: a new file replaces, removePhoto clears, and

@@ -18,7 +18,11 @@ declare global {
 }
 
 // Verifies the Bearer access token and attaches req.user.
-export function requireAuth(req: Request, _res: Response, next: NextFunction): void {
+export function requireAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): void {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
     next(new AppError(401, 'UNAUTHORIZED', 'Missing bearer token'));

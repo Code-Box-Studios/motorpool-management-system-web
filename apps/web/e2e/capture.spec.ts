@@ -140,11 +140,7 @@ test.describe('@capture design screens', () => {
     await visit(page, '/tracker-devices', '27-trackers-list');
     await visit(page, '/tracker-devices/add-device', '28-tracker-create');
     if (ids.tracker) {
-      await visit(
-        page,
-        `/tracker-devices/${ids.tracker}`,
-        '29-tracker-detail'
-      );
+      await visit(page, `/tracker-devices/${ids.tracker}`, '29-tracker-detail');
     }
 
     // --- Users ---

@@ -1,5 +1,9 @@
 import { Router } from 'express';
-import { USER_ROLES, createDriverBodySchema, updateDriverBodySchema } from '@mms/shared';
+import {
+  USER_ROLES,
+  createDriverBodySchema,
+  updateDriverBodySchema
+} from '@mms/shared';
 import { createUploader } from '../../lib/uploads.js';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { requireRole } from '../../middleware/require-role.js';

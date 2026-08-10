@@ -1,7 +1,10 @@
 import { prisma } from '../../lib/prisma.js';
 
 export async function vehicleStatusCounts() {
-  const groups = await prisma.vehicle.groupBy({ by: ['status'], _count: { _all: true } });
+  const groups = await prisma.vehicle.groupBy({
+    by: ['status'],
+    _count: { _all: true }
+  });
   const total = await prisma.vehicle.count();
   return { groups, total };
 }
@@ -11,7 +14,9 @@ export function completedTripsCount() {
 }
 
 export function vehiclesWithMaintenance() {
-  return prisma.vehicle.findMany({ include: { maintenances: { orderBy: { date: 'desc' } } } });
+  return prisma.vehicle.findMany({
+    include: { maintenances: { orderBy: { date: 'desc' } } }
+  });
 }
 
 // Job orders that used spare parts, with the join rows + the vehicle (for the

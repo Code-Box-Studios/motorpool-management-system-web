@@ -45,12 +45,15 @@ test('admin registers a tracker device and it appears in the list', async ({
   await login(page, 'admin');
 
   // Trackers lives under the Settings group in the sidebar (admin-only).
-  await page.getByRole('link', { name: 'Trackers', exact: true }).first().click();
+  await page
+    .getByRole('link', { name: 'Trackers', exact: true })
+    .first()
+    .click();
   await page.waitForURL(/\/tracker-devices/, { timeout: 15_000 });
   // CardTitle renders a plain <div> (no heading role), so match on text.
-  await expect(
-    page.getByText('Tracker Devices', { exact: true })
-  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Tracker Devices', { exact: true })).toBeVisible({
+    timeout: 15_000
+  });
 
   // Register a new device.
   await page.getByRole('link', { name: 'Register Device' }).click();
@@ -108,7 +111,7 @@ test('non-admin cannot see or reach the Trackers pages', async ({ page }) => {
   // structurally cannot match). Any id works: the gate runs before the fetch.
   await page.goto(`/tracker-devices/${UNKNOWN_DEVICE_ID}`);
   await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
-  await expect(page.getByRole('heading', { name: 'Tracker Device' })).toHaveCount(
-    0
-  );
+  await expect(
+    page.getByRole('heading', { name: 'Tracker Device' })
+  ).toHaveCount(0);
 });

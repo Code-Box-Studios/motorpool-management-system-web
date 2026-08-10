@@ -14,7 +14,11 @@ export function errorHandler(
 ): void {
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
-      error: { code: err.code, message: err.message, ...(err.details !== undefined && { details: err.details }) }
+      error: {
+        code: err.code,
+        message: err.message,
+        ...(err.details !== undefined && { details: err.details })
+      }
     });
     return;
   }
@@ -24,7 +28,14 @@ export function errorHandler(
   // USER_IN_USE) catch P2003 locally before it reaches this middleware.
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === 'P2002' || err.code === 'P2003') {
-      res.status(409).json({ error: { code: 'CONFLICT', message: 'The request conflicts with existing data' } });
+      res
+        .status(409)
+        .json({
+          error: {
+            code: 'CONFLICT',
+            message: 'The request conflicts with existing data'
+          }
+        });
       return;
     }
   }
@@ -36,10 +47,16 @@ export function errorHandler(
   }
   if (err instanceof ZodError) {
     res.status(400).json({
-      error: { code: 'VALIDATION_ERROR', message: 'Invalid request', details: err.flatten() }
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid request',
+        details: err.flatten()
+      }
     });
     return;
   }
   req.log?.error(err);
-  res.status(500).json({ error: { code: 'INTERNAL', message: 'Internal server error' } });
+  res
+    .status(500)
+    .json({ error: { code: 'INTERNAL', message: 'Internal server error' } });
 }

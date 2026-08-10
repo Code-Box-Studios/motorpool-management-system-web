@@ -15,4 +15,6 @@ export function findUserById(id: string) {
   });
 }
 
-export type UserWithRole = NonNullable<Awaited<ReturnType<typeof findUserByEmail>>>;
+export type UserWithRole = NonNullable<
+  Awaited<ReturnType<typeof findUserByEmail>>
+>;

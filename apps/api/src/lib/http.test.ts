@@ -11,12 +11,20 @@ describe('http helpers', () => {
   it('requireIdParam returns a string id, rejects missing/array', () => {
     expect(requireIdParam(fakeReq({ params: { id: 'abc' } }))).toBe('abc');
     expect(() => requireIdParam(fakeReq({ params: {} }))).toThrow(AppError);
-    expect(() => requireIdParam(fakeReq({ params: { id: ['a', 'b'] as unknown as string } }))).toThrow(AppError);
+    expect(() =>
+      requireIdParam(
+        fakeReq({ params: { id: ['a', 'b'] as unknown as string } })
+      )
+    ).toThrow(AppError);
   });
 
   it('requireParam returns a named param or throws', () => {
-    expect(requireParam(fakeReq({ params: { itemId: 'x' } }), 'itemId')).toBe('x');
-    expect(() => requireParam(fakeReq({ params: {} }), 'itemId')).toThrow(AppError);
+    expect(requireParam(fakeReq({ params: { itemId: 'x' } }), 'itemId')).toBe(
+      'x'
+    );
+    expect(() => requireParam(fakeReq({ params: {} }), 'itemId')).toThrow(
+      AppError
+    );
   });
 
   it('requireUser returns req.user or throws 401', () => {

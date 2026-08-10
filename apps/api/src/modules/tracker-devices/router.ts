@@ -1,5 +1,9 @@
 import { Router } from 'express';
-import { USER_ROLES, createTrackerDeviceBodySchema, updateTrackerDeviceBodySchema } from '@mms/shared';
+import {
+  USER_ROLES,
+  createTrackerDeviceBodySchema,
+  updateTrackerDeviceBodySchema
+} from '@mms/shared';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { requireDeviceKey } from '../../middleware/require-device-key.js';
 import { requireRole } from '../../middleware/require-role.js';
@@ -9,10 +13,20 @@ import * as controller from './controller.js';
 export const trackerDevicesRouter = Router();
 
 // Admin-only device management.
-trackerDevicesRouter.get('/', requireAuth, requireRole(USER_ROLES.admin), controller.list);
+trackerDevicesRouter.get(
+  '/',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  controller.list
+);
 // Gateway-only: device-key auth, not user auth. Declared before '/:id'.
 trackerDevicesRouter.get('/resolve', requireDeviceKey, controller.resolve);
-trackerDevicesRouter.get('/:id', requireAuth, requireRole(USER_ROLES.admin), controller.getById);
+trackerDevicesRouter.get(
+  '/:id',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  controller.getById
+);
 trackerDevicesRouter.post(
   '/',
   requireAuth,
@@ -27,4 +41,9 @@ trackerDevicesRouter.patch(
   validateBody(updateTrackerDeviceBodySchema),
   controller.update
 );
-trackerDevicesRouter.delete('/:id', requireAuth, requireRole(USER_ROLES.admin), controller.remove);
+trackerDevicesRouter.delete(
+  '/:id',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  controller.remove
+);

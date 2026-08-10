@@ -12,7 +12,9 @@ export function extractFeatures(
   now: Date
 ): { kmSinceLastMaint: number; avgDailyKm: number; maintFreq12m: number } {
   // Newest first.
-  const rows = [...maintenances].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const rows = [...maintenances].sort(
+    (a, b) => b.date.getTime() - a.date.getTime()
+  );
   const lastMaint = rows[0];
 
   // The baseline is the newest service whose ODOMETER we actually know — not
@@ -40,11 +42,17 @@ export function extractFeatures(
   if (withOdometer.length >= 2) {
     const newest = withOdometer[0]!;
     const oldest = withOdometer[withOdometer.length - 1]!;
-    const daysBetween = Math.max(1, (newest.date.getTime() - oldest.date.getTime()) / DAY_MS);
+    const daysBetween = Math.max(
+      1,
+      (newest.date.getTime() - oldest.date.getTime()) / DAY_MS
+    );
     const kmBetween = Math.abs(newest.mileage! - oldest.mileage!);
     avgDailyKm = kmBetween / daysBetween;
   } else if (lastMaint) {
-    const daysSinceLast = Math.max(1, (now.getTime() - lastMaint.date.getTime()) / DAY_MS);
+    const daysSinceLast = Math.max(
+      1,
+      (now.getTime() - lastMaint.date.getTime()) / DAY_MS
+    );
     avgDailyKm = kmSinceLastMaint / daysSinceLast;
   }
 

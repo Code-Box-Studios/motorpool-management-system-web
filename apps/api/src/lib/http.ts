@@ -17,6 +17,7 @@ export function requireIdParam(req: Request): string {
 }
 
 export function requireUser(req: Request): AuthenticatedUser {
-  if (!req.user) throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+  if (!req.user)
+    throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
   return req.user;
 }

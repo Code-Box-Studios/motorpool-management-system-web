@@ -33,7 +33,10 @@ export async function claimVehicleStatus(
   vehicleId: string,
   from: VehicleStatus[],
   to: VehicleStatus,
-  opts: ChangeStatusOpts & { code: string; message: (current: VehicleStatus) => string }
+  opts: ChangeStatusOpts & {
+    code: string;
+    message: (current: VehicleStatus) => string;
+  }
 ): Promise<{ mileage: number }> {
   const vehicle = await client.vehicle.findUnique({
     where: { id: vehicleId },
@@ -114,7 +117,10 @@ export async function advanceOdometer(
     );
   }
   if (reading === currentMileage) return;
-  await client.vehicle.update({ where: { id: vehicleId }, data: { mileage: reading } });
+  await client.vehicle.update({
+    where: { id: vehicleId },
+    data: { mileage: reading }
+  });
 }
 
 // Spec §4.2: the single choke point for EVERY vehicle status flip. Updates the
@@ -132,11 +138,16 @@ export async function changeVehicleStatus(
   });
   if (!vehicle) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
   if (opts.expectedFrom !== undefined) {
-    const allowed = Array.isArray(opts.expectedFrom) ? opts.expectedFrom : [opts.expectedFrom];
+    const allowed = Array.isArray(opts.expectedFrom)
+      ? opts.expectedFrom
+      : [opts.expectedFrom];
     if (!allowed.includes(vehicle.status)) return false; // skip-and-log
   }
   if (vehicle.status === newStatus) return false;
-  await client.vehicle.update({ where: { id: vehicleId }, data: { status: newStatus } });
+  await client.vehicle.update({
+    where: { id: vehicleId },
+    data: { status: newStatus }
+  });
   await client.vehicleStatusAudit.create({
     data: {
       vehicleId,

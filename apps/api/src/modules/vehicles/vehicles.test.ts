@@ -2,13 +2,20 @@ import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { prisma } from '../../lib/prisma.js';
-import { authHeader, createTestBranch, createTestUser } from '../../test/factories.js';
+import {
+  authHeader,
+  createTestBranch,
+  createTestUser
+} from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
 
 const app = createApp();
 
 async function adminHeader() {
-  const { user } = await createTestUser({ email: 'boss@test.local', role: 'admin' });
+  const { user } = await createTestUser({
+    email: 'boss@test.local',
+    role: 'admin'
+  });
   return authHeader(user.id, user.email, 'admin');
 }
 
@@ -46,15 +53,23 @@ describe('vehicles module', () => {
 
     const created = await postVehicle(header, branch.id);
     expect(created.status).toBe(201);
-    expect(created.body).toMatchObject({ make: 'Toyota', status: 'available', mileage: 48000 });
+    expect(created.body).toMatchObject({
+      make: 'Toyota',
+      status: 'available',
+      mileage: 48000
+    });
     expect(created.body.images).toEqual([]);
     const id = created.body.id as string;
 
-    const fetched = await request(app).get(`/api/vehicles/${id}`).set('Authorization', header);
+    const fetched = await request(app)
+      .get(`/api/vehicles/${id}`)
+      .set('Authorization', header);
     expect(fetched.status).toBe(200);
     expect(fetched.body.licensePlate).toBe('ABC-1001');
 
-    const list = await request(app).get('/api/vehicles').set('Authorization', header);
+    const list = await request(app)
+      .get('/api/vehicles')
+      .set('Authorization', header);
     expect(list.body.count).toBe(1);
 
     const updated = await request(app)
@@ -64,7 +79,9 @@ describe('vehicles module', () => {
     expect(updated.status).toBe(200);
     expect(updated.body.mileage).toBe(52000);
 
-    const removed = await request(app).delete(`/api/vehicles/${id}`).set('Authorization', header);
+    const removed = await request(app)
+      .delete(`/api/vehicles/${id}`)
+      .set('Authorization', header);
     expect(removed.status).toBe(204);
     expect(await prisma.vehicle.count()).toBe(0);
   });
@@ -72,7 +89,10 @@ describe('vehicles module', () => {
   it('is readable by any authenticated role including security_guard', async () => {
     const branch = await createTestBranch();
     await postVehicle(await adminHeader(), branch.id);
-    const { user } = await createTestUser({ email: 'guard@test.local', role: 'security_guard' });
+    const { user } = await createTestUser({
+      email: 'guard@test.local',
+      role: 'security_guard'
+    });
     const res = await request(app)
       .get('/api/vehicles')
       .set('Authorization', authHeader(user.id, user.email, 'security_guard'));
@@ -87,7 +107,10 @@ describe('vehicles module', () => {
     const id = created.body.id as string;
 
     // A non-status field change writes NO audit row.
-    await request(app).patch(`/api/vehicles/${id}`).set('Authorization', header).field('mileage', '50000');
+    await request(app)
+      .patch(`/api/vehicles/${id}`)
+      .set('Authorization', header)
+      .field('mileage', '50000');
     expect(await prisma.vehicleStatusAudit.count()).toBe(0);
 
     // A status change writes exactly one audit row capturing old -> new.
@@ -97,7 +120,9 @@ describe('vehicles module', () => {
       .field('status', 'under_maintenance');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('under_maintenance');
-    const audits = await prisma.vehicleStatusAudit.findMany({ where: { vehicleId: id } });
+    const audits = await prisma.vehicleStatusAudit.findMany({
+      where: { vehicleId: id }
+    });
     expect(audits).toHaveLength(1);
     expect(audits[0]).toMatchObject({
       oldStatus: 'available',
@@ -121,7 +146,10 @@ describe('vehicles module', () => {
       .patch(`/api/vehicles/${id}`)
       .set('Authorization', header)
       .field('removedImages', '/uploads/vehicles/a.jpg')
-      .attach('images', Buffer.from('fakejpeg'), { filename: 'c.jpg', contentType: 'image/jpeg' });
+      .attach('images', Buffer.from('fakejpeg'), {
+        filename: 'c.jpg',
+        contentType: 'image/jpeg'
+      });
     expect(res.status).toBe(200);
     expect(res.body.images).toHaveLength(2); // b.jpg kept + the newly uploaded one
     expect(res.body.images).toContain('/uploads/vehicles/b.jpg');
@@ -133,9 +161,13 @@ describe('vehicles module', () => {
     const branch = await createTestBranch();
     const created = await postVehicle(header, branch.id);
     const id = created.body.id as string;
-    await prisma.maintenance.create({ data: { vehicleId: id, type: 'service', date: new Date('2026-01-01') } });
+    await prisma.maintenance.create({
+      data: { vehicleId: id, type: 'service', date: new Date('2026-01-01') }
+    });
 
-    const res = await request(app).delete(`/api/vehicles/${id}`).set('Authorization', header);
+    const res = await request(app)
+      .delete(`/api/vehicles/${id}`)
+      .set('Authorization', header);
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('VEHICLE_IN_USE');
   });
@@ -148,8 +180,14 @@ describe('vehicles module', () => {
       .set('Authorization', header);
     expect(miss.status).toBe(404);
 
-    const { user } = await createTestUser({ email: 'req@test.local', role: 'requester' });
-    const forbidden = await postVehicle(authHeader(user.id, user.email, 'requester'), branch.id);
+    const { user } = await createTestUser({
+      email: 'req@test.local',
+      role: 'requester'
+    });
+    const forbidden = await postVehicle(
+      authHeader(user.id, user.email, 'requester'),
+      branch.id
+    );
     expect(forbidden.status).toBe(403);
   });
 });

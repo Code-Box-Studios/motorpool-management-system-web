@@ -24,24 +24,36 @@ let cachedModel: RFModel | null | undefined;
 export function loadModel(): RFModel | null {
   if (cachedModel !== undefined) return cachedModel;
   try {
-    const url = new URL('../../assets/rf_maintenance_model.json', import.meta.url);
+    const url = new URL(
+      '../../assets/rf_maintenance_model.json',
+      import.meta.url
+    );
     const parsed = JSON.parse(readFileSync(url, 'utf-8')) as RFModel;
-    cachedModel = Array.isArray(parsed.trees) && parsed.trees.length > 0 ? parsed : null;
+    cachedModel =
+      Array.isArray(parsed.trees) && parsed.trees.length > 0 ? parsed : null;
   } catch {
     cachedModel = null;
   }
   return cachedModel;
 }
 
-function predictTree(node: TreeNode | TreeLeaf, features: Record<string, number>): number {
+function predictTree(
+  node: TreeNode | TreeLeaf,
+  features: Record<string, number>
+): number {
   if ('probs' in node) return node.probs[1] ?? 0;
   const value = features[node.feature] ?? 0;
-  return value <= node.threshold ? predictTree(node.left, features) : predictTree(node.right, features);
+  return value <= node.threshold
+    ? predictTree(node.left, features)
+    : predictTree(node.right, features);
 }
 
 // Soft voting: mean of P(fail) across all trees. RAW feature values (do NOT
 // scale — the model thresholds are baked to expect raw inputs; §11).
-export function predictRandomForest(model: RFModel, features: Record<string, number>): number {
+export function predictRandomForest(
+  model: RFModel,
+  features: Record<string, number>
+): number {
   const probs = model.trees.map((t) => predictTree(t, features));
   return probs.reduce((sum, p) => sum + p, 0) / probs.length;
 }

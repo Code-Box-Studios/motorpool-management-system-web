@@ -1,5 +1,9 @@
 import { Router } from 'express';
-import { USER_ROLES, createToolBodySchema, updateToolBodySchema } from '@mms/shared';
+import {
+  USER_ROLES,
+  createToolBodySchema,
+  updateToolBodySchema
+} from '@mms/shared';
 import { INVENTORY_READ_ROLES } from '../../lib/access.js';
 import { createUploader } from '../../lib/uploads.js';
 import { requireAuth } from '../../middleware/require-auth.js';
@@ -13,7 +17,11 @@ export const toolsRouter = Router();
 
 toolsRouter.use(requireAuth);
 toolsRouter.get('/', requireRole(...INVENTORY_READ_ROLES), controller.list);
-toolsRouter.get('/:id', requireRole(...INVENTORY_READ_ROLES), controller.getById);
+toolsRouter.get(
+  '/:id',
+  requireRole(...INVENTORY_READ_ROLES),
+  controller.getById
+);
 toolsRouter.post(
   '/',
   requireRole(USER_ROLES.admin),

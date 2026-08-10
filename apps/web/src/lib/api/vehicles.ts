@@ -149,3 +149,7 @@ export async function updateVehicle(
     fd.append('removedImages', toRelativeAssetPath(url));
   return toSnake(await api.patchForm<VehicleResponse>(`/vehicles/${id}`, fd));
 }
+
+export async function deleteVehicle(id: string): Promise<void> {
+  await api.del(`/vehicles/${id}`);
+}

@@ -18,7 +18,11 @@ export async function ingest(body: IngestGpsBody) {
     });
     await tx.vehicle.update({
       where: { id: body.vehicleId },
-      data: { latitude: body.latitude, longitude: body.longitude, lastLocationUpdate: new Date() }
+      data: {
+        latitude: body.latitude,
+        longitude: body.longitude,
+        lastLocationUpdate: new Date()
+      }
     });
     return point;
   });

@@ -1,4 +1,8 @@
-import type { CreateMaintenanceBody, UpdateMaintenanceBody, MaintenanceListQuery } from '@mms/shared';
+import type {
+  CreateMaintenanceBody,
+  UpdateMaintenanceBody,
+  MaintenanceListQuery
+} from '@mms/shared';
 import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
@@ -6,7 +10,10 @@ import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
 import { findMaintenanceById, listMaintenance } from './repository.js';
 
-export async function list(vehicleId: string | undefined, query: MaintenanceListQuery) {
+export async function list(
+  vehicleId: string | undefined,
+  query: MaintenanceListQuery
+) {
   const orderBy = toOrderBy<Prisma.MaintenanceOrderByWithRelationInput>(
     query.sortBy,
     query.sortOrder,
@@ -27,7 +34,8 @@ export async function list(vehicleId: string | undefined, query: MaintenanceList
 
 export async function getById(id: string) {
   const row = await findMaintenanceById(id);
-  if (!row) throw new AppError(404, 'NOT_FOUND', 'Maintenance record not found');
+  if (!row)
+    throw new AppError(404, 'NOT_FOUND', 'Maintenance record not found');
   return row;
 }
 

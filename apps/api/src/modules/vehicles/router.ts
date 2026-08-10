@@ -1,5 +1,10 @@
 import { Router } from 'express';
-import { USER_ROLES, assignTrackingBodySchema, createVehicleBodySchema, updateVehicleBodySchema } from '@mms/shared';
+import {
+  USER_ROLES,
+  assignTrackingBodySchema,
+  createVehicleBodySchema,
+  updateVehicleBodySchema
+} from '@mms/shared';
 import { INVENTORY_READ_ROLES } from '../../lib/access.js';
 import { createUploader } from '../../lib/uploads.js';
 import { requireAuth } from '../../middleware/require-auth.js';

@@ -41,7 +41,9 @@ const AppHeader = () => {
     // A record id is a database key, not a name. The record hands us a label
     // (see useBreadcrumbLabel); until it does, the crumb is simply dropped —
     // never rendered as a raw id.
-    .filter(({ segment, isLast }) => !UUID_RE.test(segment) || (isLast && label))
+    .filter(
+      ({ segment, isLast }) => !UUID_RE.test(segment) || (isLast && label)
+    )
     // Any page may name its own crumb, not just a record behind a UUID: five
     // roles share /dashboard and see five different screens, so a driver looking
     // at "My Trips" should not be told they are on the "Dashboard".

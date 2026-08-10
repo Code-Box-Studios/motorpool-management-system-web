@@ -17,7 +17,12 @@ export async function history(query: GpsHistoryQuery) {
     vehicleId: query.vehicleId,
     ...(query.tripId ? { tripId: query.tripId } : {}),
     ...(query.from || query.to
-      ? { createdAt: { ...(query.from ? { gte: query.from } : {}), ...(query.to ? { lte: query.to } : {}) } }
+      ? {
+          createdAt: {
+            ...(query.from ? { gte: query.from } : {}),
+            ...(query.to ? { lte: query.to } : {})
+          }
+        }
       : {})
   };
   return repo.history(where, query.limit);

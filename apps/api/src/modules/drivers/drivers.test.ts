@@ -2,13 +2,20 @@ import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { prisma } from '../../lib/prisma.js';
-import { authHeader, createTestBranch, createTestUser } from '../../test/factories.js';
+import {
+  authHeader,
+  createTestBranch,
+  createTestUser
+} from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
 
 const app = createApp();
 
 async function adminHeader() {
-  const { user } = await createTestUser({ email: 'boss@test.local', role: 'admin' });
+  const { user } = await createTestUser({
+    email: 'boss@test.local',
+    role: 'admin'
+  });
   return authHeader(user.id, user.email, 'admin');
 }
 
@@ -32,9 +39,14 @@ describe('drivers module', () => {
     expect(created.status).toBe(201);
     const id = created.body.id as string;
 
-    const fetched = await request(app).get(`/api/drivers/${id}`).set('Authorization', header);
+    const fetched = await request(app)
+      .get(`/api/drivers/${id}`)
+      .set('Authorization', header);
     expect(fetched.status).toBe(200);
-    expect(fetched.body).toMatchObject({ email: 'pilot@test.local', fullName: 'Pilot One' });
+    expect(fetched.body).toMatchObject({
+      email: 'pilot@test.local',
+      fullName: 'Pilot One'
+    });
 
     const updated = await request(app)
       .patch(`/api/drivers/${id}`)
@@ -43,7 +55,9 @@ describe('drivers module', () => {
     expect(updated.status).toBe(200);
     expect(updated.body.status).toBe('on_trip');
 
-    const removed = await request(app).delete(`/api/drivers/${id}`).set('Authorization', header);
+    const removed = await request(app)
+      .delete(`/api/drivers/${id}`)
+      .set('Authorization', header);
     expect(removed.status).toBe(204);
     expect(await prisma.driver.count()).toBe(0);
   });
@@ -53,7 +67,11 @@ describe('drivers module', () => {
     const header = authHeader(user.id, user.email, 'evp_operations');
     for (const n of ['Alpha', 'Bravo', 'Charlie']) {
       await prisma.driver.create({
-        data: { email: `${n.toLowerCase()}@test.local`, fullName: n, status: 'active' }
+        data: {
+          email: `${n.toLowerCase()}@test.local`,
+          fullName: n,
+          status: 'active'
+        }
       });
     }
     // Explicit sort keeps the page content deterministic (the DEFAULT order is
@@ -80,7 +98,10 @@ describe('drivers module', () => {
       .set('Authorization', header);
     expect(miss.status).toBe(404);
 
-    const { user } = await createTestUser({ email: 'g@test.local', role: 'security_guard' });
+    const { user } = await createTestUser({
+      email: 'g@test.local',
+      role: 'security_guard'
+    });
     const forbidden = await request(app)
       .post('/api/drivers')
       .set('Authorization', authHeader(user.id, user.email, 'security_guard'))
@@ -105,7 +126,11 @@ describe('drivers module', () => {
     const header = await adminHeader();
     const branch = await createTestBranch();
     const driver = await prisma.driver.create({
-      data: { email: 'busy@test.local', fullName: 'Busy Driver', status: 'active' }
+      data: {
+        email: 'busy@test.local',
+        fullName: 'Busy Driver',
+        status: 'active'
+      }
     });
     const vehicle = await prisma.vehicle.create({
       data: {
@@ -133,29 +158,49 @@ describe('drivers module', () => {
       }
     });
 
-    const res = await request(app).delete(`/api/drivers/${driver.id}`).set('Authorization', header);
+    const res = await request(app)
+      .delete(`/api/drivers/${driver.id}`)
+      .set('Authorization', header);
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('CONFLICT');
   });
 
   it('scopes driver-role callers to their own row (spec §5 matrix)', async () => {
-    const { user } = await createTestUser({ email: 'wheel@test.local', role: 'driver' });
+    const { user } = await createTestUser({
+      email: 'wheel@test.local',
+      role: 'driver'
+    });
     const mine = await prisma.driver.create({
-      data: { email: 'wheel@test.local', fullName: 'Wheel Man', status: 'active', userId: user.id }
+      data: {
+        email: 'wheel@test.local',
+        fullName: 'Wheel Man',
+        status: 'active',
+        userId: user.id
+      }
     });
     const other = await prisma.driver.create({
-      data: { email: 'other@test.local', fullName: 'Other Driver', status: 'active' }
+      data: {
+        email: 'other@test.local',
+        fullName: 'Other Driver',
+        status: 'active'
+      }
     });
     const header = authHeader(user.id, user.email, 'driver');
 
-    const listRes = await request(app).get('/api/drivers').set('Authorization', header);
+    const listRes = await request(app)
+      .get('/api/drivers')
+      .set('Authorization', header);
     expect(listRes.body.count).toBe(1);
     expect(listRes.body.data[0].id).toBe(mine.id);
 
-    const own = await request(app).get(`/api/drivers/${mine.id}`).set('Authorization', header);
+    const own = await request(app)
+      .get(`/api/drivers/${mine.id}`)
+      .set('Authorization', header);
     expect(own.status).toBe(200);
 
-    const foreign = await request(app).get(`/api/drivers/${other.id}`).set('Authorization', header);
+    const foreign = await request(app)
+      .get(`/api/drivers/${other.id}`)
+      .set('Authorization', header);
     expect(foreign.status).toBe(404); // not-found masking
   });
 });

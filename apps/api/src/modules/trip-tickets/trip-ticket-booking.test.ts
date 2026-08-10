@@ -2,7 +2,11 @@ import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { prisma } from '../../lib/prisma.js';
-import { authHeader, createTestBranch, createTestUser } from '../../test/factories.js';
+import {
+  authHeader,
+  createTestBranch,
+  createTestUser
+} from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
 
 // Nothing used to check any of this. A trip could be booked on a van that was
@@ -13,23 +17,66 @@ const app = createApp();
 
 async function scaffold() {
   const branch = await createTestBranch();
-  const mk = async (plate: string, vin: string, status: 'available' | 'out_of_service' = 'available') =>
+  const mk = async (
+    plate: string,
+    vin: string,
+    status: 'available' | 'out_of_service' = 'available'
+  ) =>
     prisma.vehicle.create({
       data: {
-        make: 'T', model: 'H', year: 2021, vin, licensePlate: plate, capacity: 5,
-        fuelType: 'diesel', mileage: 1000, status, branchId: branch.id,
-        insuranceExpiry: new Date('2027-01-01'), registrationExpiry: new Date('2027-01-01')
+        make: 'T',
+        model: 'H',
+        year: 2021,
+        vin,
+        licensePlate: plate,
+        capacity: 5,
+        fuelType: 'diesel',
+        mileage: 1000,
+        status,
+        branchId: branch.id,
+        insuranceExpiry: new Date('2027-01-01'),
+        registrationExpiry: new Date('2027-01-01')
       }
     });
   const vehicle = await mk('P1', 'V1');
   const otherVehicle = await mk('P2', 'V2');
   const deadVehicle = await mk('P3', 'V3', 'out_of_service');
-  const driver = await prisma.driver.create({ data: { email: 'd1@test.local', fullName: 'D1', status: 'active', branchId: branch.id } });
-  const otherDriver = await prisma.driver.create({ data: { email: 'd2@test.local', fullName: 'D2', status: 'active', branchId: branch.id } });
-  const inactiveDriver = await prisma.driver.create({ data: { email: 'd3@test.local', fullName: 'D3', status: 'inactive', branchId: branch.id } });
-  const { user: admin } = await createTestUser({ email: 'a@test.local', role: 'admin' });
+  const driver = await prisma.driver.create({
+    data: {
+      email: 'd1@test.local',
+      fullName: 'D1',
+      status: 'active',
+      branchId: branch.id
+    }
+  });
+  const otherDriver = await prisma.driver.create({
+    data: {
+      email: 'd2@test.local',
+      fullName: 'D2',
+      status: 'active',
+      branchId: branch.id
+    }
+  });
+  const inactiveDriver = await prisma.driver.create({
+    data: {
+      email: 'd3@test.local',
+      fullName: 'D3',
+      status: 'inactive',
+      branchId: branch.id
+    }
+  });
+  const { user: admin } = await createTestUser({
+    email: 'a@test.local',
+    role: 'admin'
+  });
   return {
-    branch, vehicle, otherVehicle, deadVehicle, driver, otherDriver, inactiveDriver,
+    branch,
+    vehicle,
+    otherVehicle,
+    deadVehicle,
+    driver,
+    otherDriver,
+    inactiveDriver,
     header: authHeader(admin.id, admin.email, 'admin'),
     adminId: admin.id
   };
@@ -61,7 +108,10 @@ const body = (s: Scaffold, over: Record<string, unknown> = {}) => ({
 });
 
 const post = (s: Scaffold, over: Record<string, unknown> = {}) =>
-  request(app).post('/api/trip-tickets').set('Authorization', s.header).send(body(s, over));
+  request(app)
+    .post('/api/trip-tickets')
+    .set('Authorization', s.header)
+    .send(body(s, over));
 
 describe('trip-ticket booking rules', () => {
   beforeEach(truncateAll);
@@ -78,9 +128,18 @@ describe('trip-ticket booking rules', () => {
     const lender = await createTestBranch();
     const lentVehicle = await prisma.vehicle.create({
       data: {
-        make: 'T', model: 'H', year: 2021, vin: 'V9', licensePlate: 'P9', capacity: 5,
-        fuelType: 'diesel', mileage: 1000, status: 'available', branchId: lender.id,
-        insuranceExpiry: new Date('2027-01-01'), registrationExpiry: new Date('2027-01-01')
+        make: 'T',
+        model: 'H',
+        year: 2021,
+        vin: 'V9',
+        licensePlate: 'P9',
+        capacity: 5,
+        fuelType: 'diesel',
+        mileage: 1000,
+        status: 'available',
+        branchId: lender.id,
+        insuranceExpiry: new Date('2027-01-01'),
+        registrationExpiry: new Date('2027-01-01')
       }
     });
 
@@ -98,9 +157,18 @@ describe('trip-ticket booking rules', () => {
     const lender = await createTestBranch();
     const lentVehicle = await prisma.vehicle.create({
       data: {
-        make: 'T', model: 'H', year: 2021, vin: 'V9', licensePlate: 'P9', capacity: 5,
-        fuelType: 'diesel', mileage: 1000, status: 'available', branchId: lender.id,
-        insuranceExpiry: new Date('2027-01-01'), registrationExpiry: new Date('2027-01-01')
+        make: 'T',
+        model: 'H',
+        year: 2021,
+        vin: 'V9',
+        licensePlate: 'P9',
+        capacity: 5,
+        fuelType: 'diesel',
+        mileage: 1000,
+        status: 'available',
+        branchId: lender.id,
+        insuranceExpiry: new Date('2027-01-01'),
+        registrationExpiry: new Date('2027-01-01')
       }
     });
 
@@ -191,48 +259,91 @@ describe('trip-ticket off-ramps', () => {
   it('an APPROVED trip that is no longer needed can be cancelled', async () => {
     const s = await scaffold();
     const created = await post(s);
-    await request(app).post(`/api/trip-tickets/${created.body.id}/approve`).set('Authorization', s.header)
-      .send({ liters: 20, fuelType: 'diesel', date: inDays(14), purpose: 'p', tripTo: 't' });
-    const { user: evp } = await createTestUser({ email: 'e@test.local', role: 'evp_operations' });
-    await request(app).post(`/api/trip-tickets/${created.body.id}/approve-evp`)
-      .set('Authorization', authHeader(evp.id, evp.email, 'evp_operations')).send({});
+    await request(app)
+      .post(`/api/trip-tickets/${created.body.id}/approve`)
+      .set('Authorization', s.header)
+      .send({
+        liters: 20,
+        fuelType: 'diesel',
+        date: inDays(14),
+        purpose: 'p',
+        tripTo: 't'
+      });
+    const { user: evp } = await createTestUser({
+      email: 'e@test.local',
+      role: 'evp_operations'
+    });
+    await request(app)
+      .post(`/api/trip-tickets/${created.body.id}/approve-evp`)
+      .set('Authorization', authHeader(evp.id, evp.email, 'evp_operations'))
+      .send({});
 
     // Previously 409 INVALID_TRANSITION: an approved-but-unwanted trip had no
     // exit at all except deleting the record or driving it to completion.
-    const res = await request(app).post(`/api/trip-tickets/${created.body.id}/cancel`)
-      .set('Authorization', s.header).send({ reason: 'meeting called off' });
+    const res = await request(app)
+      .post(`/api/trip-tickets/${created.body.id}/cancel`)
+      .set('Authorization', s.header)
+      .send({ reason: 'meeting called off' });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('cancelled');
 
-    const allocation = await prisma.fuelAllocation.findUniqueOrThrow({ where: { tripTicketId: created.body.id } });
+    const allocation = await prisma.fuelAllocation.findUniqueOrThrow({
+      where: { tripTicketId: created.body.id }
+    });
     expect(allocation.status).toBe('cancelled'); // the fuel budget is released with it
   });
 
   it('a COMPLETED trip cannot be deleted', async () => {
     const s = await scaffold();
     const created = await post(s);
-    await prisma.tripTicket.update({ where: { id: created.body.id }, data: { status: 'completed' } });
+    await prisma.tripTicket.update({
+      where: { id: created.body.id },
+      data: { status: 'completed' }
+    });
 
     // Previously 204 — and the fuel allocation cascaded away with it, erasing an
     // approved fuel spend for a trip that physically happened.
-    const res = await request(app).delete(`/api/trip-tickets/${created.body.id}`).set('Authorization', s.header);
+    const res = await request(app)
+      .delete(`/api/trip-tickets/${created.body.id}`)
+      .set('Authorization', s.header);
     expect(res.status).toBe(409);
-    expect(await prisma.tripTicket.count({ where: { id: created.body.id } })).toBe(1);
+    expect(
+      await prisma.tripTicket.count({ where: { id: created.body.id } })
+    ).toBe(1);
   });
 
   it('an APPROVED trip cannot be deleted — its fuel allocation is signed off', async () => {
     const s = await scaffold();
     const created = await post(s);
-    await request(app).post(`/api/trip-tickets/${created.body.id}/approve`).set('Authorization', s.header)
-      .send({ liters: 30, fuelType: 'diesel', date: inDays(14), purpose: 'p', tripTo: 't' });
-    const { user: evp } = await createTestUser({ email: 'e@test.local', role: 'evp_operations' });
-    await request(app).post(`/api/trip-tickets/${created.body.id}/approve-evp`)
-      .set('Authorization', authHeader(evp.id, evp.email, 'evp_operations')).send({});
+    await request(app)
+      .post(`/api/trip-tickets/${created.body.id}/approve`)
+      .set('Authorization', s.header)
+      .send({
+        liters: 30,
+        fuelType: 'diesel',
+        date: inDays(14),
+        purpose: 'p',
+        tripTo: 't'
+      });
+    const { user: evp } = await createTestUser({
+      email: 'e@test.local',
+      role: 'evp_operations'
+    });
+    await request(app)
+      .post(`/api/trip-tickets/${created.body.id}/approve-evp`)
+      .set('Authorization', authHeader(evp.id, evp.email, 'evp_operations'))
+      .send({});
 
     // Previously 204: the trip AND the EVP-approved 30 L allocation both vanished.
-    const res = await request(app).delete(`/api/trip-tickets/${created.body.id}`).set('Authorization', s.header);
+    const res = await request(app)
+      .delete(`/api/trip-tickets/${created.body.id}`)
+      .set('Authorization', s.header);
     expect(res.status).toBe(409);
-    expect(await prisma.fuelAllocation.count({ where: { tripTicketId: created.body.id } })).toBe(1);
+    expect(
+      await prisma.fuelAllocation.count({
+        where: { tripTicketId: created.body.id }
+      })
+    ).toBe(1);
   });
 });
 
@@ -242,12 +353,19 @@ describe('trip-ticket attribution', () => {
 
   it('the requester is the CALLER, not whoever the body names', async () => {
     const s = await scaffold();
-    const { user: requester } = await createTestUser({ email: 'r@test.local', role: 'requester' });
+    const { user: requester } = await createTestUser({
+      email: 'r@test.local',
+      role: 'requester'
+    });
 
     // A requester booking a trip in the ADMIN's name. requestedById used to be
     // spread straight out of the body, so this worked.
-    const res = await request(app).post('/api/trip-tickets')
-      .set('Authorization', authHeader(requester.id, requester.email, 'requester'))
+    const res = await request(app)
+      .post('/api/trip-tickets')
+      .set(
+        'Authorization',
+        authHeader(requester.id, requester.email, 'requester')
+      )
       .send(body(s, { requestedById: s.adminId }));
     expect(res.status).toBe(201);
     expect(res.body.requestedById).toBe(requester.id); // forced back to the caller
@@ -255,12 +373,19 @@ describe('trip-ticket attribution', () => {
 
   it('a trip cannot be created with NO owner', async () => {
     const s = await scaffold();
-    const { user: requester } = await createTestUser({ email: 'r@test.local', role: 'requester' });
+    const { user: requester } = await createTestUser({
+      email: 'r@test.local',
+      role: 'requester'
+    });
 
     // `requestedById: null` used to be accepted, and cancel/edit compare against
     // that column — so an unowned ticket locked everyone but an admin out of it.
-    const res = await request(app).post('/api/trip-tickets')
-      .set('Authorization', authHeader(requester.id, requester.email, 'requester'))
+    const res = await request(app)
+      .post('/api/trip-tickets')
+      .set(
+        'Authorization',
+        authHeader(requester.id, requester.email, 'requester')
+      )
       .send(body(s, { requestedById: null }));
     expect(res.status).toBe(201);
     expect(res.body.requestedById).toBe(requester.id);
@@ -268,7 +393,10 @@ describe('trip-ticket attribution', () => {
 
   it('an admin may still raise a trip on someone else’s behalf', async () => {
     const s = await scaffold();
-    const { user: requester } = await createTestUser({ email: 'r@test.local', role: 'requester' });
+    const { user: requester } = await createTestUser({
+      email: 'r@test.local',
+      role: 'requester'
+    });
     const res = await post(s, { requestedById: requester.id }); // s.header is the admin
     expect(res.status).toBe(201);
     expect(res.body.requestedById).toBe(requester.id);
@@ -276,13 +404,21 @@ describe('trip-ticket attribution', () => {
 
   it('an edit cannot hand the ticket to someone else', async () => {
     const s = await scaffold();
-    const { user: requester } = await createTestUser({ email: 'r@test.local', role: 'requester' });
+    const { user: requester } = await createTestUser({
+      email: 'r@test.local',
+      role: 'requester'
+    });
     const header = authHeader(requester.id, requester.email, 'requester');
-    const created = await request(app).post('/api/trip-tickets').set('Authorization', header).send(body(s));
+    const created = await request(app)
+      .post('/api/trip-tickets')
+      .set('Authorization', header)
+      .send(body(s));
     expect(created.body.requestedById).toBe(requester.id);
 
-    const patched = await request(app).patch(`/api/trip-tickets/${created.body.id}`)
-      .set('Authorization', header).send({ requestedById: s.adminId, destination: 'Site B' });
+    const patched = await request(app)
+      .patch(`/api/trip-tickets/${created.body.id}`)
+      .set('Authorization', header)
+      .send({ requestedById: s.adminId, destination: 'Site B' });
     expect(patched.status).toBe(200);
     expect(patched.body.destination).toBe('Site B'); // the real edit lands
     expect(patched.body.requestedById).toBe(requester.id); // the hand-off does not
@@ -305,7 +441,10 @@ describe('trip-ticket sanity rules', () => {
 
   it('refuses a participant count that disagrees with the names given', async () => {
     const s = await scaffold();
-    const res = await post(s, { participants: ['Alice'], participantsCount: 4 });
+    const res = await post(s, {
+      participants: ['Alice'],
+      participantsCount: 4
+    });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('PARTICIPANTS_MISMATCH');
   });
@@ -319,7 +458,10 @@ describe('trip-ticket sanity rules', () => {
 
   it('refuses a trip booked entirely in the past', async () => {
     const s = await scaffold();
-    const res = await post(s, { startTs: inDays(-9, 8), endTs: inDays(-9, 17) });
+    const res = await post(s, {
+      startTs: inDays(-9, 8),
+      endTs: inDays(-9, 17)
+    });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('TRIP_IN_THE_PAST');
   });
@@ -327,9 +469,16 @@ describe('trip-ticket sanity rules', () => {
   it('refuses an absurd fuel allocation', async () => {
     const s = await scaffold();
     const created = await post(s);
-    const res = await request(app).post(`/api/trip-tickets/${created.body.id}/approve`)
+    const res = await request(app)
+      .post(`/api/trip-tickets/${created.body.id}/approve`)
       .set('Authorization', s.header)
-      .send({ liters: 9_999_999, fuelType: 'diesel', date: inDays(14), purpose: 'p', tripTo: 't' });
+      .send({
+        liters: 9_999_999,
+        fuelType: 'diesel',
+        date: inDays(14),
+        purpose: 'p',
+        tripTo: 't'
+      });
     expect(res.status).toBe(400); // `positive()` alone accepted this
   });
 });
@@ -340,17 +489,38 @@ describe('trip-ticket concurrency', () => {
 
   it('two SIMULTANEOUS check-outs cannot both claim one vehicle', async () => {
     const s = await scaffold();
-    const { user: evp } = await createTestUser({ email: 'e@test.local', role: 'evp_operations' });
-    const { user: guard } = await createTestUser({ email: 'g@test.local', role: 'security_guard' });
+    const { user: evp } = await createTestUser({
+      email: 'e@test.local',
+      role: 'evp_operations'
+    });
+    const { user: guard } = await createTestUser({
+      email: 'g@test.local',
+      role: 'security_guard'
+    });
     const evpH = authHeader(evp.id, evp.email, 'evp_operations');
     const guardH = authHeader(guard.id, guard.email, 'security_guard');
 
     // Two trips on ONE van, back-to-back so the overlap rule permits both.
     const approvedTrip = async (driverId: string, day: number) => {
-      const t = await post(s, { driverId, startTs: inDays(day, 8), endTs: inDays(day, 17) });
-      await request(app).post(`/api/trip-tickets/${t.body.id}/approve`).set('Authorization', s.header)
-        .send({ liters: 10, fuelType: 'diesel', date: inDays(day), purpose: 'p', tripTo: 't' });
-      await request(app).post(`/api/trip-tickets/${t.body.id}/approve-evp`).set('Authorization', evpH).send({});
+      const t = await post(s, {
+        driverId,
+        startTs: inDays(day, 8),
+        endTs: inDays(day, 17)
+      });
+      await request(app)
+        .post(`/api/trip-tickets/${t.body.id}/approve`)
+        .set('Authorization', s.header)
+        .send({
+          liters: 10,
+          fuelType: 'diesel',
+          date: inDays(day),
+          purpose: 'p',
+          tripTo: 't'
+        });
+      await request(app)
+        .post(`/api/trip-tickets/${t.body.id}/approve-evp`)
+        .set('Authorization', evpH)
+        .send({});
       return t.body.id as string;
     };
     const a = await approvedTrip(s.driver.id, 20);
@@ -359,12 +529,20 @@ describe('trip-ticket concurrency', () => {
     // Fire both at the same instant. A read-then-write let BOTH read `available`
     // before either committed, and two trips went in_progress on one van.
     const fire = (id: string) =>
-      request(app).post(`/api/trip-tickets/${id}/check-out`).set('Authorization', guardH).send({ startMileage: 1000 });
+      request(app)
+        .post(`/api/trip-tickets/${id}/check-out`)
+        .set('Authorization', guardH)
+        .send({ startMileage: 1000 });
     const [ra, rb] = await Promise.all([fire(a), fire(b)]);
 
     const codes = [ra.status, rb.status].sort();
     expect(codes).toEqual([200, 409]); // exactly one wins
-    expect(await prisma.tripTicket.count({ where: { status: 'in_progress' } })).toBe(1);
-    expect((await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } })).status).toBe('on_trip');
+    expect(
+      await prisma.tripTicket.count({ where: { status: 'in_progress' } })
+    ).toBe(1);
+    expect(
+      (await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } }))
+        .status
+    ).toBe('on_trip');
   });
 });

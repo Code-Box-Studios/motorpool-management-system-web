@@ -14,7 +14,10 @@ export const tripTicketInclude = {
 type SkipTake = { skip: number; take: number } | Record<string, never>;
 
 export function findTripTicketById(id: string) {
-  return prisma.tripTicket.findUnique({ where: { id }, include: tripTicketInclude });
+  return prisma.tripTicket.findUnique({
+    where: { id },
+    include: tripTicketInclude
+  });
 }
 
 export async function listTripTickets(
@@ -23,7 +26,12 @@ export async function listTripTickets(
   orderBy: Prisma.TripTicketOrderByWithRelationInput = { updatedAt: 'desc' }
 ) {
   const [data, count] = await Promise.all([
-    prisma.tripTicket.findMany({ where, include: tripTicketInclude, orderBy, ...skipTake }),
+    prisma.tripTicket.findMany({
+      where,
+      include: tripTicketInclude,
+      orderBy,
+      ...skipTake
+    }),
     prisma.tripTicket.count({ where })
   ]);
   return { data, count };

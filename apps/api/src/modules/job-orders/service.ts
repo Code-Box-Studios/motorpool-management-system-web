@@ -1,5 +1,9 @@
 import type { Prisma } from '@prisma/client';
-import type { CreateJobOrderBody, JobOrdersListQuery, UpdateJobOrderBody } from '@mms/shared';
+import type {
+  CreateJobOrderBody,
+  JobOrdersListQuery,
+  UpdateJobOrderBody
+} from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
@@ -7,11 +11,17 @@ import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import { findDriverByUserId } from '../drivers/repository.js';
 import { changeVehicleStatus } from '../vehicles/status.js';
-import { findJobOrderById, jobOrderInclude, listJobOrders } from './repository.js';
+import {
+  findJobOrderById,
+  jobOrderInclude,
+  listJobOrders
+} from './repository.js';
 
 // Visibility (spec §6): admin/evp see all; everyone else sees rows they
 // requested OR that are assigned to their driver row (via drivers.userId).
-async function scopeFor(actor: AuthenticatedUser): Promise<Prisma.JobOrderWhereInput> {
+async function scopeFor(
+  actor: AuthenticatedUser
+): Promise<Prisma.JobOrderWhereInput> {
   if (actor.role === 'admin' || actor.role === 'evp_operations') return {};
   const driver = await findDriverByUserId(actor.id);
   const or: Prisma.JobOrderWhereInput[] = [{ requestedById: actor.id }];
@@ -19,9 +29,15 @@ async function scopeFor(actor: AuthenticatedUser): Promise<Prisma.JobOrderWhereI
   return { OR: or };
 }
 
-export async function list(query: JobOrdersListQuery, actor: AuthenticatedUser) {
+export async function list(
+  query: JobOrdersListQuery,
+  actor: AuthenticatedUser
+) {
   const scope = await scopeFor(actor);
-  const where: Prisma.JobOrderWhereInput = { ...scope, ...(query.status ? { status: query.status } : {}) };
+  const where: Prisma.JobOrderWhereInput = {
+    ...scope,
+    ...(query.status ? { status: query.status } : {})
+  };
   const orderBy = toOrderBy<Prisma.JobOrderOrderByWithRelationInput>(
     query.sortBy,
     query.sortOrder,
@@ -45,13 +61,18 @@ export async function getById(id: string, actor: AuthenticatedUser) {
   if (!order) throw new AppError(404, 'NOT_FOUND', 'Job order not found');
   if (actor.role !== 'admin' && actor.role !== 'evp_operations') {
     const driver = await findDriverByUserId(actor.id);
-    const mine = order.requestedById === actor.id || (driver !== null && order.assignedMechanicId === driver.id);
+    const mine =
+      order.requestedById === actor.id ||
+      (driver !== null && order.assignedMechanicId === driver.id);
     if (!mine) throw new AppError(404, 'NOT_FOUND', 'Job order not found'); // not-found masking
   }
   return order;
 }
 
-export async function create(body: CreateJobOrderBody, actor: AuthenticatedUser) {
+export async function create(
+  body: CreateJobOrderBody,
+  actor: AuthenticatedUser
+) {
   // WHO RAISED IT is the authenticated caller — the same hole the trip tickets
   // had, still open here. `requestedById` came straight out of the body, so a
   // driver could raise a job order in the admin's name, or with no owner at all
@@ -61,11 +82,17 @@ export async function create(body: CreateJobOrderBody, actor: AuthenticatedUser)
   // An admin raising one on someone's behalf is a real workflow, so they may
   // still name the requester. Nobody else can.
   const requestedById =
-    actor.role === 'admin' && body.requestedById ? body.requestedById : actor.id;
+    actor.role === 'admin' && body.requestedById
+      ? body.requestedById
+      : actor.id;
 
   // The incident cannot have happened tomorrow.
   if (body.incidentDate && body.incidentDate.getTime() > Date.now()) {
-    throw new AppError(400, 'INCIDENT_IN_THE_FUTURE', 'An incident date cannot be in the future');
+    throw new AppError(
+      400,
+      'INCIDENT_IN_THE_FUTURE',
+      'An incident date cannot be in the future'
+    );
   }
 
   return prisma.jobOrder.create({
@@ -78,7 +105,11 @@ export async function update(id: string, body: UpdateJobOrderBody) {
   const existing = await findJobOrderById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Job order not found');
   if (existing.status !== 'pending') {
-    throw new AppError(409, 'INVALID_TRANSITION', 'Job order can only be edited while pending');
+    throw new AppError(
+      409,
+      'INVALID_TRANSITION',
+      'Job order can only be edited while pending'
+    );
   }
   await prisma.jobOrder.update({ where: { id }, data: body });
   return findJobOrderById(id);
@@ -95,7 +126,11 @@ export async function remove(id: string): Promise<void> {
   // maintenance row, and released the vehicle. Deleting it erases the reason the
   // stock is gone and leaves the maintenance history pointing at nothing.
   if (existing.status === 'repaired') {
-    throw new AppError(409, 'INVALID_TRANSITION', 'Cannot delete a job order that has been repaired');
+    throw new AppError(
+      409,
+      'INVALID_TRANSITION',
+      'Cannot delete a job order that has been repaired'
+    );
   }
 
   await prisma.$transaction(async (tx) => {

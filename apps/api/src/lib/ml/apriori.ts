@@ -21,7 +21,8 @@ export function computeAssociationRules(
   const pairCounts = new Map<string, number>();
   for (const txn of valid) {
     const unique = [...new Set(txn.parts)];
-    for (const part of unique) itemCounts.set(part, (itemCounts.get(part) ?? 0) + 1);
+    for (const part of unique)
+      itemCounts.set(part, (itemCounts.get(part) ?? 0) + 1);
     for (let i = 0; i < unique.length; i++) {
       for (let j = i + 1; j < unique.length; j++) {
         const key = makePairKey(unique[i]!, unique[j]!);

@@ -23,7 +23,9 @@ describe('POST /api/auth/refresh', () => {
 
   it('rotates the token: new access token, new cookie, old row revoked', async () => {
     const cookie = await loginAndGetCookie();
-    const res = await request(app).post('/api/auth/refresh').set('Cookie', cookie);
+    const res = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.accessToken).toEqual(expect.any(String));
@@ -32,22 +34,32 @@ describe('POST /api/auth/refresh', () => {
     expect(newCookie).not.toBe(cookie);
     // one revoked (rotated) + one live
     expect(await prisma.refreshToken.count()).toBe(2);
-    expect(await prisma.refreshToken.count({ where: { revokedAt: null } })).toBe(1);
+    expect(
+      await prisma.refreshToken.count({ where: { revokedAt: null } })
+    ).toBe(1);
   });
 
   it('revokes the whole family when a rotated token is reused', async () => {
     const cookie = await loginAndGetCookie();
-    const first = await request(app).post('/api/auth/refresh').set('Cookie', cookie);
+    const first = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', cookie);
     expect(first.status).toBe(200);
 
     // replay the OLD cookie
-    const replay = await request(app).post('/api/auth/refresh').set('Cookie', cookie);
+    const replay = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', cookie);
     expect(replay.status).toBe(401);
 
     // the rotated-out replacement must now be dead too
-    expect(await prisma.refreshToken.count({ where: { revokedAt: null } })).toBe(0);
+    expect(
+      await prisma.refreshToken.count({ where: { revokedAt: null } })
+    ).toBe(0);
     const newCookie = first.headers['set-cookie']?.[0] ?? '';
-    const retry = await request(app).post('/api/auth/refresh').set('Cookie', newCookie);
+    const retry = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', newCookie);
     expect(retry.status).toBe(401);
   });
 
@@ -79,11 +91,15 @@ describe('POST /api/auth/logout', () => {
 
   it('revokes the token, clears the cookie, and blocks later refresh', async () => {
     const cookie = await loginAndGetCookie();
-    const res = await request(app).post('/api/auth/logout').set('Cookie', cookie);
+    const res = await request(app)
+      .post('/api/auth/logout')
+      .set('Cookie', cookie);
     expect(res.status).toBe(204);
     expect(res.headers['set-cookie']?.[0]).toContain('mms_refresh=;');
 
-    const after = await request(app).post('/api/auth/refresh').set('Cookie', cookie);
+    const after = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', cookie);
     expect(after.status).toBe(401);
   });
 

@@ -11,7 +11,10 @@ export async function listVehicles(
   skipTake: SkipTake,
   orderBy:
     | Prisma.VehicleOrderByWithRelationInput
-    | Prisma.VehicleOrderByWithRelationInput[] = [{ make: 'asc' }, { model: 'asc' }]
+    | Prisma.VehicleOrderByWithRelationInput[] = [
+    { make: 'asc' },
+    { model: 'asc' }
+  ]
 ) {
   const [data, count] = await Promise.all([
     prisma.vehicle.findMany({ orderBy, ...skipTake }),

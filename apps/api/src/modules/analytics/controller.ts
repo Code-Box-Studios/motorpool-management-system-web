@@ -6,10 +6,18 @@ export async function dashboard(_req: Request, res: Response): Promise<void> {
   res.json(await service.dashboard());
 }
 
-export async function predictiveMaintenance(_req: Request, res: Response): Promise<void> {
+export async function predictiveMaintenance(
+  _req: Request,
+  res: Response
+): Promise<void> {
   res.json(await service.predictiveMaintenance(new Date()));
 }
 
-export async function associationRules(req: Request, res: Response): Promise<void> {
-  res.json(await service.associationRules(associationRulesQuerySchema.parse(req.query)));
+export async function associationRules(
+  req: Request,
+  res: Response
+): Promise<void> {
+  res.json(
+    await service.associationRules(associationRulesQuerySchema.parse(req.query))
+  );
 }

@@ -190,6 +190,7 @@ const Dashboard = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* height is the md-and-up size; the map caps itself on phones. */}
           <VehicleMap
             gpsData={gpsData || []}
             height="460px"

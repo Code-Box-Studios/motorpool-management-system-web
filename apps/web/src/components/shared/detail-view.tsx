@@ -62,9 +62,7 @@ export const RecordHeader = ({
           {status && <StatusBadge status={status} />}
         </div>
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {meta && (
-          <p className="text-muted-foreground mt-1 text-sm">{meta}</p>
-        )}
+        {meta && <p className="text-muted-foreground mt-1 text-sm">{meta}</p>}
       </div>
       {actions && (
         <div className="flex flex-wrap items-center gap-2">{actions}</div>
@@ -89,17 +87,12 @@ export const DetailSection = ({
   className
 }: DetailSectionProps) => (
   <section
-    className={cn(
-      'bg-card border-border rounded-[20px] border p-6',
-      className
-    )}
+    className={cn('bg-card border-border rounded-[20px] border p-6', className)}
   >
     {(title || action) && (
       <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          {title && (
-            <h2 className="font-semibold tracking-tight">{title}</h2>
-          )}
+          {title && <h2 className="font-semibold tracking-tight">{title}</h2>}
           {description && (
             <p className="text-muted-foreground mt-0.5 text-sm">
               {description}
@@ -121,7 +114,10 @@ export const DetailGrid = ({
   className?: string;
 }) => (
   <dl
-    className={cn('grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3', className)}
+    className={cn(
+      'grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3',
+      className
+    )}
   >
     {children}
   </dl>
