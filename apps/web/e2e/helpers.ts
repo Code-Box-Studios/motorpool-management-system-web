@@ -11,7 +11,10 @@ export const CREDENTIALS = {
 
 export type Role = keyof typeof CREDENTIALS;
 export const PASSWORD = 'Password123!';
-export const API_URL = 'http://localhost:3001';
+// Must match the API's PORT in apps/api/.env — this pointed at 3001 while the
+// API served 3000, so every direct call here (including the cleanup DELETEs)
+// silently failed and left the rows the specs had created behind.
+export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3000';
 
 // ---------- UI helpers ----------
 
@@ -26,11 +29,17 @@ export async function login(page: Page, role: Role): Promise<void> {
 
 // Saves a full-page screenshot under e2e/screenshots for visual inspection.
 export async function shot(page: Page, name: string): Promise<void> {
-  await page.screenshot({ path: `e2e/screenshots/${name}.png`, fullPage: true });
+  await page.screenshot({
+    path: `e2e/screenshots/${name}.png`,
+    fullPage: true
+  });
 }
 
 // Waits until the given text is visible anywhere on the page.
-export async function expectText(page: Page, text: string | RegExp): Promise<void> {
+export async function expectText(
+  page: Page,
+  text: string | RegExp
+): Promise<void> {
   await expect(page.getByText(text).first()).toBeVisible({ timeout: 15_000 });
 }
 
@@ -41,15 +50,29 @@ export interface AuthActor {
   user: { id: string; branchId: string | null };
 }
 
-export async function apiLogin(request: APIRequestContext, email: string): Promise<AuthActor> {
-  const r = await request.post(`${API_URL}/api/auth/login`, { data: { email, password: PASSWORD } });
+export async function apiLogin(
+  request: APIRequestContext,
+  email: string
+): Promise<AuthActor> {
+  const r = await request.post(`${API_URL}/api/auth/login`, {
+    data: { email, password: PASSWORD }
+  });
   expect(r.ok(), `API login failed for ${email}`).toBeTruthy();
-  const j = (await r.json()) as { accessToken: string; user: { id: string; branchId: string | null } };
+  const j = (await r.json()) as {
+    accessToken: string;
+    user: { id: string; branchId: string | null };
+  };
   return { token: j.accessToken, user: j.user };
 }
 
-export async function apiGet(request: APIRequestContext, path: string, token: string): Promise<unknown> {
-  const r = await request.get(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+export async function apiGet(
+  request: APIRequestContext,
+  path: string,
+  token: string
+): Promise<unknown> {
+  const r = await request.get(`${API_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
   try {
     return await r.json();
   } catch {
@@ -63,7 +86,10 @@ export async function apiPost(
   token: string,
   data: Record<string, unknown>
 ): Promise<{ ok: boolean; status: number; body: unknown }> {
-  const r = await request.post(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${token}` }, data });
+  const r = await request.post(`${API_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data
+  });
   let body: unknown = null;
   try {
     body = await r.json();
@@ -80,20 +106,32 @@ export async function apiDelete(
   path: string,
   token: string
 ): Promise<{ ok: boolean; status: number }> {
-  const r = await request.delete(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  const r = await request.delete(`${API_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
   return { ok: r.ok(), status: r.status() };
 }
 
 // Unwraps a paginated `{ data, count }` response (or a bare array) into a row list.
 export function listData(res: unknown): Record<string, unknown>[] {
-  if (res && typeof res === 'object' && Array.isArray((res as { data?: unknown }).data)) {
+  if (
+    res &&
+    typeof res === 'object' &&
+    Array.isArray((res as { data?: unknown }).data)
+  ) {
     return (res as { data: Record<string, unknown>[] }).data;
   }
   return Array.isArray(res) ? (res as Record<string, unknown>[]) : [];
 }
 
 // Reads a single trip ticket's current status via the API (for assertions).
-export async function tripStatus(request: APIRequestContext, id: string, token: string): Promise<string | undefined> {
-  const t = (await apiGet(request, `/api/trip-tickets/${id}`, token)) as { status?: string } | null;
+export async function tripStatus(
+  request: APIRequestContext,
+  id: string,
+  token: string
+): Promise<string | undefined> {
+  const t = (await apiGet(request, `/api/trip-tickets/${id}`, token)) as {
+    status?: string;
+  } | null;
   return t?.status;
 }

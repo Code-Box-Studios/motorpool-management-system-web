@@ -33,6 +33,33 @@ pnpm dev                       # run api + web together
 - API: http://localhost:3000 (health check at `/api/health`)
 - Web: http://localhost:5173 (falls back to the next free port, e.g. `5174`, if taken)
 
+### Which database am I talking to?
+
+`apps/api/.env` must stay pointed at the local docker Postgres. Production
+lives on Neon and is reached only by the deployed API on Render, which holds
+its own environment variables there.
+
+This matters because every local command follows `.env`: `pnpm dev` writes to
+whatever it names, `pnpm db:studio` opens a CRUD editor on it, `pnpm db:seed`
+plants demo accounts in it, and the e2e suite creates and deletes rows in it.
+Point `.env` at Neon and all of those become production operations.
+
+To read production for one command, pass the URL inline rather than editing
+the file:
+
+```bash
+DATABASE_URL="postgresql://…-pooler….neon.tech/neondb?sslmode=require" \
+  pnpm --filter @mms/api db:studio
+```
+
+Migrations:
+
+- `pnpm db:migrate` — applies pending migrations (`prisma migrate deploy`).
+  Safe and idempotent; this is what Render runs on every deploy.
+- `pnpm db:migrate:new` — authors a NEW migration from schema changes
+  (`prisma migrate dev`). Development only: it can offer to reset the database,
+  which drops every table.
+
 ## Seeded accounts
 
 The seed script (`pnpm db:seed`) creates one user per role, all with the password `Password123!`:
