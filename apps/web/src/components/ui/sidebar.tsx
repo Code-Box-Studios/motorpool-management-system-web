@@ -266,7 +266,13 @@ function SidebarTrigger({
       data-slot="sidebar-trigger"
       variant="ghost"
       size="icon"
-      className={cn('size-7', className)}
+      className={cn(
+        'size-7',
+        // Increases the hit area of the button to 44px on touch devices — this
+        // trigger is the only way to open the drawer on a phone.
+        'relative after:absolute after:-inset-2 md:pointer-fine:after:hidden',
+        className
+      )}
       onClick={(event) => {
         onClick?.(event);
         toggleSidebar();

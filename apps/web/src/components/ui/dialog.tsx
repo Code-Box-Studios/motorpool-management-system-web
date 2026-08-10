@@ -6,7 +6,9 @@ import { cn } from '@/lib/utils';
 
 // A dialog you can dismiss — as distinct from AlertDialog, which is a decision
 // you must answer. Forms live here; confirmations live there.
-function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
+function Dialog({
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }
 

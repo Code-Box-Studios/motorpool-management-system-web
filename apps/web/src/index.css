@@ -378,6 +378,22 @@
   box-shadow: none;
 }
 
+/* The toolbar ships as a no-wrap flex row, so its three chunks (nav, title,
+   views) demand ~380px of min-content and push a horizontal scrollbar onto the
+   whole page once the card is phone-width. Wrapping is inert while the row
+   fits, so desktop keeps its single spread-out line; below sm the chunks stack
+   and centre instead of stranding themselves against the edges. */
+.fc .fc-toolbar {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+@media (width < 40rem) {
+  .fc .fc-toolbar {
+    justify-content: center;
+  }
+}
+
 .fc .fc-toolbar-title {
   font-size: 1.125rem;
   font-weight: 600;

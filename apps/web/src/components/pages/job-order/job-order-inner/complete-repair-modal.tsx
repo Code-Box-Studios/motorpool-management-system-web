@@ -123,7 +123,9 @@ export function CompleteRepairModal({
           Mark as Repaired
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent className="max-w-lg">
+      {/* Width is set at `sm:` on purpose — an unprefixed max-w-* would be
+          merged over the base max-w-[calc(100%-2rem)] and drop the phone gutter. */}
+      <AlertDialogContent className="sm:max-w-lg">
         <AlertDialogHeader>
           <AlertDialogTitle>Complete Repair</AlertDialogTitle>
           <AlertDialogDescription>
@@ -180,33 +182,6 @@ export function CompleteRepairModal({
           </Field>
 
           {/* Odometer at sign-off. Nothing else records what the vehicle was
-              serviced at, and every maintenance figure is derived from it. */}
-          <Field data-invalid={!!errors.completedMileage}>
-            <FieldLabel htmlFor="completed_mileage">
-              Odometer at completion *
-            </FieldLabel>
-            <Input
-              id="completed_mileage"
-              inputMode="numeric"
-              placeholder={currentMileage.toLocaleString()}
-              value={formData.completedMileage}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  completedMileage: e.target.value.replace(/[^0-9]/g, '')
-                })
-              }
-              aria-invalid={!!errors.completedMileage}
-            />
-            <p className="text-muted-foreground text-xs">
-              Last recorded: {currentMileage.toLocaleString()} km
-            </p>
-            {errors.completedMileage && (
-              <FieldError errors={[{ message: errors.completedMileage }]} />
-            )}
-          </Field>
-
-          {/* The odometer at sign-off. Nothing else records what the vehicle was
               serviced at, and every maintenance figure is derived from it. */}
           <Field data-invalid={!!errors.completedMileage}>
             <FieldLabel htmlFor="completed_mileage">

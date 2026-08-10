@@ -158,7 +158,9 @@ export function NoteJobOrderModal({
           Note Job Order
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      {/* Width is set at `sm:` on purpose — an unprefixed max-w-* would be
+          merged over the base max-w-[calc(100%-2rem)] and drop the phone gutter. */}
+      <AlertDialogContent className="sm:max-w-2xl">
         <AlertDialogHeader>
           <AlertDialogTitle>Note Job Order</AlertDialogTitle>
           <AlertDialogDescription>
@@ -167,7 +169,8 @@ export function NoteJobOrderModal({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="grid grid-cols-2 gap-4 py-4">
+        {/* One column on phones — a half-width datetime-local clips its value. */}
+        <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
           {/* Vehicle Date Accepted */}
           <Field data-invalid={!!errors.dateOfRequest}>
             <FieldLabel htmlFor="date_of_request">
@@ -209,7 +212,7 @@ export function NoteJobOrderModal({
           {/* Assigned Mechanic */}
           <Field
             data-invalid={!!errors.assignedMechanicId}
-            className="col-span-2"
+            className="sm:col-span-2"
           >
             <FieldLabel htmlFor="assigned_mechanic">
               Assigned Mechanic *
@@ -237,7 +240,7 @@ export function NoteJobOrderModal({
           </Field>
 
           {/* Spare Parts Used */}
-          <Field className="col-span-2">
+          <Field className="sm:col-span-2">
             <FieldLabel htmlFor="spare_parts_used">Spare Parts Used</FieldLabel>
             <MultiSelect
               options={
@@ -261,7 +264,7 @@ export function NoteJobOrderModal({
 
           {/* Per-part quantity (default 1) */}
           {formData.selectedSpareParts.length > 0 && (
-            <Field className="col-span-2">
+            <Field className="sm:col-span-2">
               <FieldLabel>Quantities</FieldLabel>
               <div className="flex flex-col gap-2">
                 {formData.selectedSpareParts.map((sparePartId) => {

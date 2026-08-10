@@ -85,9 +85,16 @@ interface VehicleMapProps {
   gpsData: GpsDataWithVehicle[];
   center?: [number, number];
   zoom?: number;
+  /** The map height from `md` up. Below that it is capped to the viewport. */
   height?: string;
   showTrails?: boolean;
 }
+
+// `height` is a fixed pixel value, which a phone in landscape (~375px of
+// viewport) cannot afford. Capping with max-height rather than overriding
+// height keeps this a ceiling, so a caller asking for a shorter map still
+// gets one.
+const VIEWPORT_HEIGHT_CAP = 'max-h-[min(360px,60vh)] md:max-h-none';
 
 function MapUpdater({ center }: { center: [number, number] }) {
   const map = useMap();
@@ -97,6 +104,38 @@ function MapUpdater({ center }: { center: [number, number] }) {
       map.setView(center, map.getZoom());
     }
   }, [center, map]);
+
+  return null;
+}
+
+// Touch devices and phone-width viewports. Not the `md` breakpoint alone:
+// a phone in landscape is ~812px wide and still needs this.
+const COARSE_POINTER_QUERY = '(pointer: coarse), (max-width: 767px)';
+
+// With one-finger drag on, a vertical swipe anywhere over the map pans the map
+// instead of scrolling the page, leaving only the card's padding to scroll past
+// the map at all. Turning dragging off drops Leaflet's `leaflet-touch-drag`
+// class, so `touch-action` falls back to `pan-x pan-y` and the browser gets the
+// swipe back — two-finger gestures still pan and zoom via the pinch handler.
+// This runs as a child rather than a MapContainer prop because MapContainer
+// only reads its options once, on mount.
+function SingleFingerDragToggle() {
+  const map = useMap();
+
+  useEffect(() => {
+    const mql = window.matchMedia(COARSE_POINTER_QUERY);
+    const apply = () => {
+      if (mql.matches) {
+        map.dragging.disable();
+      } else {
+        map.dragging.enable();
+      }
+    };
+
+    apply();
+    mql.addEventListener('change', apply);
+    return () => mql.removeEventListener('change', apply);
+  }, [map]);
 
   return null;
 }
@@ -125,6 +164,7 @@ export function VehicleMap({
   if (validGpsData.length === 0) {
     return (
       <div
+        className={VIEWPORT_HEIGHT_CAP}
         style={{
           height,
           width: '100%',
@@ -151,6 +191,7 @@ export function VehicleMap({
 
   return (
     <div
+      className={VIEWPORT_HEIGHT_CAP}
       style={{ height, width: '100%', borderRadius: '8px', overflow: 'hidden' }}
     >
       <MapContainer
@@ -164,6 +205,7 @@ export function VehicleMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapUpdater center={mapCenter} />
+        <SingleFingerDragToggle />
 
         {validGpsData.map((data) => {
           const vehicle = data.vehicles!;

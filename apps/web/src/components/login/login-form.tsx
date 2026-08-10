@@ -86,13 +86,16 @@ export function LoginForm({
                         autoComplete="current-password"
                         className="pr-10"
                       />
+                      {/* size-11 matches the field's own height: the eye stays a
+                          size-4 glyph, but the button is a 44px tap target
+                          rather than a bare 16px icon that a thumb misses. */}
                       <button
                         type="button"
                         onClick={() => setShowPassword((v) => !v)}
                         aria-label={
                           showPassword ? 'Hide password' : 'Show password'
                         }
-                        className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+                        className="text-muted-foreground hover:text-foreground absolute top-1/2 right-0 flex size-11 -translate-y-1/2 items-center justify-center"
                       >
                         {showPassword ? (
                           <EyeOff className="size-4" />

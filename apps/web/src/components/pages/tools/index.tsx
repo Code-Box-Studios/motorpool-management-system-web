@@ -138,7 +138,11 @@ const Tools = () => {
                 <TableCell className="text-sm whitespace-nowrap">
                   {formatDate(tool.estimated_return_date) ?? '—'}
                 </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
+                {/* TableCell is whitespace-nowrap, so an unconstrained
+                    description makes its own column as wide as the longest
+                    string on the page and scrolls the table sideways at every
+                    viewport. Cap it and ellipsize, like Purpose elsewhere. */}
+                <TableCell className="text-muted-foreground max-w-xs truncate text-sm">
                   {tool.description || '—'}
                 </TableCell>
               </TableRow>
