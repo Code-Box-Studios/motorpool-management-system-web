@@ -293,7 +293,7 @@ export default function GuardConfirmationPage() {
           disabled={checkOutTripTicket.isPending || checkInTripTicket.isPending}
           className="mt-4 h-16 w-full rounded-[22px] text-lg font-semibold"
         >
-          {isReturning ? 'Check in vehicle' : 'Check out vehicle'}
+          {isReturning ? 'Time in Vehicle' : 'Time out Vehicle'}
           <ArrowRight className="size-5" />
         </Button>
         <p className="text-slate mt-2.5 text-center text-xs">
@@ -349,8 +349,8 @@ export default function GuardConfirmationPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmAction?.type === 'check-out'
-                ? 'Scan to check out'
-                : 'Scan to check in'}
+                ? 'Scan to time out'
+                : 'Scan to time in'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               Point the camera at the QR code on the driver’s trip ticket.
@@ -430,7 +430,7 @@ export default function GuardConfirmationPage() {
               }
               onClick={handleConfirmAction}
             >
-              {confirmAction?.type === 'check-out' ? 'Check out' : 'Check in'}
+              {confirmAction?.type === 'check-out' ? 'Time out' : 'Time in'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
