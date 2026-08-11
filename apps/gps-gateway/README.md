@@ -44,15 +44,25 @@ Before trusting the decoder against a new device, capture what it actually sends
 Point the tracker at that port, let it report for a few minutes, and inspect
 `captures/*.log` (hex + ascii). Add real frames to `src/h02.test.ts` as fixtures.
 
-## Deploying (Oracle Cloud "Always Free" VPS)
+## Deploying (Google Cloud `e2-micro`)
+
+Full runbook with copy-paste commands: [`docs/gps-deployment.md`](../../docs/gps-deployment.md) §3.
 
 1. Install Node 20, clone the repo, `pnpm install`, `pnpm --filter @mms/gps-gateway build`.
 2. Copy the build to `/opt/mms/gps-gateway` and create `/opt/mms/gps-gateway/.env`.
 3. Install the unit: `cp deploy/gps-gateway.service /etc/systemd/system/` then
    `systemctl enable --now gps-gateway`.
-4. Open the TCP port **in both** the VM firewall (`ufw allow 5013/tcp`) and the Oracle
-   security list — Oracle blocks by default at the cloud layer even if the VM allows it.
+4. Open the TCP port with a VPC firewall rule scoped to the instance's network tag
+   (`gcloud compute firewall-rules create ... --target-tags=...`). GCP's Ubuntu images
+   ship with no host firewall, so there is no `ufw`/`iptables` step — adding one is the
+   usual way this gets broken.
 5. `journalctl -u gps-gateway -f` to watch it.
+
+Two things that cost real time if missed: the VM needs a **reserved static external IP**
+(the default is ephemeral and moves on restart, and this address is burned into every
+tracker by SMS), and the always-free shape is `e2-micro` + a **standard** 30 GB disk in
+`us-west1`/`us-central1`/`us-east1` only. The external IPv4 itself is not free —
+~$3.65/month.
 
 ## Provisioning an ST-901 (SMS cheat-sheet)
 
