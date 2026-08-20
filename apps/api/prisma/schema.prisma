@@ -104,6 +104,7 @@ enum NotificationType {
   trip_approved
   trip_disapproved
   trip_cancelled
+  trip_date_cancelled
   trip_assigned
   trip_checked_out
   trip_checked_in

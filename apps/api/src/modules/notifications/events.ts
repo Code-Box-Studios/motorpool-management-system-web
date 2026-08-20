@@ -1,5 +1,6 @@
-import type { TripTicket, JobOrder } from '@prisma/client';
+import type { TripTicket, TripDate, JobOrder } from '@prisma/client';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
+import { formatDisplayDate } from '../../lib/timezone.js';
 import { adminIds, evpIds, notify, userIdForDriver } from './service.js';
 
 // The reference people actually quote to each other — matches the web's
@@ -158,6 +159,55 @@ export async function tripCancelled(
     exceptUserId: actor.id,
     type: 'trip_cancelled',
     title: `${ref('TT', ticket.ticketNo)} is cancelled — you are not driving it`,
+    body: reason,
+    linkTo: tripLink(ticket.id)
+  });
+}
+
+/**
+ * ONE outing on the event was called off — the rest of the ticket stays live,
+ * which is exactly why this cannot reuse `tripCancelled`'s copy: it has to
+ * name WHICH date is gone, not just point at the ticket, or a requester with
+ * a two-date event has no way to tell from the notification alone which half
+ * still stands.
+ *
+ * The driver split is the same as `tripCancelled` and for the same reason: by
+ * the time a date can be cancelled the ticket is already `approved` or
+ * `in_progress`, so the driver has already been told "you are driving
+ * TT-20" — without this they turn up for an outing that has been called off,
+ * even though the rest of the event still stands.
+ *
+ * `formatDisplayDate` renders in Asia/Manila, not the host process's zone
+ * (UTC in tests and in the cloud) — a morning outing named in UTC would read
+ * as the wrong calendar day.
+ */
+export async function tripDateCancelled(
+  ticket: TripTicket,
+  outing: TripDate,
+  actor: AuthenticatedUser,
+  reason: string
+) {
+  const driverUserId = await userIdForDriver(ticket.driverId);
+  const day = formatDisplayDate(outing.startTs);
+  // Filtered so a driver who is also the requester gets the pointed message
+  // below rather than two rows saying much the same thing.
+  const others = [ticket.requestedById, ...(await adminIds())].filter(
+    (id) => id !== driverUserId
+  );
+
+  await notify({
+    userIds: others,
+    exceptUserId: actor.id,
+    type: 'trip_date_cancelled',
+    title: `${ref('TT', ticket.ticketNo)}: the ${day} date was cancelled`,
+    body: reason,
+    linkTo: tripLink(ticket.id)
+  });
+  await notify({
+    userIds: [driverUserId],
+    exceptUserId: actor.id,
+    type: 'trip_date_cancelled',
+    title: `${ref('TT', ticket.ticketNo)}: your ${day} outing is cancelled`,
     body: reason,
     linkTo: tripLink(ticket.id)
   });

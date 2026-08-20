@@ -65,6 +65,109 @@ const fuelBody = {
   tripTo: 'Site A'
 };
 
+// Task 6: an approved event covering two non-consecutive dates, each its own
+// TripDate row/gate cycle. Windows are relative to `now` so "the outing due
+// today" and "the outing a week out" both stay in the future as the clock
+// moves, same convention as approvedTwoDateTicket() in
+// trip-ticket-guard.test.ts (that copy is scoped to its own describe block,
+// not exported, so this file gets its own).
+const CANCEL_TEST_START_KM = 1000;
+
+async function approvedTwoDateTicket() {
+  const branch = await createTestBranch();
+  const vehicle = await prisma.vehicle.create({
+    data: {
+      make: 'T',
+      model: 'H',
+      year: 2021,
+      vin: 'V6',
+      licensePlate: 'P6',
+      capacity: 5,
+      fuelType: 'diesel',
+      mileage: CANCEL_TEST_START_KM,
+      status: 'available',
+      branchId: branch.id,
+      insuranceExpiry: new Date('2027-01-01'),
+      registrationExpiry: new Date('2027-01-01')
+    }
+  });
+  const driver = await prisma.driver.create({
+    data: {
+      email: 'd6@test.local',
+      fullName: 'D6',
+      status: 'active',
+      branchId: branch.id
+    }
+  });
+  const { user: requester } = await createTestUser({
+    email: 'req6@test.local',
+    role: 'requester'
+  });
+  const { user: admin } = await createTestUser({
+    email: 'admin6@test.local',
+    role: 'admin'
+  });
+  const now = new Date();
+  const ticket = await prisma.tripTicket.create({
+    data: {
+      branchId: branch.id,
+      driverId: driver.id,
+      vehicleId: vehicle.id,
+      destination: 'D',
+      purpose: 'P',
+      dateRequested: now,
+      preparedBy: '',
+      requestedById: requester.id,
+      status: 'approved'
+    }
+  });
+  await prisma.tripDate.createMany({
+    data: [
+      // Due "today" — inside resolveOutingForCheckOut's window, for the
+      // "already out" test.
+      {
+        tripTicketId: ticket.id,
+        startTs: new Date(now.getTime() - 3_600_000),
+        endTs: new Date(now.getTime() + 6 * 3_600_000)
+      },
+      // A week out — non-consecutive with the first, the whole point of this
+      // feature.
+      {
+        tripTicketId: ticket.id,
+        startTs: new Date(now.getTime() + 7 * 86_400_000),
+        endTs: new Date(now.getTime() + 7 * 86_400_000 + 6 * 3_600_000)
+      }
+    ]
+  });
+  return { branch, vehicle, driver, requester, admin, ticketId: ticket.id };
+}
+
+let cancelTestGuardSeq = 0;
+async function guardHeaderForCancelTests(): Promise<string> {
+  const { user } = await createTestUser({
+    email: `g${++cancelTestGuardSeq}@date-cancel.test.local`,
+    role: 'security_guard'
+  });
+  return authHeader(user.id, user.email, 'security_guard');
+}
+
+// Puts date 1 of a two-date ticket `in_progress`, for the "already out" test.
+async function checkOut(
+  s: { ticketId: string },
+  startMileage: number
+): Promise<void> {
+  const header = await guardHeaderForCancelTests();
+  const res = await request(app)
+    .post(`/api/trip-tickets/${s.ticketId}/check-out`)
+    .set('Authorization', header)
+    .send({ startMileage });
+  if (res.status !== 200) {
+    throw new Error(
+      `checkOut(${s.ticketId}) failed: ${res.status} ${JSON.stringify(res.body)}`
+    );
+  }
+}
+
 describe('trip-ticket approval transitions', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
@@ -203,5 +306,149 @@ describe('trip-ticket approval transitions', () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('cancelled');
     expect(res.body.cancellationReason).toBe('Changed plans');
+  });
+
+  // --- Task 6: cancel ONE date without voiding the rest of the event ---
+
+  it('cancels one date and leaves the rest of the event standing', async () => {
+    const s = await approvedTwoDateTicket();
+    const dates = await prisma.tripDate.findMany({
+      where: { tripTicketId: s.ticketId },
+      orderBy: { startTs: 'asc' }
+    });
+    expect(dates).toHaveLength(2);
+    // Brief defect: `noUncheckedIndexedAccess` types `dates[1]` as possibly
+    // `undefined` even right after the length check — destructure instead of
+    // indexing so the compiler can actually narrow it.
+    const [firstDate, secondDate] = dates;
+    if (!firstDate || !secondDate) throw new Error('expected two dates'); // unreachable
+
+    const res = await request(app)
+      .post(`/api/trip-tickets/${s.ticketId}/dates/${secondDate.id}/cancel`)
+      .set('Authorization', authHeader(s.admin.id, s.admin.email, 'admin'))
+      .send({ reason: 'venue moved' });
+    expect(res.status).toBe(200);
+
+    const after = await prisma.tripDate.findMany({
+      where: { tripTicketId: s.ticketId },
+      orderBy: { startTs: 'asc' }
+    });
+    expect(after).toHaveLength(2);
+    const [afterFirst, afterSecond] = after;
+    // Safe only because toHaveLength(2) above makes both elements
+    // unreachable-undefined.
+    expect(afterFirst!.status).toBe('scheduled');
+    expect(afterSecond!.status).toBe('cancelled');
+    expect(afterSecond!.cancellationReason).toBe('venue moved');
+
+    const ticket = await prisma.tripTicket.findUniqueOrThrow({
+      where: { id: s.ticketId }
+    });
+    // The rest of the event stands — cancelling one date must not touch the
+    // approval chain, and syncTicketStatus leaves an ordinary approved ticket
+    // with one live date alone.
+    expect(ticket.status).toBe('approved');
+  });
+
+  it('cancels the whole ticket once every date is cancelled, and records why', async () => {
+    const s = await approvedTwoDateTicket();
+    const dates = await prisma.tripDate.findMany({
+      where: { tripTicketId: s.ticketId }
+    });
+    for (const d of dates) {
+      const res = await request(app)
+        .post(`/api/trip-tickets/${s.ticketId}/dates/${d.id}/cancel`)
+        .set('Authorization', authHeader(s.admin.id, s.admin.email, 'admin'))
+        .send({ reason: 'event called off' });
+      expect(res.status).toBe(200);
+    }
+    const ticket = await prisma.tripTicket.findUniqueOrThrow({
+      where: { id: s.ticketId }
+    });
+    expect(ticket.status).toBe('cancelled');
+    // Amendment 3: nothing else sets the TICKET's own cancellationReason when
+    // it derives to cancelled via its dates — without this a reader opening
+    // it later would see "cancelled" with no explanation, unlike every ticket
+    // cancelled through the normal whole-ticket path.
+    expect(ticket.cancellationReason).toBe('event called off');
+  });
+
+  it('refuses to cancel an outing that is already out', async () => {
+    const s = await approvedTwoDateTicket();
+    await checkOut(s, CANCEL_TEST_START_KM);
+    const out = await prisma.tripDate.findFirstOrThrow({
+      where: { tripTicketId: s.ticketId, status: 'in_progress' }
+    });
+    const res = await request(app)
+      .post(`/api/trip-tickets/${s.ticketId}/dates/${out.id}/cancel`)
+      .set('Authorization', authHeader(s.admin.id, s.admin.email, 'admin'))
+      .send({ reason: 'too late' });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('INVALID_TRANSITION');
+  });
+
+  // Amendment 1: cancelDate is legal only from `approved`/`in_progress` — a
+  // pending ticket's status is owned by the approval chain, and letting its
+  // dates be cancelled one by one could strip it to zero live rows, which
+  // would then throw 400 NO_TRIP_DATES on the next unrelated edit. Narrower
+  // than whole-ticket cancel, which also allows the two pending states —
+  // that asymmetry is intentional.
+  it('refuses to cancel a date on a ticket still pending admin approval', async () => {
+    const { ticket } = await pendingTicket();
+    const date = await prisma.tripDate.create({
+      data: {
+        tripTicketId: ticket.id,
+        startTs: new Date(),
+        endTs: new Date(Date.now() + 3_600_000)
+      }
+    });
+    const { user: admin } = await createTestUser({
+      email: 'a@test.local',
+      role: 'admin'
+    });
+    const res = await request(app)
+      .post(`/api/trip-tickets/${ticket.id}/dates/${date.id}/cancel`)
+      .set('Authorization', authHeader(admin.id, admin.email, 'admin'))
+      .send({ reason: 'too early' });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('INVALID_TRANSITION');
+  });
+
+  // A cancelled date must become a free window someone else can book —
+  // assertBookable already excludes cancelled rows from its clash scan; this
+  // exercises that end to end through cancelDate rather than whole-ticket
+  // cancel (already covered by "a cancelled trip releases its vehicle and
+  // driver for the same window" in trip-ticket-booking.test.ts).
+  it('frees the cancelled date for someone else to book the same vehicle and driver', async () => {
+    const s = await approvedTwoDateTicket();
+    const dates = await prisma.tripDate.findMany({
+      where: { tripTicketId: s.ticketId },
+      orderBy: { startTs: 'asc' }
+    });
+    expect(dates).toHaveLength(2);
+    const [, secondDate] = dates;
+    if (!secondDate) throw new Error('expected a second date'); // unreachable
+
+    const adminHeader = authHeader(s.admin.id, s.admin.email, 'admin');
+    const cancelRes = await request(app)
+      .post(`/api/trip-tickets/${s.ticketId}/dates/${secondDate.id}/cancel`)
+      .set('Authorization', adminHeader)
+      .send({ reason: 'venue moved' });
+    expect(cancelRes.status).toBe(200);
+
+    const rebook = await request(app)
+      .post('/api/trip-tickets')
+      .set('Authorization', adminHeader)
+      .send({
+        branchId: s.branch.id,
+        driverId: s.driver.id,
+        vehicleId: s.vehicle.id,
+        destination: 'Elsewhere',
+        purpose: 'A different event',
+        dateRequested: new Date().toISOString(),
+        startTs: secondDate.startTs.toISOString(),
+        endTs: secondDate.endTs.toISOString()
+      });
+    expect(rebook.status).toBe(201);
   });
 });

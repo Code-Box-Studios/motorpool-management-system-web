@@ -61,6 +61,14 @@ tripTicketsRouter.post(
   validateBody(reasonBodySchema),
   transitionsController.cancel
 );
+// Cancel ONE date on the event without voiding the rest — narrower than
+// whole-ticket cancel above (see transitions.cancelDate's doc comment).
+tripTicketsRouter.post(
+  '/:id/dates/:dateId/cancel',
+  requireRole(USER_ROLES.admin, USER_ROLES.requester),
+  validateBody(reasonBodySchema),
+  transitionsController.cancelDate
+);
 
 // The guard works the gate; admin is an override for when none is on duty.
 // Without it an approved trip has no way out of the yard and — worse — a trip

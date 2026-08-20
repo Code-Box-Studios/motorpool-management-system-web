@@ -5,7 +5,7 @@ import type {
   CheckOutBody,
   ReasonBody
 } from '@mms/shared';
-import { requireIdParam, requireUser } from '../../lib/http.js';
+import { requireIdParam, requireParam, requireUser } from '../../lib/http.js';
 import * as transitions from './transitions.js';
 
 export async function approve(req: Request, res: Response): Promise<void> {
@@ -36,6 +36,17 @@ export async function cancel(req: Request, res: Response): Promise<void> {
   res.json(
     await transitions.cancel(
       requireIdParam(req),
+      requireUser(req),
+      (req.body as ReasonBody).reason
+    )
+  );
+}
+
+export async function cancelDate(req: Request, res: Response): Promise<void> {
+  res.json(
+    await transitions.cancelDate(
+      requireIdParam(req),
+      requireParam(req, 'dateId'),
       requireUser(req),
       (req.body as ReasonBody).reason
     )

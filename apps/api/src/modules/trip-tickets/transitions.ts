@@ -14,6 +14,7 @@ import {
 import * as events from '../notifications/events.js';
 import { findTripTicketById } from './repository.js';
 import {
+  recomputeTicketSpan,
   resolveOutingForCheckIn,
   resolveOutingForCheckOut,
   syncTicketStatus
@@ -142,6 +143,78 @@ export async function cancel(
   });
   await events.tripCancelled(ticket, actor, reason);
   return findTripTicketById(id);
+}
+
+/**
+ * Cancel ONE outing. Legal from `scheduled` only: an outing already out must be
+ * checked back in, or the van never returns to `available`. Freeing this window
+ * makes it bookable again — assertBookable ignores cancelled rows.
+ *
+ * Only legal while the TICKET itself is `approved` or `in_progress` —
+ * deliberately NARROWER than whole-ticket `cancel` above, which also allows
+ * the two pending states. `deriveTicketStatus` leaves a pre-approval ticket's
+ * status untouched (the approval chain owns it then), so admitting a pending
+ * ticket here would let its dates be cancelled down to zero live rows;
+ * `service.update()` then derives its proposed dates from the ticket's own
+ * non-cancelled rows, and an empty list throws 400 NO_TRIP_DATES on the next,
+ * otherwise unrelated, edit. Before approval the right move is to edit the
+ * ticket's `dates` outright, or cancel the whole ticket.
+ */
+export async function cancelDate(
+  ticketId: string,
+  dateId: string,
+  actor: AuthenticatedUser,
+  reason: string
+) {
+  const ticket = await loadInState(ticketId, ['approved', 'in_progress']);
+  if (actor.role !== 'admin' && ticket.requestedById !== actor.id) {
+    throw new AppError(
+      403,
+      'NOT_TICKET_OWNER',
+      'You may only cancel your own trip ticket'
+    );
+  }
+
+  const outing = await prisma.tripDate.findFirst({
+    where: { id: dateId, tripTicketId: ticketId }
+  });
+  if (!outing) throw new AppError(404, 'NOT_FOUND', 'Trip date not found');
+  if (outing.status !== 'scheduled') {
+    throw new AppError(
+      409,
+      'INVALID_TRANSITION',
+      `Not allowed from status ${outing.status}`
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tripDate.update({
+      where: { id: dateId },
+      data: { status: 'cancelled', cancellationReason: reason }
+    });
+    await syncTicketStatus(tx, ticketId);
+    await recomputeTicketSpan(tx, ticketId);
+
+    // If cancelling this date settled every date on the ticket with none of
+    // them completed, syncTicketStatus just derived the TICKET itself to
+    // `cancelled` — give it the same explanation a whole-ticket cancel would
+    // record, or a reader opening it later sees "cancelled" with no reason at
+    // all, unlike every ticket cancelled through the normal path.
+    const settled = await tx.tripTicket.findUniqueOrThrow({
+      where: { id: ticketId },
+      select: { status: true }
+    });
+    if (settled.status === 'cancelled') {
+      await tx.tripTicket.update({
+        where: { id: ticketId },
+        data: { cancellationReason: reason }
+      });
+    }
+  });
+
+  const full = await findTripTicketById(ticketId);
+  await events.tripDateCancelled(full!, outing, actor, reason);
+  return full;
 }
 
 // security_guard (or admin, standing in) check-out → in_progress; records the
