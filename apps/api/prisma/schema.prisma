@@ -356,6 +356,10 @@ model TripTicket {
   // maintenance are both computed from that number.
   startMileage        Int?             @map("start_mileage")
   endMileage          Int?             @map("end_mileage")
+  // DERIVED, display and sort only: earliest date start and latest date end,
+  // recomputed by recomputeTicketSpan() whenever the date rows change. Booking
+  // and availability read trip_dates, NEVER these — a trip on the 17th and the
+  // 21st spans five days here while the van is free for three of them.
   startTs             DateTime?        @map("start_ts")
   endTs               DateTime?        @map("end_ts")
   createdAt           DateTime         @default(now()) @map("created_at")
@@ -375,6 +379,7 @@ model TripTicket {
   fuelAllocation     FuelAllocation?
   gpsData            GpsData[]
   geofenceViolations GeofenceViolation[]
+  dates              TripDate[]
 
   @@index([status])
   @@index([branchId])
@@ -709,4 +714,42 @@ model Notification {
   // Exactly the bell's poll: mine, unread first, newest first.
   @@index([userId, readAt, createdAt])
   @@map("notifications")
+}
+
+// One outing. An event may run on April 17 and 21 without holding the vehicle
+// through the days between, so the per-trip facts that used to sit on the ticket
+// — window, odometer pair, guard stamps — live here, one row per date.
+enum TripDateStatus {
+  scheduled
+  in_progress
+  completed
+  cancelled
+}
+
+model TripDate {
+  id                  String         @id @default(uuid()) @db.Uuid
+  tripTicketId        String         @map("trip_ticket_id") @db.Uuid
+  startTs             DateTime       @map("start_ts")
+  endTs               DateTime       @map("end_ts")
+  status              TripDateStatus @default(scheduled)
+  startMileage        Int?           @map("start_mileage")
+  endMileage          Int?           @map("end_mileage")
+  preTripGuardId      String?        @map("pre_trip_guard") @db.Uuid
+  preTripCheckedById  String?        @map("pre_trip_checked_by") @db.Uuid
+  preTripCheckedAt    DateTime?      @map("pre_trip_checked_at")
+  postTripGuardId     String?        @map("post_trip_guard") @db.Uuid
+  postTripCheckedById String?        @map("post_trip_checked_by") @db.Uuid
+  postTripCheckedAt   DateTime?      @map("post_trip_checked_at")
+  // Set when THIS date alone is called off; the ticket keeps its own reason for
+  // a whole-event cancellation.
+  cancellationReason  String?        @map("cancellation_reason")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @default(now()) @updatedAt @map("updated_at")
+
+  tripTicket TripTicket @relation(fields: [tripTicketId], references: [id], onDelete: Cascade)
+
+  @@index([tripTicketId])
+  // The booking overlap query in service.assertBookable scans on the window.
+  @@index([startTs, endTs])
+  @@map("trip_dates")
 }
