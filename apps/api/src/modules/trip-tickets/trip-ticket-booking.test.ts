@@ -250,6 +250,118 @@ describe('trip-ticket booking rules', () => {
     // The window is free again — a terminal trip holds nothing.
     expect((await post(s)).status).toBe(201);
   });
+
+  it('books an event on two non-consecutive dates', async () => {
+    const s = await scaffold();
+    const res = await post(s, {
+      startTs: undefined,
+      endTs: undefined,
+      dates: [
+        { startTs: inDays(14, 8), endTs: inDays(14, 17) },
+        { startTs: inDays(18, 8), endTs: inDays(18, 17) }
+      ]
+    });
+    expect(res.status).toBe(201);
+    const dates = await prisma.tripDate.findMany({
+      where: { tripTicketId: res.body.id },
+      orderBy: { startTs: 'asc' }
+    });
+    expect(dates).toHaveLength(2);
+    expect(dates.every((d) => d.status === 'scheduled')).toBe(true);
+  });
+
+  it('leaves the days BETWEEN two dates bookable by someone else', async () => {
+    const s = await scaffold();
+    expect(
+      (
+        await post(s, {
+          startTs: undefined,
+          endTs: undefined,
+          dates: [
+            { startTs: inDays(14, 8), endTs: inDays(14, 17) },
+            { startTs: inDays(18, 8), endTs: inDays(18, 17) }
+          ]
+        })
+      ).status
+    ).toBe(201);
+
+    // The 16th sits in the gap: same van, same driver, must be free.
+    const gap = await post(s, {
+      startTs: inDays(16, 8),
+      endTs: inDays(16, 17)
+    });
+    expect(gap.status).toBe(201);
+  });
+
+  it('refuses a date that clashes with another ticket date on the same vehicle', async () => {
+    const s = await scaffold();
+    expect(
+      (
+        await post(s, {
+          startTs: undefined,
+          endTs: undefined,
+          dates: [{ startTs: inDays(14, 8), endTs: inDays(14, 17) }]
+        })
+      ).status
+    ).toBe(201);
+
+    const clash = await post(s, {
+      driverId: s.otherDriver.id,
+      startTs: undefined,
+      endTs: undefined,
+      dates: [
+        { startTs: inDays(20, 8), endTs: inDays(20, 17) },
+        { startTs: inDays(14, 12), endTs: inDays(14, 20) }
+      ]
+    });
+    expect(clash.status).toBe(409);
+    expect(clash.body.error.code).toBe('VEHICLE_DOUBLE_BOOKED');
+  });
+
+  it('refuses two rows in the SAME submission that overlap each other', async () => {
+    const s = await scaffold();
+    const res = await post(s, {
+      startTs: undefined,
+      endTs: undefined,
+      dates: [
+        { startTs: inDays(14, 8), endTs: inDays(14, 17) },
+        { startTs: inDays(14, 14), endTs: inDays(14, 20) }
+      ]
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('OVERLAPPING_TRIP_DATES');
+  });
+
+  it('refuses a ticket with no dates at all', async () => {
+    const s = await scaffold();
+    const res = await post(s, {
+      startTs: undefined,
+      endTs: undefined,
+      dates: []
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('NO_TRIP_DATES');
+  });
+
+  it('ignores a CANCELLED date when checking for clashes', async () => {
+    const s = await scaffold();
+    const first = await post(s, {
+      startTs: undefined,
+      endTs: undefined,
+      dates: [{ startTs: inDays(14, 8), endTs: inDays(14, 17) }]
+    });
+    expect(first.status).toBe(201);
+    await prisma.tripDate.updateMany({
+      where: { tripTicketId: first.body.id },
+      data: { status: 'cancelled' }
+    });
+
+    const reuse = await post(s, {
+      startTs: inDays(14, 9),
+      endTs: inDays(14, 16)
+    });
+    expect(reuse.status).toBe(201);
+  });
 });
 
 describe('trip-ticket off-ramps', () => {

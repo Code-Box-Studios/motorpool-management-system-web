@@ -1,9 +1,11 @@
 import type { Prisma } from '@prisma/client';
 import type {
   CreateTripTicketBody,
+  TripDateInput,
   TripTicketsListQuery,
   UpdateTripTicketBody
 } from '@mms/shared';
+import { normaliseTripDates } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
@@ -100,27 +102,60 @@ async function assertBookable(
     | 'endTs'
     | 'participants'
     | 'participantsCount'
-  >,
+  > & { dates?: TripDateInput[] },
   excludeTicketId?: string
 ): Promise<void> {
-  const { vehicleId, driverId, startTs, endTs } = body;
+  const { vehicleId, driverId } = body;
+  const dates = normaliseTripDates(body);
 
-  if (startTs && endTs && startTs >= endTs) {
+  if (dates.length === 0) {
     throw new AppError(
       400,
-      'INVALID_TRIP_WINDOW',
-      'A trip cannot end before it starts'
+      'NO_TRIP_DATES',
+      'A trip ticket needs at least one date'
     );
   }
-  // A trip whose window has already closed is not a booking, it is a typo. (The
-  // start is deliberately not checked: a trip leaving "now" is normal, and a few
-  // milliseconds of clock skew must not reject it.)
-  if (endTs && endTs.getTime() < Date.now()) {
-    throw new AppError(
-      400,
-      'TRIP_IN_THE_PAST',
-      'A trip cannot be booked entirely in the past'
-    );
+
+  for (const d of dates) {
+    if (d.startTs >= d.endTs) {
+      throw new AppError(
+        400,
+        'INVALID_TRIP_WINDOW',
+        'A trip cannot end before it starts'
+      );
+    }
+    // A window that has already closed is not a booking, it is a typo. (The
+    // start is deliberately not checked: a trip leaving "now" is normal.)
+    if (d.endTs.getTime() < Date.now()) {
+      throw new AppError(
+        400,
+        'TRIP_IN_THE_PAST',
+        'A trip cannot be booked entirely in the past'
+      );
+    }
+  }
+
+  // Rows in ONE submission must not overlap each other, or a requester books the
+  // same van against itself and no cross-ticket check would ever catch it.
+  //
+  // Brief defect fix: `noUncheckedIndexedAccess` makes `sorted[i]` and
+  // `sorted[i - 1]` both `TripDateInput | undefined`, so the brief's
+  // `sorted[i].startTs` does not compile. Binding each pair to a local first
+  // narrows them for the compiler and reads the same as the original.
+  const sorted = [...dates].sort(
+    (a, b) => a.startTs.getTime() - b.startTs.getTime()
+  );
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const cur = sorted[i];
+    if (!prev || !cur) continue; // unreachable: i < sorted.length bounds both
+    if (cur.startTs < prev.endTs) {
+      throw new AppError(
+        409,
+        'OVERLAPPING_TRIP_DATES',
+        'Two of the dates on this request overlap each other'
+      );
+    }
   }
 
   const vehicle = await prisma.vehicle.findUnique({
@@ -175,28 +210,35 @@ async function assertBookable(
     );
   }
 
-  // Overlap is only meaningful when the trip has a window at all.
-  if (!startTs || !endTs) return;
+  // Half-open overlap, now per date row: [a.start, a.end) intersects [b.start, b.end).
+  // Cancelled rows are free windows and must not block a rebooking.
+  for (const d of dates) {
+    const clash = await prisma.tripDate.findFirst({
+      where: {
+        status: { not: 'cancelled' },
+        startTs: { lt: d.endTs },
+        endTs: { gt: d.startTs },
+        tripTicket: {
+          ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
+          status: { in: [...LIVE_STATUSES] },
+          OR: [{ vehicleId }, { driverId }]
+        }
+      },
+      select: {
+        startTs: true,
+        tripTicket: { select: { ticketNo: true, vehicleId: true } }
+      }
+    });
+    if (!clash) continue;
 
-  // Half-open overlap: [a.start, a.end) intersects [b.start, b.end).
-  const clash = await prisma.tripTicket.findFirst({
-    where: {
-      ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
-      status: { in: [...LIVE_STATUSES] },
-      startTs: { lt: endTs },
-      endTs: { gt: startTs },
-      OR: [{ vehicleId }, { driverId }]
-    },
-    select: { id: true, ticketNo: true, vehicleId: true }
-  });
-  if (!clash) return;
-
-  const isVehicle = clash.vehicleId === vehicleId;
-  throw new AppError(
-    409,
-    isVehicle ? 'VEHICLE_DOUBLE_BOOKED' : 'DRIVER_DOUBLE_BOOKED',
-    `${isVehicle ? 'This vehicle' : 'This driver'} is already booked for an overlapping trip (TT-${clash.ticketNo})`
-  );
+    const isVehicle = clash.tripTicket.vehicleId === vehicleId;
+    const day = clash.startTs.toISOString().slice(0, 10);
+    throw new AppError(
+      409,
+      isVehicle ? 'VEHICLE_DOUBLE_BOOKED' : 'DRIVER_DOUBLE_BOOKED',
+      `${isVehicle ? 'This vehicle' : 'This driver'} is already booked on ${day} (TT-${clash.tripTicket.ticketNo})`
+    );
+  }
 }
 
 export async function create(
