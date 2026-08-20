@@ -79,7 +79,13 @@ export function TripDatesSection({
   const ticketAllowsCancel =
     ticketStatus === TRIP_TICKET_STATUS.APPROVED ||
     ticketStatus === TRIP_TICKET_STATUS.IN_PROGRESS;
-  const showActionsColumn = canManage && ticketAllowsCancel;
+  // Without this, an admin looking at an approved ticket whose every date is
+  // already in_progress/completed/cancelled would still get an Actions column
+  // — header and all — with nothing but empty cells underneath it, since no
+  // row would ever pass the `status === 'scheduled'` check below.
+  const hasCancellableDate = dates.some((d) => d.status === 'scheduled');
+  const showActionsColumn =
+    canManage && ticketAllowsCancel && hasCancellableDate;
 
   return (
     <DetailSection

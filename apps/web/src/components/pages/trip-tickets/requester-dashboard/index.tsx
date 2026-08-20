@@ -59,6 +59,17 @@ const dateWindowOf = (date: TripDateRow) => {
   return `${day}, ${time(start)} – ${time(end)}`;
 };
 
+// The dates worth leading with: a cancelled outing is no longer part of what
+// is actually happening, so it should neither be the headline date nor count
+// toward "+N more" — an approved ticket whose first date fell through but
+// whose second stands should read by the date that's still on. Falls back to
+// every row (still date-ordered) only when the whole ticket's dates are
+// cancelled, so a compact row is never left with nothing to show.
+const liveDates = (dates: TripDateRow[]): TripDateRow[] => {
+  const live = dates.filter((d) => d.status !== 'cancelled');
+  return live.length > 0 ? live : dates;
+};
+
 // The two states where the request is sitting on someone else's desk. These are
 // what the requester opens the page to check, so they get the top of the screen.
 const WAITING = [
@@ -272,19 +283,22 @@ const RequesterDashboard = () => {
                         {ticket.destination}
                       </div>
                       <div className="text-slate truncate text-xs">
-                        {ticket.dates.length > 0 ? (
-                          <>
-                            {dateWindowOf(ticket.dates[0])}
-                            {ticket.dates.length > 1 && (
-                              <span className="text-muted-foreground">
-                                {' '}
-                                · +{ticket.dates.length - 1} more
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          timeOf(ticket.start_ts)
-                        )}
+                        {(() => {
+                          const shown = liveDates(ticket.dates);
+                          return shown.length > 0 ? (
+                            <>
+                              {dateWindowOf(shown[0])}
+                              {shown.length > 1 && (
+                                <span className="text-muted-foreground">
+                                  {' '}
+                                  · +{shown.length - 1} more
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            timeOf(ticket.start_ts)
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="ml-auto flex items-center gap-2">

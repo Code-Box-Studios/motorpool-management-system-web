@@ -199,6 +199,23 @@ const TripTicketsInner = () => {
           .filter((p) => p.length > 0);
       }
 
+      // The start_ts/end_ts inputs on this form only ever show the ticket's
+      // DERIVED span (earliest start, latest end) — never the real per-date
+      // rows — so on a ticket with more than one date they are not "the"
+      // window, they're a summary of several. Sending that summary back hits
+      // the API's legacy start_ts/end_ts path, which REPLACES every date row
+      // with one row spanning it: a two-date event (17th and 21st) would
+      // silently become a single five-day hold, re-creating the exact
+      // continuous booking this feature exists to remove. Omitting both keys
+      // leaves the API's dates untouched (its `sentDates` check is falsy), so
+      // any other field on this form stays safely editable. A ticket with one
+      // date (or the legacy zero-date case) has no such ambiguity — that
+      // window IS the trip, so the legacy behaviour is left exactly as it was.
+      if (tripTicket.dates.length > 1) {
+        delete updates.start_ts;
+        delete updates.end_ts;
+      }
+
       updateTripTicket.mutate(
         {
           id: tripTicket.id,
@@ -302,6 +319,11 @@ const TripTicketsInner = () => {
   const isAdmin = userRole?.roles?.name?.toLowerCase() === 'admin';
   const isOwner = Boolean(user?.id && tripTicket.requested_by === user.id);
   const status = tripTicket.status || TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL;
+  // More than one date row means there is no single "the" window — the
+  // start_ts/end_ts fields below only ever show the derived span across all of
+  // them. Editing that span is meaningless (and, if saved, dangerous — see
+  // handleConfirmUpdate), so those two inputs are locked for such a ticket.
+  const hasMultipleDates = tripTicket.dates.length > 1;
   const canApprove =
     isAdmin && status === TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL;
   const canDisapprove =
@@ -582,7 +604,7 @@ const TripTicketsInner = () => {
                           id="start_ts"
                           type="datetime-local"
                           aria-invalid={fieldState.invalid}
-                          disabled={!isEditing}
+                          disabled={!isEditing || hasMultipleDates}
                         />
                         {fieldState.invalid && (
                           <FieldError errors={[fieldState.error]} />
@@ -603,7 +625,7 @@ const TripTicketsInner = () => {
                           id="end_ts"
                           type="datetime-local"
                           aria-invalid={fieldState.invalid}
-                          disabled={!isEditing}
+                          disabled={!isEditing || hasMultipleDates}
                         />
                         {fieldState.invalid && (
                           <FieldError errors={[fieldState.error]} />
@@ -612,6 +634,14 @@ const TripTicketsInner = () => {
                     )}
                   />
                 </FormRow>
+                {hasMultipleDates && (
+                  <p className="text-muted-foreground -mt-3 text-xs">
+                    This ticket covers multiple dates, so there is no single
+                    start/end to edit here — the pair above is just the overall
+                    span. Manage individual outings from the Dates table on the
+                    ticket&apos;s detail view.
+                  </p>
+                )}
 
                 <Controller
                   name="participants"

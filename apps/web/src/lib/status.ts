@@ -19,6 +19,9 @@ const STATUS_MAP: Record<string, StatusMeta> = {
   cancelled: { tone: 'stop', label: 'Cancelled' },
   disapproved: { tone: 'stop', label: 'Declined' },
 
+  // --- Trip dates (one outing's own status, distinct from its ticket's) ---
+  scheduled: { tone: 'neutral', label: 'Scheduled' },
+
   // --- Job orders ---
   pending: { tone: 'wait', label: 'Pending' },
   assigned_mechanic: { tone: 'wait', label: 'Awaiting sign-off' },
