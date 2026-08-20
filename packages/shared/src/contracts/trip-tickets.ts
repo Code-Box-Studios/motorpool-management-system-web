@@ -2,6 +2,19 @@ import { z } from 'zod';
 import { FUEL_TYPE, TRIP_TICKET_STATUS } from '../enums.js';
 import { paginationQuerySchema, sortQuerySchema } from './common.js';
 
+// One outing: a date with its own departure and return. An event may run on the
+// 17th and the 21st, so a ticket carries a list of these rather than one window.
+export const tripDateInputSchema = z
+  .object({
+    startTs: z.coerce.date(),
+    endTs: z.coerce.date()
+  })
+  .refine((d) => d.endTs > d.startTs, {
+    message: 'A date must end after it starts',
+    path: ['endTs']
+  });
+export type TripDateInput = z.infer<typeof tripDateInputSchema>;
+
 // Create: a new ticket is always born pending_admin_approval; the client cannot
 // choose a status. preparedBy is DB-required but the FE leaves it blank → default ''.
 export const createTripTicketBodySchema = z.object({
@@ -19,7 +32,8 @@ export const createTripTicketBodySchema = z.object({
   requestedById: z.string().uuid().nullable().optional(),
   remarks: z.string().nullable().optional(),
   startTs: z.coerce.date().nullable().optional(),
-  endTs: z.coerce.date().nullable().optional()
+  endTs: z.coerce.date().nullable().optional(),
+  dates: z.array(tripDateInputSchema).default([])
 });
 export type CreateTripTicketBody = z.infer<typeof createTripTicketBodySchema>;
 
@@ -27,6 +41,25 @@ export type CreateTripTicketBody = z.infer<typeof createTripTicketBodySchema>;
 // never editable here — transitions own it.
 export const updateTripTicketBodySchema = createTripTicketBodySchema.partial();
 export type UpdateTripTicketBody = z.infer<typeof updateTripTicketBodySchema>;
+
+/**
+ * The date rows a request is really asking for.
+ *
+ * `dates` is the truth. The legacy `startTs`/`endTs` pair is still accepted and
+ * folded into a single row, so existing callers — the e2e suite and the web form
+ * until it is rebuilt — keep working unchanged.
+ */
+export function normaliseTripDates(body: {
+  dates?: TripDateInput[];
+  startTs?: Date | null;
+  endTs?: Date | null;
+}): TripDateInput[] {
+  if (body.dates && body.dates.length > 0) return body.dates;
+  if (body.startTs && body.endTs) {
+    return [{ startTs: body.startTs, endTs: body.endTs }];
+  }
+  return [];
+}
 
 // approve(admin) carries the fuel-allocation payload.
 //
