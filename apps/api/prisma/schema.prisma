@@ -96,6 +96,22 @@ enum TrackerDeviceStatus {
   decommissioned
 }
 
+// What happened. The message text is composed at write time and stored on the
+// row, so this is for grouping and icon choice — not for reconstructing copy.
+enum NotificationType {
+  trip_submitted
+  trip_awaiting_approval
+  trip_approved
+  trip_disapproved
+  trip_cancelled
+  trip_assigned
+  trip_checked_out
+  trip_checked_in
+  job_order_awaiting_action
+  job_order_approved
+  job_order_completed
+}
+
 // ---------- Auth (spec §4.1) ----------
 
 model User {
@@ -130,6 +146,7 @@ model User {
   requestedJobOrders       JobOrder[]                 @relation("JobOrderRequestedBy")
   approvedBorrowRequests   BorrowRequest[]            @relation("BorrowApprovedBy")
   completedMaintenanceLogs MaintenanceCompletionLog[]
+  notifications            Notification[]
 
   @@map("users")
 }
@@ -665,4 +682,31 @@ model VehicleStatusAudit {
   vehicle Vehicle @relation(fields: [vehicleId], references: [id])
 
   @@map("vehicle_status_audit")
+}
+
+// One row per person per event. Notifications are written FANNED OUT rather
+// than as a single row per event with a recipient list: the bell's only query
+// is "my unread, newest first", and read state is per person anyway.
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String
+  body      String?
+  // Where clicking it lands — an app path such as /trip-tickets/<uuid>. Stored
+  // rather than derived, so a notification still points somewhere sensible after
+  // the routes it was written for have moved on.
+  linkTo    String?          @map("link_to")
+  // Null until read. A nullable timestamp rather than a boolean: "when" answers
+  // "whether" as well, and the index below reads it directly.
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at")
+
+  // Cascade: a deleted user's notifications are addressed to nobody.
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Exactly the bell's poll: mine, unread first, newest first.
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
 }

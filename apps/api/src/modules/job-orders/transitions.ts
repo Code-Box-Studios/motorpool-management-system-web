@@ -8,6 +8,7 @@ import {
   claimVehicleStatus
 } from '../vehicles/status.js';
 import { findJobOrderById } from './repository.js';
+import * as events from '../notifications/events.js';
 
 async function loadInState(id: string, allowedFrom: string[]) {
   const order = await prisma.jobOrder.findUnique({ where: { id } });
@@ -109,12 +110,13 @@ export async function note(
       });
     }
   });
+  await events.jobOrderNoted(order, actor, body.assignedMechanicId);
   return findJobOrderById(id);
 }
 
 // evp approve → ongoing_repair (admin too, as the stand-in when no EVP is on).
 export async function approve(id: string, actor: AuthenticatedUser) {
-  await loadInState(id, ['assigned_mechanic']);
+  const order = await loadInState(id, ['assigned_mechanic']);
   await prisma.jobOrder.update({
     where: { id },
     data: {
@@ -123,6 +125,7 @@ export async function approve(id: string, actor: AuthenticatedUser) {
       dateApproved: new Date()
     }
   });
+  await events.jobOrderApproved(order, actor);
   return findJobOrderById(id);
 }
 
@@ -199,5 +202,6 @@ export async function completeRepair(
       expectedFrom: 'under_maintenance'
     });
   });
+  await events.jobOrderCompleted(order, actor);
   return findJobOrderById(id);
 }

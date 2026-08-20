@@ -15,6 +15,7 @@ import {
   listTripTickets,
   tripTicketInclude
 } from './repository.js';
+import * as events from '../notifications/events.js';
 
 // Builds the visibility filter for a caller (spec §5): requester → own;
 // driver → own trips (via drivers.userId); admin/evp/guard → unfiltered.
@@ -216,10 +217,13 @@ export async function create(
       ? body.requestedById
       : actor.id;
 
-  return prisma.tripTicket.create({
+  const ticket = await prisma.tripTicket.create({
     data: { ...body, requestedById, status: 'pending_admin_approval' }, // status is never client-chosen
     include: tripTicketInclude
   });
+  // Raised after the row exists, so the admins' bell can never point at nothing.
+  await events.tripSubmitted(ticket, actor);
+  return ticket;
 }
 
 export async function update(

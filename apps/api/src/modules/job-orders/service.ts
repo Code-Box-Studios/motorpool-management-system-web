@@ -16,6 +16,7 @@ import {
   jobOrderInclude,
   listJobOrders
 } from './repository.js';
+import * as events from '../notifications/events.js';
 
 // Visibility (spec §6): admin/evp see all; everyone else sees rows they
 // requested OR that are assigned to their driver row (via drivers.userId).
@@ -95,10 +96,12 @@ export async function create(
     );
   }
 
-  return prisma.jobOrder.create({
+  const order = await prisma.jobOrder.create({
     data: { ...body, requestedById, status: 'pending' },
     include: jobOrderInclude
   });
+  await events.jobOrderSubmitted(order, actor);
+  return order;
 }
 
 export async function update(id: string, body: UpdateJobOrderBody) {

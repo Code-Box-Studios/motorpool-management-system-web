@@ -11,6 +11,7 @@ import {
   changeVehicleStatus,
   claimVehicleStatus
 } from '../vehicles/status.js';
+import * as events from '../notifications/events.js';
 import { findTripTicketById } from './repository.js';
 
 // Loads the ticket and asserts its current status is in the allowed-from set.
@@ -59,12 +60,13 @@ export async function approve(
       }
     });
   });
+  await events.tripApprovedByAdmin(ticket, actor);
   return findTripTicketById(id);
 }
 
 // evp approve → approved; stamps the allocation.
 export async function approveEvp(id: string, actor: AuthenticatedUser) {
-  await loadInState(id, ['pending_fuel_allocation_approval']);
+  const ticket = await loadInState(id, ['pending_fuel_allocation_approval']);
   await prisma.$transaction(async (tx) => {
     await tx.tripTicket.update({ where: { id }, data: { status: 'approved' } });
     await tx.fuelAllocation.update({
@@ -72,6 +74,7 @@ export async function approveEvp(id: string, actor: AuthenticatedUser) {
       data: { status: 'approved', approvedByEvpId: actor.id }
     });
   });
+  await events.tripApprovedByEvp(ticket, actor);
   return findTripTicketById(id);
 }
 
@@ -85,7 +88,7 @@ export async function disapprove(
     actor.role === 'evp_operations'
       ? ['pending_fuel_allocation_approval']
       : ['pending_admin_approval', 'pending_fuel_allocation_approval'];
-  await loadInState(id, allowedFrom);
+  const ticket = await loadInState(id, allowedFrom);
   await prisma.$transaction(async (tx) => {
     await tx.tripTicket.update({
       where: { id },
@@ -97,6 +100,7 @@ export async function disapprove(
       data: { status: 'disapproved' }
     });
   });
+  await events.tripDisapproved(ticket, actor, reason);
   return findTripTicketById(id);
 }
 
@@ -131,6 +135,7 @@ export async function cancel(
       data: { status: 'cancelled' }
     });
   });
+  await events.tripCancelled(ticket, actor, reason);
   return findTripTicketById(id);
 }
 
@@ -175,6 +180,7 @@ export async function checkOut(
       }
     });
   });
+  await events.tripCheckedOut(ticket, actor);
   return findTripTicketById(id);
 }
 
@@ -216,5 +222,6 @@ export async function checkIn(
       expectedFrom: 'on_trip'
     });
   });
+  await events.tripCheckedIn(ticket, actor);
   return findTripTicketById(id);
 }

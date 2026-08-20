@@ -9,6 +9,7 @@ import {
   BreadcrumbSeparator
 } from '@/components/ui/breadcrumb';
 import React from 'react';
+import NotificationBell from '@/components/shared/notification-bell';
 import ThemeSwitcher from './theme-switcher';
 import UserAvatar from './user-avatar';
 import { useBreadcrumb } from '@/hooks/use-breadcrumb';
@@ -84,6 +85,7 @@ const AppHeader = () => {
         </Breadcrumb>
       </div>
       <div className="flex items-center gap-3">
+        <NotificationBell />
         <ThemeSwitcher />
         <UserAvatar />
       </div>

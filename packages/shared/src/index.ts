@@ -12,3 +12,4 @@ export * from './contracts/job-orders.js';
 export * from './contracts/gps.js';
 export * from './contracts/analytics.js';
 export * from './contracts/tracker-devices.js';
+export * from './contracts/notifications.js';
