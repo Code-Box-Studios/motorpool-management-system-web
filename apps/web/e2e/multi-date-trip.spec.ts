@@ -43,11 +43,31 @@ async function cleanupTicket(
     status === 'cancelled' ||
     status === 'disapproved'
   ) {
-    return;
+    return; // terminal — nothing more the API lets us do
   }
-  await apiPost(request, `/api/trip-tickets/${id}/cancel`, adminToken, {
-    reason: 'e2e cleanup'
-  });
+  // cancel()'s own legal-from set (transitions.ts:123-127) is exactly
+  // pending_admin_approval / pending_fuel_allocation_approval / approved — it
+  // does NOT include in_progress. This spec never drives a ticket to
+  // in_progress (no check-out call), so this branch is defensive only, but if
+  // it ever did run, failing loudly beats posting to `/cancel` and silently
+  // no-oping on the 409 — that would leave a live row behind with no signal.
+  if (status !== 'pending_fuel_allocation_approval' && status !== 'approved') {
+    throw new Error(
+      `cleanupTicket: don't know how to clean up ${id} (status=${status}) — ` +
+        `cancel() does not accept this status; a live row may remain`
+    );
+  }
+  const cancelled = await apiPost(
+    request,
+    `/api/trip-tickets/${id}/cancel`,
+    adminToken,
+    { reason: 'e2e cleanup' }
+  );
+  if (!cancelled.ok) {
+    throw new Error(
+      `cleanupTicket: cancel failed for ${id} (HTTP ${cancelled.status}) — a live row may remain`
+    );
+  }
 }
 
 test('an event on two non-consecutive dates: one approval, two gate cycles', async ({
@@ -266,8 +286,17 @@ test('an event on two non-consecutive dates: one approval, two gate cycles', asy
     ).toBe('cancelled');
   } finally {
     // ---------- Cleanup: leave no rows behind in the shared dev database ----------
+    // Each id gets its own try/catch: a Playwright APIRequestContext throws on
+    // connection-level failures (distinct from an HTTP error status, which
+    // resolves normally rather than throwing) — without per-id isolation, one
+    // bad id would abort the loop and strand every id after it, which is
+    // exactly the failure-path case this cleanup exists to cover.
     for (const id of createdIds) {
-      await cleanupTicket(request, id, admin.token);
+      try {
+        await cleanupTicket(request, id, admin.token);
+      } catch (err) {
+        console.error(`multi-date-trip cleanup failed for ${id}:`, err);
+      }
     }
   }
 });
