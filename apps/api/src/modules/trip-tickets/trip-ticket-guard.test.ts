@@ -8,6 +8,7 @@ import {
   createTestUser
 } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
+import { resolveOutingForCheckOut } from './dates.js';
 
 const app = createApp();
 
@@ -53,12 +54,26 @@ async function approvedTicket(
       status: 'approved'
     }
   });
-  return { vehicle, ticket };
+  // Gate actions now act on a TripDate row, not the ticket directly (Task 5) —
+  // a ticket with no dates has no outing for the guard to resolve, so every
+  // check-out/check-in test needs one due "today".
+  const now = new Date();
+  const date = await prisma.tripDate.create({
+    data: {
+      tripTicketId: ticket.id,
+      startTs: new Date(now.getTime() - 3_600_000),
+      endTs: new Date(now.getTime() + 6 * 3_600_000)
+    }
+  });
+  return { vehicle, ticket, date };
 }
 
+let guardSeq = 0;
+// Each call mints a fresh guard: two calls inside one test (e.g. check-out
+// then check-in) must not collide on `createTestUser`'s unique email.
 const guardHeader = async () => {
   const { user } = await createTestUser({
-    email: 'g@test.local',
+    email: `g${++guardSeq}@test.local`,
     role: 'security_guard'
   });
   return {
@@ -80,10 +95,17 @@ describe('trip-ticket guard transitions', () => {
       .send({ startMileage: START_KM });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('in_progress');
-    expect(res.body.preTripGuardId).toBe(guard.id);
-    expect(res.body.preTripCheckedById).toBe(guard.id);
-    expect(res.body.preTripCheckedAt).not.toBeNull();
-    expect(res.body.startMileage).toBe(START_KM);
+    // Task 5: the pre-trip guard, timestamp and starting odometer now live on
+    // the TripDate row, not the ticket — the ticket's own columns are
+    // deprecated and no longer written.
+    const date = await prisma.tripDate.findFirstOrThrow({
+      where: { tripTicketId: ticket.id }
+    });
+    expect(date.status).toBe('in_progress');
+    expect(date.preTripGuardId).toBe(guard.id);
+    expect(date.preTripCheckedById).toBe(guard.id);
+    expect(date.preTripCheckedAt).not.toBeNull();
+    expect(date.startMileage).toBe(START_KM);
     expect(
       (await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } }))
         .status
@@ -146,8 +168,14 @@ describe('trip-ticket guard transitions', () => {
       .send({ endMileage: START_KM + 250 });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('completed');
-    expect(res.body.postTripGuardId).toBe(guard.id);
-    expect(res.body.endMileage).toBe(START_KM + 250);
+    // Task 5: the post-trip guard and closing odometer now live on the
+    // TripDate row, not the ticket.
+    const date = await prisma.tripDate.findFirstOrThrow({
+      where: { tripTicketId: ticket.id }
+    });
+    expect(date.status).toBe('completed');
+    expect(date.postTripGuardId).toBe(guard.id);
+    expect(date.endMileage).toBe(START_KM + 250);
 
     const after = await prisma.vehicle.findUniqueOrThrow({
       where: { id: vehicle.id }
@@ -223,7 +251,11 @@ describe('trip-ticket guard transitions', () => {
       .send({ startMileage: START_KM });
     expect(out.status).toBe(200);
     expect(out.body.status).toBe('in_progress');
-    expect(out.body.preTripGuardId).toBe(admin.id);
+    // Task 5: guard/mileage stamps now live on the TripDate row.
+    const outDate = await prisma.tripDate.findFirstOrThrow({
+      where: { tripTicketId: ticket.id }
+    });
+    expect(outDate.preTripGuardId).toBe(admin.id);
     expect(
       (await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } }))
         .status
@@ -235,11 +267,260 @@ describe('trip-ticket guard transitions', () => {
       .send({ endMileage: START_KM + 120 });
     expect(back.status).toBe(200);
     expect(back.body.status).toBe('completed');
-    expect(back.body.postTripGuardId).toBe(admin.id);
+    const backDate = await prisma.tripDate.findFirstOrThrow({
+      where: { tripTicketId: ticket.id }
+    });
+    expect(backDate.postTripGuardId).toBe(admin.id);
     const after = await prisma.vehicle.findUniqueOrThrow({
       where: { id: vehicle.id }
     });
     expect(after.status).toBe('available');
     expect(after.mileage).toBe(START_KM + 120);
+  });
+
+  // --- Task 5: gate actions act on a date, ticket status derives from dates ---
+
+  // Brief's snippet builds this ticket via a `scaffold()` helper that does not
+  // exist in this file (only trip-ticket-booking.test.ts has one) — inlined
+  // here in the same style as `approvedTicket` above instead.
+  async function approvedTwoDateTicket() {
+    const branch = await createTestBranch();
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        make: 'T',
+        model: 'H',
+        year: 2021,
+        vin: 'V2',
+        licensePlate: 'P2',
+        capacity: 5,
+        fuelType: 'diesel',
+        mileage: START_KM,
+        status: 'available',
+        branchId: branch.id,
+        insuranceExpiry: new Date('2027-01-01'),
+        registrationExpiry: new Date('2027-01-01')
+      }
+    });
+    const driver = await prisma.driver.create({
+      data: {
+        email: 'd2@test.local',
+        fullName: 'D2',
+        status: 'active',
+        branchId: branch.id
+      }
+    });
+    const now = new Date();
+    const ticket = await prisma.tripTicket.create({
+      data: {
+        branchId: branch.id,
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        destination: 'D',
+        purpose: 'P',
+        dateRequested: now,
+        // Brief defect #1: `preparedBy` is required (no default) in
+        // schema.prisma; the brief's snippet omitted it and throws at runtime.
+        preparedBy: '',
+        status: 'approved'
+      }
+    });
+    await prisma.tripDate.createMany({
+      data: [
+        {
+          tripTicketId: ticket.id,
+          startTs: new Date(now.getTime() - 3_600_000),
+          endTs: new Date(now.getTime() + 6 * 3_600_000)
+        },
+        {
+          tripTicketId: ticket.id,
+          startTs: new Date(now.getTime() + 7 * 86_400_000),
+          endTs: new Date(now.getTime() + 7 * 86_400_000 + 6 * 3_600_000)
+        }
+      ]
+    });
+    return { branch, vehicle, driver, ticketId: ticket.id };
+  }
+
+  // Same shape as approvedTwoDateTicket, but its single date starts `days`
+  // from now — used to exercise the "nothing scheduled today" refusal.
+  async function approvedTicketStartingInDays(days: number) {
+    const branch = await createTestBranch();
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        make: 'T',
+        model: 'H',
+        year: 2021,
+        vin: 'V3',
+        licensePlate: 'P3',
+        capacity: 5,
+        fuelType: 'diesel',
+        mileage: START_KM,
+        status: 'available',
+        branchId: branch.id,
+        insuranceExpiry: new Date('2027-01-01'),
+        registrationExpiry: new Date('2027-01-01')
+      }
+    });
+    const driver = await prisma.driver.create({
+      data: {
+        email: 'd3@test.local',
+        fullName: 'D3',
+        status: 'active',
+        branchId: branch.id
+      }
+    });
+    const now = new Date();
+    const ticket = await prisma.tripTicket.create({
+      data: {
+        branchId: branch.id,
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        destination: 'D',
+        purpose: 'P',
+        dateRequested: now,
+        preparedBy: '',
+        status: 'approved'
+      }
+    });
+    await prisma.tripDate.create({
+      data: {
+        tripTicketId: ticket.id,
+        startTs: new Date(now.getTime() + days * 86_400_000),
+        endTs: new Date(now.getTime() + days * 86_400_000 + 6 * 3_600_000)
+      }
+    });
+    return { branch, vehicle, driver, ticketId: ticket.id };
+  }
+
+  // The brief references `checkOut`/`checkIn`/`checkOutRaw` helpers it never
+  // defines. Built here on top of the file's own `guardHeader()` — `Raw`
+  // returns the response untouched (for asserting on failures); the wrapped
+  // form asserts success so a broken fixture fails loudly at the call site
+  // rather than surfacing as a confusing downstream assertion failure.
+  async function checkOutRaw(s: { ticketId: string }, startMileage: number) {
+    const { header } = await guardHeader();
+    return request(app)
+      .post(`/api/trip-tickets/${s.ticketId}/check-out`)
+      .set('Authorization', header)
+      .send({ startMileage });
+  }
+
+  async function checkOut(s: { ticketId: string }, startMileage: number) {
+    const res = await checkOutRaw(s, startMileage);
+    if (res.status !== 200) {
+      throw new Error(
+        `checkOut(${s.ticketId}) failed: ${res.status} ${JSON.stringify(res.body)}`
+      );
+    }
+    return res;
+  }
+
+  async function checkInRaw(s: { ticketId: string }, endMileage: number) {
+    const { header } = await guardHeader();
+    return request(app)
+      .post(`/api/trip-tickets/${s.ticketId}/check-in`)
+      .set('Authorization', header)
+      .send({ endMileage });
+  }
+
+  async function checkIn(s: { ticketId: string }, endMileage: number) {
+    const res = await checkInRaw(s, endMileage);
+    if (res.status !== 200) {
+      throw new Error(
+        `checkIn(${s.ticketId}) failed: ${res.status} ${JSON.stringify(res.body)}`
+      );
+    }
+    return res;
+  }
+
+  it('does NOT complete the ticket while a later date is still scheduled', async () => {
+    const s = await approvedTwoDateTicket();
+    await checkOut(s, 1000);
+    await checkIn(s, 1100);
+
+    const ticket = await prisma.tripTicket.findUniqueOrThrow({
+      where: { id: s.ticketId }
+    });
+    expect(ticket.status).toBe('approved');
+
+    const dates = await prisma.tripDate.findMany({
+      where: { tripTicketId: s.ticketId },
+      orderBy: { startTs: 'asc' }
+    });
+    expect(dates).toHaveLength(2);
+    // Brief defect #2: `noUncheckedIndexedAccess` types `dates[0]`/`dates[1]`
+    // as possibly `undefined`, so the brief's bare indexed access does not
+    // compile. Destructured instead; the `!` below is safe only because the
+    // toHaveLength(2) assertion above makes both elements unreachable-undefined.
+    const [first, second] = dates;
+    expect(first!.status).toBe('completed');
+    expect(first!.startMileage).toBe(1000);
+    expect(first!.endMileage).toBe(1100);
+    expect(second!.status).toBe('scheduled');
+  });
+
+  it('refuses a check-out when no outing is scheduled today', async () => {
+    const s = await approvedTicketStartingInDays(9);
+    const res = await checkOutRaw(s, 1000);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('NO_OUTING_TODAY');
+  });
+
+  // Brief defect #3: pins the Manila-boundary fix directly against
+  // `resolveOutingForCheckOut`, independent of the host machine's own local
+  // timezone (which is exactly what made the original `setHours`-based
+  // `endOfDay` wrong under a UTC host).
+  it('resolves a Manila-morning outing even when `now` is still the UTC previous day', async () => {
+    const branch = await createTestBranch();
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        make: 'T',
+        model: 'H',
+        year: 2021,
+        vin: 'V5',
+        licensePlate: 'P5',
+        capacity: 5,
+        fuelType: 'diesel',
+        mileage: START_KM,
+        status: 'available',
+        branchId: branch.id,
+        insuranceExpiry: new Date('2027-01-01'),
+        registrationExpiry: new Date('2027-01-01')
+      }
+    });
+    const driver = await prisma.driver.create({
+      data: {
+        email: 'd5@test.local',
+        fullName: 'D5',
+        status: 'active',
+        branchId: branch.id
+      }
+    });
+    // 08:00 Manila on 2026-08-17 == 00:00 UTC on 2026-08-17.
+    const outingStart = new Date('2026-08-17T00:00:00.000Z');
+    const outingEnd = new Date('2026-08-17T06:00:00.000Z');
+    const ticket = await prisma.tripTicket.create({
+      data: {
+        branchId: branch.id,
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        destination: 'D',
+        purpose: 'P',
+        dateRequested: outingStart,
+        preparedBy: '',
+        status: 'approved'
+      }
+    });
+    const date = await prisma.tripDate.create({
+      data: { tripTicketId: ticket.id, startTs: outingStart, endTs: outingEnd }
+    });
+
+    // The guard's clock: 07:00 Manila on the 17th == 23:00 UTC on the 16th —
+    // the UTC-previous calendar day.
+    const guardClock = new Date('2026-08-16T23:00:00.000Z');
+    const outing = await prisma.$transaction((tx) =>
+      resolveOutingForCheckOut(tx, ticket.id, guardClock)
+    );
+    expect(outing.id).toBe(date.id);
   });
 });

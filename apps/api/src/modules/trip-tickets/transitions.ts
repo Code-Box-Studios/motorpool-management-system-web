@@ -13,6 +13,11 @@ import {
 } from '../vehicles/status.js';
 import * as events from '../notifications/events.js';
 import { findTripTicketById } from './repository.js';
+import {
+  resolveOutingForCheckIn,
+  resolveOutingForCheckOut,
+  syncTicketStatus
+} from './dates.js';
 
 // Loads the ticket and asserts its current status is in the allowed-from set.
 async function loadInState(id: string, allowedFrom: string[]) {
@@ -151,8 +156,14 @@ export async function checkOut(
   actor: AuthenticatedUser,
   body: CheckOutBody
 ) {
-  const ticket = await loadInState(id, ['approved']);
+  // A two-date ticket is `approved` again between outings (syncTicketStatus
+  // drops it back once the first date's check-in leaves a later date still
+  // scheduled), so both from-states are legal here. The ticket-level status is
+  // not what makes two simultaneous check-outs safe — the vehicle claim below
+  // is — so allowing `in_progress` here does not reopen that hole.
+  const ticket = await loadInState(id, ['approved', 'in_progress']);
   await prisma.$transaction(async (tx) => {
+    const outing = await resolveOutingForCheckOut(tx, id);
     // Claim the van FIRST: the conditional flip is what makes two simultaneous
     // check-outs impossible. A read-then-write let both read `available`.
     const { mileage } = await claimVehicleStatus(
@@ -169,16 +180,20 @@ export async function checkOut(
       }
     );
     await advanceOdometer(tx, ticket.vehicleId, body.startMileage, mileage);
-    await tx.tripTicket.update({
-      where: { id },
+    // The per-outing facts (odometer, guard stamps, status) now live on the
+    // TripDate row, not the ticket — the ticket's own status/mileage/guard
+    // columns are deprecated and no longer written (see dates.ts).
+    await tx.tripDate.update({
+      where: { id: outing.id },
       data: {
         status: 'in_progress',
+        startMileage: body.startMileage,
         preTripGuardId: actor.id,
         preTripCheckedById: actor.id,
-        preTripCheckedAt: new Date(),
-        startMileage: body.startMileage
+        preTripCheckedAt: new Date()
       }
     });
+    await syncTicketStatus(tx, id);
   });
   await events.tripCheckedOut(ticket, actor);
   return findTripTicketById(id);
@@ -198,22 +213,24 @@ export async function checkIn(
 ) {
   const ticket = await loadInState(id, ['in_progress']);
   await prisma.$transaction(async (tx) => {
+    const outing = await resolveOutingForCheckIn(tx, id);
     const vehicle = await tx.vehicle.findUniqueOrThrow({
       where: { id: ticket.vehicleId },
       select: { mileage: true }
     });
     // Floor at whatever the guard read on the way out, so a trip can never
     // record a negative distance.
-    const floor = Math.max(vehicle.mileage, ticket.startMileage ?? 0);
+    const floor = Math.max(vehicle.mileage, outing.startMileage ?? 0);
     await advanceOdometer(tx, ticket.vehicleId, body.endMileage, floor);
-    await tx.tripTicket.update({
-      where: { id },
+    // Per-outing facts land on the TripDate row — see the note in checkOut.
+    await tx.tripDate.update({
+      where: { id: outing.id },
       data: {
         status: 'completed',
+        endMileage: body.endMileage,
         postTripGuardId: actor.id,
         postTripCheckedById: actor.id,
-        postTripCheckedAt: new Date(),
-        endMileage: body.endMileage
+        postTripCheckedAt: new Date()
       }
     });
     await changeVehicleStatus(tx, ticket.vehicleId, 'available', {
@@ -221,6 +238,7 @@ export async function checkIn(
       source: 'trip_check_in',
       expectedFrom: 'on_trip'
     });
+    await syncTicketStatus(tx, id);
   });
   await events.tripCheckedIn(ticket, actor);
   return findTripTicketById(id);

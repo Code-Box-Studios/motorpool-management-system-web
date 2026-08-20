@@ -790,12 +790,17 @@ describe('trip-ticket concurrency', () => {
     const evpH = authHeader(evp.id, evp.email, 'evp_operations');
     const guardH = authHeader(guard.id, guard.email, 'security_guard');
 
-    // Two trips on ONE van, back-to-back so the overlap rule permits both.
-    const approvedTrip = async (driverId: string, day: number) => {
+    // Two trips on ONE van, both due TODAY — the check-out gate (Task 5,
+    // `resolveOutingForCheckOut`) now refuses an outing that is not — but
+    // offset from each other so the vehicle double-booking rule still
+    // permits both bookings.
+    const now = Date.now();
+    const HOUR = 3_600_000;
+    const approvedTrip = async (driverId: string, startOffsetHours: number) => {
       const t = await post(s, {
         driverId,
-        startTs: inDays(day, 8),
-        endTs: inDays(day, 17)
+        startTs: new Date(now + startOffsetHours * HOUR).toISOString(),
+        endTs: new Date(now + (startOffsetHours + 2) * HOUR).toISOString()
       });
       await request(app)
         .post(`/api/trip-tickets/${t.body.id}/approve`)
@@ -803,7 +808,7 @@ describe('trip-ticket concurrency', () => {
         .send({
           liters: 10,
           fuelType: 'diesel',
-          date: inDays(day),
+          date: inDays(0),
           purpose: 'p',
           tripTo: 't'
         });
@@ -813,8 +818,8 @@ describe('trip-ticket concurrency', () => {
         .send({});
       return t.body.id as string;
     };
-    const a = await approvedTrip(s.driver.id, 20);
-    const b = await approvedTrip(s.otherDriver.id, 21);
+    const a = await approvedTrip(s.driver.id, -1); // now-1h .. now+1h
+    const b = await approvedTrip(s.otherDriver.id, 2); // now+2h .. now+4h
 
     // Fire both at the same instant. A read-then-write let BOTH read `available`
     // before either committed, and two trips went in_progress on one van.

@@ -19,6 +19,7 @@ import {
 } from './repository.js';
 import { replaceTripDates } from './dates.js';
 import * as events from '../notifications/events.js';
+import { formatDisplayDate } from '../../lib/timezone.js';
 
 // Builds the visibility filter for a caller (spec §5): requester → own;
 // driver → own trips (via drivers.userId); admin/evp/guard → unfiltered.
@@ -95,22 +96,9 @@ const LIVE_STATUSES = [
 // UTC+8. Formatting in UTC names the wrong day for any trip starting before
 // 08:00 UTC (00:00 Manila) — and 08:00-local starts are the normal case here
 // (see the briefs' own fixtures), so a UTC slice would be wrong routinely, not
-// as an edge case. No date-formatting helper exists yet anywhere in the repo
-// (checked apps/api/src/lib, packages/shared, and apps/web — the web list
-// views call the browser's own `toLocaleDateString()`, which has no
-// server-side equivalent since the API's runtime locale/timezone is whatever
-// the host happens to be, not Manila's). `Intl.DateTimeFormat` with an IANA
-// zone name is used rather than a manual UTC+8 offset add, so this is correct
-// even if Node's default locale/TZ on the host is something else.
-const DISPLAY_TIMEZONE = 'Asia/Manila';
-function formatDisplayDate(d: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: DISPLAY_TIMEZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(d);
-}
+// as an edge case. `formatDisplayDate` now lives in lib/timezone.ts (Task 5
+// also needs the Manila boundary, for the gate's "is there an outing today"
+// check) rather than being defined here a second time.
 
 // Nothing checked any of this before: a trip could be booked on a van that was
 // out of service, could end before it started, and the same van (and the same
