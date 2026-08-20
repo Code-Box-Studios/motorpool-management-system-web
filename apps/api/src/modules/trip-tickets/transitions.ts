@@ -1,3 +1,4 @@
+import type { TripDate } from '@prisma/client';
 import type {
   ApproveTripTicketBody,
   CheckInBody,
@@ -265,8 +266,11 @@ export async function checkOut(
   // refuses with INVALID_TRANSITION ("check the van back in first") exactly
   // when a date is already out.
   const ticket = await loadInState(id, ['approved']);
+  // Assigned inside the transaction, read after — the event only needs to name
+  // which date, not the transaction's own client.
+  let outing!: TripDate;
   await prisma.$transaction(async (tx) => {
-    const outing = await resolveOutingForCheckOut(tx, id);
+    outing = await resolveOutingForCheckOut(tx, id);
     // Claim the van FIRST: the conditional flip is what makes two simultaneous
     // check-outs impossible. A read-then-write let both read `available`.
     const { mileage } = await claimVehicleStatus(
@@ -298,7 +302,7 @@ export async function checkOut(
     });
     await syncTicketStatus(tx, id);
   });
-  await events.tripCheckedOut(ticket, actor);
+  await events.tripCheckedOut(ticket, outing, actor);
   return findTripTicketById(id);
 }
 
@@ -315,8 +319,13 @@ export async function checkIn(
   body: CheckInBody
 ) {
   const ticket = await loadInState(id, ['in_progress']);
+  let outing!: TripDate;
+  // Whether THIS check-in settled the whole event, or just this outing — read
+  // back from syncTicketStatus's own derivation rather than re-implementing
+  // deriveTicketStatus's rules here (see the note on events.tripCheckedIn).
+  let ticketCompleted = false;
   await prisma.$transaction(async (tx) => {
-    const outing = await resolveOutingForCheckIn(tx, id);
+    outing = await resolveOutingForCheckIn(tx, id);
     const vehicle = await tx.vehicle.findUniqueOrThrow({
       where: { id: ticket.vehicleId },
       select: { mileage: true }
@@ -342,7 +351,12 @@ export async function checkIn(
       expectedFrom: 'on_trip'
     });
     await syncTicketStatus(tx, id);
+    const settled = await tx.tripTicket.findUniqueOrThrow({
+      where: { id },
+      select: { status: true }
+    });
+    ticketCompleted = settled.status === 'completed';
   });
-  await events.tripCheckedIn(ticket, actor);
+  await events.tripCheckedIn(ticket, outing, actor, ticketCompleted);
   return findTripTicketById(id);
 }

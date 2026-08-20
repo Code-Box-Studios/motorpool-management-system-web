@@ -1,5 +1,6 @@
 import type { TripTicket, TripDate, JobOrder } from '@prisma/client';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
+import { prisma } from '../../lib/prisma.js';
 import { formatDisplayDate } from '../../lib/timezone.js';
 import { adminIds, evpIds, notify, userIdForDriver } from './service.js';
 
@@ -78,6 +79,11 @@ export async function tripApprovedByEvp(
   actor: AuthenticatedUser
 ) {
   const driverUserId = await userIdForDriver(ticket.driverId);
+  // How many outings the driver is actually taking on — a two-date event means
+  // two separate gate cycles, not one, and the QR gets shown at each.
+  const dateCount = await prisma.tripDate.count({
+    where: { tripTicketId: ticket.id, status: { not: 'cancelled' } }
+  });
   await notify({
     userIds: [ticket.requestedById],
     exceptUserId: actor.id,
@@ -91,7 +97,10 @@ export async function tripApprovedByEvp(
     exceptUserId: actor.id,
     type: 'trip_assigned',
     title: `You are driving ${ref('TT', ticket.ticketNo)}`,
-    body: `${ticket.destination} — show your QR at the gate.`,
+    body:
+      dateCount > 1
+        ? `${ticket.destination} — ${dateCount} outings. Show your QR at the gate each time.`
+        : `${ticket.destination} — show your QR at the gate.`,
     linkTo: tripLink(ticket.id)
   });
 }
@@ -214,32 +223,51 @@ export async function tripDateCancelled(
   });
 }
 
-/** The van actually left the yard. */
+/**
+ * The van actually left the yard for ONE outing. `outing` names which date, so
+ * a two-date event's readers know which half of the ticket is on the road
+ * rather than assuming the whole thing.
+ */
 export async function tripCheckedOut(
   ticket: TripTicket,
+  outing: TripDate,
   actor: AuthenticatedUser
 ) {
+  const day = formatDisplayDate(outing.startTs);
   await notify({
     userIds: [ticket.requestedById, ...(await adminIds())],
     exceptUserId: actor.id,
     type: 'trip_checked_out',
     title: `${ref('TT', ticket.ticketNo)} left the gate`,
-    body: `On the road to ${ticket.destination}.`,
+    body: `On the road to ${ticket.destination} (${day}).`,
     linkTo: tripLink(ticket.id)
   });
 }
 
-/** And came back — which is what closes the trip and moves the odometer. */
+/**
+ * And ONE outing came back — which advances the odometer, but only closes the
+ * whole TICKET when every date on it is settled (see `deriveTicketStatus` in
+ * trip-tickets/dates.ts). `ticketCompleted` is the ticket's status as derived
+ * and read back by the caller AFTER `syncTicketStatus`, not re-derived here —
+ * this function has no business re-implementing that logic, only reporting
+ * it. Saying "Trip completed." while a second date is still scheduled would
+ * be simply false.
+ */
 export async function tripCheckedIn(
   ticket: TripTicket,
-  actor: AuthenticatedUser
+  outing: TripDate,
+  actor: AuthenticatedUser,
+  ticketCompleted: boolean
 ) {
+  const day = formatDisplayDate(outing.startTs);
   await notify({
     userIds: [ticket.requestedById, ...(await adminIds())],
     exceptUserId: actor.id,
     type: 'trip_checked_in',
     title: `${ref('TT', ticket.ticketNo)} is back`,
-    body: `Returned from ${ticket.destination}. Trip completed.`,
+    body: ticketCompleted
+      ? `Returned from ${ticket.destination} (${day}). Trip completed.`
+      : `Returned from ${ticket.destination} (${day}). Other dates on this ticket are still scheduled.`,
     linkTo: tripLink(ticket.id)
   });
 }
