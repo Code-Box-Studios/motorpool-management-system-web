@@ -38,7 +38,8 @@ describe('per-outing notifications', () => {
       email: `dv${n}@test.local`
     });
     // The mechanic/driver link is what makes a Driver row reachable as a
-    // person — a driver row without it receives nothing, by design.
+    // person — a driver row without it receives nothing, by design (see the
+    // "no linked user account" test below).
     const driver = await prisma.driver.create({
       data: {
         email: `dv${n}@test.local`,
@@ -51,7 +52,17 @@ describe('per-outing notifications', () => {
     return { vehicle, driver, driverUser };
   }
 
-  it('tells the driver, the requester, and the admins — but not the acting admin — when one outing of their event is cancelled', async () => {
+  // `noUncheckedIndexedAccess` types every array index as possibly
+  // `undefined`, even right after a `.length` check — centralizes the narrow
+  // this file otherwise repeated at each assertion site.
+  function only<T>(rows: T[]): T {
+    expect(rows).toHaveLength(1);
+    const [row] = rows;
+    if (!row) throw new Error('unreachable: toHaveLength(1) above');
+    return row;
+  }
+
+  it('sends the driver exactly ONE message when they are also the requester, plus one to the admins', async () => {
     const branch = await createTestBranch();
     const { vehicle, driver, driverUser } = await scaffold(branch.id);
     const { user: actingAdmin } = await createTestUser({
@@ -61,10 +72,6 @@ describe('per-outing notifications', () => {
     const { user: bystanderAdmin } = await createTestUser({
       role: 'admin',
       email: 'admin-bystander@test.local'
-    });
-    const { user: requesterUser } = await createTestUser({
-      role: 'requester',
-      email: 'req@test.local'
     });
 
     const start = new Date(Date.now() + 30 * 86_400_000);
@@ -79,7 +86,15 @@ describe('per-outing notifications', () => {
         // Required, no default (schema.prisma) — omitting it throws at
         // runtime. Brief defect #3.
         preparedBy: '',
-        requestedById: requesterUser.id,
+        // The driver raised their own trip — the exact case
+        // `others.filter(id => id !== driverUserId)` exists for. With a
+        // requester who is a DIFFERENT person from the driver, that filter
+        // is a no-op and `toHaveLength(1)` below would hold even with the
+        // filter deleted — this fixture is what makes it a real assertion:
+        // delete the filter and `others` still contains driverUserId (via
+        // requestedById), so the driver gets a SECOND row from that notify()
+        // call alongside their own pointed one.
+        requestedById: driverUser.id,
         status: 'approved',
         startTs: start,
         endTs: new Date(start.getTime() + 3_600_000)
@@ -110,35 +125,24 @@ describe('per-outing notifications', () => {
     };
     await events.tripDateCancelled(ticket, outing, actor, 'venue moved');
 
-    const driverRows = await prisma.notification.findMany({
-      where: { userId: driverUser.id }
-    });
-    expect(driverRows).toHaveLength(1);
-    const [driverRow] = driverRows;
-    if (!driverRow) throw new Error('unreachable: toHaveLength(1) above');
+    const driverRow = only(
+      await prisma.notification.findMany({ where: { userId: driverUser.id } })
+    );
     expect(driverRow.type).toBe('trip_cancelled');
     expect(driverRow.title).toContain('2026-08-28');
     expect(driverRow.title).not.toContain('2026-08-27');
     expect(driverRow.title).toContain('is cancelled');
     expect(driverRow.body).toContain('venue moved');
 
-    const requesterRows = await prisma.notification.findMany({
-      where: { userId: requesterUser.id }
-    });
-    expect(requesterRows).toHaveLength(1);
-    const [requesterRow] = requesterRows;
-    if (!requesterRow) throw new Error('unreachable: toHaveLength(1) above');
-    expect(requesterRow.type).toBe('trip_cancelled');
-    expect(requesterRow.title).toContain('2026-08-28');
-    expect(requesterRow.title).not.toContain('2026-08-27');
-    expect(requesterRow.body).toContain('venue moved');
-
     // A second admin, not the one who acted, still hears about it — the
     // "others" fan-out is every admin, not just whoever happened to act.
-    const bystanderRows = await prisma.notification.findMany({
-      where: { userId: bystanderAdmin.id }
-    });
-    expect(bystanderRows).toHaveLength(1);
+    const bystanderRow = only(
+      await prisma.notification.findMany({
+        where: { userId: bystanderAdmin.id }
+      })
+    );
+    expect(bystanderRow.title).toContain('2026-08-28');
+    expect(bystanderRow.body).toContain('venue moved');
 
     // The admin who cancelled it was there — `exceptUserId` drops them.
     const actorRows = await prisma.notification.findMany({
@@ -191,31 +195,30 @@ describe('per-outing notifications', () => {
     });
 
     await checkOut(ticket1.id, guardActor, { startMileage: 1000 });
-    const outRows = await prisma.notification.findMany({
-      where: {
-        userId: requesterUser.id,
-        type: 'trip_checked_out',
-        linkTo: `/trip-tickets/${ticket1.id}`
-      }
-    });
-    expect(outRows).toHaveLength(1);
-    const [outRow] = outRows;
-    if (!outRow) throw new Error('unreachable: toHaveLength(1) above');
+    const outRow = only(
+      await prisma.notification.findMany({
+        where: {
+          userId: requesterUser.id,
+          type: 'trip_checked_out',
+          linkTo: `/trip-tickets/${ticket1.id}`
+        }
+      })
+    );
     // Would fail if the outing's day were dropped from the copy entirely —
-    // not a claim about which calendar day, just that one is named.
+    // not a claim about which calendar day (see the dedicated Manila-render
+    // test below for that), just that one is named at all.
     expect(outRow.body).toMatch(/\(\d{4}-\d{2}-\d{2}\)/);
 
     await checkIn(ticket1.id, guardActor, { endMileage: 1100 });
-    const inRows1 = await prisma.notification.findMany({
-      where: {
-        userId: requesterUser.id,
-        type: 'trip_checked_in',
-        linkTo: `/trip-tickets/${ticket1.id}`
-      }
-    });
-    expect(inRows1).toHaveLength(1);
-    const [inRow1] = inRows1;
-    if (!inRow1) throw new Error('unreachable: toHaveLength(1) above');
+    const inRow1 = only(
+      await prisma.notification.findMany({
+        where: {
+          userId: requesterUser.id,
+          type: 'trip_checked_in',
+          linkTo: `/trip-tickets/${ticket1.id}`
+        }
+      })
+    );
     expect(inRow1.body).toContain('Trip completed.');
     const ticket1After = await prisma.tripTicket.findUniqueOrThrow({
       where: { id: ticket1.id }
@@ -259,16 +262,15 @@ describe('per-outing notifications', () => {
 
     await checkOut(ticket2.id, guardActor, { startMileage: 1000 });
     await checkIn(ticket2.id, guardActor, { endMileage: 1100 });
-    const inRows2 = await prisma.notification.findMany({
-      where: {
-        userId: requesterUser.id,
-        type: 'trip_checked_in',
-        linkTo: `/trip-tickets/${ticket2.id}`
-      }
-    });
-    expect(inRows2).toHaveLength(1);
-    const [inRow2] = inRows2;
-    if (!inRow2) throw new Error('unreachable: toHaveLength(1) above');
+    const inRow2 = only(
+      await prisma.notification.findMany({
+        where: {
+          userId: requesterUser.id,
+          type: 'trip_checked_in',
+          linkTo: `/trip-tickets/${ticket2.id}`
+        }
+      })
+    );
     expect(inRow2.body).not.toContain('Trip completed.');
     expect(inRow2.body).toContain('still scheduled');
 
@@ -280,7 +282,76 @@ describe('per-outing notifications', () => {
     expect(ticket2After.status).toBe('approved');
   });
 
-  it('tells the driver how many outings they are taking on once EVP signs off', async () => {
+  // Fix round 1, item 1: neither Manila render this task ADDED
+  // (tripCheckedOut / tripCheckedIn) had an assertion capable of catching a
+  // reversion to `toISOString().slice(0,10)` — the guard test above only
+  // matches the day's SHAPE (`\(\d{4}-\d{2}-\d{2}\)`), which a UTC render
+  // would satisfy identically. `checkOut`'s real transition path can't be
+  // driven with a fixed boundary date (`resolveOutingForCheckOut` always
+  // reads the real clock, with no way to inject one through the public
+  // `checkOut`/`checkIn` functions), so these are called directly instead,
+  // exactly as `tripDateCancelled` is above.
+  it('renders the gate notifications in Asia/Manila, not UTC', async () => {
+    const branch = await createTestBranch();
+    const { vehicle, driver } = await scaffold(branch.id);
+    const { user: requesterUser } = await createTestUser({
+      role: 'requester',
+      email: 'req-gate@test.local'
+    });
+    const { user: admin } = await createTestUser({
+      role: 'admin',
+      email: 'admin-gate@test.local'
+    });
+
+    const ticket = await prisma.tripTicket.create({
+      data: {
+        branchId: branch.id,
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        destination: 'D',
+        purpose: 'P',
+        dateRequested: new Date(),
+        preparedBy: '',
+        requestedById: requesterUser.id,
+        status: 'approved'
+      }
+    });
+    // Same boundary-straddling instant as the first test: 23:00 UTC on the
+    // 27th is 07:00 Manila on the 28th.
+    const outing = await prisma.tripDate.create({
+      data: {
+        tripTicketId: ticket.id,
+        startTs: new Date('2026-08-27T23:00:00.000Z'),
+        endTs: new Date('2026-08-28T02:00:00.000Z')
+      }
+    });
+    const actor: AuthenticatedUser = {
+      id: admin.id,
+      email: admin.email,
+      role: 'admin',
+      branchId: branch.id
+    };
+
+    await events.tripCheckedOut(ticket, outing, actor);
+    const outRow = only(
+      await prisma.notification.findMany({
+        where: { userId: requesterUser.id, type: 'trip_checked_out' }
+      })
+    );
+    expect(outRow.body).toContain('2026-08-28');
+    expect(outRow.body).not.toContain('2026-08-27');
+
+    await events.tripCheckedIn(ticket, outing, actor, true);
+    const inRow = only(
+      await prisma.notification.findMany({
+        where: { userId: requesterUser.id, type: 'trip_checked_in' }
+      })
+    );
+    expect(inRow.body).toContain('2026-08-28');
+    expect(inRow.body).not.toContain('2026-08-27');
+  });
+
+  it('tells the driver how many outings they are taking on once EVP signs off, excluding a cancelled one', async () => {
     const branch = await createTestBranch();
     const { vehicle, driver, driverUser } = await scaffold(branch.id);
     const { user: admin } = await createTestUser({
@@ -319,6 +390,21 @@ describe('per-outing notifications', () => {
         }
       ]
     });
+    // Fix round 1, item 2: a third date that is already cancelled. Test 3
+    // previously seeded only two live dates, so `'2 outings'` passed
+    // identically against an unfiltered `count()` — this row turns it into a
+    // real guard: without the `status: { not: 'cancelled' }` filter in
+    // events.ts, this would count 3 and the driver would be told they have
+    // three outings when one of them is already off.
+    await prisma.tripDate.create({
+      data: {
+        tripTicketId: ticket.id,
+        startTs: new Date(now.getTime() + 14 * 86_400_000),
+        endTs: new Date(now.getTime() + 14 * 86_400_000 + 3_600_000),
+        status: 'cancelled',
+        cancellationReason: 'dropped'
+      }
+    });
     await prisma.fuelAllocation.create({
       data: {
         tripTicketId: ticket.id,
@@ -342,13 +428,94 @@ describe('per-outing notifications', () => {
     };
     await approveEvp(ticket.id, evpActor);
 
-    const rows = await prisma.notification.findMany({
-      where: { userId: driverUser.id, type: 'trip_assigned' }
-    });
-    expect(rows).toHaveLength(1);
-    const [row] = rows;
-    if (!row) throw new Error('unreachable: toHaveLength(1) above');
+    const row = only(
+      await prisma.notification.findMany({
+        where: { userId: driverUser.id, type: 'trip_assigned' }
+      })
+    );
     expect(row.body).toContain('2 outings');
     expect(row.body).toContain('each time');
+  });
+
+  // Fix round 1, item 5: a Driver row with no linked user account is meant
+  // to receive nothing rather than crash (userIdForDriver returns null, and
+  // notify() drops falsy recipient ids) — true today, but unpinned. A future
+  // change to notify()'s filter could silently try to write a row with
+  // userId: null (an FK violation) or address it to the wrong person, and
+  // nothing here would notice.
+  it('sends nothing to a driver with no linked user account, and does not crash', async () => {
+    const branch = await createTestBranch();
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        make: 'T',
+        model: 'H',
+        year: 2021,
+        vin: 'NU1',
+        licensePlate: 'NU1',
+        capacity: 5,
+        fuelType: 'diesel',
+        mileage: 1000,
+        status: 'available',
+        branchId: branch.id,
+        insuranceExpiry: new Date('2027-01-01'),
+        registrationExpiry: new Date('2027-01-01')
+      }
+    });
+    // No `userId` — a driver row that exists before anyone has signed in as
+    // them.
+    const driver = await prisma.driver.create({
+      data: {
+        email: 'no-user@test.local',
+        fullName: 'No User',
+        status: 'active',
+        branchId: branch.id
+      }
+    });
+    const { user: actingAdmin } = await createTestUser({
+      role: 'admin',
+      email: 'admin-nulldriver-actor@test.local'
+    });
+    const { user: bystanderAdmin } = await createTestUser({
+      role: 'admin',
+      email: 'admin-nulldriver-bystander@test.local'
+    });
+    const ticket = await prisma.tripTicket.create({
+      data: {
+        branchId: branch.id,
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        destination: 'D',
+        purpose: 'P',
+        dateRequested: new Date(),
+        preparedBy: '',
+        status: 'approved'
+      }
+    });
+    const outing = await prisma.tripDate.create({
+      data: {
+        tripTicketId: ticket.id,
+        startTs: new Date(),
+        endTs: new Date(Date.now() + 3_600_000)
+      }
+    });
+    const actor: AuthenticatedUser = {
+      id: actingAdmin.id,
+      email: actingAdmin.email,
+      role: 'admin',
+      branchId: branch.id
+    };
+
+    // Must not throw despite the driver having no linked user account.
+    await events.tripDateCancelled(ticket, outing, actor, 'x');
+
+    // The "others" fan-out still reaches a real bystander admin, proving the
+    // zero count below isn't because the whole call silently failed...
+    expect(
+      await prisma.notification.count({ where: { userId: bystanderAdmin.id } })
+    ).toBe(1);
+    // ...but the driver's own pointed message goes to nobody: total rows are
+    // exactly the bystander's, none addressed to the (nonexistent) driver
+    // recipient.
+    expect(await prisma.notification.count()).toBe(1);
   });
 });
