@@ -6,6 +6,7 @@ import type {
   TablesInsert,
   TablesUpdate
 } from './types/supabase';
+import type { TripDateRow } from './api/trip-tickets';
 
 export type RouteStaticData = {
   title: string;
@@ -81,8 +82,16 @@ export type Tool = Tables<'tools'>;
 export type NewTool = TablesInsert<'tools'>;
 export type UpdateTool = TablesUpdate<'tools'>;
 
-export type TripTicket = Tables<'trip_tickets'>;
-export type NewTripTicket = TablesInsert<'trip_tickets'>;
+// A ticket now covers one or more non-consecutive outings — `dates` is the
+// `trip_dates` rows (Tasks 2-4), not a generated column, so it is added by
+// intersection rather than living in the generated `Tables<'trip_tickets'>`.
+export type TripTicket = Tables<'trip_tickets'> & { dates: TripDateRow[] };
+export type NewTripTicket = TablesInsert<'trip_tickets'> & {
+  /** Outgoing create/update shape: already camelCase, passed straight through
+   *  to the request body (see mapCreateBody/mapUpdateBody). Optional — the
+   *  legacy start_ts/end_ts pair below still works on its own. */
+  dates?: { startTs: string; endTs: string }[];
+};
 export type UpdateTripTicket = TablesUpdate<'trip_tickets'>;
 
 export type TripTicketWithRelations = TripTicket & {

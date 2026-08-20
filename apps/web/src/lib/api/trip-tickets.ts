@@ -2,6 +2,67 @@
 import { api } from './client.js';
 import type { TripTicket, NewTripTicket } from '../types';
 
+// One outing of an event. Mirrors the API's `trip_dates` row in the FE's
+// snake_case shape, like every other adapter in this file. Carries the
+// per-date guard/check-time fields too (not just the odometer pair), because
+// the trip detail's per-date table (odometer out/in AND guard) reads off
+// this — the ticket-level pre_trip_guard/post_trip_guard etc. below are dead
+// now that the API writes them per date instead.
+export interface TripDateRow {
+  id: string;
+  start_ts: string;
+  end_ts: string;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  start_mileage: number | null;
+  end_mileage: number | null;
+  pre_trip_guard: string | null;
+  pre_trip_checked_by: string | null;
+  pre_trip_checked_at: string | null;
+  post_trip_guard: string | null;
+  post_trip_checked_by: string | null;
+  post_trip_checked_at: string | null;
+  cancellation_reason: string | null;
+}
+
+// Shape of a `TripDate` row as embedded on a ticket response (Prisma
+// `TripDate` model, camelCase), ordered by startTs ascending.
+interface TripDateApiResponse {
+  id: string;
+  tripTicketId: string;
+  startTs: string;
+  endTs: string;
+  status: string;
+  startMileage: number | null;
+  endMileage: number | null;
+  preTripGuardId: string | null;
+  preTripCheckedById: string | null;
+  preTripCheckedAt: string | null;
+  postTripGuardId: string | null;
+  postTripCheckedById: string | null;
+  postTripCheckedAt: string | null;
+  cancellationReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function dateToSnake(d: TripDateApiResponse): TripDateRow {
+  return {
+    id: d.id,
+    start_ts: d.startTs,
+    end_ts: d.endTs,
+    status: d.status as TripDateRow['status'],
+    start_mileage: d.startMileage ?? null,
+    end_mileage: d.endMileage ?? null,
+    pre_trip_guard: d.preTripGuardId ?? null,
+    pre_trip_checked_by: d.preTripCheckedById ?? null,
+    pre_trip_checked_at: d.preTripCheckedAt ?? null,
+    post_trip_guard: d.postTripGuardId ?? null,
+    post_trip_checked_by: d.postTripCheckedById ?? null,
+    post_trip_checked_at: d.postTripCheckedAt ?? null,
+    cancellation_reason: d.cancellationReason ?? null
+  };
+}
+
 // Shape of the `fuelAllocation` embed (Prisma `FuelAllocation` model, camelCase).
 interface FuelAllocationApiResponse {
   id: string;
@@ -55,6 +116,7 @@ interface TripTicketApiResponse {
   createdAt: string;
   updatedAt: string;
   fuelAllocation: FuelAllocationApiResponse | null;
+  dates: TripDateApiResponse[];
 }
 
 // Reshape the API's camelCase trip ticket (embedding `fuelAllocation`) into the
@@ -96,6 +158,7 @@ function toSnake(t: TripTicketApiResponse): TripTicket {
     end_ts: t.endTs ?? null,
     created_at: t.createdAt,
     updated_at: t.updatedAt,
+    dates: (t.dates ?? []).map(dateToSnake),
     // Denormalized allocation_* flattened from the fuelAllocation embed:
     allocation_date: fa?.date ? fa.date.slice(0, 10) : null, // @db.Date -> YYYY-MM-DD
     allocation_trip_to: fa?.tripTo ?? null,
@@ -132,6 +195,7 @@ interface TripTicketRequestBody {
   remarks?: string | null;
   startTs?: string | null;
   endTs?: string | null;
+  dates?: { startTs: string; endTs: string }[];
 }
 
 // snake_case -> camelCase for the create body. driverId/vehicleId/branchId are
@@ -154,7 +218,8 @@ function mapCreateBody(t: NewTripTicket): TripTicketRequestBody {
     requestedById: t.requested_by || undefined,
     remarks: t.remarks ?? undefined,
     startTs: t.start_ts ?? undefined,
-    endTs: t.end_ts ?? undefined
+    endTs: t.end_ts ?? undefined,
+    dates: t.dates ?? undefined
   };
 }
 
@@ -198,6 +263,8 @@ function mapUpdateBody(u: Record<string, unknown>): TripTicketRequestBody {
     body.remarks = (u.remarks as string) === '' ? null : (u.remarks as string);
   if (u.start_ts !== undefined) body.startTs = u.start_ts as string | null;
   if (u.end_ts !== undefined) body.endTs = u.end_ts as string | null;
+  if (u.dates !== undefined)
+    body.dates = u.dates as { startTs: string; endTs: string }[];
   return body;
 }
 

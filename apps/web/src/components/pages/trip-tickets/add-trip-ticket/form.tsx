@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
-import { Controller, type FieldErrors } from 'react-hook-form';
+import { Controller, useFieldArray, type FieldErrors } from 'react-hook-form';
 import { TrashIcon, PlusIcon } from 'lucide-react';
 import {
   useTripTicketForm,
@@ -57,7 +57,7 @@ const STEPS = [
       'participants'
     ]
   },
-  { title: 'When', fields: ['start_ts', 'end_ts'] },
+  { title: 'When', fields: ['dates'] },
   { title: 'Review', fields: [] }
 ] as const satisfies ReadonlyArray<{
   title: string;
@@ -73,18 +73,31 @@ const nameOf = (
   id: string | undefined
 ) => (id ? list?.find((item) => item.id === id)?.name : undefined);
 
-const formatWhen = (value: string | undefined) => {
-  if (!value) return undefined;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime())
-    ? undefined
-    : parsed.toLocaleString(undefined, {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-      });
+// The review reads back the exact times typed — parsed browser-local, the
+// same way the submit mapping builds the request — so what the requester
+// sees here is what actually gets sent, not a reinterpretation of it.
+const formatDateRow = (row: { date: string; start: string; end: string }) => {
+  if (!row.date || !row.start) return undefined;
+  const start = new Date(`${row.date}T${row.start}`);
+  if (Number.isNaN(start.getTime())) return undefined;
+  const dateLabel = start.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+  const startLabel = start.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+  const end = row.end ? new Date(`${row.date}T${row.end}`) : null;
+  const endLabel =
+    end && !Number.isNaN(end.getTime())
+      ? end.toLocaleTimeString(undefined, {
+          hour: 'numeric',
+          minute: '2-digit'
+        })
+      : '—';
+  return `${dateLabel} · ${startLabel} – ${endLabel}`;
 };
 
 interface TripTicketFormProps {
@@ -108,6 +121,11 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   const { data: officeHeads, isLoading: officeHeadsLoading } = useOfficeHeads();
   const addTripTicketAction = useAddTripTicketAction();
   const form = useTripTicketForm();
+  const {
+    fields: dateFields,
+    append: appendDate,
+    remove: removeDate
+  } = useFieldArray({ control: form.control, name: 'dates' });
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
 
@@ -255,7 +273,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
     form.setValue('date_requested', today);
     // Opened by clicking a day on the calendar: start the trip on that day.
     if (initialDate) {
-      form.setValue('start_ts', `${initialDate}T08:00`);
+      form.setValue('dates.0.date', initialDate);
     }
   }, [user, form, initialDate]);
 
@@ -780,68 +798,125 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
 
           <FormSection
             title="When"
+            description="An event can run on more than one day — add a row for each one."
             className={step === 2 ? undefined : 'hidden'}
           >
-            <FormRow>
-              <Controller
-                name="start_ts"
-                control={form.control}
-                render={({ field, fieldState }) => {
-                  // Get today's date and time in local timezone as minimum
-                  const now = new Date();
-                  const minDateTime = new Date(
-                    now.getTime() - now.getTimezoneOffset() * 60000
-                  )
-                    .toISOString()
-                    .slice(0, 16);
+            <div className="flex flex-col gap-4">
+              {dateFields.map((dateField, index) => (
+                <div
+                  key={dateField.id}
+                  className="flex flex-col gap-3 rounded-lg border p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      Date {index + 1}
+                    </span>
+                    {/* Never zero rows: a trip has to happen sometime. */}
+                    {dateFields.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove date ${index + 1}`}
+                        onClick={() => removeDate(index)}
+                      >
+                        <TrashIcon className="size-4" />
+                      </Button>
+                    )}
+                  </div>
 
-                  return (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="start_ts">
-                        Start Date & Time *
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        id="start_ts"
-                        type="datetime-local"
-                        min={minDateTime}
-                        aria-invalid={fieldState.invalid}
-                      />
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
+                  <FormRow>
+                    <Controller
+                      name={`dates.${index}.date`}
+                      control={form.control}
+                      render={({ field, fieldState }) => {
+                        const today = new Date().toISOString().slice(0, 10);
+                        return (
+                          <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`dates.${index}.date`}>
+                              Date *
+                            </FieldLabel>
+                            <Input
+                              {...field}
+                              id={`dates.${index}.date`}
+                              type="date"
+                              min={today}
+                              aria-invalid={fieldState.invalid}
+                            />
+                            {fieldState.invalid && (
+                              <FieldError errors={[fieldState.error]} />
+                            )}
+                          </Field>
+                        );
+                      }}
+                    />
+
+                    <Controller
+                      name={`dates.${index}.start`}
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldLabel htmlFor={`dates.${index}.start`}>
+                            Departure time *
+                          </FieldLabel>
+                          <Input
+                            {...field}
+                            id={`dates.${index}.start`}
+                            type="time"
+                            aria-invalid={fieldState.invalid}
+                          />
+                          {fieldState.invalid && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
+                        </Field>
                       )}
-                    </Field>
-                  );
-                }}
-              />
+                    />
 
-              <Controller
-                name="end_ts"
-                control={form.control}
-                render={({ field, fieldState }) => {
-                  // Get the start_ts value to set as minimum for end_ts
-                  const startTs = form.watch('start_ts');
-
-                  return (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="end_ts">
-                        End Date & Time *
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        id="end_ts"
-                        type="datetime-local"
-                        min={startTs || undefined}
-                        aria-invalid={fieldState.invalid}
-                      />
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
+                    <Controller
+                      name={`dates.${index}.end`}
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldLabel htmlFor={`dates.${index}.end`}>
+                            Return time *
+                          </FieldLabel>
+                          <Input
+                            {...field}
+                            id={`dates.${index}.end`}
+                            type="time"
+                            aria-invalid={fieldState.invalid}
+                          />
+                          {fieldState.invalid && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
+                        </Field>
                       )}
-                    </Field>
-                  );
-                }}
-              />
-            </FormRow>
+                    />
+                  </FormRow>
+                </div>
+              ))}
+
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => appendDate({ date: '', start: '', end: '' })}
+                >
+                  <PlusIcon className="size-4" />
+                  Add another date
+                </Button>
+              </div>
+
+              {/* Array-level errors — fewer than one row, or two rows that
+                  overlap/misorder in a way not pinned to a single field —
+                  surface at the array root rather than on any one row. */}
+              {form.formState.errors.dates?.root?.message && (
+                <p className="text-destructive text-sm">
+                  {form.formState.errors.dates.root.message}
+                </p>
+              )}
+            </div>
           </FormSection>
 
           {step === LAST && (
@@ -889,10 +964,18 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                 />
                 <DetailItem label="Destination" value={review.destination} />
                 <DetailItem
-                  label="Depart"
-                  value={formatWhen(review.start_ts)}
+                  label="Dates"
+                  value={
+                    review.dates && review.dates.length > 0 ? (
+                      <div className="flex flex-col gap-1">
+                        {review.dates.map((row, i) => (
+                          <span key={i}>{formatDateRow(row) ?? '—'}</span>
+                        ))}
+                      </div>
+                    ) : undefined
+                  }
+                  wide
                 />
-                <DetailItem label="Return" value={formatWhen(review.end_ts)} />
                 <DetailItem
                   label="Participants"
                   value={
