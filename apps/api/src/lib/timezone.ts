@@ -71,7 +71,22 @@ export function endOfDisplayDay(now: Date): Date {
   // fabricated instant and the real `now` IS the zone's current offset, so
   // subtracting it from the second converts it back to a real UTC instant —
   // without ever hardcoding +8.
-  const nowAsUtc = Date.UTC(year, month - 1, day, hour, minute, second);
+  // Milliseconds are timezone-invariant (every real IANA offset is a whole
+  // number of seconds), so `now`'s own millisecond field is used directly
+  // rather than round-tripping it through `Intl.DateTimeFormat`, which has no
+  // sub-second part to ask for anyway. Fix round 1, item 5: omitting this
+  // truncated `nowAsUtc` down to the floor second, which pushed the returned
+  // boundary up to 999ms LATE — always late, so it could never cause the
+  // false refusal this function exists to fix, but still worth being exact.
+  const nowAsUtc = Date.UTC(
+    year,
+    month - 1,
+    day,
+    hour,
+    minute,
+    second,
+    now.getUTCMilliseconds()
+  );
   const endAsUtc = Date.UTC(year, month - 1, day, 23, 59, 59, 999);
   const offset = nowAsUtc - now.getTime();
   return new Date(endAsUtc - offset);

@@ -91,15 +91,6 @@ const LIVE_STATUSES = [
   'in_progress'
 ] as const;
 
-// Fix round 2, item 3: the double-book message names the offending calendar
-// day (spec §5), and this fleet is University of Mindanao — Asia/Manila,
-// UTC+8. Formatting in UTC names the wrong day for any trip starting before
-// 08:00 UTC (00:00 Manila) — and 08:00-local starts are the normal case here
-// (see the briefs' own fixtures), so a UTC slice would be wrong routinely, not
-// as an edge case. `formatDisplayDate` now lives in lib/timezone.ts (Task 5
-// also needs the Manila boundary, for the gate's "is there an outing today"
-// check) rather than being defined here a second time.
-
 // Nothing checked any of this before: a trip could be booked on a van that was
 // out of service, could end before it started, and the same van (and the same
 // driver) could be booked twice over for the same hours — right through to the
@@ -243,6 +234,9 @@ async function assertBookable(
     if (!clash) continue;
 
     const isVehicle = clash.tripTicket.vehicleId === vehicleId;
+    // Names the offending day in the fleet's own Asia/Manila timezone, not
+    // the host process's — see lib/timezone.ts for why that distinction
+    // matters here.
     const day = formatDisplayDate(clash.startTs);
     throw new AppError(
       409,

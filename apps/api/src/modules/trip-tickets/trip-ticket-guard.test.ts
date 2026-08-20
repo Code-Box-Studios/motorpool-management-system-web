@@ -457,6 +457,27 @@ describe('trip-ticket guard transitions', () => {
     expect(first!.startMileage).toBe(1000);
     expect(first!.endMileage).toBe(1100);
     expect(second!.status).toBe('scheduled');
+
+    // Fix round 1, item 4: these are the two facts that actually let outing 2
+    // happen later — a van still flagged `on_trip`, or an odometer that never
+    // advanced, would block the second date exactly as it would the first.
+    const vehicle = await prisma.vehicle.findUniqueOrThrow({
+      where: { id: s.vehicle.id }
+    });
+    expect(vehicle.status).toBe('available');
+    expect(vehicle.mileage).toBe(1100);
+  });
+
+  it('refuses a second check-out while a date on this ticket is already in_progress', async () => {
+    const s = await approvedTwoDateTicket();
+    await checkOut(s, 1000); // date 1 in_progress; ticket derives to in_progress too
+    // Fix round 1, item 3: checkOut's from-state is `['approved']` only — a
+    // ticket sitting `in_progress` means some date on it is already out, and
+    // the only legal next gate action is closing THAT one via check-in, not
+    // opening a second outing.
+    const res = await checkOutRaw(s, 1000);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('INVALID_TRANSITION');
   });
 
   it('refuses a check-out when no outing is scheduled today', async () => {

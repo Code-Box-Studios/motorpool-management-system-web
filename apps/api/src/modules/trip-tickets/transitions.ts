@@ -156,12 +156,22 @@ export async function checkOut(
   actor: AuthenticatedUser,
   body: CheckOutBody
 ) {
-  // A two-date ticket is `approved` again between outings (syncTicketStatus
-  // drops it back once the first date's check-in leaves a later date still
-  // scheduled), so both from-states are legal here. The ticket-level status is
-  // not what makes two simultaneous check-outs safe — the vehicle claim below
-  // is — so allowing `in_progress` here does not reopen that hole.
-  const ticket = await loadInState(id, ['approved', 'in_progress']);
+  // Fix round 1: a two-date ticket IS `approved` again between outings
+  // (syncTicketStatus drops it back once the first date's check-in leaves a
+  // later date still scheduled — see the "does NOT complete..." test below),
+  // so widening this to also accept `in_progress` was unnecessary, not
+  // required. Worse, it was actively wrong: `in_progress` on the ticket means
+  // some date on it is ALREADY checked out, and the only legitimate next gate
+  // action for that ticket is closing that outing, not opening another one.
+  // Admitting `in_progress` here let a second check-out proceed whenever the
+  // vehicle had been flipped back to `available` out of band (a job-order
+  // source can do that via `changeVehicleStatus`), which would leave a SECOND
+  // TripDate row `in_progress` — and `resolveOutingForCheckIn` only ever
+  // closes the earliest one, permanently stranding the second and pinning the
+  // ticket at `in_progress` forever. `['approved']` alone is correct: it
+  // refuses with INVALID_TRANSITION ("check the van back in first") exactly
+  // when a date is already out.
+  const ticket = await loadInState(id, ['approved']);
   await prisma.$transaction(async (tx) => {
     const outing = await resolveOutingForCheckOut(tx, id);
     // Claim the van FIRST: the conditional flip is what makes two simultaneous

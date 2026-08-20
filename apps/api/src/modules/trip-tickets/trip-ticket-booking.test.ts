@@ -832,6 +832,11 @@ describe('trip-ticket concurrency', () => {
 
     const codes = [ra.status, rb.status].sort();
     expect(codes).toEqual([200, 409]); // exactly one wins
+    // The loser must lose the VEHICLE CLAIM race specifically — not be turned
+    // away earlier by the "is there an outing today" gate, which would let
+    // this test pass without ever exercising the race it exists to prove.
+    const loser = ra.status === 409 ? ra : rb;
+    expect(loser.body.error.code).toBe('VEHICLE_NOT_AVAILABLE');
     expect(
       await prisma.tripTicket.count({ where: { status: 'in_progress' } })
     ).toBe(1);
