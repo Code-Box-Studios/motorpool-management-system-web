@@ -8,7 +8,8 @@ export const tripTicketInclude = {
   vehicle: true,
   office: true,
   officeHead: true,
-  fuelAllocation: true
+  fuelAllocation: true,
+  dates: { orderBy: { startTs: 'asc' as const } }
 } satisfies Prisma.TripTicketInclude;
 
 type SkipTake = { skip: number; take: number } | Record<string, never>;

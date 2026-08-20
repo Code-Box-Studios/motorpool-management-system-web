@@ -17,6 +17,7 @@ import {
   listTripTickets,
   tripTicketInclude
 } from './repository.js';
+import { replaceTripDates } from './dates.js';
 import * as events from '../notifications/events.js';
 
 // Builds the visibility filter for a caller (spec §5): requester → own;
@@ -259,21 +260,30 @@ export async function create(
       ? body.requestedById
       : actor.id;
 
-  const ticket = await prisma.tripTicket.create({
-    data: {
-      ...body,
-      // `dates` on the body is the validated request list, not Prisma's `dates`
-      // relation (added in Task 1) — those are shaped differently. Keep it out
-      // of the ticket write; Task 4 wires it into the trip_dates rows instead.
-      dates: undefined,
-      requestedById,
-      status: 'pending_admin_approval' // status is never client-chosen
-    },
-    include: tripTicketInclude
+  const dates = normaliseTripDates(body);
+  const ticket = await prisma.$transaction(async (tx) => {
+    const created = await tx.tripTicket.create({
+      // The legacy pair is still written, but only as the seed of the derived
+      // span — replaceTripDates recomputes it from the rows immediately after.
+      data: {
+        ...body,
+        // `dates` on the body is the validated request list, not Prisma's `dates`
+        // relation (added in Task 1) — those are shaped differently. Keep it out
+        // of the ticket write; replaceTripDates below wires it into the
+        // trip_dates rows instead.
+        dates: undefined,
+        requestedById,
+        status: 'pending_admin_approval' // status is never client-chosen
+      },
+      select: { id: true }
+    });
+    await replaceTripDates(tx, created.id, dates);
+    return created;
   });
+  const full = await findTripTicketById(ticket.id);
   // Raised after the row exists, so the admins' bell can never point at nothing.
-  await events.tripSubmitted(ticket, actor);
-  return ticket;
+  await events.tripSubmitted(full!, actor);
+  return full;
 }
 
 export async function update(
@@ -320,7 +330,17 @@ export async function update(
   // dates on the body is the validated request list, not Prisma's `dates`
   // relation — see the comment in create() above.
 
-  await prisma.tripTicket.update({ where: { id }, data });
+  await prisma.$transaction(async (tx) => {
+    await tx.tripTicket.update({ where: { id }, data });
+    // Only touch the date rows when the caller actually sent dates — a `dates`
+    // array with rows, or the legacy startTs/endTs pair. A PATCH that edits only
+    // e.g. `destination` sends neither, and must leave the rows untouched.
+    const sentDates =
+      (body.dates && body.dates.length > 0) || (body.startTs && body.endTs);
+    if (sentDates) {
+      await replaceTripDates(tx, id, normaliseTripDates(body));
+    }
+  });
   return findTripTicketById(id);
 }
 

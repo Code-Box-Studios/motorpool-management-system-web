@@ -362,6 +362,24 @@ describe('trip-ticket booking rules', () => {
     });
     expect(reuse.status).toBe(201);
   });
+
+  it('sets the ticket span to the earliest start and the latest end', async () => {
+    const s = await scaffold();
+    const res = await post(s, {
+      startTs: undefined,
+      endTs: undefined,
+      dates: [
+        { startTs: inDays(18, 8), endTs: inDays(18, 17) },
+        { startTs: inDays(14, 8), endTs: inDays(14, 17) }
+      ]
+    });
+    expect(res.status).toBe(201);
+    const ticket = await prisma.tripTicket.findUniqueOrThrow({
+      where: { id: res.body.id }
+    });
+    expect(ticket.startTs!.toISOString()).toBe(inDays(14, 8));
+    expect(ticket.endTs!.toISOString()).toBe(inDays(18, 17));
+  });
 });
 
 describe('trip-ticket off-ramps', () => {
