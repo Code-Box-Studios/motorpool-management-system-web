@@ -380,6 +380,84 @@ describe('trip-ticket booking rules', () => {
     expect(ticket.startTs!.toISOString()).toBe(inDays(14, 8));
     expect(ticket.endTs!.toISOString()).toBe(inDays(18, 17));
   });
+
+  it("refuses a PATCH that moves a ticket's dates onto another ticket's window (same vehicle), and does not write the change", async () => {
+    const s = await scaffold();
+    const a = await post(s, {
+      startTs: inDays(14, 8),
+      endTs: inDays(14, 17)
+    });
+    expect(a.status).toBe(201);
+
+    const b = await post(s, {
+      driverId: s.otherDriver.id,
+      startTs: inDays(20, 8),
+      endTs: inDays(20, 17)
+    });
+    expect(b.status).toBe(201);
+
+    // B tries to move its dates onto a window that overlaps A's, same vehicle.
+    const patched = await request(app)
+      .patch(`/api/trip-tickets/${b.body.id}`)
+      .set('Authorization', s.header)
+      .send({
+        dates: [{ startTs: inDays(14, 12), endTs: inDays(14, 20) }]
+      });
+    expect(patched.status).toBe(409);
+    expect(patched.body.error.code).toBe('VEHICLE_DOUBLE_BOOKED');
+
+    // The rejected write must not land — B still holds its ORIGINAL date.
+    const bDates = await prisma.tripDate.findMany({
+      where: { tripTicketId: b.body.id },
+      orderBy: { startTs: 'asc' }
+    });
+    expect(bDates).toHaveLength(1);
+    expect(bDates.map((d) => d.startTs.toISOString())).toEqual([inDays(20, 8)]);
+    expect(bDates.map((d) => d.endTs.toISOString())).toEqual([inDays(20, 17)]);
+  });
+
+  it('an edit to an unrelated field does not re-validate the DERIVED SPAN as one continuous window', async () => {
+    const s = await scaffold();
+    const a = await post(s, {
+      startTs: undefined,
+      endTs: undefined,
+      dates: [
+        { startTs: inDays(14, 8), endTs: inDays(14, 17) },
+        { startTs: inDays(18, 8), endTs: inDays(18, 17) }
+      ]
+    });
+    expect(a.status).toBe(201);
+
+    // The 16th sits in the gap between A's two dates — someone else legitimately
+    // books it, same vehicle.
+    const gap = await post(s, {
+      driverId: s.otherDriver.id,
+      startTs: inDays(16, 8),
+      endTs: inDays(16, 17)
+    });
+    expect(gap.status).toBe(201);
+
+    // Editing an unrelated field on A must not re-check A's DERIVED SPAN
+    // (14th -> 18th) as one continuous window — that would falsely clash with
+    // the legitimately-booked 16th, which is exactly the gap this feature
+    // exists to keep free.
+    const patched = await request(app)
+      .patch(`/api/trip-tickets/${a.body.id}`)
+      .set('Authorization', s.header)
+      .send({ destination: 'Site B' });
+    expect(patched.status).toBe(200);
+    expect(patched.body.destination).toBe('Site B');
+
+    const aDates = await prisma.tripDate.findMany({
+      where: { tripTicketId: a.body.id },
+      orderBy: { startTs: 'asc' }
+    });
+    expect(aDates).toHaveLength(2);
+    expect(aDates.map((d) => d.startTs.toISOString())).toEqual([
+      inDays(14, 8),
+      inDays(18, 8)
+    ]);
+  });
 });
 
 describe('trip-ticket off-ramps', () => {

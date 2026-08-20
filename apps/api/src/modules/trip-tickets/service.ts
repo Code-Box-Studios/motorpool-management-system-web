@@ -309,14 +309,42 @@ export async function update(
   }
   // An edit can move the trip onto another vehicle, another driver, other hours,
   // or a bigger party, so it has to clear the same bar a new booking does.
+  //
+  // Fix round 1: this used to feed `body.startTs/endTs ?? existing.startTs/endTs`
+  // into availability. `existing.startTs/endTs` is the ticket's DERIVED SPAN
+  // (plan: display/sort only, never booking) — feeding it in here was two bugs
+  // at once. (1) A PATCH that actually changed `dates` was never checked
+  // against the NEW rows: normaliseTripDates only sees `dates` if it is passed
+  // explicitly, so the old code silently validated the STALE span instead and
+  // let the new (possibly clashing) rows write through unchecked. (2) A PATCH
+  // that changed neither `dates` nor the legacy pair fed the ticket's WHOLE
+  // multi-date span in as one continuous window, so editing e.g. `destination`
+  // on a 14th-and-18th event falsely clashed with a real booking of the gap
+  // day (the 16th) — the exact day this feature exists to keep free.
+  //
+  // The fix: always build the actual proposed rows and pass them as `dates`,
+  // and never pass startTs/endTs at all — normaliseTripDates then never falls
+  // back to the ticket's derived span.
+  const proposedDates: TripDateInput[] =
+    body.dates && body.dates.length > 0
+      ? body.dates
+      : body.startTs && body.endTs
+        ? [{ startTs: body.startTs, endTs: body.endTs }]
+        : // Caller sent neither: re-validate the ticket's OWN existing rows —
+          // not its derived span — so an unrelated edit re-checks exactly the
+          // windows this ticket already holds. A cancelled row is a free
+          // window and must not be re-validated as occupied.
+          existing.dates
+            .filter((d) => d.status !== 'cancelled')
+            .map((d) => ({ startTs: d.startTs, endTs: d.endTs }));
+
   await assertBookable(
     {
       vehicleId: body.vehicleId ?? existing.vehicleId,
       driverId: body.driverId ?? existing.driverId,
-      startTs: body.startTs ?? existing.startTs,
-      endTs: body.endTs ?? existing.endTs,
       participants: body.participants ?? existing.participants,
-      participantsCount: body.participantsCount ?? existing.participantsCount
+      participantsCount: body.participantsCount ?? existing.participantsCount,
+      dates: proposedDates
     },
     id
   );
