@@ -73,15 +73,22 @@ const fuelBody = {
 // not exported, so this file gets its own).
 const CANCEL_TEST_START_KM = 1000;
 
+// A counter, not a fixed suffix: fix round 2 adds a foreign-dateId test that
+// needs TWO of these tickets live in the same test (one ticket's dateId
+// against another ticket's URL), and a fixed 'V6'/'d6@test.local'/etc. would
+// collide on the vehicle/driver/user unique constraints on the second call.
+let twoDateTicketSeq = 0;
+
 async function approvedTwoDateTicket() {
+  const n = ++twoDateTicketSeq;
   const branch = await createTestBranch();
   const vehicle = await prisma.vehicle.create({
     data: {
       make: 'T',
       model: 'H',
       year: 2021,
-      vin: 'V6',
-      licensePlate: 'P6',
+      vin: `V6-${n}`,
+      licensePlate: `P6-${n}`,
       capacity: 5,
       fuelType: 'diesel',
       mileage: CANCEL_TEST_START_KM,
@@ -93,18 +100,18 @@ async function approvedTwoDateTicket() {
   });
   const driver = await prisma.driver.create({
     data: {
-      email: 'd6@test.local',
+      email: `d6-${n}@test.local`,
       fullName: 'D6',
       status: 'active',
       branchId: branch.id
     }
   });
   const { user: requester } = await createTestUser({
-    email: 'req6@test.local',
+    email: `req6-${n}@test.local`,
     role: 'requester'
   });
   const { user: admin } = await createTestUser({
-    email: 'admin6@test.local',
+    email: `admin6-${n}@test.local`,
     role: 'admin'
   });
   const now = new Date();
@@ -450,5 +457,60 @@ describe('trip-ticket approval transitions', () => {
         endTs: secondDate.endTs.toISOString()
       });
     expect(rebook.status).toBe(201);
+  });
+
+  // Fix round 2, item 3: neither authorisation path on the new endpoint had
+  // coverage. `dateId` is looked up scoped to `tripTicketId` via a single
+  // `findFirst` — a date that is real but belongs to a DIFFERENT ticket must
+  // 404 exactly like one that doesn't exist at all, or a ticket's own dates
+  // aren't the only rows its owner can reach through this route.
+  it('refuses a dateId that belongs to a different ticket (404)', async () => {
+    const s1 = await approvedTwoDateTicket();
+    const s2 = await approvedTwoDateTicket();
+    const s2Dates = await prisma.tripDate.findMany({
+      where: { tripTicketId: s2.ticketId }
+    });
+    const [foreignDate] = s2Dates;
+    if (!foreignDate) throw new Error('expected a date'); // unreachable
+
+    const res = await request(app)
+      .post(`/api/trip-tickets/${s1.ticketId}/dates/${foreignDate.id}/cancel`)
+      .set('Authorization', authHeader(s1.admin.id, s1.admin.email, 'admin'))
+      .send({ reason: 'wrong ticket' });
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+
+    // And untouched: the foreign date is still exactly as it was.
+    const untouched = await prisma.tripDate.findUniqueOrThrow({
+      where: { id: foreignDate.id }
+    });
+    expect(untouched.status).toBe('scheduled');
+  });
+
+  // The other authorisation axis: a stranger requester (neither admin nor
+  // the ticket's own requester) gets the same NOT_TICKET_OWNER refusal
+  // whole-ticket cancel already has covered above.
+  it('refuses to cancel a date on a ticket a stranger requester does not own (403)', async () => {
+    const s = await approvedTwoDateTicket();
+    const dates = await prisma.tripDate.findMany({
+      where: { tripTicketId: s.ticketId },
+      orderBy: { startTs: 'asc' }
+    });
+    const [firstDate] = dates;
+    if (!firstDate) throw new Error('expected a date'); // unreachable
+
+    const { user: stranger } = await createTestUser({
+      email: 'stranger6@test.local',
+      role: 'requester'
+    });
+    const res = await request(app)
+      .post(`/api/trip-tickets/${s.ticketId}/dates/${firstDate.id}/cancel`)
+      .set(
+        'Authorization',
+        authHeader(stranger.id, stranger.email, 'requester')
+      )
+      .send({ reason: 'not mine' });
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('NOT_TICKET_OWNER');
   });
 });

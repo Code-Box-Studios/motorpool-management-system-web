@@ -187,6 +187,7 @@ export async function cancelDate(
     );
   }
 
+  let ticketCancelled = false;
   await prisma.$transaction(async (tx) => {
     await tx.tripDate.update({
       where: { id: dateId },
@@ -197,23 +198,42 @@ export async function cancelDate(
 
     // If cancelling this date settled every date on the ticket with none of
     // them completed, syncTicketStatus just derived the TICKET itself to
-    // `cancelled` — give it the same explanation a whole-ticket cancel would
-    // record, or a reader opening it later sees "cancelled" with no reason at
-    // all, unlike every ticket cancelled through the normal path.
+    // `cancelled` — the event is over, not just this date, so it must settle
+    // exactly like a whole-ticket cancellation: its own reason recorded (or a
+    // reader opening it later sees "cancelled" with no explanation) AND the
+    // allocation cancelled alongside it, mirroring `cancel` above. The "must
+    // not touch the FuelAllocation" constraint governs the NON-terminal case
+    // only — one date off, the rest of the event still live, the single
+    // approval and allocation stand untouched — not this one, where the
+    // ticket itself is terminating and `cancelled` is a dead end nothing
+    // later corrects.
     const settled = await tx.tripTicket.findUniqueOrThrow({
       where: { id: ticketId },
       select: { status: true }
     });
     if (settled.status === 'cancelled') {
+      ticketCancelled = true;
       await tx.tripTicket.update({
         where: { id: ticketId },
         data: { cancellationReason: reason }
+      });
+      await tx.fuelAllocation.updateMany({
+        where: { tripTicketId: ticketId },
+        data: { status: 'cancelled' }
       });
     }
   });
 
   const full = await findTripTicketById(ticketId);
-  await events.tripDateCancelled(full!, outing, actor, reason);
+  // Same terminal-vs-not distinction as above: once the ticket itself has
+  // gone `cancelled` the whole event is over, not just this date, so this
+  // tells people that directly rather than naming a date that no longer
+  // matters on its own.
+  if (ticketCancelled) {
+    await events.tripCancelled(full!, actor, reason);
+  } else {
+    await events.tripDateCancelled(full!, outing, actor, reason);
+  }
   return full;
 }
 
