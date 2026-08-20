@@ -105,12 +105,6 @@ interface TripTicketApiResponse {
   approvedByAdminId: string | null;
   disapprovedReason: string | null;
   cancellationReason: string | null;
-  preTripGuardId: string | null;
-  preTripCheckedById: string | null;
-  preTripCheckedAt: string | null;
-  postTripGuardId: string | null;
-  postTripCheckedById: string | null;
-  postTripCheckedAt: string | null;
   startTs: string | null;
   endTs: string | null;
   createdAt: string;
@@ -148,12 +142,6 @@ function toSnake(t: TripTicketApiResponse): TripTicket {
     approved_by_admin: t.approvedByAdminId ?? null,
     disapproved_reason: t.disapprovedReason ?? null,
     cancellation_reason: t.cancellationReason ?? null,
-    pre_trip_guard: t.preTripGuardId ?? null,
-    pre_trip_checked_by: t.preTripCheckedById ?? null,
-    pre_trip_checked_at: t.preTripCheckedAt ?? null,
-    post_trip_guard: t.postTripGuardId ?? null,
-    post_trip_checked_by: t.postTripCheckedById ?? null,
-    post_trip_checked_at: t.postTripCheckedAt ?? null,
     start_ts: t.startTs ?? null,
     end_ts: t.endTs ?? null,
     created_at: t.createdAt,
@@ -172,7 +160,19 @@ function toSnake(t: TripTicketApiResponse): TripTicket {
     attachment_path: null,
     pdf_path: null,
     qr_path: null,
-    approved_by_evp_operation: null
+    approved_by_evp_operation: null,
+    // Ticket-level guard/check-time columns: the API stopped writing these once
+    // a ticket could cover several outings, so they are permanently null now —
+    // the real values live per date, on `dates[].pre_trip_guard` etc. (see
+    // TripDateRow above). Kept here, always null, for the same reason as the
+    // block above: tsc still enforces every `trip_tickets` column on this
+    // return type.
+    pre_trip_guard: null,
+    pre_trip_checked_by: null,
+    pre_trip_checked_at: null,
+    post_trip_guard: null,
+    post_trip_checked_by: null,
+    post_trip_checked_at: null
   };
 }
 
@@ -388,6 +388,23 @@ export async function cancelTripTicket(
     await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/cancel`, {
       reason
     })
+  );
+}
+
+// Cancels ONE outing (legal only while the ticket is approved/in_progress and
+// the date itself is still scheduled — the server 409s INVALID_TRANSITION
+// otherwise). Cancelling the last live date cancels the whole ticket, so the
+// response is the full ticket, same as every other transition.
+export async function cancelTripDate(
+  ticketId: string,
+  dateId: string,
+  reason: string
+): Promise<TripTicket> {
+  return toSnake(
+    await api.post<TripTicketApiResponse>(
+      `/trip-tickets/${ticketId}/dates/${dateId}/cancel`,
+      { reason }
+    )
   );
 }
 

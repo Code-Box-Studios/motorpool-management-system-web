@@ -20,6 +20,7 @@ import {
 import { AddTripTicket } from '../add-trip-ticket/form';
 import { ReasonDialog } from '../transition-dialogs';
 import { formatRef } from '@/lib/utils/reference';
+import type { TripDateRow } from '@/lib/api/trip-tickets';
 
 // A section heading: a signal dot and a tracked, uppercase label. Same idiom as
 // the other two focus screens, which is what this one sits beside.
@@ -41,6 +42,22 @@ const timeOf = (value: string | null | undefined) =>
         minute: '2-digit'
       })
     : 'Not set';
+
+// "17 Apr, 9:00 AM – 5:00 PM" — one outing, exactly as the requester asked for
+// it. A ticket can cover several of these now, non-consecutive, each its own
+// gate cycle — this is why "Depart"/"Return" below (the ticket's overall span)
+// is no longer the whole story.
+const dateWindowOf = (date: TripDateRow) => {
+  const start = new Date(date.start_ts);
+  const end = new Date(date.end_ts);
+  const day = start.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short'
+  });
+  const time = (d: Date) =>
+    d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return `${day}, ${time(start)} – ${time(end)}`;
+};
 
 // The two states where the request is sitting on someone else's desk. These are
 // what the requester opens the page to check, so they get the top of the screen.
@@ -167,6 +184,23 @@ const RequesterDashboard = () => {
                       {ticket.purpose}
                     </p>
 
+                    {/* What they actually asked for — every outing on this
+                        ticket, not just the overall span. A legacy ticket
+                        from before dates existed has none; the Depart/Return
+                        pair below still carries it. */}
+                    {ticket.dates.length > 0 && (
+                      <ul className="mt-3 flex flex-wrap gap-1.5">
+                        {ticket.dates.map((d) => (
+                          <li
+                            key={d.id}
+                            className="bg-muted text-muted-foreground rounded-full px-2.5 py-1 text-xs font-medium"
+                          >
+                            {dateWindowOf(d)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
                     <div className="bg-border my-5 h-px" />
 
                     <dl className="space-y-2 text-sm">
@@ -238,7 +272,19 @@ const RequesterDashboard = () => {
                         {ticket.destination}
                       </div>
                       <div className="text-slate truncate text-xs">
-                        {timeOf(ticket.start_ts)}
+                        {ticket.dates.length > 0 ? (
+                          <>
+                            {dateWindowOf(ticket.dates[0])}
+                            {ticket.dates.length > 1 && (
+                              <span className="text-muted-foreground">
+                                {' '}
+                                · +{ticket.dates.length - 1} more
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          timeOf(ticket.start_ts)
+                        )}
                       </div>
                     </div>
                     <div className="ml-auto flex items-center gap-2">

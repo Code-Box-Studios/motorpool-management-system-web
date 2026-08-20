@@ -41,6 +41,7 @@ import {
   type UpdateTripTicketFormData
 } from './actions';
 import { FuelAllocationDialog, ReasonDialog } from '../transition-dialogs';
+import { TripDatesSection } from './dates-section';
 import { useTripTicket } from '@/lib/query/trip-tickets';
 import {
   useApproveTripTicket,
@@ -161,8 +162,6 @@ const TripTicketsInner = () => {
       start_ts: startDateTime,
       end_ts: endDateTime,
       status: tripTicket.status || 'pending_admin_approval',
-      pre_trip_guard: tripTicket.pre_trip_guard || '',
-      post_trip_guard: tripTicket.post_trip_guard || '',
       remarks: tripTicket.remarks || '',
       cancellation_reason: tripTicket.cancellation_reason || '',
       disapproved_reason: tripTicket.disapproved_reason || '',
@@ -614,53 +613,6 @@ const TripTicketsInner = () => {
                   />
                 </FormRow>
 
-                <FormRow>
-                  <Controller
-                    name="pre_trip_guard"
-                    control={form.control}
-                    render={({ field, fieldState }) => (
-                      <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor="pre_trip_guard">
-                          Pre-Trip Guard
-                        </FieldLabel>
-                        <Input
-                          {...field}
-                          id="pre_trip_guard"
-                          type="text"
-                          aria-invalid={fieldState.invalid}
-                          placeholder="Enter guard name"
-                          disabled={!isEditing}
-                        />
-                        {fieldState.invalid && (
-                          <FieldError errors={[fieldState.error]} />
-                        )}
-                      </Field>
-                    )}
-                  />
-                  <Controller
-                    name="post_trip_guard"
-                    control={form.control}
-                    render={({ field, fieldState }) => (
-                      <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor="post_trip_guard">
-                          Post-Trip Guard
-                        </FieldLabel>
-                        <Input
-                          {...field}
-                          id="post_trip_guard"
-                          type="text"
-                          aria-invalid={fieldState.invalid}
-                          placeholder="Enter guard name"
-                          disabled={!isEditing}
-                        />
-                        {fieldState.invalid && (
-                          <FieldError errors={[fieldState.error]} />
-                        )}
-                      </Field>
-                    )}
-                  />
-                </FormRow>
-
                 <Controller
                   name="participants"
                   control={form.control}
@@ -1022,14 +974,6 @@ const TripTicketsInner = () => {
                 />
                 <DetailItem label="End" value={dateTimeOf(tripTicket.end_ts)} />
                 <DetailItem
-                  label="Pre-Trip Guard"
-                  value={personName(tripTicket.pre_trip_guard)}
-                />
-                <DetailItem
-                  label="Post-Trip Guard"
-                  value={personName(tripTicket.post_trip_guard)}
-                />
-                <DetailItem
                   label="Participants"
                   wide
                   value={
@@ -1072,6 +1016,14 @@ const TripTicketsInner = () => {
               </aside>
             </div>
           </DetailSection>
+
+          <TripDatesSection
+            ticketId={tripTicket.id}
+            dates={tripTicket.dates}
+            ticketStatus={status}
+            canManage={isAdmin || isOwner}
+            personName={personName}
+          />
 
           <DetailSection
             title="Fuel Allocation"

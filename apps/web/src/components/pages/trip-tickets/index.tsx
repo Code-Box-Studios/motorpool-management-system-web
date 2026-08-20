@@ -260,30 +260,39 @@ const TripTicketsPage = () => {
 
   const calendarEvents = useMemo(() => {
     if (!calendarData) return [];
-    return calendarData.map((ticket) => {
-      const startDateTime = new Date(ticket.start_ts || new Date());
-      const endDateTime = new Date(ticket.end_ts || new Date());
-      if (!ticket.end_ts) {
-        endDateTime.setHours(23, 59, 59, 999);
-      }
-
-      return {
-        id: ticket.id,
-        title: `${ticket.destination} — ${resolveStatus(ticket.status ?? '').label}`,
-        start: startDateTime.toISOString(),
-        end: endDateTime.toISOString(),
-        backgroundColor: statusEventColor(ticket.status || 'pending'),
-        borderColor: statusEventColor(ticket.status || 'pending'),
-        extendedProps: {
-          purpose: ticket.purpose,
-          status: ticket.status
-        }
-      };
-    });
+    // One block per OUTING, not per ticket. A ticket spanning the 17th and the
+    // 21st used to paint one bar straight through the 18th-20th, which is
+    // exactly the availability lie this feature removes.
+    return calendarData.flatMap((ticket) =>
+      ticket.dates
+        .filter((d) => d.status !== 'cancelled')
+        .map((d) => {
+          const startDateTime = new Date(d.start_ts);
+          const endDateTime = new Date(d.end_ts);
+          return {
+            // Composite: `${ticketId}:${dateId}`. handleEventClick below splits
+            // on ':' and takes the first segment — every other reader of this
+            // id must do the same, or it navigates to a malformed route.
+            id: `${ticket.id}:${d.id}`,
+            title: `${ticket.destination} — ${resolveStatus(ticket.status ?? '').label}`,
+            start: startDateTime.toISOString(),
+            end: endDateTime.toISOString(),
+            backgroundColor: statusEventColor(ticket.status || 'pending'),
+            borderColor: statusEventColor(ticket.status || 'pending'),
+            extendedProps: {
+              purpose: ticket.purpose,
+              status: ticket.status
+            }
+          };
+        })
+    );
   }, [calendarData]);
 
   const handleEventClick = (clickInfo: EventClickArg) => {
-    navigate({ to: `/trip-tickets/${clickInfo.event.id}` });
+    // The event id is composite (`${ticketId}:${dateId}`, see calendarEvents
+    // above) — only the ticket id is a route param, so take the first segment.
+    const [ticketId] = clickInfo.event.id.split(':');
+    navigate({ to: `/trip-tickets/${ticketId}` });
   };
 
   // Creating a trip is a dialog, not a page: it is a form you fill and dismiss,

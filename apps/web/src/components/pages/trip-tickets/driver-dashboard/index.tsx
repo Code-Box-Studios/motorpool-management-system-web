@@ -68,18 +68,35 @@ const DriverDashboard = () => {
   const vehicleOf = (vehicleId: string | null | undefined) =>
     vehicleId ? vehicles?.find((v) => v.id === vehicleId) : undefined;
 
-  // Trips still ahead of the driver, soonest first; finished ones drop away.
-  const trips = useMemo(() => {
-    const open = (tripTicketsData?.data ?? []).filter(
+  // A ticket can cover several non-consecutive outings now, each with its own
+  // gate cycle — so "next trip" has to be the next OUTING, not the ticket's
+  // earliest date. Once the first date of a two-date event is done, the
+  // driver's next trip is the second date, which the ticket's own start_ts
+  // (its overall span) no longer points at.
+  //
+  // Flatten every open ticket to one { ticket, date } pair per live outing —
+  // a date is "live" while it is neither cancelled nor already completed — and
+  // sort those pairs by the DATE's own start, soonest first. A whole
+  // cancelled/disapproved ticket is excluded up front: cancelling or
+  // disapproving the ticket does not retroactively mark its date rows
+  // cancelled, so without this outer filter their still-`scheduled` rows
+  // would keep slipping back in.
+  const pairs = useMemo(() => {
+    const openTickets = (tripTicketsData?.data ?? []).filter(
       (t) =>
         t.status !== TRIP_TICKET_STATUS.COMPLETED &&
         t.status !== TRIP_TICKET_STATUS.CANCELLED &&
         t.status !== TRIP_TICKET_STATUS.DISAPPROVED
     );
-    return open.sort(
+    const list = openTickets.flatMap((ticket) =>
+      ticket.dates
+        .filter((d) => d.status !== 'cancelled' && d.status !== 'completed')
+        .map((date) => ({ ticket, date }))
+    );
+    return list.sort(
       (a, b) =>
-        new Date(a.start_ts ?? 0).getTime() -
-        new Date(b.start_ts ?? 0).getTime()
+        new Date(a.date.start_ts).getTime() -
+        new Date(b.date.start_ts).getTime()
     );
   }, [tripTicketsData?.data]);
 
@@ -104,9 +121,12 @@ const DriverDashboard = () => {
     );
   }
 
-  const [next, ...later] = trips;
+  const [next, ...later] = pairs;
+  // Every pair for the same ticket shares one QR (the ticket id — the gate
+  // scans that, then the server resolves which outing it is releasing), so
+  // any matching pair's ticket is the right one to show.
   const qrTicket = qrTicketId
-    ? trips.find((t) => t.id === qrTicketId)
+    ? (pairs.find((p) => p.ticket.id === qrTicketId)?.ticket ?? undefined)
     : undefined;
 
   return (
@@ -129,17 +149,17 @@ const DriverDashboard = () => {
 
           <section className="bg-card border-border rounded-[24px] border p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <StatusBadge status={next.status ?? ''} />
+              <StatusBadge status={next.ticket.status ?? ''} />
               <span className="text-muted-foreground font-mono text-xs">
-                {formatRef('TT', next.ticket_no)}
+                {formatRef('TT', next.ticket.ticket_no)}
               </span>
             </div>
 
             <h2 className="text-2xl font-semibold tracking-tight break-words">
-              {next.destination}
+              {next.ticket.destination}
             </h2>
             <p className="text-slate mt-1 text-sm break-words">
-              {next.purpose}
+              {next.ticket.purpose}
             </p>
 
             <div className="bg-border my-5 h-px" />
@@ -149,7 +169,7 @@ const DriverDashboard = () => {
                 <dt className="text-muted-foreground flex-none">Vehicle</dt>
                 <dd className="min-w-0 text-right font-medium">
                   {(() => {
-                    const v = vehicleOf(next.vehicle_id);
+                    const v = vehicleOf(next.ticket.vehicle_id);
                     return v ? (
                       <>
                         {v.make} {v.model}{' '}
@@ -166,20 +186,20 @@ const DriverDashboard = () => {
               <div className="flex justify-between gap-3">
                 <dt className="text-muted-foreground flex-none">Depart</dt>
                 <dd className="min-w-0 text-right font-medium">
-                  {timeOf(next.start_ts)}
+                  {timeOf(next.date.start_ts)}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-muted-foreground flex-none">Return</dt>
                 <dd className="min-w-0 text-right font-medium">
-                  {timeOf(next.end_ts)}
+                  {timeOf(next.date.end_ts)}
                 </dd>
               </div>
             </dl>
 
             {/* The driver's whole job at the gate: show this. */}
             <Button
-              onClick={() => setQrTicketId(next.id)}
+              onClick={() => setQrTicketId(next.ticket.id)}
               className="mt-6 h-16 w-full rounded-[22px] text-lg font-semibold"
             >
               <QrCode className="size-5" />
@@ -188,7 +208,7 @@ const DriverDashboard = () => {
             <Button variant="ghost" className="mt-2 w-full" asChild>
               <Link
                 to="/trip-tickets/$id"
-                params={{ id: next.id }}
+                params={{ id: next.ticket.id }}
                 search={{ viewOnly: true }}
               >
                 View trip details
@@ -203,24 +223,24 @@ const DriverDashboard = () => {
                 Later
               </div>
               <ul className="flex flex-col gap-2.5">
-                {later.map((ticket) => (
+                {later.map((pair) => (
                   <li
-                    key={ticket.id}
+                    key={`${pair.ticket.id}:${pair.date.id}`}
                     className="bg-card border-border flex items-center gap-3 rounded-[18px] border p-3.5"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-semibold">
-                        {ticket.destination}
+                        {pair.ticket.destination}
                       </div>
                       <div className="text-slate truncate text-xs">
-                        {timeOf(ticket.start_ts)}
+                        {timeOf(pair.date.start_ts)}
                       </div>
                     </div>
-                    <StatusBadge status={ticket.status ?? ''} />
+                    <StatusBadge status={pair.ticket.status ?? ''} />
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => setQrTicketId(ticket.id)}
+                      onClick={() => setQrTicketId(pair.ticket.id)}
                     >
                       <QrCode />
                       <span className="sr-only">Show QR</span>

@@ -7,6 +7,7 @@ import {
   approveEvpTripTicket,
   disapproveTripTicket,
   cancelTripTicket,
+  cancelTripDate,
   checkOutTripTicket,
   checkInTripTicket
 } from '@/lib/api/trip-tickets';
@@ -149,6 +150,33 @@ export const useCancelTripTicket = () => {
     },
     onError: (error: ApiError) => {
       toast.error(`Failed to cancel trip ticket: ${error.message}`);
+    }
+  });
+};
+
+// admin or the requester who owns the ticket: cancels ONE outing, leaving the
+// rest of the event (and its fuel allocation) untouched — unless it was the
+// last live date, in which case the server settles the whole ticket the same
+// way `cancel` above does. Either way the response is the full ticket, so the
+// same invalidation as every other transition is correct.
+export const useCancelTripDate = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      ticketId,
+      dateId,
+      reason
+    }: {
+      ticketId: string;
+      dateId: string;
+      reason: string;
+    }) => cancelTripDate(ticketId, dateId, reason),
+    onSuccess: (_data, variables) => {
+      invalidateTripTicket(queryClient, variables.ticketId);
+      toast.success('Trip date cancelled successfully!');
+    },
+    onError: (error: ApiError) => {
+      toast.error(`Failed to cancel trip date: ${error.message}`);
     }
   });
 };
