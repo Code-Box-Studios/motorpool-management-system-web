@@ -90,6 +90,28 @@ const LIVE_STATUSES = [
   'in_progress'
 ] as const;
 
+// Fix round 2, item 3: the double-book message names the offending calendar
+// day (spec §5), and this fleet is University of Mindanao — Asia/Manila,
+// UTC+8. Formatting in UTC names the wrong day for any trip starting before
+// 08:00 UTC (00:00 Manila) — and 08:00-local starts are the normal case here
+// (see the briefs' own fixtures), so a UTC slice would be wrong routinely, not
+// as an edge case. No date-formatting helper exists yet anywhere in the repo
+// (checked apps/api/src/lib, packages/shared, and apps/web — the web list
+// views call the browser's own `toLocaleDateString()`, which has no
+// server-side equivalent since the API's runtime locale/timezone is whatever
+// the host happens to be, not Manila's). `Intl.DateTimeFormat` with an IANA
+// zone name is used rather than a manual UTC+8 offset add, so this is correct
+// even if Node's default locale/TZ on the host is something else.
+const DISPLAY_TIMEZONE = 'Asia/Manila';
+function formatDisplayDate(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: DISPLAY_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(d);
+}
+
 // Nothing checked any of this before: a trip could be booked on a van that was
 // out of service, could end before it started, and the same van (and the same
 // driver) could be booked twice over for the same hours — right through to the
@@ -233,7 +255,7 @@ async function assertBookable(
     if (!clash) continue;
 
     const isVehicle = clash.tripTicket.vehicleId === vehicleId;
-    const day = clash.startTs.toISOString().slice(0, 10);
+    const day = formatDisplayDate(clash.startTs);
     throw new AppError(
       409,
       isVehicle ? 'VEHICLE_DOUBLE_BOOKED' : 'DRIVER_DOUBLE_BOOKED',
@@ -325,6 +347,20 @@ export async function update(
   // The fix: always build the actual proposed rows and pass them as `dates`,
   // and never pass startTs/endTs at all — normaliseTripDates then never falls
   // back to the ticket's derived span.
+  //
+  // Fix round 2, item 2 (spec §5): `dates` ABSENT means "not editing dates" —
+  // a legal no-op, handled by the existing-rows fallback below. `dates`
+  // PRESENT but EMPTY is the caller asking for zero dates on the ticket, which
+  // is a validation error exactly like on create — it must not silently fall
+  // through to "keep the old rows" and return 200 having changed nothing.
+  if (body.dates !== undefined && body.dates.length === 0) {
+    throw new AppError(
+      400,
+      'NO_TRIP_DATES',
+      'A trip ticket needs at least one date'
+    );
+  }
+
   const proposedDates: TripDateInput[] =
     body.dates && body.dates.length > 0
       ? body.dates
@@ -351,10 +387,28 @@ export async function update(
   // An edit cannot hand the ticket to someone else — that is the same
   // client-controlled attribution hole as on create, via the back door.
   const { requestedById, ...editable } = body;
+  // Fix round 2, item 1 (spec §4.2): startTs/endTs are the ticket's DERIVED
+  // SPAN, same as `dates` above them — never a real column write from the
+  // client. Before this feature they were the truth, so writing them straight
+  // from the body was correct; now `recomputeTicketSpan` (via
+  // `replaceTripDates`, called inside the SAME transaction below) must be the
+  // only writer of these two columns. Leaving them in `editable` let a PATCH
+  // carrying just one half of the pair (the real web client's `mapUpdateBody`
+  // guards startTs/endTs independently, so a form that dirties only one field
+  // sends only one) write a value no TripDate row backs directly onto
+  // `TripTicket.startTs`/`endTs` — a lone `startTs` also validated the OLD
+  // rows in `proposedDates` above (neither half of the legacy-pair branch is
+  // true), so the unvalidated value would have landed silently.
   const data =
     actor.role === 'admin' && requestedById
-      ? { ...editable, dates: undefined, requestedById }
-      : { ...editable, dates: undefined };
+      ? {
+          ...editable,
+          dates: undefined,
+          startTs: undefined,
+          endTs: undefined,
+          requestedById
+        }
+      : { ...editable, dates: undefined, startTs: undefined, endTs: undefined };
   // dates on the body is the validated request list, not Prisma's `dates`
   // relation — see the comment in create() above.
 

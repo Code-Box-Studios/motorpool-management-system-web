@@ -458,6 +458,88 @@ describe('trip-ticket booking rules', () => {
       inDays(18, 8)
     ]);
   });
+
+  it('a half-pair PATCH (startTs without endTs) does not let the derived span drift', async () => {
+    const s = await scaffold();
+    const created = await post(s, {
+      startTs: inDays(14, 8),
+      endTs: inDays(14, 17)
+    });
+    expect(created.status).toBe(201);
+
+    // Only ONE half of the legacy pair — mirrors what the real web client's
+    // mapUpdateBody sends when a form dirties only one field.
+    const patched = await request(app)
+      .patch(`/api/trip-tickets/${created.body.id}`)
+      .set('Authorization', s.header)
+      .send({ startTs: inDays(30, 8) });
+    expect(patched.status).toBe(200);
+
+    // The date rows are untouched...
+    const dates = await prisma.tripDate.findMany({
+      where: { tripTicketId: created.body.id },
+      orderBy: { startTs: 'asc' }
+    });
+    expect(dates).toHaveLength(1);
+    expect(dates.map((d) => d.startTs.toISOString())).toEqual([inDays(14, 8)]);
+
+    // ...and the DERIVED SPAN still equals what those (unchanged) rows imply —
+    // not the half-pair value that was sent, and not left dangling/drifted.
+    const ticket = await prisma.tripTicket.findUniqueOrThrow({
+      where: { id: created.body.id }
+    });
+    expect(ticket.startTs!.toISOString()).toBe(inDays(14, 8));
+    expect(ticket.endTs!.toISOString()).toBe(inDays(14, 17));
+  });
+
+  it('refuses a PATCH that empties dates outright, and leaves the existing rows untouched', async () => {
+    const s = await scaffold();
+    const created = await post(s, {
+      startTs: inDays(14, 8),
+      endTs: inDays(14, 17)
+    });
+    expect(created.status).toBe(201);
+
+    // `dates` PRESENT but EMPTY is a validation error — unlike `dates` ABSENT,
+    // which is a legal no-op (covered by the "unrelated field" test above).
+    const patched = await request(app)
+      .patch(`/api/trip-tickets/${created.body.id}`)
+      .set('Authorization', s.header)
+      .send({ dates: [] });
+    expect(patched.status).toBe(400);
+    expect(patched.body.error.code).toBe('NO_TRIP_DATES');
+
+    const dates = await prisma.tripDate.findMany({
+      where: { tripTicketId: created.body.id }
+    });
+    expect(dates).toHaveLength(1);
+  });
+
+  it('names the clash day in the application display timezone (Asia/Manila), not UTC', async () => {
+    const s = await scaffold();
+    // 23:00 UTC is 07:00 the NEXT day in Asia/Manila (UTC+8): this window's
+    // startTs sits on one UTC calendar day but one Manila calendar day later.
+    const a = await post(s, {
+      startTs: inDays(14, 23),
+      endTs: inDays(15, 2)
+    });
+    expect(a.status).toBe(201);
+
+    const clash = await post(s, {
+      driverId: s.otherDriver.id,
+      startTs: inDays(15, 0),
+      endTs: inDays(15, 1)
+    });
+    expect(clash.status).toBe(409);
+    expect(clash.body.error.code).toBe('VEHICLE_DOUBLE_BOOKED');
+
+    // The Manila-local calendar day for `inDays(14, 23)` is the 15th, not the
+    // 14th a naive UTC slice of the same instant would have named.
+    const manilaLocalDay = inDays(15, 0).slice(0, 10);
+    const utcDay = inDays(14, 23).slice(0, 10);
+    expect(clash.body.error.message).toContain(manilaLocalDay);
+    expect(clash.body.error.message).not.toContain(utcDay);
+  });
 });
 
 describe('trip-ticket off-ramps', () => {
