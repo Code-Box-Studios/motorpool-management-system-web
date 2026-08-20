@@ -92,10 +92,11 @@ describe('trip date backfill shape', () => {
       where: { tripTicketId: ticket.id }
     });
     expect(dates).toHaveLength(1);
-    expect(dates[0].status).toBe('completed');
-    expect(dates[0].startMileage).toBe(1000);
-    expect(dates[0].endMileage).toBe(1120);
-    expect(dates[0].startTs.toISOString()).toBe(start.toISOString());
+    const date = dates[0]!;
+    expect(date.status).toBe('completed');
+    expect(date.startMileage).toBe(1000);
+    expect(date.endMileage).toBe(1120);
+    expect(date.startTs.toISOString()).toBe(start.toISOString());
   });
 
   it('is idempotent — a second run adds nothing', async () => {
