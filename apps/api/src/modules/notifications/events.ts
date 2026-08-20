@@ -165,11 +165,12 @@ export async function tripCancelled(
 }
 
 /**
- * ONE outing on the event was called off — the rest of the ticket stays live,
- * which is exactly why this cannot reuse `tripCancelled`'s copy: it has to
- * name WHICH date is gone, not just point at the ticket, or a requester with
- * a two-date event has no way to tell from the notification alone which half
- * still stands.
+ * ONE outing on the event was called off — the rest of the ticket stays live.
+ * Raises the same `trip_cancelled` type as whole-ticket cancel (spec §8: no
+ * distinct type exists for this, and nothing branches on the type to tell the
+ * two apart), but not its copy: this has to name WHICH date is gone, or a
+ * requester with a two-date event has no way to tell from the notification
+ * alone which half still stands.
  *
  * The driver split is the same as `tripCancelled` and for the same reason: by
  * the time a date can be cancelled the ticket is already `approved` or
@@ -198,7 +199,7 @@ export async function tripDateCancelled(
   await notify({
     userIds: others,
     exceptUserId: actor.id,
-    type: 'trip_date_cancelled',
+    type: 'trip_cancelled',
     title: `${ref('TT', ticket.ticketNo)}: the ${day} date was cancelled`,
     body: reason,
     linkTo: tripLink(ticket.id)
@@ -206,7 +207,7 @@ export async function tripDateCancelled(
   await notify({
     userIds: [driverUserId],
     exceptUserId: actor.id,
-    type: 'trip_date_cancelled',
+    type: 'trip_cancelled',
     title: `${ref('TT', ticket.ticketNo)}: your ${day} outing is cancelled`,
     body: reason,
     linkTo: tripLink(ticket.id)
