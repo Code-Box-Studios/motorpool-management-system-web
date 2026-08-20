@@ -11,9 +11,14 @@ test.describe('per-role sign-in and landing screens', () => {
     await shot(page, 'admin-dashboard');
   });
 
-  test('requester lands on the fleet dashboard', async ({ page }) => {
+  test('requester lands on their own requests', async ({ page }) => {
     await login(page, 'requester');
-    await expectText(page, 'Available Vehicles');
+    // Their screen leads with what is still out for approval, not the fleet
+    // metrics — a requester has no read on any of those.
+    await expectText(
+      page,
+      /requests? waiting|Nothing waiting on approval|No requests yet/i
+    );
     await shot(page, 'requester-dashboard');
   });
 

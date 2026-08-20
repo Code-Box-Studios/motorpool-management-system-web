@@ -9,13 +9,18 @@ import type { VehicleWithBranch } from '@/lib/types';
 export const useVehicles = (
   page: number = 1,
   limit: number = 10,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  // For callers that mount this before they know whether the screen they are
+  // building even has a vehicle picker on it — see the dashboard, where the
+  // hook has to run above the role branches that decide.
+  enabled: boolean = true
 ) => {
   return useQuery<{ data: VehicleWithBranch[]; count: number | null }>({
     // `limit` is part of the key: the pickers fetch page 1 at limit 100/200
     // and must not share a cache entry with the vehicles list's page 1 of 10.
     queryKey: ['vehicles', page, limit, sort?.sortBy, sort?.sortOrder],
-    queryFn: () => getVehicles(page, limit, sort)
+    queryFn: () => getVehicles(page, limit, sort),
+    enabled
   });
 };
 

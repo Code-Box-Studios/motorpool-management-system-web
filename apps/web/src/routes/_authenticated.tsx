@@ -20,7 +20,11 @@ import { getUserRoleName } from '@/lib/utils';
 // navigation menu with nothing in it and a breadcrumb that says "Dashboard".
 const FOCUS_SHELLS: Record<string, string> = {
   [USER_ROLES.security_guard]: 'Gate check',
-  [USER_ROLES.evp_operations]: 'Approvals'
+  [USER_ROLES.evp_operations]: 'Approvals',
+  // The requester asks for a vehicle and waits — their dashboard already lists
+  // every request they have made, and the rail it used to sit in held one other
+  // item pointing at the same tickets from a page built for admins.
+  [USER_ROLES.requester]: 'My Requests'
 };
 
 export const Route = createFileRoute('/_authenticated')({

@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react';
 import { Play, Square } from 'lucide-react';
 import GuardConfirmationPage from '@/components/pages/trip-tickets/guard-confirmation';
 import DriverDashboard from '@/components/pages/trip-tickets/driver-dashboard';
+import RequesterDashboard from '@/components/pages/trip-tickets/requester-dashboard';
 import EvpApprovalPage from '@/components/pages/job-order/evp-approval';
 import { useUserRole } from '@/hooks/use-user-role';
 import { USER_ROLES } from '@/lib/enums';
@@ -38,12 +39,24 @@ const davaoCityRoute = [
 ];
 
 const Dashboard = () => {
-  const { data: gpsData, isLoading: gpsLoading } = useLatestGpsData();
-  const { data: vehiclesData } = useVehicles(1, 100);
-  const insertGps = useInsertGpsData();
   const { data: userRole } = useUserRole();
-  const { data: statusCounts } = useVehicleStatusCounts();
-  const { data: completedTrips } = useCompletedTripsCount();
+  // Read before the queries, not after: hooks cannot be conditional, so the
+  // role has to be in hand up here to keep the fleet-wide reads below from
+  // firing for the roles that never reach the fleet view.
+  const userRoleName = userRole?.roles?.name;
+  // The two roles GET /gps/latest and /analytics/* actually admit
+  // (apps/api/src/modules/gps/router.ts ANALYTICS_ROLES).
+  const canTrackFleet =
+    userRoleName === USER_ROLES.admin ||
+    userRoleName === USER_ROLES.evp_operations;
+
+  const { data: gpsData, isLoading: gpsLoading } =
+    useLatestGpsData(canTrackFleet);
+  // Only the fall-through view has the Start Demo button this list feeds.
+  const { data: vehiclesData } = useVehicles(1, 100, undefined, canTrackFleet);
+  const insertGps = useInsertGpsData();
+  const { data: statusCounts } = useVehicleStatusCounts(canTrackFleet);
+  const { data: completedTrips } = useCompletedTripsCount(canTrackFleet);
 
   const [isDemoRunning, setIsDemoRunning] = useState(false);
   const [currentRouteIndex, setCurrentRouteIndex] = useState(0);
@@ -115,7 +128,6 @@ const Dashboard = () => {
   }, [isDemoRunning, demoVehicleId, currentRouteIndex, insertGps]);
 
   // Check user role and show appropriate view
-  const userRoleName = userRole?.roles?.name;
 
   // If user is security guard, show the guard confirmation page
   if (userRoleName === USER_ROLES.security_guard) {
@@ -130,6 +142,16 @@ const Dashboard = () => {
   // If user is driver, show only assigned trip tickets dashboard
   if (userRoleName === USER_ROLES.driver) {
     return <DriverDashboard />;
+  }
+
+  // A requester asks for vans, they do not run the pool. Without this branch
+  // they fell through to the admin console below — fleet metrics, the approval
+  // queue, the maintenance panels and the tracking map, none of which is theirs.
+  // The API already refuses them the data (analytics and /gps/latest are
+  // admin/EVP only), so what they actually got was an admin-shaped page full of
+  // zeroes, wedged on the GPS request below that 403s for their role.
+  if (userRoleName === USER_ROLES.requester) {
+    return <RequesterDashboard />;
   }
 
   if (gpsLoading) {

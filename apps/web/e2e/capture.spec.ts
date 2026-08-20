@@ -149,10 +149,11 @@ test.describe('@capture design screens', () => {
   });
 
   // The four roles that see a different home screen than the admin does.
+  // One screen, no rail: /trip-tickets is admin-only now, and a requester sent
+  // there just bounces back to the screen below.
   test('requester', async ({ page }) => {
     await login(page, 'requester');
     await snap(page, '32-requester-dashboard');
-    await visit(page, '/trip-tickets', '33-requester-trip-tickets');
   });
 
   test('evp', async ({ page }) => {

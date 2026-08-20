@@ -28,12 +28,16 @@ export const useSparePartsAssociations = () => {
   });
 };
 
-// Fetch vehicle status counts for dashboard metrics.
-export const useVehicleStatusCounts = () => {
+// Fetch vehicle status counts for dashboard metrics. `enabled` is for the one
+// caller that reads these before it knows whose dashboard it is rendering: the
+// whole /analytics router is admin/EVP only, so every other role would fire a
+// 403 for a metric strip it never gets shown.
+export const useVehicleStatusCounts = (enabled: boolean = true) => {
   return useQuery({
     queryKey: DASHBOARD_QUERY_KEY,
     queryFn: getDashboardMetrics,
     staleTime: 30 * 1000,
+    enabled,
     select: (metrics) => ({
       available: metrics.available,
       underMaintenance: metrics.underMaintenance,
@@ -44,12 +48,15 @@ export const useVehicleStatusCounts = () => {
   });
 };
 
-// Fetch completed trips count.
-export const useCompletedTripsCount = () => {
+// Fetch completed trips count. See useVehicleStatusCounts for `enabled` — these
+// two share a query key, so they must be gated together or the disabled one is
+// served the other's fetch anyway.
+export const useCompletedTripsCount = (enabled: boolean = true) => {
   return useQuery({
     queryKey: DASHBOARD_QUERY_KEY,
     queryFn: getDashboardMetrics,
     staleTime: 30 * 1000,
+    enabled,
     select: (metrics) => metrics.completedTrips
   });
 };
