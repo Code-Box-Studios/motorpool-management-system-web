@@ -123,7 +123,11 @@ export const useTripTicketForm = () => {
       vehicle_id: '',
       driver_id: '',
       destination: '',
-      dates: [{ date: '', start: '', end: '' }],
+      // 08:00-17:00: a working default window, matching what "Add another
+      // date" seeds a new row with — so the first row, an appended row, and
+      // (via form.tsx's initialDate effect, which only fills in the date)
+      // a row seeded from a calendar click all behave the same.
+      dates: [{ date: '', start: '08:00', end: '17:00' }],
       remarks: '',
       date_requested: today,
       status: 'pending_admin_approval',

@@ -158,7 +158,7 @@ function toSnake(t: TripTicketApiResponse): TripTicket {
     end_ts: t.endTs ?? null,
     created_at: t.createdAt,
     updated_at: t.updatedAt,
-    dates: (t.dates ?? []).map(dateToSnake),
+    dates: t.dates.map(dateToSnake),
     // Denormalized allocation_* flattened from the fuelAllocation embed:
     allocation_date: fa?.date ? fa.date.slice(0, 10) : null, // @db.Date -> YYYY-MM-DD
     allocation_trip_to: fa?.tripTo ?? null,
@@ -263,8 +263,18 @@ function mapUpdateBody(u: Record<string, unknown>): TripTicketRequestBody {
     body.remarks = (u.remarks as string) === '' ? null : (u.remarks as string);
   if (u.start_ts !== undefined) body.startTs = u.start_ts as string | null;
   if (u.end_ts !== undefined) body.endTs = u.end_ts as string | null;
-  if (u.dates !== undefined)
-    body.dates = u.dates as { startTs: string; endTs: string }[];
+  if (u.dates !== undefined) {
+    // Same snake_case-in convention as every other field above (start_ts/
+    // end_ts included) — expects TripDateRow-shaped rows, i.e. what a caller
+    // reading a ticket's own `dates` back would naturally hand in, and maps
+    // each one to the wire's camelCase explicitly. Forwarding `u.dates`
+    // unchecked (the previous cast straight to `{startTs,endTs}[]`) would
+    // silently accept a TripDateRow[] and send startTs/endTs as undefined —
+    // dropped by JSON.stringify — instead of mapping it correctly.
+    body.dates = (u.dates as Pick<TripDateRow, 'start_ts' | 'end_ts'>[]).map(
+      (d) => ({ startTs: d.start_ts, endTs: d.end_ts })
+    );
+  }
   return body;
 }
 

@@ -272,6 +272,8 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
     const today = new Date().toISOString().split('T')[0];
     form.setValue('date_requested', today);
     // Opened by clicking a day on the calendar: start the trip on that day.
+    // The row's start/end already default to 08:00/17:00 (useTripTicketForm),
+    // same as a freshly appended row, so only the date itself needs filling in.
     if (initialDate) {
       form.setValue('dates.0.date', initialDate);
     }
@@ -830,7 +832,18 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                       name={`dates.${index}.date`}
                       control={form.control}
                       render={({ field, fieldState }) => {
-                        const today = new Date().toISOString().slice(0, 10);
+                        // Local calendar day, not UTC's — round-tripping
+                        // through toISOString() shifts the date at any
+                        // non-UTC offset (e.g. 20:00 local on the 17th at
+                        // UTC-5 is already the 18th in UTC), which marked
+                        // "today" itself as out of range for part of the day.
+                        const now = new Date();
+                        const today = `${now.getFullYear()}-${String(
+                          now.getMonth() + 1
+                        ).padStart(
+                          2,
+                          '0'
+                        )}-${String(now.getDate()).padStart(2, '0')}`;
                         return (
                           <Field data-invalid={fieldState.invalid}>
                             <FieldLabel htmlFor={`dates.${index}.date`}>
@@ -875,22 +888,31 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                     <Controller
                       name={`dates.${index}.end`}
                       control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field data-invalid={fieldState.invalid}>
-                          <FieldLabel htmlFor={`dates.${index}.end`}>
-                            Return time *
-                          </FieldLabel>
-                          <Input
-                            {...field}
-                            id={`dates.${index}.end`}
-                            type="time"
-                            aria-invalid={fieldState.invalid}
-                          />
-                          {fieldState.invalid && (
-                            <FieldError errors={[fieldState.error]} />
-                          )}
-                        </Field>
-                      )}
+                      render={({ field, fieldState }) => {
+                        // Cross-reference this row's own departure time, same
+                        // as the single-window version this replaced did with
+                        // start_ts/end_ts. The superRefine below still catches
+                        // an inverted span either way — this is just the
+                        // native picker affordance.
+                        const rowStart = form.watch(`dates.${index}.start`);
+                        return (
+                          <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`dates.${index}.end`}>
+                              Return time *
+                            </FieldLabel>
+                            <Input
+                              {...field}
+                              id={`dates.${index}.end`}
+                              type="time"
+                              min={rowStart || undefined}
+                              aria-invalid={fieldState.invalid}
+                            />
+                            {fieldState.invalid && (
+                              <FieldError errors={[fieldState.error]} />
+                            )}
+                          </Field>
+                        );
+                      }}
                     />
                   </FormRow>
                 </div>
@@ -901,16 +923,21 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => appendDate({ date: '', start: '', end: '' })}
+                  onClick={() =>
+                    appendDate({ date: '', start: '08:00', end: '17:00' })
+                  }
                 >
                   <PlusIcon className="size-4" />
                   Add another date
                 </Button>
               </div>
 
-              {/* Array-level errors — fewer than one row, or two rows that
-                  overlap/misorder in a way not pinned to a single field —
-                  surface at the array root rather than on any one row. */}
+              {/* Only the array's own min(1) message ("A trip needs at least
+                  one date") lands here — every ordering/overlap issue from
+                  the superRefine below is pinned to a row field ([i,'end'] /
+                  [j,'date']). The remove button is hidden at one row, so this
+                  is unreachable from the UI today; kept as a safety net in
+                  case `dates` is ever emptied some other way. */}
               {form.formState.errors.dates?.root?.message && (
                 <p className="text-destructive text-sm">
                   {form.formState.errors.dates.root.message}
