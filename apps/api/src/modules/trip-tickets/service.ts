@@ -218,7 +218,15 @@ export async function create(
       : actor.id;
 
   const ticket = await prisma.tripTicket.create({
-    data: { ...body, requestedById, status: 'pending_admin_approval' }, // status is never client-chosen
+    data: {
+      ...body,
+      // `dates` on the body is the validated request list, not Prisma's `dates`
+      // relation (added in Task 1) — those are shaped differently. Keep it out
+      // of the ticket write; Task 4 wires it into the trip_dates rows instead.
+      dates: undefined,
+      requestedById,
+      status: 'pending_admin_approval' // status is never client-chosen
+    },
     include: tripTicketInclude
   });
   // Raised after the row exists, so the admins' bell can never point at nothing.
@@ -265,8 +273,10 @@ export async function update(
   const { requestedById, ...editable } = body;
   const data =
     actor.role === 'admin' && requestedById
-      ? { ...editable, requestedById }
-      : editable;
+      ? { ...editable, dates: undefined, requestedById }
+      : { ...editable, dates: undefined };
+  // dates on the body is the validated request list, not Prisma's `dates`
+  // relation — see the comment in create() above.
 
   await prisma.tripTicket.update({ where: { id }, data });
   return findTripTicketById(id);
