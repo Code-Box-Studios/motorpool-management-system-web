@@ -1,4 +1,4 @@
-import { PrismaClient, TripTicketStatus } from '@prisma/client';
+import { PrismaClient, TripDateStatus, TripTicketStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -227,10 +227,97 @@ async function main() {
     'in_progress', 'completed', 'cancelled', 'disapproved'
   ];
   const hasAllocation = new Set<TripTicketStatus>(['pending_fuel_allocation_approval', 'approved', 'in_progress', 'completed']);
+
+  // Task 3: an outing lives on a TripDate row, not on the ticket. Migrations run
+  // against an EMPTY database on a fresh install, so the backfill in
+  // 20260820093816_add_trip_dates has nothing to copy and this seed is the only
+  // thing that can put date rows there. Without them the calendar is blank, the
+  // driver dashboard says "No trips assigned to you", every detail page says
+  // "No dates recorded", the approved ticket answers NO_OUTING_TODAY forever,
+  // and the in_progress ticket has no outing for check-in to close — leaving its
+  // van stuck out of the yard with no way back.
+  const HOUR = 3_600_000;
+
+  // A working day `offsetDays` from today: 08:00–17:00 Asia/Manila, the fleet's
+  // display zone (lib/timezone.ts), which is 00:00–09:00 UTC — Manila carries a
+  // fixed +08:00 with no daylight saving, so the shift is a constant.
+  const workingDay = (offsetDays: number) => {
+    const manilaToday = new Date(Date.now() + 8 * HOUR);
+    const startTs = new Date(Date.UTC(
+      manilaToday.getUTCFullYear(), manilaToday.getUTCMonth(), manilaToday.getUTCDate() + offsetDays
+    ));
+    return { startTs, endTs: new Date(startTs.getTime() + 9 * HOUR) };
+  };
+  // A window straddling the moment the seed ran. Used where the demo needs an
+  // outing that is live NOW whatever hour the database was built at — a fixed
+  // 08:00–17:00 window would be over by the evening and the ticket would go back
+  // to having nothing the gate can resolve.
+  const aroundNow = (backHours: number, forwardHours: number) => ({
+    startTs: new Date(Date.now() - backHours * HOUR),
+    endTs: new Date(Date.now() + forwardHours * HOUR)
+  });
+
+  type SeededDate = {
+    startTs: Date; endTs: Date; status: TripDateStatus;
+    startMileage?: number; endMileage?: number;
+    preTripGuardId?: string; preTripCheckedById?: string; preTripCheckedAt?: Date;
+    postTripGuardId?: string; postTripCheckedById?: string; postTripCheckedAt?: Date;
+    cancellationReason?: string;
+  };
+
   if ((await prisma.tripTicket.count()) === 0) {
     for (const [i, status] of statuses.entries()) {
       const vehicle = vehicles[i % vehicles.length]!;
-      const guarded = status === 'in_progress' || status === 'completed';
+      const guard = users.security_guard.id;
+      // Mirrors the backfill SQL's CASE exactly: in_progress→in_progress,
+      // completed→completed, cancelled/disapproved→cancelled (there is no
+      // `disapproved` TripDateStatus — a refused outing is simply not happening),
+      // everything else→scheduled.
+      const dateStatus: TripDateStatus =
+        status === 'in_progress' ? 'in_progress'
+          : status === 'completed' ? 'completed'
+            : status === 'cancelled' || status === 'disapproved' ? 'cancelled'
+              : 'scheduled';
+
+      let dates: SeededDate[];
+      if (status === 'in_progress') {
+        // MUST contain "now": resolveOutingForCheckIn looks for an `in_progress`
+        // row, and this ticket's van is out of the yard until one is found and
+        // closed. Guard stamps and the opening odometer belong on the ROW now.
+        const w = aroundNow(2, 6);
+        dates = [{ ...w, status: dateStatus, startMileage: vehicle.mileage,
+          preTripGuardId: guard, preTripCheckedById: guard, preTripCheckedAt: w.startTs }];
+      } else if (status === 'completed') {
+        const w = workingDay(-7);
+        dates = [{ ...w, status: dateStatus,
+          startMileage: vehicle.mileage - 250, endMileage: vehicle.mileage,
+          preTripGuardId: guard, preTripCheckedById: guard, preTripCheckedAt: w.startTs,
+          postTripGuardId: guard, postTripCheckedById: guard, postTripCheckedAt: w.endTs }];
+      } else if (status === 'approved') {
+        // The one ticket that shows the feature off: TWO NON-CONSECUTIVE dates,
+        // an event today and again later in the week, with the days in between
+        // free for anyone else to book. The first straddles `now` so the gate has
+        // an outing to resolve however late in the day the seed was run.
+        dates = [
+          { ...aroundNow(1, 8), status: dateStatus },
+          { ...workingDay(4), status: dateStatus }
+        ];
+      } else {
+        dates = [{ ...workingDay(2 + i), status: dateStatus,
+          cancellationReason: status === 'cancelled' ? 'Trip no longer needed'
+            : status === 'disapproved' ? 'Vehicle not available' : undefined }];
+      }
+
+      // The ticket's own span is DERIVED, display and sort only — computed here
+      // exactly as recomputeTicketSpan() does at runtime: earliest start and
+      // latest end across the non-cancelled rows, falling back to all of them
+      // when every row is cancelled (that function keeps the last span rather
+      // than going null, because a null span sorts unpredictably).
+      const live = dates.filter((d) => d.status !== 'cancelled');
+      const spanRows = live.length > 0 ? live : dates;
+      const startTs = new Date(Math.min(...spanRows.map((d) => d.startTs.getTime())));
+      const endTs = new Date(Math.max(...spanRows.map((d) => d.endTs.getTime())));
+
       await prisma.tripTicket.create({
         data: {
           branchId: mainBranch.id, driverId: drivers[i % drivers.length]!.id, vehicleId: vehicle.id,
@@ -242,13 +329,11 @@ async function main() {
           approvedByAdminId: status === 'pending_admin_approval' ? undefined : users.admin.id,
           disapprovedReason: status === 'disapproved' ? 'Vehicle not available' : undefined,
           cancellationReason: status === 'cancelled' ? 'Trip no longer needed' : undefined,
-          preTripGuardId: guarded ? users.security_guard.id : undefined,
-          preTripCheckedById: guarded ? users.security_guard.id : undefined,
-          preTripCheckedAt: guarded ? new Date('2026-06-02T08:00:00Z') : undefined,
-          postTripGuardId: status === 'completed' ? users.security_guard.id : undefined,
-          postTripCheckedById: status === 'completed' ? users.security_guard.id : undefined,
-          postTripCheckedAt: status === 'completed' ? new Date('2026-06-02T17:00:00Z') : undefined,
-          startTs: new Date('2026-06-02T08:00:00Z'), endTs: new Date('2026-06-02T17:00:00Z'),
+          // The ticket's own guard/odometer columns are DEPRECATED and no longer
+          // written by anything (see trip-tickets/transitions.ts) — those facts
+          // are per-outing and live on the rows created below.
+          startTs, endTs,
+          dates: { create: dates },
           fuelAllocation: hasAllocation.has(status)
             ? {
                 create: {
