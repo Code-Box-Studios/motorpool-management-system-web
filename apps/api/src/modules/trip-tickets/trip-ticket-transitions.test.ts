@@ -175,6 +175,24 @@ async function checkOut(
   }
 }
 
+// ...and closes it again, which is what puts a date row in `completed` — the
+// state the whole-cancel cascade below must refuse to overwrite.
+async function checkIn(
+  s: { ticketId: string },
+  endMileage: number
+): Promise<void> {
+  const header = await guardHeaderForCancelTests();
+  const res = await request(app)
+    .post(`/api/trip-tickets/${s.ticketId}/check-in`)
+    .set('Authorization', header)
+    .send({ endMileage });
+  if (res.status !== 200) {
+    throw new Error(
+      `checkIn(${s.ticketId}) failed: ${res.status} ${JSON.stringify(res.body)}`
+    );
+  }
+}
+
 describe('trip-ticket approval transitions', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
@@ -313,6 +331,109 @@ describe('trip-ticket approval transitions', () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('cancelled');
     expect(res.body.cancellationReason).toBe('Changed plans');
+  });
+
+  // --- Fix round 3, item 1: the terminal decisions cascade onto the rows ---
+
+  // Whole-ticket cancel is legal from `approved`, and since this branch
+  // `approved` no longer means "nothing has happened yet": a two-date event
+  // whose first outing has already been driven and closed sits right back at
+  // `approved`. Cancelling it used to write only the ticket and the allocation,
+  // leaving date 2 `scheduled` — still holding the van against assertBookable
+  // and still on the driver's list for a trip that has been called off.
+  it('cancel cascades onto the scheduled dates but leaves a completed one alone', async () => {
+    const s = await approvedTwoDateTicket();
+    // Drive date 1 all the way through the gate: out and back.
+    await checkOut(s, CANCEL_TEST_START_KM);
+    await checkIn(s, CANCEL_TEST_START_KM + 120);
+    // Premise: one outing physically happened, one is still ahead, and the
+    // ticket derived back to `approved` — which is what makes cancel legal.
+    const before = await prisma.tripTicket.findUniqueOrThrow({
+      where: { id: s.ticketId }
+    });
+    expect(before.status).toBe('approved');
+
+    const res = await request(app)
+      .post(`/api/trip-tickets/${s.ticketId}/cancel`)
+      .set('Authorization', authHeader(s.admin.id, s.admin.email, 'admin'))
+      .send({ reason: 'event called off' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('cancelled');
+
+    const dates = await prisma.tripDate.findMany({
+      where: { tripTicketId: s.ticketId },
+      orderBy: { startTs: 'asc' }
+    });
+    expect(dates).toHaveLength(2);
+    const [first, second] = dates;
+    // Safe only because toHaveLength(2) above makes both unreachable-undefined.
+    // The outing that was actually driven STAYS completed: it physically
+    // happened, spec §6.2 counts it, and useCompletedTripsCount reads it.
+    expect(first!.status).toBe('completed');
+    expect(first!.startMileage).toBe(CANCEL_TEST_START_KM);
+    expect(first!.endMileage).toBe(CANCEL_TEST_START_KM + 120);
+    expect(first!.cancellationReason).toBeNull();
+    // The one that had not happened yet is called off, and says why.
+    expect(second!.status).toBe('cancelled');
+    expect(second!.cancellationReason).toBe('event called off');
+
+    // And the ticket keeps its terminal status: deriveTicketStatus returns a
+    // `cancelled` ticket untouched, so nothing re-derives it to `completed` off
+    // the back of that one completed row.
+    const ticket = await prisma.tripTicket.findUniqueOrThrow({
+      where: { id: s.ticketId }
+    });
+    expect(ticket.status).toBe('cancelled');
+    expect(ticket.cancellationReason).toBe('event called off');
+  });
+
+  it('disapprove cascades onto every date on the ticket', async () => {
+    const { ticket } = await pendingTicket();
+    const now = new Date();
+    await prisma.tripDate.createMany({
+      data: [
+        {
+          tripTicketId: ticket.id,
+          startTs: new Date(now.getTime() + 86_400_000),
+          endTs: new Date(now.getTime() + 86_400_000 + 6 * 3_600_000)
+        },
+        {
+          tripTicketId: ticket.id,
+          startTs: new Date(now.getTime() + 5 * 86_400_000),
+          endTs: new Date(now.getTime() + 5 * 86_400_000 + 6 * 3_600_000)
+        }
+      ]
+    });
+    const { user: admin } = await createTestUser({
+      email: 'a@test.local',
+      role: 'admin'
+    });
+
+    const res = await request(app)
+      .post(`/api/trip-tickets/${ticket.id}/disapprove`)
+      .set('Authorization', authHeader(admin.id, admin.email, 'admin'))
+      .send({ reason: 'No vehicle for those days' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('disapproved');
+
+    // There is no `disapproved` TripDateStatus — a refused outing is simply not
+    // happening, which is what `cancelled` says (and what the backfill SQL maps
+    // a disapproved ticket's row to). Left `scheduled`, these rows would go on
+    // blocking the vehicle and the driver for windows nobody will ever use.
+    const dates = await prisma.tripDate.findMany({
+      where: { tripTicketId: ticket.id }
+    });
+    expect(dates).toHaveLength(2);
+    for (const d of dates) {
+      expect(d.status).toBe('cancelled');
+      expect(d.cancellationReason).toBe('No vehicle for those days');
+    }
+
+    // The ticket keeps the terminal status the refusal gave it.
+    expect(
+      (await prisma.tripTicket.findUniqueOrThrow({ where: { id: ticket.id } }))
+        .status
+    ).toBe('disapproved');
   });
 
   // --- Task 6: cancel ONE date without voiding the rest of the event ---

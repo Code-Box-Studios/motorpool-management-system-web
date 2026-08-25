@@ -106,6 +106,26 @@ export async function disapprove(
       where: { tripTicketId: id },
       data: { status: 'disapproved' }
     });
+    // ...and onto the outings the refusal terminates. Without this the rows
+    // stay `scheduled` on a ticket nobody will ever act on again: they keep
+    // holding the vehicle and driver against `assertBookable` (which only
+    // excludes `cancelled` rows), and they keep showing on the calendar and
+    // the driver's dashboard as trips still to run. `cancelled` is the row-level
+    // spelling of "this outing is not happening" — spec §6.2 has no
+    // `disapproved` TripDateStatus, and the backfill SQL maps a disapproved
+    // ticket's row to `cancelled` for exactly this reason.
+    //
+    // Only `scheduled` rows. `disapprove` is reachable only from the two
+    // pending states so in practice every row is scheduled, but scoping it
+    // this way keeps the rule identical to `cancel` below and means a row that
+    // somehow got out of the yard is never rewritten out from under the gate.
+    await tx.tripDate.updateMany({
+      where: { tripTicketId: id, status: 'scheduled' },
+      data: { status: 'cancelled', cancellationReason: reason }
+    });
+    // Deliberately NO syncTicketStatus: `deriveTicketStatus` returns anything
+    // other than approved/in_progress untouched, so the ticket keeps the
+    // terminal `disapproved` this transition just gave it.
   });
   await events.tripDisapproved(ticket, actor, reason);
   return findTripTicketById(id);
@@ -141,6 +161,31 @@ export async function cancel(
       where: { tripTicketId: id },
       data: { status: 'cancelled' }
     });
+    // Cascade onto the outings this cancellation calls off. `approved` is in
+    // the allowed-from set above, and since this branch `approved` no longer
+    // means "nothing has happened yet": a two-date event whose first outing has
+    // already been driven and closed sits right back at `approved` (see the
+    // "does NOT complete the ticket while a later date is still scheduled"
+    // test). Without this cascade, whole-cancelling such a ticket left date 1
+    // `completed`, date 2 `scheduled` — an outing still holding the van in
+    // `assertBookable` and still on the driver's list for a trip that has been
+    // called off.
+    //
+    // ONLY `scheduled` rows. A `completed` outing physically happened —
+    // rewriting it to `cancelled` would lose a real trip from
+    // `useCompletedTripsCount` and would contradict spec §6.2, which derives a
+    // ticket whose rows are all settled with at least one completed to
+    // `completed`. An `in_progress` row is a van currently outside the gate;
+    // only check-in may close it, or the vehicle never returns to `available`.
+    await tx.tripDate.updateMany({
+      where: { tripTicketId: id, status: 'scheduled' },
+      data: { status: 'cancelled', cancellationReason: reason }
+    });
+    // Deliberately NO syncTicketStatus: the admin cancelled the EVENT, and
+    // `deriveTicketStatus` returns a `cancelled` ticket untouched, so it keeps
+    // the terminal status this transition just gave it — including on the
+    // partly-completed case, where re-deriving from the rows would otherwise
+    // argue for `completed`.
   });
   await events.tripCancelled(ticket, actor, reason);
   return findTripTicketById(id);
