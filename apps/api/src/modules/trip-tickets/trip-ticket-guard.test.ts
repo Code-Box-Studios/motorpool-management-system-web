@@ -8,6 +8,7 @@ import {
   createTestUser
 } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
+import { endOfDisplayDay } from '../../lib/timezone.js';
 import { resolveOutingForCheckOut } from './dates.js';
 
 const app = createApp();
@@ -283,15 +284,53 @@ describe('trip-ticket guard transitions', () => {
   // Brief's snippet builds this ticket via a `scaffold()` helper that does not
   // exist in this file (only trip-ticket-booking.test.ts has one) — inlined
   // here in the same style as `approvedTicket` above instead.
-  async function approvedTwoDateTicket() {
+  type Window = { startTs: Date; endTs: Date };
+
+  /**
+   * Two same-day, NON-OVERLAPPING windows, both of which
+   * `resolveOutingForCheckOut` will accept for the whole of the run.
+   *
+   * Its bound is `startTs <= endOfDisplayDay(now)` — the end of `now`'s
+   * ASIA/MANILA calendar day, while vitest pins this process to `TZ: 'UTC'`. So
+   * a fixed `now + 2h` offset is NOT hour-independent: run the suite after
+   * 22:00 Manila and `now + 2h` lands on tomorrow's Manila date, past the bound,
+   * and the second outing is refused NO_OUTING_TODAY. (That is the same
+   * host-local-vs-Manila trap the `endOfDisplayDay` fix addressed.)
+   *
+   * So the windows are carved out of whatever is LEFT of today's Manila day
+   * instead of placed at a fixed offset: outing 1 runs from an hour ago to 40%
+   * of the remaining day, outing 2 from 60% of it to the day's last instant.
+   * Both starts are therefore <= the bound at every hour, both ends are in the
+   * future when their own check-out runs, and there is a real gap between them.
+   * (The only instant this cannot survive is the final few milliseconds of a
+   * Manila day, where no two sequential same-day outings can exist at all —
+   * outing 2 must start at or after outing 1 ends, which must itself be after
+   * `now`.)
+   */
+  function sameDayWindows(now = new Date()): [Window, Window] {
+    const rest = endOfDisplayDay(now).getTime() - now.getTime();
+    const at = (fraction: number) =>
+      new Date(now.getTime() + Math.round(rest * fraction));
+    return [
+      { startTs: new Date(now.getTime() - 3_600_000), endTs: at(0.4) },
+      { startTs: at(0.6), endTs: at(1) }
+    ];
+  }
+
+  // A counter, not a fixed suffix: `windows` makes this fixture reusable, and
+  // two calls in one file must not collide on vin / licensePlate / driver email.
+  let twoDateSeq = 0;
+
+  async function approvedTwoDateTicket(windows?: [Window, Window]) {
+    const n = ++twoDateSeq;
     const branch = await createTestBranch();
     const vehicle = await prisma.vehicle.create({
       data: {
         make: 'T',
         model: 'H',
         year: 2021,
-        vin: 'V2',
-        licensePlate: 'P2',
+        vin: `V2-${n}`,
+        licensePlate: `P2-${n}`,
         capacity: 5,
         fuelType: 'diesel',
         mileage: START_KM,
@@ -303,7 +342,7 @@ describe('trip-ticket guard transitions', () => {
     });
     const driver = await prisma.driver.create({
       data: {
-        email: 'd2@test.local',
+        email: `d2-${n}@test.local`,
         fullName: 'D2',
         status: 'active',
         branchId: branch.id
@@ -324,19 +363,20 @@ describe('trip-ticket guard transitions', () => {
         status: 'approved'
       }
     });
+    const dates: [Window, Window] = windows ?? [
+      // Due "today"...
+      {
+        startTs: new Date(now.getTime() - 3_600_000),
+        endTs: new Date(now.getTime() + 6 * 3_600_000)
+      },
+      // ...and a week out, which the gate will not release early.
+      {
+        startTs: new Date(now.getTime() + 7 * 86_400_000),
+        endTs: new Date(now.getTime() + 7 * 86_400_000 + 6 * 3_600_000)
+      }
+    ];
     await prisma.tripDate.createMany({
-      data: [
-        {
-          tripTicketId: ticket.id,
-          startTs: new Date(now.getTime() - 3_600_000),
-          endTs: new Date(now.getTime() + 6 * 3_600_000)
-        },
-        {
-          tripTicketId: ticket.id,
-          startTs: new Date(now.getTime() + 7 * 86_400_000),
-          endTs: new Date(now.getTime() + 7 * 86_400_000 + 6 * 3_600_000)
-        }
-      ]
+      data: dates.map((d) => ({ tripTicketId: ticket.id, ...d }))
     });
     return { branch, vehicle, driver, ticketId: ticket.id };
   }
@@ -466,6 +506,77 @@ describe('trip-ticket guard transitions', () => {
     });
     expect(vehicle.status).toBe('available');
     expect(vehicle.mileage).toBe(1100);
+  });
+
+  // Spec §10, second half: run the gate cycle on date 1 and the ticket must NOT
+  // complete; run it on date 2 and it MUST. Only the first half was covered
+  // anywhere — both multi-date fixtures put date 2 a week out, where
+  // `resolveOutingForCheckOut` refuses to release it, so the
+  // approved → in_progress → approved → in_progress → completed seam that is the
+  // whole point of this feature was pinned only by a pure unit test of
+  // `deriveTicketStatus`. Seeding the rows directly bypasses `assertBookable`,
+  // which is what makes two same-day outings on one van expressible here.
+  it('completes the ticket only once the SECOND same-day outing is back in', async () => {
+    const s = await approvedTwoDateTicket(sameDayWindows());
+
+    // --- outing 1 ---
+    await checkOut(s, 1000);
+    await checkIn(s, 1100);
+
+    const afterFirst = await prisma.tripTicket.findUniqueOrThrow({
+      where: { id: s.ticketId }
+    });
+    expect(afterFirst.status).toBe('approved');
+    const midDates = await prisma.tripDate.findMany({
+      where: { tripTicketId: s.ticketId },
+      orderBy: { startTs: 'asc' }
+    });
+    expect(midDates).toHaveLength(2);
+    // Safe only because toHaveLength(2) above makes both unreachable-undefined.
+    expect(midDates[0]!.status).toBe('completed');
+    expect(midDates[1]!.status).toBe('scheduled');
+    // The van must be back and bookable, or outing 2 could never leave.
+    const midVehicle = await prisma.vehicle.findUniqueOrThrow({
+      where: { id: s.vehicle.id }
+    });
+    expect(midVehicle.status).toBe('available');
+    expect(midVehicle.mileage).toBe(1100);
+
+    // --- outing 2: the half nothing at any level exercised ---
+    await checkOut(s, 1150);
+    await checkIn(s, 1400);
+
+    const afterSecond = await prisma.tripTicket.findUniqueOrThrow({
+      where: { id: s.ticketId }
+    });
+    expect(afterSecond.status).toBe('completed');
+
+    const dates = await prisma.tripDate.findMany({
+      where: { tripTicketId: s.ticketId },
+      orderBy: { startTs: 'asc' }
+    });
+    expect(dates).toHaveLength(2);
+    const [first, second] = dates;
+    expect(first!.status).toBe('completed');
+    expect(second!.status).toBe('completed');
+    // Each outing carries its OWN odometer pair — the second's readings must not
+    // have landed on the first's row, or a two-date event reports one distance
+    // and loses the other.
+    expect(first!.startMileage).toBe(1000);
+    expect(first!.endMileage).toBe(1100);
+    expect(second!.startMileage).toBe(1150);
+    expect(second!.endMileage).toBe(1400);
+    // The odometer only ever runs forwards across outings.
+    expect(second!.startMileage!).toBeGreaterThanOrEqual(first!.endMileage!);
+    // ...and separate guard stamps, one pair per outing.
+    expect(second!.preTripGuardId).not.toBe(first!.preTripGuardId);
+    expect(second!.postTripGuardId).not.toBe(first!.postTripGuardId);
+
+    const vehicle = await prisma.vehicle.findUniqueOrThrow({
+      where: { id: s.vehicle.id }
+    });
+    expect(vehicle.status).toBe('available');
+    expect(vehicle.mileage).toBe(1400);
   });
 
   it('refuses a second check-out while a date on this ticket is already in_progress', async () => {

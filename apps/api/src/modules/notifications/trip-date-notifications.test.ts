@@ -151,6 +151,97 @@ describe('per-outing notifications', () => {
     expect(actorRows).toHaveLength(0);
   });
 
+  // Fix round 3, item 4: the ORDINARY case — a requester who is not the driver.
+  // The test above only pins the degenerate one (driver IS requester), where
+  // `others` is filtered down; it would still pass if the filter were inverted
+  // to `id === driverUserId`, because it only counts the driver's own rows.
+  // This one is the other side of that predicate: invert it and `others`
+  // collapses to nothing, the requester and the admins hear nothing at all, and
+  // the only person told is the driver.
+  it('sends the requester and the admins the general copy, and the driver the pointed one', async () => {
+    const branch = await createTestBranch();
+    const { vehicle, driver, driverUser } = await scaffold(branch.id);
+    // A requester who is a DIFFERENT person from the driver — the normal case.
+    const { user: requesterUser } = await createTestUser({
+      role: 'requester',
+      email: 'req-split@test.local'
+    });
+    const { user: actingAdmin } = await createTestUser({
+      role: 'admin',
+      email: 'admin-split-actor@test.local'
+    });
+    const { user: bystanderAdmin } = await createTestUser({
+      role: 'admin',
+      email: 'admin-split-bystander@test.local'
+    });
+
+    const ticket = await prisma.tripTicket.create({
+      data: {
+        branchId: branch.id,
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        destination: 'D',
+        purpose: 'P',
+        dateRequested: new Date(),
+        preparedBy: '',
+        requestedById: requesterUser.id,
+        status: 'approved'
+      }
+    });
+    // Same boundary-straddling instant used elsewhere in this file: 23:00 UTC
+    // on the 27th is 07:00 Manila on the 28th.
+    const outing = await prisma.tripDate.create({
+      data: {
+        tripTicketId: ticket.id,
+        startTs: new Date('2026-08-27T23:00:00.000Z'),
+        endTs: new Date('2026-08-28T02:00:00.000Z')
+      }
+    });
+    const actor: AuthenticatedUser = {
+      id: actingAdmin.id,
+      email: actingAdmin.email,
+      role: 'admin',
+      branchId: branch.id
+    };
+
+    await events.tripDateCancelled(ticket, outing, actor, 'venue moved');
+
+    // The requester gets the general copy — the row that goes missing entirely
+    // if the `others` filter is inverted.
+    const requesterRow = only(
+      await prisma.notification.findMany({
+        where: { userId: requesterUser.id }
+      })
+    );
+    expect(requesterRow.type).toBe('trip_cancelled');
+    expect(requesterRow.title).toContain('date was cancelled');
+    expect(requesterRow.title).toContain('2026-08-28');
+    expect(requesterRow.body).toContain('venue moved');
+
+    // Every admin who was not the actor, likewise.
+    const bystanderRow = only(
+      await prisma.notification.findMany({
+        where: { userId: bystanderAdmin.id }
+      })
+    );
+    expect(bystanderRow.title).toContain('date was cancelled');
+
+    // The driver gets the POINTED copy instead — "your outing", not "the date"
+    // — and exactly one of them: they are not in `others`.
+    const driverRow = only(
+      await prisma.notification.findMany({ where: { userId: driverUser.id } })
+    );
+    expect(driverRow.title).toContain('your');
+    expect(driverRow.title).toContain('outing is cancelled');
+    expect(driverRow.title).not.toContain('date was cancelled');
+    expect(driverRow.title).toContain('2026-08-28');
+
+    // The admin who did it was there.
+    expect(
+      await prisma.notification.count({ where: { userId: actingAdmin.id } })
+    ).toBe(0);
+  });
+
   it('names the outing at the gate, and only calls the trip complete once every date is settled', async () => {
     const branch = await createTestBranch();
     const { user: requesterUser } = await createTestUser({
