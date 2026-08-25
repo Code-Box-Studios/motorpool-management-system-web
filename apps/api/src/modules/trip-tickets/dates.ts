@@ -47,12 +47,28 @@ export async function recomputeTicketSpan(
  *
  * Only legal while the ticket is still pending — `update` enforces that — so
  * deleting the old rows cannot discard an odometer reading or a guard stamp.
+ *
+ * An EMPTY list is refused rather than obeyed. On its own each half is
+ * defensible — `recomputeTicketSpan` deliberately keeps the last span when no
+ * live rows remain, because a null span sorts unpredictably in every list that
+ * reads it — but together they are a trap: an empty replace deletes every row
+ * and then lands in exactly that early return, leaving a ticket with no dates
+ * and a stale span that still claims one, with no error anywhere. Both callers
+ * (`create` and `update` in service.ts) already reject a request with no dates
+ * before reaching here, so this can only fire on a future caller that forgot.
  */
 export async function replaceTripDates(
   tx: Prisma.TransactionClient,
   tripTicketId: string,
   dates: TripDateInput[]
 ): Promise<void> {
+  if (dates.length === 0) {
+    throw new AppError(
+      400,
+      'NO_TRIP_DATES',
+      'A trip ticket must keep at least one date'
+    );
+  }
   await tx.tripDate.deleteMany({ where: { tripTicketId } });
   await tx.tripDate.createMany({
     data: dates.map((d) => ({

@@ -150,7 +150,16 @@ async function assertBookable(
   for (let i = 1; i < sorted.length; i++) {
     const prev = sorted[i - 1];
     const cur = sorted[i];
-    if (!prev || !cur) continue; // unreachable: i < sorted.length bounds both
+    // Unreachable: `i` runs 1..sorted.length-1, so both indexes are in bounds.
+    // It throws rather than `continue`s because `continue` would make a future
+    // refactor's failure mode a SILENTLY SKIPPED overlap check — the one thing
+    // this loop exists to do — and the request would be accepted with two of
+    // its own dates on top of each other. Loud is the only safe direction here.
+    if (!prev || !cur) {
+      throw new Error(
+        'unreachable: intra-submission overlap scan indexed out of bounds'
+      );
+    }
     if (cur.startTs < prev.endTs) {
       throw new AppError(
         409,
