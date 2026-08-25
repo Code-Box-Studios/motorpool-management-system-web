@@ -171,11 +171,13 @@ export async function cancel(
     // `assertBookable` and still on the driver's list for a trip that has been
     // called off.
     //
-    // ONLY `scheduled` rows. A `completed` outing physically happened —
-    // rewriting it to `cancelled` would lose a real trip from
-    // `useCompletedTripsCount` and would contradict spec §6.2, which derives a
-    // ticket whose rows are all settled with at least one completed to
-    // `completed`. An `in_progress` row is a van currently outside the gate;
+    // ONLY `scheduled` rows. A `completed` outing physically happened — the van
+    // went out, the odometer moved, a guard signed it back in — and rewriting it
+    // to `cancelled` would erase that record and contradict spec §6.2, which
+    // derives a ticket whose rows are all settled with at least one completed to
+    // `completed`. (The dashboard figure is safe either way: completedTripsCount
+    // counts TICKETS, not date rows, so a cancelled ticket is excluded
+    // regardless.) An `in_progress` row is a van currently outside the gate;
     // only check-in may close it, or the vehicle never returns to `available`.
     await tx.tripDate.updateMany({
       where: { tripTicketId: id, status: 'scheduled' },

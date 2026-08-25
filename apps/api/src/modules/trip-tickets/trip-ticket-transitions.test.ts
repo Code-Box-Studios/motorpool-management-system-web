@@ -368,7 +368,8 @@ describe('trip-ticket approval transitions', () => {
     const [first, second] = dates;
     // Safe only because toHaveLength(2) above makes both unreachable-undefined.
     // The outing that was actually driven STAYS completed: it physically
-    // happened, spec §6.2 counts it, and useCompletedTripsCount reads it.
+    // happened — van out, odometer moved, guard signed it back in — and spec
+    // §6.2 treats a settled-with-one-completed set as `completed`.
     expect(first!.status).toBe('completed');
     expect(first!.startMileage).toBe(CANCEL_TEST_START_KM);
     expect(first!.endMileage).toBe(CANCEL_TEST_START_KM + 120);
