@@ -779,47 +779,60 @@ describe('trip-ticket concurrency', () => {
 
   it('two SIMULTANEOUS check-outs cannot both claim one vehicle', async () => {
     const s = await scaffold();
-    const { user: evp } = await createTestUser({
-      email: 'e@test.local',
-      role: 'evp_operations'
-    });
     const { user: guard } = await createTestUser({
       email: 'g@test.local',
       role: 'security_guard'
     });
-    const evpH = authHeader(evp.id, evp.email, 'evp_operations');
     const guardH = authHeader(guard.id, guard.email, 'security_guard');
 
-    // Two trips on ONE van, both due TODAY — the check-out gate (Task 5,
-    // `resolveOutingForCheckOut`) now refuses an outing that is not — but
-    // offset from each other so the vehicle double-booking rule still
-    // permits both bookings.
+    // Seeded directly with Prisma instead of routed through the booking
+    // endpoint (unlike every other test in this file) — the race under test
+    // is the CHECK-OUT vehicle claim, not booking validation, and going
+    // through the endpoint makes that race impossible to reach reliably.
+    // Both trips must resolve to an outing "today" (`resolveOutingForCheckOut`
+    // in dates.ts requires `endTs > now` and `startTs <= endOfDisplayDay(now)`,
+    // the Manila calendar day), which needs a window that ends in the future.
+    // Booking through the API runs `assertBookable`, which refuses two dates
+    // on the same vehicle if their windows overlap — so the two trips would
+    // need DISTINCT, non-overlapping windows that both end in the future,
+    // which forces the later one to also START in the future. Close to
+    // midnight Manila there is no room left in the display day for that later
+    // start, so the second booking gets refused NO_OUTING_TODAY before the
+    // race is ever exercised (reproduced at 23:16 Manila). Seeding directly
+    // bypasses `assertBookable`'s overlap check entirely — double-booking on
+    // overlapping windows already has its own dedicated coverage above — so
+    // both dates can share the exact SAME hour-independent window and this
+    // test passes at every hour, in every timezone. Do not route this back
+    // through the booking endpoint.
     const now = Date.now();
     const HOUR = 3_600_000;
-    const approvedTrip = async (driverId: string, startOffsetHours: number) => {
-      const t = await post(s, {
-        driverId,
-        startTs: new Date(now + startOffsetHours * HOUR).toISOString(),
-        endTs: new Date(now + (startOffsetHours + 2) * HOUR).toISOString()
+    const startTs = new Date(now - HOUR);
+    const endTs = new Date(now + 6 * HOUR);
+    const approvedTrip = async (driverId: string) => {
+      const ticket = await prisma.tripTicket.create({
+        data: {
+          branchId: s.branch.id,
+          driverId,
+          vehicleId: s.vehicle.id,
+          destination: 'Site A',
+          purpose: 'Delivery',
+          dateRequested: new Date(),
+          preparedBy: '',
+          status: 'approved'
+        }
       });
-      await request(app)
-        .post(`/api/trip-tickets/${t.body.id}/approve`)
-        .set('Authorization', s.header)
-        .send({
-          liters: 10,
-          fuelType: 'diesel',
-          date: inDays(0),
-          purpose: 'p',
-          tripTo: 't'
-        });
-      await request(app)
-        .post(`/api/trip-tickets/${t.body.id}/approve-evp`)
-        .set('Authorization', evpH)
-        .send({});
-      return t.body.id as string;
+      await prisma.tripDate.create({
+        data: {
+          tripTicketId: ticket.id,
+          startTs,
+          endTs,
+          status: 'scheduled'
+        }
+      });
+      return ticket.id;
     };
-    const a = await approvedTrip(s.driver.id, -1); // now-1h .. now+1h
-    const b = await approvedTrip(s.otherDriver.id, 2); // now+2h .. now+4h
+    const a = await approvedTrip(s.driver.id);
+    const b = await approvedTrip(s.otherDriver.id);
 
     // Fire both at the same instant. A read-then-write let BOTH read `available`
     // before either committed, and two trips went in_progress on one van.
