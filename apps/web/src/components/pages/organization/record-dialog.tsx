@@ -349,7 +349,12 @@ export function RecordDialog({ resource, state, onClose }: RecordDialogProps) {
                           onValueChange={field.onChange}
                           value={field.value}
                         >
-                          <SelectTrigger>
+                          {/* id must match the FieldLabel's htmlFor above, or
+                              the label is orphaned: clicking it does nothing
+                              and a screen reader announces the combobox with
+                              no name. The text Input branch already wires
+                              id={f.key}; every select was missing it. */}
+                          <SelectTrigger id={f.key}>
                             <SelectValue
                               placeholder={`Select ${f.label.toLowerCase()}`}
                             />

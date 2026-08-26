@@ -223,7 +223,7 @@ model DepartmentOffice {
   headId     String?   @map("head_id") @db.Uuid
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
-  // NULL means active. Set by POST /branches/:id/archive, cleared by /restore.
+  // NULL means active. Set by POST /offices/:id/archive, cleared by /restore.
   archivedAt DateTime? @map("archived_at")
 
   branch      Branch?      @relation(fields: [branchId], references: [id])
@@ -244,7 +244,7 @@ model OfficeHead {
   officeId   String?   @map("office_id") @db.Uuid
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
-  // NULL means active. Set by POST /branches/:id/archive, cleared by /restore.
+  // NULL means active. Set by POST /office-heads/:id/archive, cleared by /restore.
   archivedAt DateTime? @map("archived_at")
 
   branch      Branch?            @relation(fields: [branchId], references: [id])

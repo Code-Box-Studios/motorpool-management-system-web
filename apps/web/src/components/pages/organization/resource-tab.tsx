@@ -124,9 +124,16 @@ export function ResourceTab({ resource }: ResourceTabProps) {
       <Card>
         <CardContent className="pt-6">
           {query.isLoading ? (
+            // meta.columns + Actions: the real table below renders an extra
+            // Actions header, so a skeleton built from meta.columns alone is
+            // one column narrower and the whole table jumps sideways when the
+            // data lands — the exact shift TableSkeleton exists to prevent.
             <TableSkeleton
               rows={5}
-              columns={meta.columns.map((label) => ({ label }))}
+              columns={[
+                ...meta.columns.map((label) => ({ label })),
+                { label: 'Actions' }
+              ]}
             />
           ) : query.error ? (
             <div className="text-destructive p-8 text-center">
