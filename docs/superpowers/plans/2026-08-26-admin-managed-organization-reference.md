@@ -1186,20 +1186,28 @@ import * as controller from './controller.js';
 
 export const organizationRouter = Router();
 
-organizationRouter.use(requireAuth);
+// requireAuth is applied per-route, NOT router-wide (organizationRouter.use(...)).
+// This router is mounted at the generic '/api' prefix, same as referenceRouter,
+// alongside sibling routers (gps, tracker-devices) that authenticate some of
+// their own routes with a device key instead of a Bearer token. A router-wide
+// requireAuth would run for every '/api/*' request that reaches this router —
+// even ones that match no route here — and reject those device-key requests
+// with 401 before they ever get to the router that actually owns them.
 
 // Reads stay open to every authenticated role: the booking, user, vehicle and
 // job-order forms all populate their dropdowns from these.
-organizationRouter.get('/branches', controller.listBranches);
+organizationRouter.get('/branches', requireAuth, controller.listBranches);
 
 organizationRouter.post(
   '/branches',
+  requireAuth,
   requireRole(USER_ROLES.admin),
   validateBody(createBranchBodySchema),
   controller.createBranch
 );
 organizationRouter.patch(
   '/branches/:id',
+  requireAuth,
   requireRole(USER_ROLES.admin),
   validateBody(updateBranchBodySchema),
   controller.updateBranch
@@ -1208,15 +1216,19 @@ organizationRouter.patch(
 // FAIL with a structured list of blockers, which neither of those reads like.
 organizationRouter.post(
   '/branches/:id/archive',
+  requireAuth,
   requireRole(USER_ROLES.admin),
   controller.archiveBranch
 );
 organizationRouter.post(
   '/branches/:id/restore',
+  requireAuth,
   requireRole(USER_ROLES.admin),
   controller.restoreBranch
 );
 ```
+
+**Do not use `organizationRouter.use(requireAuth)`.** It is mounted at the bare `/api` prefix, so router-level middleware fires for every `/api/*` request that reaches it — including requests matching no route here — and `requireAuth` calls `next(err)` rather than falling through, so `/api/gps/ingest` and `/api/tracker-devices/resolve` would 401 before their own routers ever saw them. `reference.test.ts`'s existing "does NOT hijack unknown /api routes" test exists for this exact failure.
 
 - [ ] **Step 7: Mount it and drop the migrated handler from reference**
 
@@ -1719,7 +1731,9 @@ Append ten handlers to `apps/api/src/modules/organization/controller.ts`, follow
 
 - [ ] **Step 5: Extend the router**
 
-Append to `apps/api/src/modules/organization/router.ts` the same five-route block for `/offices` and `/office-heads`, using `createOfficeBodySchema` / `updateOfficeBodySchema` and `createOfficeHeadBodySchema` / `updateOfficeHeadBodySchema` in `validateBody`, and `requireRole(USER_ROLES.admin)` on every write. The two GETs carry no role gate.
+Append to `apps/api/src/modules/organization/router.ts` the same five-route block for `/offices` and `/office-heads`, using `createOfficeBodySchema` / `updateOfficeBodySchema` and `createOfficeHeadBodySchema` / `updateOfficeHeadBodySchema` in `validateBody`.
+
+Match Task 3's wiring exactly: **`requireAuth` on every route individually**, plus `requireRole(USER_ROLES.admin)` on the eight writes. The two GETs take `requireAuth` and no role gate. Do not "tidy" this into a router-wide `organizationRouter.use(requireAuth)` — the router is mounted at the bare `/api` prefix, and doing so 401s the device-key routes on the gps and tracker-device routers before they are ever reached.
 
 - [ ] **Step 6: Finish emptying the reference module**
 
