@@ -161,6 +161,20 @@ export async function restoreOffice(id: string) {
     throw new AppError(409, 'ALREADY_ARCHIVED', 'Office is not archived');
   // Restoring under an archived parent would recreate the very state the
   // branch guard exists to prevent.
+  //
+  // branchId ONLY — the office's own headId is deliberately NOT checked here,
+  // unlike createOffice/updateOffice above and restoreOfficeHead below, which
+  // check both of their refs. The asymmetry is load-bearing, not an oversight:
+  // office O and head H reference each other (O.headId = H, H.officeId = O), so
+  // adding `officeHeadId: office.headId` would make an archived pair
+  // permanently unrestorable — restoring O would demand H be active, restoring
+  // H already demands O be active, and neither can go first.
+  //
+  // A branch has no such cycle (nothing points a branch at an office or a
+  // head), which is why checking it here is safe and checking headId is not.
+  // The cost is that a restored office may briefly name an archived head; that
+  // is the same tolerated state as any record whose parent was archived after
+  // the fact (see lib/org-refs.ts), and the admin can restore the head next.
   await assertOrgRefsActive({ branchId: office.branchId });
   return prisma.departmentOffice.update({
     where: { id },

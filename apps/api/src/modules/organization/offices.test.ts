@@ -189,6 +189,59 @@ describe('organization — offices and office heads', () => {
     expect(res.body.error.code).toBe('PARENT_ARCHIVED');
   });
 
+  // restoreOffice's twin, and the test whose absence let the two call sites
+  // drift unnoticed: restoreOfficeHead checks BOTH of its refs, restoreOffice
+  // deliberately checks only branchId (see the comment at that call site — the
+  // office/head reference cycle makes the missing check load-bearing). Nothing
+  // pinned either half of that until now.
+  it('refuses to restore an office head whose branch is still archived', async () => {
+    const header = await adminHeader();
+    const branch = await createTestBranch('Closing');
+    // No office: the head has to trip on its branch and nothing else.
+    const head = await createTestOfficeHead(branch.id, null, 'Solo');
+
+    await request(app)
+      .post(`/api/office-heads/${head.id}/archive`)
+      .set('Authorization', header);
+    const branchArchived = await request(app)
+      .post(`/api/branches/${branch.id}/archive`)
+      .set('Authorization', header);
+    expect(branchArchived.status).toBe(200);
+
+    const res = await request(app)
+      .post(`/api/office-heads/${head.id}/restore`)
+      .set('Authorization', header);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
+  // The officeId half of the same guard. Testing only the branch above would
+  // leave a dropped or swapped `officeId` ref compiling and passing — the same
+  // gap G-2 closed in enforcement.test.ts.
+  it('refuses to restore an office head whose office is still archived', async () => {
+    const header = await adminHeader();
+    // The branch stays LIVE, so the archived office is the only thing wrong.
+    const branch = await createTestBranch('Open');
+    const office = await createTestOffice(branch.id);
+    const head = await createTestOfficeHead(branch.id, office.id, 'Attached');
+
+    // Head first — an office cannot be archived while an active head points at
+    // it (officeBlockers).
+    await request(app)
+      .post(`/api/office-heads/${head.id}/archive`)
+      .set('Authorization', header);
+    const officeArchived = await request(app)
+      .post(`/api/offices/${office.id}/archive`)
+      .set('Authorization', header);
+    expect(officeArchived.status).toBe(200);
+
+    const res = await request(app)
+      .post(`/api/office-heads/${head.id}/restore`)
+      .set('Authorization', header);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
   it('archives an office only once its heads are archived', async () => {
     const header = await adminHeader();
     const branch = await createTestBranch();
