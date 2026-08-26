@@ -1021,37 +1021,11 @@ export async function listBranches(
   return { data, count };
 }
 
-export async function listOffices(
-  skipTake: SkipTake,
-  includeArchived?: boolean
-) {
-  const where = archiveWhere(includeArchived);
-  const [data, count] = await Promise.all([
-    prisma.departmentOffice.findMany({
-      where,
-      orderBy: { name: 'asc' },
-      include: { head: true },
-      ...skipTake
-    }),
-    prisma.departmentOffice.count({ where })
-  ]);
-  return { data, count };
-}
-
-export async function listOfficeHeads(
-  skipTake: SkipTake,
-  includeArchived?: boolean
-) {
-  const where = archiveWhere(includeArchived);
-  const [data, count] = await Promise.all([
-    prisma.officeHead.findMany({ where, orderBy: { name: 'asc' }, ...skipTake }),
-    prisma.officeHead.count({ where })
-  ]);
-  return { data, count };
-}
 ```
 
-Note `count({ where })` — the handlers being replaced counted the whole table, which would report a total that disagrees with a filtered page.
+`listOffices` and `listOfficeHeads` belong to Task 4 — do not write them here. Nothing in this task calls them, and an unused export is dead code in this task's diff.
+
+Note `count({ where })` — the handler being replaced counted the whole table, which would report a total that disagrees with a filtered page.
 
 - [ ] **Step 4: Write the service (branches only for now)**
 
@@ -1292,8 +1266,45 @@ git commit -m "feat(api): admin can create, rename, archive and restore branches
 - Modify: `apps/api/src/modules/reference/{router,controller,repository}.ts`
 
 **Interfaces:**
-- Consumes: `assertOrgRefsActive` from `../../lib/org-refs.js`; `officeBlockers` / `officeHeadBlockers` from `./guard.js`; `repo.listOffices` / `repo.listOfficeHeads` (Task 3 Step 3 already wrote both).
-- Produces: service functions `listOffices`, `createOffice`, `updateOffice`, `archiveOffice`, `restoreOffice`, and the same five for office heads.
+- Consumes: `assertOrgRefsActive` from `../../lib/org-refs.js`; `officeBlockers` / `officeHeadBlockers` from `./guard.js`; the private `archiveWhere` helper and the `SkipTake` type already in `repository.ts` from Task 3.
+- Produces: repository functions `listOffices`, `listOfficeHeads`; service functions `listOffices`, `createOffice`, `updateOffice`, `archiveOffice`, `restoreOffice`, and the same five for office heads.
+
+- [ ] **Step 0: Add the two list queries to the repository**
+
+Append to `apps/api/src/modules/organization/repository.ts`, reusing the `archiveWhere` helper Task 3 wrote:
+
+```ts
+export async function listOffices(
+  skipTake: SkipTake,
+  includeArchived?: boolean
+) {
+  const where = archiveWhere(includeArchived);
+  const [data, count] = await Promise.all([
+    prisma.departmentOffice.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      // The FE's office picker renders the head's name inline, so the list has
+      // always embedded it. Keep that or the picker regresses.
+      include: { head: true },
+      ...skipTake
+    }),
+    prisma.departmentOffice.count({ where })
+  ]);
+  return { data, count };
+}
+
+export async function listOfficeHeads(
+  skipTake: SkipTake,
+  includeArchived?: boolean
+) {
+  const where = archiveWhere(includeArchived);
+  const [data, count] = await Promise.all([
+    prisma.officeHead.findMany({ where, orderBy: { name: 'asc' }, ...skipTake }),
+    prisma.officeHead.count({ where })
+  ]);
+  return { data, count };
+}
+```
 
 - [ ] **Step 1: Write the failing tests**
 
