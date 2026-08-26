@@ -11,15 +11,6 @@ export async function listRoles(skipTake: SkipTake) {
   return { data, count };
 }
 
-// List all branches sorted by name with pagination.
-export async function listBranches(skipTake: SkipTake) {
-  const [data, count] = await Promise.all([
-    prisma.branch.findMany({ orderBy: { name: 'asc' }, ...skipTake }),
-    prisma.branch.count()
-  ]);
-  return { data, count };
-}
-
 // List all offices (with embedded head) sorted by name with pagination.
 export async function listOffices(skipTake: SkipTake) {
   const [data, count] = await Promise.all([

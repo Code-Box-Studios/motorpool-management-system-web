@@ -13,11 +13,6 @@ export async function roles(req: Request, res: Response): Promise<void> {
   res.json(await repo.listRoles(skipTakeFrom(req)));
 }
 
-// Get all branches sorted by name.
-export async function branches(req: Request, res: Response): Promise<void> {
-  res.json(await repo.listBranches(skipTakeFrom(req)));
-}
-
 // Get all offices (with embedded head) sorted by name.
 export async function offices(req: Request, res: Response): Promise<void> {
   res.json(await repo.listOffices(skipTakeFrom(req)));

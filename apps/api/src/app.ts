@@ -14,6 +14,7 @@ import { standardsRouter } from './modules/maintenance/standards.router.js';
 import { trackingRouter } from './modules/maintenance/tracking.router.js';
 import { jobOrdersRouter } from './modules/job-orders/router.js';
 import { notificationsRouter } from './modules/notifications/router.js';
+import { organizationRouter } from './modules/organization/router.js';
 import { gpsRouter } from './modules/gps/router.js';
 import { analyticsRouter } from './modules/analytics/router.js';
 import { toolsRouter } from './modules/tools/router.js';
@@ -74,6 +75,7 @@ export function createApp(): express.Express {
 
   app.use('/api/auth', authRouter);
   app.use('/api', referenceRouter);
+  app.use('/api', organizationRouter);
   app.use('/api/users', usersRouter);
   app.use('/api/drivers', driversRouter);
   app.use('/api/vehicles', vehiclesRouter);
