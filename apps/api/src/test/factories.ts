@@ -106,12 +106,16 @@ export async function createTestTicket(opts: {
   branchId: string;
   driverId: string;
   vehicleId: string;
+  // Full TripTicketStatus enum, not just the ones the first test file needed —
+  // Tasks 3-5 exercise disapproved/pending_fuel_allocation_approval too.
   status?:
     | 'pending_admin_approval'
+    | 'pending_fuel_allocation_approval'
     | 'approved'
     | 'in_progress'
     | 'completed'
-    | 'cancelled';
+    | 'cancelled'
+    | 'disapproved';
   officeId?: string | null;
   officeHeadId?: string | null;
 }) {
