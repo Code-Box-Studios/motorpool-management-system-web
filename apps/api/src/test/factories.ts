@@ -54,3 +54,79 @@ export function authHeader(
 export async function createTestBranch(name = 'Test Branch') {
   return prisma.branch.create({ data: { name, location: 'Testville' } });
 }
+
+// Minimal valid vehicle. Every required column gets a value; callers override
+// what their test is actually about.
+export async function createTestVehicle(
+  branchId: string,
+  overrides: Partial<{ licensePlate: string; vin: string }> = {}
+) {
+  return prisma.vehicle.create({
+    data: {
+      make: 'Toyota',
+      model: 'Hiace',
+      year: 2021,
+      vin: overrides.vin ?? 'JT-VIN-GUARD',
+      licensePlate: overrides.licensePlate ?? 'GRD-0001',
+      capacity: 12,
+      fuelType: 'diesel',
+      mileage: 1000,
+      insuranceExpiry: new Date('2027-01-01'),
+      registrationExpiry: new Date('2027-03-01'),
+      branchId
+    }
+  });
+}
+
+export async function createTestDriver(
+  branchId: string,
+  status: 'active' | 'inactive' | 'on_trip' = 'active',
+  email = 'driver.guard@test.local'
+) {
+  return prisma.driver.create({
+    data: { email, fullName: 'Guard Driver', status, branchId }
+  });
+}
+
+export async function createTestOffice(branchId: string, name = 'Ops') {
+  return prisma.departmentOffice.create({ data: { name, branchId } });
+}
+
+export async function createTestOfficeHead(
+  branchId: string,
+  officeId: string | null = null,
+  name = 'Maria Santos'
+) {
+  return prisma.officeHead.create({ data: { name, branchId, officeId } });
+}
+
+// `preparedBy` is required with no default in schema.prisma — omitting it
+// throws at runtime, not at typecheck.
+export async function createTestTicket(opts: {
+  branchId: string;
+  driverId: string;
+  vehicleId: string;
+  status?:
+    | 'pending_admin_approval'
+    | 'approved'
+    | 'in_progress'
+    | 'completed'
+    | 'cancelled';
+  officeId?: string | null;
+  officeHeadId?: string | null;
+}) {
+  return prisma.tripTicket.create({
+    data: {
+      branchId: opts.branchId,
+      driverId: opts.driverId,
+      vehicleId: opts.vehicleId,
+      officeId: opts.officeId ?? null,
+      officeHeadId: opts.officeHeadId ?? null,
+      destination: 'Somewhere',
+      purpose: 'Testing',
+      dateRequested: new Date('2026-08-26'),
+      preparedBy: 'Test',
+      status: opts.status ?? 'approved'
+    }
+  });
+}
