@@ -6,6 +6,8 @@ import {
   authHeader,
   createTestBranch,
   createTestDriver,
+  createTestOffice,
+  createTestOfficeHead,
   createTestUser,
   createTestVehicle
 } from '../../test/factories.js';
@@ -21,6 +23,27 @@ async function archivedBranch(header: string) {
     .set('Authorization', header);
   expect(res.status).toBe(200);
   return branch;
+}
+
+// An archived office, isolated on its own live branch and with no office
+// head attached — so archiving it trips on nothing but its own row.
+async function archivedOffice(header: string, branchId: string) {
+  const office = await createTestOffice(branchId, 'Closed Office');
+  const res = await request(app)
+    .post(`/api/offices/${office.id}/archive`)
+    .set('Authorization', header);
+  expect(res.status).toBe(200);
+  return office;
+}
+
+// An archived office head, not attached to any office — same reasoning.
+async function archivedOfficeHead(header: string, branchId: string) {
+  const head = await createTestOfficeHead(branchId, null, 'Closed Head');
+  const res = await request(app)
+    .post(`/api/office-heads/${head.id}/archive`)
+    .set('Authorization', header);
+  expect(res.status).toBe(200);
+  return head;
 }
 
 describe('archived branches are rejected on write, not just hidden', () => {
@@ -62,6 +85,24 @@ describe('archived branches are rejected on write, not just hidden', () => {
     expect(res.body.error.code).toBe('PARENT_ARCHIVED');
   });
 
+  // G-1: create-path coverage above cannot tell us whether the `update` call
+  // site exists at all — reverting the whole service file removes both at
+  // once. This is the one that actually pins `update`.
+  it('PATCH /api/users/:id rejects an archived branchId', async () => {
+    const header = await adminHeader();
+    const { user: target } = await createTestUser({
+      email: 'existing@test.local',
+      role: 'requester'
+    });
+    const branch = await archivedBranch(header);
+    const res = await request(app)
+      .patch(`/api/users/${target.id}`)
+      .set('Authorization', header)
+      .field('branchId', branch.id);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
   it('POST /api/vehicles rejects an archived branchId', async () => {
     const header = await adminHeader();
     const branch = await archivedBranch(header);
@@ -85,6 +126,19 @@ describe('archived branches are rejected on write, not just hidden', () => {
     expect(res.body.error.code).toBe('PARENT_ARCHIVED');
   });
 
+  it('PATCH /api/vehicles/:id rejects an archived branchId', async () => {
+    const header = await adminHeader();
+    const live = await createTestBranch('Live');
+    const vehicle = await createTestVehicle(live.id);
+    const dead = await archivedBranch(header);
+    const res = await request(app)
+      .patch(`/api/vehicles/${vehicle.id}`)
+      .set('Authorization', header)
+      .field('branchId', dead.id);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
   it('POST /api/drivers rejects an archived branchId', async () => {
     const header = await adminHeader();
     const branch = await archivedBranch(header);
@@ -97,6 +151,19 @@ describe('archived branches are rejected on write, not just hidden', () => {
       req.field(k, v);
     }
     const res = await req;
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
+  it('PATCH /api/drivers/:id rejects an archived branchId', async () => {
+    const header = await adminHeader();
+    const live = await createTestBranch('Live');
+    const driver = await createTestDriver(live.id);
+    const dead = await archivedBranch(header);
+    const res = await request(app)
+      .patch(`/api/drivers/${driver.id}`)
+      .set('Authorization', header)
+      .field('branchId', dead.id);
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('PARENT_ARCHIVED');
   });
@@ -116,6 +183,113 @@ describe('archived branches are rejected on write, not just hidden', () => {
       .set('Authorization', header)
       .send({
         branchId: dead.id,
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        destination: 'Anywhere',
+        purpose: 'Testing',
+        dateRequested: '2026-08-26',
+        preparedBy: 'Test',
+        dates: [
+          {
+            startTs: new Date(now + 3_600_000).toISOString(),
+            endTs: new Date(now + 7_200_000).toISOString()
+          }
+        ]
+      });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
+  it('PATCH /api/trip-tickets/:id rejects an archived branchId', async () => {
+    const header = await adminHeader();
+    const live = await createTestBranch('Live');
+    const vehicle = await createTestVehicle(live.id);
+    const driver = await createTestDriver(live.id);
+    // Branch B must still be EMPTY when it is archived — the guard refuses to
+    // archive a branch with a live trip ticket — so archive it before the
+    // ticket below is raised on branch A.
+    const dead = await archivedBranch(header);
+
+    const now = Date.now();
+    const created = await request(app)
+      .post('/api/trip-tickets')
+      .set('Authorization', header)
+      .send({
+        branchId: live.id,
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        destination: 'Anywhere',
+        purpose: 'Testing',
+        dateRequested: '2026-08-26',
+        preparedBy: 'Test',
+        dates: [
+          {
+            startTs: new Date(now + 3_600_000).toISOString(),
+            endTs: new Date(now + 7_200_000).toISOString()
+          }
+        ]
+      });
+    expect(created.status).toBe(201);
+
+    const res = await request(app)
+      .patch(`/api/trip-tickets/${created.body.id}`)
+      .set('Authorization', header)
+      .send({ branchId: dead.id });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
+  // G-2: the create test above only ever sends an archived branchId. Since
+  // officeId/officeHeadId are skipped by assertOrgRefsActive when absent, a
+  // swapped key (officeId: body.officeHeadId) or a dropped one would compile,
+  // typecheck and pass every test above without being caught. Each test below
+  // sends exactly one archived ref alongside a LIVE branchId, so only the
+  // service actually forwarding THAT ref can make it fail.
+  it('POST /api/trip-tickets rejects an archived officeId (officeHeadId absent)', async () => {
+    const header = await adminHeader();
+    const live = await createTestBranch('Live');
+    const vehicle = await createTestVehicle(live.id);
+    const driver = await createTestDriver(live.id);
+    const office = await archivedOffice(header, live.id);
+
+    const now = Date.now();
+    const res = await request(app)
+      .post('/api/trip-tickets')
+      .set('Authorization', header)
+      .send({
+        branchId: live.id,
+        officeId: office.id,
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        destination: 'Anywhere',
+        purpose: 'Testing',
+        dateRequested: '2026-08-26',
+        preparedBy: 'Test',
+        dates: [
+          {
+            startTs: new Date(now + 3_600_000).toISOString(),
+            endTs: new Date(now + 7_200_000).toISOString()
+          }
+        ]
+      });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
+  it('POST /api/trip-tickets rejects an archived officeHeadId (officeId absent)', async () => {
+    const header = await adminHeader();
+    const live = await createTestBranch('Live');
+    const vehicle = await createTestVehicle(live.id);
+    const driver = await createTestDriver(live.id);
+    const head = await archivedOfficeHead(header, live.id);
+
+    const now = Date.now();
+    const res = await request(app)
+      .post('/api/trip-tickets')
+      .set('Authorization', header)
+      .send({
+        branchId: live.id,
+        officeHeadId: head.id,
         driverId: driver.id,
         vehicleId: vehicle.id,
         destination: 'Anywhere',
