@@ -5,6 +5,7 @@ import type {
   UpdateJobOrderBody
 } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
+import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
@@ -74,6 +75,14 @@ export async function create(
   body: CreateJobOrderBody,
   actor: AuthenticatedUser
 ) {
+  // §5.7: a job order is the one remaining branch-writing endpoint that both
+  // BLOCKS a branch archive (guard.ts counts un-repaired job orders) and could
+  // create a live record under an already-archived branch — so it could put a
+  // closed branch permanently beyond reopening-free repair. branchId is
+  // client-supplied and required (contracts/job-orders.ts), and dropping it
+  // from the picker only stops it being OFFERED, never sent.
+  await assertOrgRefsActive({ branchId: body.branchId });
+
   // WHO RAISED IT is the authenticated caller — the same hole the trip tickets
   // had, still open here. `requestedById` came straight out of the body, so a
   // driver could raise a job order in the admin's name, or with no owner at all
@@ -105,6 +114,11 @@ export async function create(
 }
 
 export async function update(id: string, body: UpdateJobOrderBody) {
+  // Same §5.7 gate as create. A PATCH that does not carry branchId is skipped
+  // by assertOrgRefsActive, so an order already sitting on a branch that was
+  // archived afterwards stays editable — only a MOVE onto an archived branch
+  // is refused.
+  await assertOrgRefsActive({ branchId: body.branchId });
   const existing = await findJobOrderById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Job order not found');
   if (existing.status !== 'pending') {

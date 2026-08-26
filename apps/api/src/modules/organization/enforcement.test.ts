@@ -239,6 +239,62 @@ describe('archived branches are rejected on write, not just hidden', () => {
     expect(res.body.error.code).toBe('PARENT_ARCHIVED');
   });
 
+  // §5.7 was short by a module. A job order is the only branch-writing
+  // endpoint that is BOTH an archive blocker (guard.ts counts un-repaired job
+  // orders against a branch) and able to create a live record under a branch
+  // that is already closed. branchId is required and client-supplied
+  // (contracts/job-orders.ts), so hiding the branch from the picker stops it
+  // being offered, never sent.
+  it('POST /api/job-orders rejects an archived branchId', async () => {
+    const header = await adminHeader();
+    // The vehicle lives on a LIVE branch, so the archived branchId is the only
+    // thing wrong with the request.
+    const live = await createTestBranch('Live');
+    const vehicle = await createTestVehicle(live.id);
+    const dead = await archivedBranch(header);
+
+    const res = await request(app)
+      .post('/api/job-orders')
+      .set('Authorization', header)
+      .send({
+        vehicleId: vehicle.id,
+        branchId: dead.id,
+        incidentDate: new Date(Date.now() - 3_600_000).toISOString(),
+        incidentDetails: 'Brakes'
+      });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
+  // Same reasoning as G-1 above: the create test cannot tell us whether the
+  // `update` call site exists at all, so this is the one that pins it.
+  it('PATCH /api/job-orders/:id rejects an archived branchId', async () => {
+    const header = await adminHeader();
+    const live = await createTestBranch('Live');
+    const vehicle = await createTestVehicle(live.id);
+    // Archive the second branch while it is still EMPTY — an un-repaired job
+    // order sitting on it would refuse the archive outright.
+    const dead = await archivedBranch(header);
+
+    const created = await request(app)
+      .post('/api/job-orders')
+      .set('Authorization', header)
+      .send({
+        vehicleId: vehicle.id,
+        branchId: live.id,
+        incidentDate: new Date(Date.now() - 3_600_000).toISOString(),
+        incidentDetails: 'Brakes'
+      });
+    expect(created.status).toBe(201);
+
+    const res = await request(app)
+      .patch(`/api/job-orders/${created.body.id}`)
+      .set('Authorization', header)
+      .send({ branchId: dead.id });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
   // G-2: the create test above only ever sends an archived branchId. Since
   // officeId/officeHeadId are skipped by assertOrgRefsActive when absent, a
   // swapped key (officeId: body.officeHeadId) or a dropped one would compile,
