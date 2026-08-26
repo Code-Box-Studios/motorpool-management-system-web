@@ -58,6 +58,73 @@ describe('organization — offices and office heads', () => {
     expect(clash.body.error.code).toBe('DUPLICATE_NAME');
   });
 
+  it('refuses to rename an office to a name already used in its branch', async () => {
+    const header = await adminHeader();
+    const branch = await createTestBranch();
+    await createTestOffice(branch.id, 'Operations');
+    const other = await createTestOffice(branch.id, 'Support');
+
+    // No branchId in the body at all — the PATCH is a pure rename, and the
+    // check must still run against the branch the office is already in.
+    const res = await request(app)
+      .patch(`/api/offices/${other.id}`)
+      .set('Authorization', header)
+      .send({ name: 'OPERATIONS' });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('DUPLICATE_NAME');
+  });
+
+  it('lets an office keep its own name on an unrelated PATCH', async () => {
+    const header = await adminHeader();
+    const branch = await createTestBranch();
+    const office = await createTestOffice(branch.id, 'Operations');
+
+    const res = await request(app)
+      .patch(`/api/offices/${office.id}`)
+      .set('Authorization', header)
+      .send({ name: 'Operations' });
+    expect(res.status).toBe(200);
+  });
+
+  it('refuses a branch-only PATCH that collides in the destination branch', async () => {
+    const header = await adminHeader();
+    const a = await createTestBranch('Alpha');
+    const b = await createTestBranch('Beta');
+    await createTestOffice(b.id, 'Operations');
+    const office = await createTestOffice(a.id, 'Operations');
+
+    // No name in the body — moving the office into Beta collides with the
+    // "Operations" already sitting there, and must be caught as
+    // DUPLICATE_NAME rather than surfacing as a generic Prisma P2002 conflict.
+    const res = await request(app)
+      .patch(`/api/offices/${office.id}`)
+      .set('Authorization', header)
+      .send({ branchId: b.id });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('DUPLICATE_NAME');
+  });
+
+  it('refuses to clear an office branch into a collision with another branchless office', async () => {
+    const header = await adminHeader();
+    // Directly seeded, not via createTestOffice: that factory's branchId
+    // parameter is a required string, and this case is specifically about
+    // branchId: null, which the unique index cannot catch (NULL is distinct
+    // from NULL in Postgres).
+    await prisma.departmentOffice.create({
+      data: { name: 'Solo', branchId: null }
+    });
+    const branch = await createTestBranch();
+    const office = await createTestOffice(branch.id, 'Solo');
+
+    // No name in the body — clearing the branch is what creates the clash.
+    const res = await request(app)
+      .patch(`/api/offices/${office.id}`)
+      .set('Authorization', header)
+      .send({ branchId: null });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('DUPLICATE_NAME');
+  });
+
   it('allows two office heads with the same name', async () => {
     const header = await adminHeader();
     const branch = await createTestBranch();
@@ -243,6 +310,9 @@ describe('organization — offices and office heads', () => {
         .post(`/api/offices/${office.id}/archive`)
         .set('Authorization', header),
       request(app)
+        .post(`/api/offices/${office.id}/restore`)
+        .set('Authorization', header),
+      request(app)
         .post('/api/office-heads')
         .set('Authorization', header)
         .send({ name: 'X' }),
@@ -252,6 +322,9 @@ describe('organization — offices and office heads', () => {
         .send({ name: 'Y' }),
       request(app)
         .post(`/api/office-heads/${head.id}/archive`)
+        .set('Authorization', header),
+      request(app)
+        .post(`/api/office-heads/${head.id}/restore`)
         .set('Authorization', header)
     ]) {
       expect((await call).status).toBe(403);

@@ -127,14 +127,20 @@ export async function updateOffice(id: string, body: UpdateOfficeBody) {
     branchId: body.branchId,
     officeHeadId: body.headId
   });
-  if (body.name !== undefined)
-    await assertOfficeNameFree(
-      body.name,
-      // A PATCH that changes only the name must be checked against the branch
-      // the office is ALREADY in.
-      body.branchId === undefined ? existing.branchId : body.branchId,
-      id
-    );
+  // A PATCH that changes only the name must be checked against the branch the
+  // office is ALREADY in; a PATCH that changes only the branch must be
+  // checked against the name it ALREADY has. Re-checking on either change
+  // (not just a name change) matters because the DB index can't always catch
+  // it: a branch-only move to a colliding branch surfaces as a generic
+  // Prisma P2002 -> 409 CONFLICT instead of 409 DUPLICATE_NAME, and a move to
+  // branchId: null is invisible to the index entirely (NULL is distinct from
+  // NULL in Postgres uniqueness), so two branchless "Ops" rows would silently
+  // coexist.
+  const name = body.name ?? existing.name;
+  const branchId =
+    body.branchId === undefined ? existing.branchId : body.branchId;
+  if (body.name !== undefined || body.branchId !== undefined)
+    await assertOfficeNameFree(name, branchId, id);
   return prisma.departmentOffice.update({ where: { id }, data: body });
 }
 
