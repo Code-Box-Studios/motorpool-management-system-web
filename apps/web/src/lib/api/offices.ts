@@ -13,6 +13,7 @@ interface OfficeResponse {
   branchId: string | null;
   headId: string | null;
   createdAt: string;
+  archivedAt: string | null;
 }
 
 // Shape of an office-head row as returned by GET /office-heads (Prisma
@@ -22,6 +23,7 @@ interface OfficeHeadResponse {
   name: string;
   branchId: string | null;
   officeId: string | null;
+  archivedAt: string | null;
 }
 
 // Reshape the API's department-office row into the FE's snake_case shape.
@@ -33,7 +35,7 @@ function toSnakeOffice(o: OfficeResponse): DepartmentOffice {
     head_id: o.headId,
     created_at: o.createdAt,
     updated_at: null, // the API doesn't track this column
-    archived_at: null // this fetcher only ever returns active rows
+    archived_at: o.archivedAt
   };
 }
 
@@ -47,7 +49,7 @@ function toSnakeOfficeHead(h: OfficeHeadResponse): OfficeHead {
     office_id: h.officeId,
     created_at: null,
     updated_at: null,
-    archived_at: null // this fetcher only ever returns active rows
+    archived_at: h.archivedAt
   };
 }
 
