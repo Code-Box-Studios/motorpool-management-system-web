@@ -100,3 +100,17 @@ export const TRACKER_DEVICE_STATUS = {
   INACTIVE: 'inactive',
   DECOMMISSIONED: 'decommissioned'
 } as const;
+
+// A trip that has not reached a terminal state still holds its vehicle and its
+// driver. Completed / cancelled / disapproved trips release both.
+//
+// Lives here rather than in trip-tickets because the organization module's
+// archive guard needs the identical list, and two copies of "which statuses
+// still hold a resource" would drift silently — an archive that wrongly
+// succeeds strands a van.
+export const LIVE_TRIP_STATUSES = [
+  'pending_admin_approval',
+  'pending_fuel_allocation_approval',
+  'approved',
+  'in_progress'
+] as const;

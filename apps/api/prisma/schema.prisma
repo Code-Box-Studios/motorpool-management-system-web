@@ -194,11 +194,13 @@ model RefreshToken {
 // ---------- Org reference (spec §4.2) ----------
 
 model Branch {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  location  String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String
+  location   String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+  // NULL means active. Set by POST /branches/:id/archive, cleared by /restore.
+  archivedAt DateTime? @map("archived_at")
 
   users             User[]
   drivers           Driver[]
@@ -209,32 +211,41 @@ model Branch {
   jobOrders         JobOrder[]
   fuelAllocations   FuelAllocation[]
 
+  // NOTE: case-insensitive unique index branches_name_lower_unique (lower(name))
+  // is added via migration, not expressible in Prisma schema.
   @@map("branches")
 }
 
 model DepartmentOffice {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  branchId  String?  @map("branch_id") @db.Uuid
-  headId    String?  @map("head_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String
+  branchId   String?   @map("branch_id") @db.Uuid
+  headId     String?   @map("head_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+  // NULL means active. Set by POST /branches/:id/archive, cleared by /restore.
+  archivedAt DateTime? @map("archived_at")
 
   branch      Branch?      @relation(fields: [branchId], references: [id])
   head        OfficeHead?  @relation("OfficeHeadOf", fields: [headId], references: [id])
   officeHeads OfficeHead[] @relation("HeadBelongsToOffice")
   tripTickets TripTicket[]
 
+  // NOTE: case-insensitive unique index
+  // department_offices_branch_name_lower_unique (branch_id, lower(name)) is
+  // added via migration, not expressible in Prisma schema.
   @@map("department_offices")
 }
 
 model OfficeHead {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  branchId  String?  @map("branch_id") @db.Uuid
-  officeId  String?  @map("office_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String
+  branchId   String?   @map("branch_id") @db.Uuid
+  officeId   String?   @map("office_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+  // NULL means active. Set by POST /branches/:id/archive, cleared by /restore.
+  archivedAt DateTime? @map("archived_at")
 
   branch      Branch?            @relation(fields: [branchId], references: [id])
   office      DepartmentOffice?  @relation("HeadBelongsToOffice", fields: [officeId], references: [id])

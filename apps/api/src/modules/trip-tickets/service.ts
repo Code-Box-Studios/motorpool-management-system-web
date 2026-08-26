@@ -5,7 +5,7 @@ import type {
   TripTicketsListQuery,
   UpdateTripTicketBody
 } from '@mms/shared';
-import { normaliseTripDates } from '@mms/shared';
+import { LIVE_TRIP_STATUSES, normaliseTripDates } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
@@ -81,15 +81,6 @@ export async function getById(id: string, actor: AuthenticatedUser) {
   }
   return ticket;
 }
-
-// A trip that has not reached a terminal state still holds its vehicle and its
-// driver. Completed / cancelled / disapproved trips release both.
-const LIVE_STATUSES = [
-  'pending_admin_approval',
-  'pending_fuel_allocation_approval',
-  'approved',
-  'in_progress'
-] as const;
 
 // Nothing checked any of this before: a trip could be booked on a van that was
 // out of service, could end before it started, and the same van (and the same
@@ -231,7 +222,7 @@ async function assertBookable(
         endTs: { gt: d.startTs },
         tripTicket: {
           ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
-          status: { in: [...LIVE_STATUSES] },
+          status: { in: [...LIVE_TRIP_STATUSES] },
           OR: [{ vehicleId }, { driverId }]
         }
       },
