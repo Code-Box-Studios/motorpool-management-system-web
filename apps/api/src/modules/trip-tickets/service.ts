@@ -7,6 +7,7 @@ import type {
 } from '@mms/shared';
 import { LIVE_TRIP_STATUSES, normaliseTripDates } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
+import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
@@ -250,6 +251,11 @@ export async function create(
   body: CreateTripTicketBody,
   actor: AuthenticatedUser
 ) {
+  await assertOrgRefsActive({
+    branchId: body.branchId,
+    officeId: body.officeId,
+    officeHeadId: body.officeHeadId
+  });
   await assertBookable(body);
   // WHO ASKED is the authenticated caller — not a field the client fills in. It
   // used to be spread straight out of the body, so a requester could book a trip
@@ -295,6 +301,11 @@ export async function update(
   body: UpdateTripTicketBody,
   actor: AuthenticatedUser
 ) {
+  await assertOrgRefsActive({
+    branchId: body.branchId,
+    officeId: body.officeId,
+    officeHeadId: body.officeHeadId
+  });
   const existing = await findTripTicketById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Trip ticket not found');
   if (actor.role !== 'admin' && existing.requestedById !== actor.id) {

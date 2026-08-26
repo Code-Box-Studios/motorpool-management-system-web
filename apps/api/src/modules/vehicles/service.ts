@@ -5,6 +5,7 @@ import type {
   VehiclesListQuery
 } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
+import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
@@ -44,6 +45,7 @@ export async function getById(id: string) {
 // New vehicles are created directly (creation is not a status "change", so no
 // audit row — spec §4.2).
 export async function create(body: CreateVehicleBody, imagePaths: string[]) {
+  await assertOrgRefsActive({ branchId: body.branchId });
   return prisma.vehicle.create({ data: { ...body, images: imagePaths } });
 }
 
@@ -53,6 +55,7 @@ export async function update(
   newImagePaths: string[],
   actor: AuthenticatedUser
 ) {
+  await assertOrgRefsActive({ branchId: body.branchId });
   const existing = await findVehicleById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
 

@@ -6,6 +6,7 @@ import type {
 } from '@mms/shared';
 import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
+import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
@@ -56,6 +57,7 @@ export async function create(
   body: CreateDriverBody,
   photoPath: string | null = null
 ) {
+  await assertOrgRefsActive({ branchId: body.branchId });
   if (await findDriverByEmail(body.email)) {
     throw new AppError(
       409,
@@ -71,6 +73,7 @@ export async function update(
   body: UpdateDriverBody,
   newPhotoPath: string | null = null
 ) {
+  await assertOrgRefsActive({ branchId: body.branchId });
   await mustExist(id);
   if (body.email) {
     const clash = await findDriverByEmail(body.email);

@@ -10,6 +10,7 @@ import type {
 } from '@mms/shared';
 import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
+import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { hashPassword, verifyPassword } from '../../lib/password.js';
@@ -65,6 +66,7 @@ export async function create(
   body: CreateUserBody,
   avatarPath: string | null
 ): Promise<UserResponse> {
+  await assertOrgRefsActive({ branchId: body.branchId });
   if (await findUserByEmail(body.email)) {
     throw new AppError(
       409,
@@ -134,6 +136,7 @@ export async function update(
   body: UpdateUserBody,
   avatarPath: string | null
 ): Promise<UserResponse> {
+  await assertOrgRefsActive({ branchId: body.branchId });
   const existing = await findUserById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'User not found');
   if (body.roleId) {
