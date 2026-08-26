@@ -12,13 +12,3 @@ function skipTakeFrom(req: Request) {
 export async function roles(req: Request, res: Response): Promise<void> {
   res.json(await repo.listRoles(skipTakeFrom(req)));
 }
-
-// Get all offices (with embedded head) sorted by name.
-export async function offices(req: Request, res: Response): Promise<void> {
-  res.json(await repo.listOffices(skipTakeFrom(req)));
-}
-
-// Get all office heads sorted by name.
-export async function officeHeads(req: Request, res: Response): Promise<void> {
-  res.json(await repo.listOfficeHeads(skipTakeFrom(req)));
-}

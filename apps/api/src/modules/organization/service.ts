@@ -1,12 +1,22 @@
 import type {
   CreateBranchBody,
+  CreateOfficeBody,
+  CreateOfficeHeadBody,
   OrganizationListQuery,
-  UpdateBranchBody
+  UpdateBranchBody,
+  UpdateOfficeBody,
+  UpdateOfficeHeadBody
 } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
+import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { prisma } from '../../lib/prisma.js';
-import { assertArchivable, branchBlockers } from './guard.js';
+import {
+  assertArchivable,
+  branchBlockers,
+  officeBlockers,
+  officeHeadBlockers
+} from './guard.js';
 import * as repo from './repository.js';
 
 // Case-insensitive, and it spans archived rows on purpose: restoring an
@@ -66,4 +76,146 @@ export async function restoreBranch(id: string) {
   if (!branch.archivedAt)
     throw new AppError(409, 'ALREADY_ARCHIVED', 'Branch is not archived');
   return prisma.branch.update({ where: { id }, data: { archivedAt: null } });
+}
+
+// Office names are unique WITHIN a branch — "Operations Office" may legitimately
+// exist at both Main and North. Two offices with no branch are compared against
+// each other.
+async function assertOfficeNameFree(
+  name: string,
+  branchId: string | null | undefined,
+  excludeId?: string
+) {
+  const clash = await prisma.departmentOffice.findFirst({
+    where: {
+      name: { equals: name, mode: 'insensitive' },
+      branchId: branchId ?? null,
+      ...(excludeId && { id: { not: excludeId } })
+    },
+    select: { id: true }
+  });
+  if (clash)
+    throw new AppError(
+      409,
+      'DUPLICATE_NAME',
+      `An office named "${name}" already exists in this branch`
+    );
+}
+
+async function loadOffice(id: string) {
+  const office = await prisma.departmentOffice.findUnique({ where: { id } });
+  if (!office) throw new AppError(404, 'NOT_FOUND', 'Office not found');
+  return office;
+}
+
+export function listOffices(query: OrganizationListQuery) {
+  return repo.listOffices(toSkipTake(query), query.includeArchived);
+}
+
+export async function createOffice(body: CreateOfficeBody) {
+  await assertOrgRefsActive({
+    branchId: body.branchId,
+    officeHeadId: body.headId
+  });
+  await assertOfficeNameFree(body.name, body.branchId);
+  return prisma.departmentOffice.create({ data: body });
+}
+
+export async function updateOffice(id: string, body: UpdateOfficeBody) {
+  const existing = await loadOffice(id);
+  await assertOrgRefsActive({
+    branchId: body.branchId,
+    officeHeadId: body.headId
+  });
+  if (body.name !== undefined)
+    await assertOfficeNameFree(
+      body.name,
+      // A PATCH that changes only the name must be checked against the branch
+      // the office is ALREADY in.
+      body.branchId === undefined ? existing.branchId : body.branchId,
+      id
+    );
+  return prisma.departmentOffice.update({ where: { id }, data: body });
+}
+
+export async function archiveOffice(id: string) {
+  const office = await loadOffice(id);
+  if (office.archivedAt)
+    throw new AppError(409, 'ALREADY_ARCHIVED', 'Office is already archived');
+  assertArchivable(office.name, await officeBlockers(id));
+  return prisma.departmentOffice.update({
+    where: { id },
+    data: { archivedAt: new Date() }
+  });
+}
+
+export async function restoreOffice(id: string) {
+  const office = await loadOffice(id);
+  if (!office.archivedAt)
+    throw new AppError(409, 'ALREADY_ARCHIVED', 'Office is not archived');
+  // Restoring under an archived parent would recreate the very state the
+  // branch guard exists to prevent.
+  await assertOrgRefsActive({ branchId: office.branchId });
+  return prisma.departmentOffice.update({
+    where: { id },
+    data: { archivedAt: null }
+  });
+}
+
+// Office heads have NO name uniqueness — they are people, and two employees
+// named Juan Cruz is not an error (§4.2).
+async function loadOfficeHead(id: string) {
+  const head = await prisma.officeHead.findUnique({ where: { id } });
+  if (!head) throw new AppError(404, 'NOT_FOUND', 'Office head not found');
+  return head;
+}
+
+export function listOfficeHeads(query: OrganizationListQuery) {
+  return repo.listOfficeHeads(toSkipTake(query), query.includeArchived);
+}
+
+export async function createOfficeHead(body: CreateOfficeHeadBody) {
+  await assertOrgRefsActive({
+    branchId: body.branchId,
+    officeId: body.officeId
+  });
+  return prisma.officeHead.create({ data: body });
+}
+
+export async function updateOfficeHead(id: string, body: UpdateOfficeHeadBody) {
+  await loadOfficeHead(id);
+  await assertOrgRefsActive({
+    branchId: body.branchId,
+    officeId: body.officeId
+  });
+  return prisma.officeHead.update({ where: { id }, data: body });
+}
+
+export async function archiveOfficeHead(id: string) {
+  const head = await loadOfficeHead(id);
+  if (head.archivedAt)
+    throw new AppError(
+      409,
+      'ALREADY_ARCHIVED',
+      'Office head is already archived'
+    );
+  assertArchivable(head.name, await officeHeadBlockers(id));
+  return prisma.officeHead.update({
+    where: { id },
+    data: { archivedAt: new Date() }
+  });
+}
+
+export async function restoreOfficeHead(id: string) {
+  const head = await loadOfficeHead(id);
+  if (!head.archivedAt)
+    throw new AppError(409, 'ALREADY_ARCHIVED', 'Office head is not archived');
+  await assertOrgRefsActive({
+    branchId: head.branchId,
+    officeId: head.officeId
+  });
+  return prisma.officeHead.update({
+    where: { id },
+    data: { archivedAt: null }
+  });
 }

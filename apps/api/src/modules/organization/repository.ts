@@ -20,3 +20,38 @@ export async function listBranches(
   ]);
   return { data, count };
 }
+
+export async function listOffices(
+  skipTake: SkipTake,
+  includeArchived?: boolean
+) {
+  const where = archiveWhere(includeArchived);
+  const [data, count] = await Promise.all([
+    prisma.departmentOffice.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      // The FE's office picker renders the head's name inline, so the list has
+      // always embedded it. Keep that or the picker regresses.
+      include: { head: true },
+      ...skipTake
+    }),
+    prisma.departmentOffice.count({ where })
+  ]);
+  return { data, count };
+}
+
+export async function listOfficeHeads(
+  skipTake: SkipTake,
+  includeArchived?: boolean
+) {
+  const where = archiveWhere(includeArchived);
+  const [data, count] = await Promise.all([
+    prisma.officeHead.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      ...skipTake
+    }),
+    prisma.officeHead.count({ where })
+  ]);
+  return { data, count };
+}

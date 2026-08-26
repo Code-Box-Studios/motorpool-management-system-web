@@ -2,7 +2,11 @@ import { Router } from 'express';
 import {
   USER_ROLES,
   createBranchBodySchema,
-  updateBranchBodySchema
+  createOfficeBodySchema,
+  createOfficeHeadBodySchema,
+  updateBranchBodySchema,
+  updateOfficeBodySchema,
+  updateOfficeHeadBodySchema
 } from '@mms/shared';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { requireRole } from '../../middleware/require-role.js';
@@ -50,4 +54,66 @@ organizationRouter.post(
   requireAuth,
   requireRole(USER_ROLES.admin),
   controller.restoreBranch
+);
+
+organizationRouter.get('/offices', requireAuth, controller.listOffices);
+
+organizationRouter.post(
+  '/offices',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  validateBody(createOfficeBodySchema),
+  controller.createOffice
+);
+organizationRouter.patch(
+  '/offices/:id',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  validateBody(updateOfficeBodySchema),
+  controller.updateOffice
+);
+organizationRouter.post(
+  '/offices/:id/archive',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  controller.archiveOffice
+);
+organizationRouter.post(
+  '/offices/:id/restore',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  controller.restoreOffice
+);
+
+organizationRouter.get(
+  '/office-heads',
+  requireAuth,
+  controller.listOfficeHeads
+);
+
+organizationRouter.post(
+  '/office-heads',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  validateBody(createOfficeHeadBodySchema),
+  controller.createOfficeHead
+);
+organizationRouter.patch(
+  '/office-heads/:id',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  validateBody(updateOfficeHeadBodySchema),
+  controller.updateOfficeHead
+);
+organizationRouter.post(
+  '/office-heads/:id/archive',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  controller.archiveOfficeHead
+);
+organizationRouter.post(
+  '/office-heads/:id/restore',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  controller.restoreOfficeHead
 );
