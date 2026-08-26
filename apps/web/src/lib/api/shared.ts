@@ -22,8 +22,11 @@ function toSnake(b: BranchResponse): Branch {
   };
 }
 
-// Defaults to active-only, which is what all ten existing call sites want —
-// their dropdowns must stop offering archived branches.
+// Defaults to active-only, which is what every PICKER wants — their dropdowns
+// must stop offering archived branches. Pass `true` only where a branch name
+// has to be rendered against a historical record (see useBranchesForDisplay);
+// an archived-inclusive list behind a form control would put a closed branch
+// back on the menu.
 export const getAllBranches = async (
   includeArchived = false
 ): Promise<Branch[]> => {

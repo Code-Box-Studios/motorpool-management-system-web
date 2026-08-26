@@ -25,8 +25,26 @@ function useOrgInvalidation(resource: OrgResource) {
     // rather than this admin list, so each has to be told separately that an
     // archive/restore/create/update here made its cache stale — otherwise the
     // "gone from every dropdown" guarantee only actually holds for branches.
-    if (resource === 'branches')
+    //
+    // These invalidations are PREFIX matches (TanStack's default is
+    // exact: false), which is what carries the archived-inclusive display
+    // twins with them: ['branches'] also invalidates ['branches', 'all'], and
+    // ['departmentOffices'] also invalidates ['departmentOffices', 'all'].
+    // That is load-bearing, not incidental — those twins are what render a
+    // branch/office name on a historical trip ticket, job order or user row,
+    // so a rename here has to reach them too, not just the pickers. Naming the
+    // twins again below would be a no-op; this comment is the guard against
+    // someone re-keying them out from under the prefix.
+    if (resource === 'branches') {
       queryClient.invalidateQueries({ queryKey: ['branches'] });
+      // These two do NOT ride the prefix: the vehicle and user tables embed
+      // branch NAMES resolved at fetch time (lib/api/vehicles.ts,
+      // lib/api/user-management.ts), under keys of their own. Without these,
+      // renaming a branch leaves both tables showing the old name until
+      // something else happens to refetch them.
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['allUsers'] });
+    }
     if (resource === 'offices')
       queryClient.invalidateQueries({ queryKey: ['departmentOffices'] });
     if (resource === 'office-heads')

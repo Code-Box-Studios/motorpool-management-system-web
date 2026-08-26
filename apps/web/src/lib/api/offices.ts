@@ -54,9 +54,16 @@ function toSnakeOfficeHead(h: OfficeHeadResponse): OfficeHead {
 }
 
 // Fetch all department offices, sorted by name (server-side).
-export const getDepartmentOffices = async (): Promise<DepartmentOffice[]> => {
+//
+// Defaults to active-only, mirroring getAllBranches: the office pickers must
+// stop offering archived offices. Pass `true` only to render an office name
+// against a historical record (see useDepartmentOfficesForDisplay).
+export const getDepartmentOffices = async (
+  includeArchived = false
+): Promise<DepartmentOffice[]> => {
   const res = await api.get<{ data: OfficeResponse[]; count: number }>(
-    '/offices'
+    '/offices',
+    includeArchived ? { includeArchived: 'true' } : undefined
   );
   return res.data.map(toSnakeOffice);
 };

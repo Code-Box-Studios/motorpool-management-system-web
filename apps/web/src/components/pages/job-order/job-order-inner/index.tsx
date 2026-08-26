@@ -3,7 +3,7 @@ import { useJobOrder } from '@/lib/query/job-orders';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import { useAdmins, useAllUsers } from '@/lib/query/user-management';
-import { useBranches } from '@/lib/query/shared';
+import { useBranchesForDisplay } from '@/lib/query/shared';
 import { useAllSpareParts } from '@/lib/query/spare-parts';
 import {
   RecordHeader,
@@ -78,7 +78,11 @@ export const JobOrderInner = () => {
   // embedded summary carries make/model/plate but no mileage, and
   // complete-repair has to record a reading against it.
   const { data: vehicles, isLoading: isLoadingVehicles } = useAllVehicles();
-  const { data: branches, isLoading: isLoadingBranches } = useBranches();
+  // Display-only, so archived-inclusive: this page shows the branch a job
+  // order was raised under and offers no branch picker. A repaired job order
+  // whose branch has since been archived must still name it.
+  const { data: branches, isLoading: isLoadingBranches } =
+    useBranchesForDisplay();
   const { data: admins, isLoading: isLoadingAdmins } = useAdmins();
   const { data: allUsers, isLoading: isLoadingUsers } = useAllUsers();
   const { data: spareParts, isLoading: isLoadingSpareParts } =

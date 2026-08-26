@@ -109,13 +109,16 @@ async function openBookingDialog(page: Page): Promise<Locator> {
   return dialog;
 }
 
-// record-dialog.tsx's FieldLabel has no id wired to its Select trigger (a
-// known, pre-existing gap noted in progress.md's Task 7 findings), so the
-// Branch combobox can't be found through an associated label. Its enclosing
-// Field renders role="group", and "Branch" is the one whole word unique to
-// that group in every dialog this spec opens (as opposed to "Department/
-// Office/College" or "Office Head") — scoping through it is what actually
-// pins down the right control instead of the first select on the page.
+// This helper serves BOTH dialogs the spec opens, and only one of them can be
+// reached through its label. record-dialog.tsx now wires id={f.key} on its
+// SelectTrigger, so the Organization dialog's Branch combobox does have an
+// associated label — but the trip-ticket booking form
+// (add-trip-ticket/form.tsx) still renders <FieldLabel htmlFor="branch_id">
+// against a trigger with no id, and that form is not this feature's to change.
+// Its enclosing Field renders role="group", and "Branch" is the one whole word
+// unique to that group in every dialog this spec opens (as opposed to
+// "Department/Office/College" or "Office Head") — scoping through it pins down
+// the right control in both, instead of the first select on the page.
 function branchGroup(dialog: Locator): Locator {
   return dialog.getByRole('group').filter({ hasText: 'Branch' });
 }
@@ -128,6 +131,16 @@ async function closeBookingDialog(page: Page, dialog: Locator): Promise<void> {
   await page.keyboard.press('Escape');
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(dialog).toBeHidden({ timeout: 15_000 });
+}
+
+// Reads one fact out of a record's read-only detail view. Every value there is
+// a <dd> next to its <dt> label (components/shared/detail-view.tsx), and a value
+// the page cannot resolve renders as an em dash — so this targets the <dd>
+// itself rather than searching the page for a name that may simply be absent.
+function detailValue(page: Page, label: string): Locator {
+  return page.locator(
+    `xpath=//dt[normalize-space()=${JSON.stringify(label)}]/following-sibling::dd[1]`
+  );
 }
 
 test('admin creates a branch, sees it live in the booking form, archives it away, and restores it', async ({
@@ -417,4 +430,146 @@ test('editing an office whose branch has since been archived shows the branch as
     officeAfter?.branchId,
     "the office's branch is unchanged by the rename"
   ).toBe(branchId);
+});
+
+// Design §1 and §7's central promise, and the one clause §10 asked for that the
+// suite did not have: "a trip ticket filed under a closed branch still displays
+// that branch's name". It is not free — the ticket payload embeds no branch or
+// office object, so the detail page resolves both names client-side from the
+// branch/office lists. Read those active-only and archiving quietly empties the
+// field on every historical ticket underneath, which is the exact opposite of
+// what archiving is supposed to mean here.
+test('a trip ticket filed under a branch and office that have since closed still displays both by name', async ({
+  page,
+  request
+}) => {
+  const admin = await apiLogin(request, CREDENTIALS.admin);
+  const stamp = Date.now();
+  const branchName = `E2E Closed Branch ${stamp}`;
+  const officeName = `E2E Closed Office ${stamp}`;
+
+  // ---------- Stage the history through the API ----------
+  // The create/cancel/archive sequence below is setup, not the thing under
+  // test; the assertion is about what the ticket page RENDERS afterwards, and
+  // driving six admin steps through the UI would prove nothing extra about it.
+  const branch = await apiPost(request, '/api/branches', admin.token, {
+    name: branchName
+  });
+  expect(branch.ok, 'the branch is created').toBeTruthy();
+  const branchId = (branch.body as { id: string }).id;
+  createdBranchIds.push(branchId);
+
+  const office = await apiPost(request, '/api/offices', admin.token, {
+    name: officeName,
+    branchId
+  });
+  expect(office.ok, 'the office is created').toBeTruthy();
+  const officeId = (office.body as { id: string }).id;
+  createdOfficeIds.push(officeId);
+
+  // A branch created a moment ago owns no vehicles and no drivers, so the
+  // ticket borrows them from the seeded fleet. That is a supported workflow
+  // and has no bearing on the branch/office names being asserted.
+  const vehicles = listData(
+    await apiGet(request, '/api/vehicles', admin.token)
+  );
+  const drivers = listData(await apiGet(request, '/api/drivers', admin.token));
+  const vehicle = vehicles.find((v) => v.status === 'available') ?? vehicles[0];
+  expect(vehicle, 'a vehicle exists to file the ticket against').toBeTruthy();
+  expect(drivers[0], 'a driver exists to file the ticket against').toBeTruthy();
+
+  // Far-future and distinct from every other spec's window — an overlap fails
+  // with VEHICLE_DOUBLE_BOOKED, which would be a fixture collision rather than
+  // a product bug.
+  const start = new Date(Date.now() + 150 * 86_400_000);
+  const created = await apiPost(request, '/api/trip-tickets', admin.token, {
+    branchId,
+    officeId,
+    driverId: drivers[0].id as string,
+    vehicleId: vehicle.id as string,
+    destination: `ORG-E2E ${stamp}`,
+    purpose: 'E2E archived-parent display',
+    dateRequested: new Date().toISOString(),
+    participants: ['E2E'],
+    participantsCount: 1,
+    preparedBy: 'E2E',
+    requestedById: admin.user.id,
+    dates: [
+      {
+        startTs: start.toISOString(),
+        endTs: new Date(start.getTime() + 6 * 3_600_000).toISOString()
+      }
+    ]
+  });
+  expect(created.ok, 'the ticket is filed under the new branch').toBeTruthy();
+  const ticketId = (created.body as { id: string }).id;
+
+  // Cancelling is what turns the ticket into history: branchBlockers and
+  // officeBlockers (guard.ts) refuse the archive while a LIVE ticket points at
+  // either. A cancelled ticket is terminal — the API offers it no further
+  // transition and no hard delete — so it needs no teardown of its own.
+  const cancelled = await apiPost(
+    request,
+    `/api/trip-tickets/${ticketId}/cancel`,
+    admin.token,
+    { reason: 'e2e: retire the ticket so its branch can close' }
+  );
+  expect(cancelled.ok, 'the ticket is cancelled').toBeTruthy();
+
+  // Office first: a branch still owning an ACTIVE child office cannot close.
+  const officeArchived = await apiPost(
+    request,
+    `/api/offices/${officeId}/archive`,
+    admin.token,
+    {}
+  );
+  expect(officeArchived.ok, 'the office archives cleanly').toBeTruthy();
+  const branchArchived = await apiPost(
+    request,
+    `/api/branches/${branchId}/archive`,
+    admin.token,
+    {}
+  );
+  expect(branchArchived.ok, 'the branch archives cleanly').toBeTruthy();
+
+  // Both are really archived and really gone from the picker list. Without
+  // this the assertions below could pass for the wrong reason — an archive
+  // that silently refused would leave both records in the active list, where
+  // even the old active-only lookup finds them.
+  const allBranches = listData(
+    await apiGet(request, '/api/branches?includeArchived=true', admin.token)
+  );
+  expect(
+    allBranches.find((b) => b.id === branchId)?.archivedAt,
+    'the branch is archived before the page is read'
+  ).toBeTruthy();
+  expect(
+    listData(await apiGet(request, '/api/branches', admin.token)).find(
+      (b) => b.id === branchId
+    ),
+    'and no longer appears in the default, picker-facing list'
+  ).toBeUndefined();
+  expect(
+    listData(await apiGet(request, '/api/offices', admin.token)).find(
+      (o) => o.id === officeId
+    ),
+    'same for the office'
+  ).toBeUndefined();
+
+  // ---------- The guarantee ----------
+  await login(page, 'admin');
+  await page.goto(`/trip-tickets/${ticketId}`);
+
+  // toHaveText, not toContainText: the failure mode being pinned is the field
+  // collapsing to detail-view.tsx's em dash, and "contains" against a whole
+  // page would not see that.
+  await expect(
+    detailValue(page, 'Branch'),
+    'the closed branch is still named on the ticket it owns'
+  ).toHaveText(branchName, { timeout: 15_000 });
+  await expect(
+    detailValue(page, 'Office'),
+    'and so is the closed office'
+  ).toHaveText(officeName, { timeout: 15_000 });
+  await shot(page, 'organization-6-archived-parents-still-named');
 });

@@ -51,8 +51,8 @@ import {
 } from '@/lib/mutation/trip-tickets';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useAllVehicles } from '@/lib/query/vehicles';
-import { useBranches } from '@/lib/query/shared';
-import { useDepartmentOffices } from '@/lib/query/offices';
+import { useBranches, useBranchesForDisplay } from '@/lib/query/shared';
+import { useDepartmentOfficesForDisplay } from '@/lib/query/offices';
 import { useAdmins, useAllUsers } from '@/lib/query/user-management';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
@@ -104,8 +104,15 @@ const TripTicketsInner = () => {
   // pickers have to be able to offer every one of them.
   const { data: drivers, isPending: driversLoading } = useAllDrivers();
   const { data: vehicles, isPending: vehiclesLoading } = useAllVehicles();
+  // Two branch lists, deliberately. The picker below must offer only ACTIVE
+  // branches; the read-only Branch field has to name whatever branch this
+  // ticket was filed under, archived or not — a closed branch must not blank
+  // the field on a historical ticket. Same split for the office name, which
+  // this page only ever displays.
   const { data: branches, isPending: branchesLoading } = useBranches();
-  const { data: offices } = useDepartmentOffices();
+  const { data: allBranches, isPending: allBranchesLoading } =
+    useBranchesForDisplay();
+  const { data: offices } = useDepartmentOfficesForDisplay();
   const { data: admins } = useAdmins();
   const { data: allUsers } = useAllUsers();
   const { user } = useAuth();
@@ -271,9 +278,9 @@ const TripTicketsInner = () => {
     ? 'Loading...'
     : drivers?.find((d) => d.id === tripTicket.driver_id)?.full_name;
 
-  const branchName = branchesLoading
+  const branchName = allBranchesLoading
     ? 'Loading...'
-    : branches?.find((b) => b.id === tripTicket.branch_id)?.name;
+    : allBranches?.find((b) => b.id === tripTicket.branch_id)?.name;
 
   const officeName = offices?.find((o) => o.id === tripTicket.office_id)?.name;
 

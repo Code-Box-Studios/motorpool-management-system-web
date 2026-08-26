@@ -49,6 +49,12 @@ function toSnake(v: VehicleResponse): Vehicle {
 }
 
 // Fetch a page of vehicles + every branch (for the branch_name lookup), reshaped.
+//
+// getAllBranches(true), for the same reason as the user table: branch_name is
+// DISPLAY. Its fallback when the lookup misses is the raw branch UUID, so
+// reading the active-only list turns the vehicle table's Branch column — and
+// the trip-ticket page's "Borrowed from ..." badge, which reads this same
+// field — into a database key the moment a branch is archived.
 export async function getVehicles(
   page = 1,
   limit = 10,
@@ -60,7 +66,7 @@ export async function getVehicles(
       limit,
       ...(sort ?? {})
     }),
-    getAllBranches()
+    getAllBranches(true)
   ]);
   const branchMap = new Map(branches.map((b) => [b.id, b.name]));
   const data: VehicleWithBranch[] = res.data.map((v) => {
@@ -75,11 +81,13 @@ export async function getVehicles(
   return { data, count: res.count };
 }
 
-// Every vehicle, unpaginated (see getAllDrivers). Used by the vehicle pickers.
+// Every vehicle, unpaginated (see getAllDrivers). Used by the vehicle pickers
+// — which offer VEHICLES; the archived-inclusive branch list here only names
+// each vehicle's home branch, it never becomes a branch choice.
 export async function getAllVehicles(): Promise<VehicleWithBranch[]> {
   const [res, branches] = await Promise.all([
     api.get<{ data: VehicleResponse[]; count: number }>('/vehicles'),
-    getAllBranches()
+    getAllBranches(true)
   ]);
   const branchMap = new Map(branches.map((b) => [b.id, b.name]));
   return res.data.map((v) => {

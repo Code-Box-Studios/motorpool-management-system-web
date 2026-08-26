@@ -38,16 +38,22 @@ function toUserProfileData(
 }
 
 // Fetch every user, reshaped for the user-management table (role label + branch name).
+//
+// getAllBranches(true): the branch name here is DISPLAY, never a picker — a
+// user assigned to a branch that has since been archived must still show that
+// branch's name rather than collapsing to 'N/A'. The add/edit-user forms build
+// their branch dropdown from useBranches() instead, which stays active-only.
 export const getAllUsers = async (): Promise<UserProfileData[]> => {
   const [res, branches] = await Promise.all([
     api.get<{ data: UserResponse[]; count: number }>('/users'),
-    getAllBranches()
+    getAllBranches(true)
   ]);
   const branchMap = new Map(branches.map((b) => [b.id, b.name]));
   return res.data.map((u) => toUserProfileData(u, branchMap));
 };
 
-// One page of users plus the total count, for the paginated user-management table.
+// One page of users plus the total count, for the paginated user-management
+// table. Archived-inclusive branch names, for the reason above.
 export const getUsers = async (
   page: number = 1,
   limit: number = 10,
@@ -59,7 +65,7 @@ export const getUsers = async (
       limit,
       ...(sort ?? {})
     }),
-    getAllBranches()
+    getAllBranches(true)
   ]);
   const branchMap = new Map(branches.map((b) => [b.id, b.name]));
   return {
