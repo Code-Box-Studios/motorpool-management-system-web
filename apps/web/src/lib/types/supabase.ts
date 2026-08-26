@@ -109,18 +109,21 @@ export type Database = {
       };
       branches: {
         Row: {
+          archived_at: string | null;
           id: string;
           location: string | null;
           name: string;
           updated_at: string | null;
         };
         Insert: {
+          archived_at?: string | null;
           id?: string;
           location?: string | null;
           name: string;
           updated_at?: string | null;
         };
         Update: {
+          archived_at?: string | null;
           id?: string;
           location?: string | null;
           name?: string;
@@ -130,6 +133,7 @@ export type Database = {
       };
       department_offices: {
         Row: {
+          archived_at: string | null;
           branch_id: string | null;
           created_at: string | null;
           head_id: string | null;
@@ -138,6 +142,7 @@ export type Database = {
           updated_at: string | null;
         };
         Insert: {
+          archived_at?: string | null;
           branch_id?: string | null;
           created_at?: string | null;
           head_id?: string | null;
@@ -146,6 +151,7 @@ export type Database = {
           updated_at?: string | null;
         };
         Update: {
+          archived_at?: string | null;
           branch_id?: string | null;
           created_at?: string | null;
           head_id?: string | null;
@@ -709,6 +715,7 @@ export type Database = {
       };
       office_heads: {
         Row: {
+          archived_at: string | null;
           branch_id: string | null;
           created_at: string | null;
           id: string;
@@ -717,6 +724,7 @@ export type Database = {
           updated_at: string | null;
         };
         Insert: {
+          archived_at?: string | null;
           branch_id?: string | null;
           created_at?: string | null;
           id?: string;
@@ -725,6 +733,7 @@ export type Database = {
           updated_at?: string | null;
         };
         Update: {
+          archived_at?: string | null;
           branch_id?: string | null;
           created_at?: string | null;
           id?: string;

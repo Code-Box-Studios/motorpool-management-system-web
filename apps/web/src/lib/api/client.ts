@@ -17,10 +17,19 @@ export function onAuthFailure(cb: () => void): void {
 export class ApiError extends Error {
   status: number;
   code: string;
-  constructor(status: number, code: string, message: string) {
+  // The API's error envelope may carry a structured payload — IN_USE puts its
+  // blocker counts here. Dropping it left the UI unable to say WHY.
+  details?: unknown;
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details?: unknown
+  ) {
     super(message);
     this.status = status;
     this.code = code;
+    this.details = details;
     this.name = 'ApiError';
   }
 }
@@ -139,12 +148,16 @@ export async function apiRequest<T>(
   const parsed = text ? JSON.parse(text) : undefined;
 
   if (!res.ok) {
-    const err = (parsed as { error?: { code?: string; message?: string } })
-      ?.error;
+    const err = (
+      parsed as {
+        error?: { code?: string; message?: string; details?: unknown };
+      }
+    )?.error;
     throw new ApiError(
       res.status,
       err?.code ?? 'ERROR',
-      err?.message ?? `Request failed (${res.status})`
+      err?.message ?? `Request failed (${res.status})`,
+      err?.details
     );
   }
   return parsed as T;

@@ -32,7 +32,8 @@ function toSnakeOffice(o: OfficeResponse): DepartmentOffice {
     branch_id: o.branchId,
     head_id: o.headId,
     created_at: o.createdAt,
-    updated_at: null // the API doesn't track this column
+    updated_at: null, // the API doesn't track this column
+    archived_at: null // this fetcher only ever returns active rows
   };
 }
 
@@ -45,7 +46,8 @@ function toSnakeOfficeHead(h: OfficeHeadResponse): OfficeHead {
     branch_id: h.branchId,
     office_id: h.officeId,
     created_at: null,
-    updated_at: null
+    updated_at: null,
+    archived_at: null // this fetcher only ever returns active rows
   };
 }
 
