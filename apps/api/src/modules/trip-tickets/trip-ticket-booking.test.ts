@@ -125,7 +125,7 @@ describe('trip-ticket booking rules', () => {
   // the control on it — rather than the API forbidding it.
   it('ALLOWS a branch to borrow another branch’s vehicle', async () => {
     const s = await scaffold();
-    const lender = await createTestBranch();
+    const lender = await createTestBranch('Lender Branch');
     const lentVehicle = await prisma.vehicle.create({
       data: {
         make: 'T',
@@ -154,7 +154,7 @@ describe('trip-ticket booking rules', () => {
   // and the overlap check does not care whose it is.
   it('a borrowed vehicle still cannot be double-booked by its OWN branch', async () => {
     const s = await scaffold();
-    const lender = await createTestBranch();
+    const lender = await createTestBranch('Lender Branch');
     const lentVehicle = await prisma.vehicle.create({
       data: {
         make: 'T',

@@ -81,7 +81,7 @@ let twoDateTicketSeq = 0;
 
 async function approvedTwoDateTicket() {
   const n = ++twoDateTicketSeq;
-  const branch = await createTestBranch();
+  const branch = await createTestBranch(`B6-${n}`);
   const vehicle = await prisma.vehicle.create({
     data: {
       make: 'T',

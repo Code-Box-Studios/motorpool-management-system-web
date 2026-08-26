@@ -20,7 +20,9 @@ async function adminHeader() {
 }
 
 async function vehicle(status: string, mileage = 1000) {
-  const branch = await createTestBranch();
+  // A fresh branch per call: branch names are now case-insensitively unique,
+  // and this helper is called several times in one test.
+  const branch = await createTestBranch(`Test Branch ${Math.random()}`);
   return prisma.vehicle.create({
     data: {
       make: 'Toyota',
