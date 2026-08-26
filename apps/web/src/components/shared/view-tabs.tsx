@@ -11,7 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 // active sidebar item, so the ACTIVE tab is the filled one. (shadcn's default
 // paints the active tab with --background, which is lighter than the --muted
 // track behind the inactive one, and the control reads backwards.)
-const ACTIVE_TAB =
+// Exported so any other tab control (e.g. the Organization page) can match
+// this look without redefining the string and risking the two drifting apart.
+export const ACTIVE_TAB =
   'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground dark:data-[state=active]:border-primary';
 
 interface ViewTabsProps {
