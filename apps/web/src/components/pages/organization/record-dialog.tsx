@@ -27,6 +27,11 @@ import type {
   OrgResource,
   UpdateOrgBody
 } from '@/lib/api/organization';
+import type {
+  UpdateBranchBody,
+  UpdateOfficeBody,
+  UpdateOfficeHeadBody
+} from '@mms/shared';
 import {
   useBranchesAdmin,
   useOfficesAdmin,
@@ -61,7 +66,11 @@ interface FieldConfig {
   key: FieldKey;
   label: string;
   kind: 'text' | 'select';
-  /** Active (non-archived) options for a select field. */
+  /**
+   * Active (non-archived) options for a select field, plus the record's
+   * current value spliced back in if that parent has since been archived —
+   * see `withCurrent`.
+   */
   options?: OrgRecord[];
 }
 
@@ -83,25 +92,98 @@ function defaultsFor(record: OrgRecord | null): FormData {
   };
 }
 
+// A record being edited may point at a parent that has since been archived —
+// e.g. archive an office, then archive its (now childless) branch. The
+// active-only list built for ambiguity #3 would then have no item matching
+// the record's actual value, and Radix's Select renders that as a completely
+// blank trigger (not even the placeholder) rather than showing what the
+// record really points at. Splicing the current value back in — from the
+// full, unfiltered list, deduped against what's already active — keeps it
+// visible and selectable without reopening the door to picking some OTHER
+// archived parent.
+function withCurrent(
+  active: OrgRecord[],
+  currentId: string | null | undefined,
+  all: OrgRecord[]
+): OrgRecord[] {
+  if (!currentId || currentId === NONE) return active;
+  if (active.some((r) => r.id === currentId)) return active;
+  const current = all.find((r) => r.id === currentId);
+  return current ? [...active, current] : active;
+}
+
+// Create always sends the full shape the API expects — there is no
+// "unchanged" to compare against yet. Edit sends only the keys that actually
+// changed from `original`.
+//
+// tracker-devices' house style sends the whole object on every PATCH because
+// that API diffs it server-side. This one does not:
+// apps/api/src/lib/org-refs.ts documents that "only the keys actually
+// present are checked — a PATCH that does not touch branchId does not
+// re-validate it." Copying the tracker-devices habit here means renaming a
+// record whose branchId/headId/officeId already (validly) points at
+// something since archived re-validates that untouched reference on every
+// save and hard-fails it with PARENT_ARCHIVED — the record becomes
+// unrenamable. Sending only what changed restores the API's actual contract.
 function toBody(
   resource: OrgResource,
-  data: FormData
+  data: FormData,
+  original: null
+): CreateOrgBody;
+function toBody(
+  resource: OrgResource,
+  data: FormData,
+  original: FormData
+): UpdateOrgBody;
+function toBody(
+  resource: OrgResource,
+  data: FormData,
+  original: FormData | null
 ): CreateOrgBody | UpdateOrgBody {
+  const name = data.name.trim();
+  const location = textOrNull(data.location);
+  const branchId = idOrNull(data.branchId);
+  const headId = idOrNull(data.headId);
+  const officeId = idOrNull(data.officeId);
+
+  if (!original) {
+    switch (resource) {
+      case 'branches':
+        return { name, location };
+      case 'offices':
+        return { name, branchId, headId };
+      case 'office-heads':
+        return { name, branchId, officeId };
+    }
+  }
+
+  const origName = original.name.trim();
+  const origLocation = textOrNull(original.location);
+  const origBranchId = idOrNull(original.branchId);
+  const origHeadId = idOrNull(original.headId);
+  const origOfficeId = idOrNull(original.officeId);
+
   switch (resource) {
-    case 'branches':
-      return { name: data.name.trim(), location: textOrNull(data.location) };
-    case 'offices':
-      return {
-        name: data.name.trim(),
-        branchId: idOrNull(data.branchId),
-        headId: idOrNull(data.headId)
-      };
-    case 'office-heads':
-      return {
-        name: data.name.trim(),
-        branchId: idOrNull(data.branchId),
-        officeId: idOrNull(data.officeId)
-      };
+    case 'branches': {
+      const body: UpdateBranchBody = {};
+      if (name !== origName) body.name = name;
+      if (location !== origLocation) body.location = location;
+      return body;
+    }
+    case 'offices': {
+      const body: UpdateOfficeBody = {};
+      if (name !== origName) body.name = name;
+      if (branchId !== origBranchId) body.branchId = branchId;
+      if (headId !== origHeadId) body.headId = headId;
+      return body;
+    }
+    case 'office-heads': {
+      const body: UpdateOfficeHeadBody = {};
+      if (name !== origName) body.name = name;
+      if (branchId !== origBranchId) body.branchId = branchId;
+      if (officeId !== origOfficeId) body.officeId = officeId;
+      return body;
+    }
   }
 }
 
@@ -144,11 +226,16 @@ export function RecordDialog({ resource, state, onClose }: RecordDialogProps) {
   }, [open, record?.id]);
 
   const onSubmit = (data: FormData) => {
-    const body = toBody(resource, data);
     if (isEdit && record) {
+      // `record` is the object captured at the moment Edit was clicked and
+      // stays stable for as long as the dialog is open (see the hydration
+      // effect above), so re-deriving "original" from it here is exactly the
+      // snapshot the form was reset to — not a live, possibly-refetched value.
+      const body = toBody(resource, data, defaultsFor(record));
       update.mutate({ id: record.id, body }, { onSuccess: onClose });
     } else {
-      create.mutate(body as CreateOrgBody, { onSuccess: onClose });
+      const body = toBody(resource, data, null);
+      create.mutate(body, { onSuccess: onClose });
     }
   };
 
@@ -176,7 +263,11 @@ export function RecordDialog({ resource, state, onClose }: RecordDialogProps) {
             key: 'branchId',
             label: 'Branch',
             kind: 'select',
-            options: activeBranches
+            options: withCurrent(
+              activeBranches,
+              record?.branchId,
+              branches ?? []
+            )
           },
           ...(isEdit
             ? ([
@@ -186,8 +277,10 @@ export function RecordDialog({ resource, state, onClose }: RecordDialogProps) {
                   kind: 'select',
                   // Filtered for the same reason as branch/office: the API
                   // rejects an archived head with PARENT_ARCHIVED too, so an
-                  // archived one has no business appearing as a choice here.
-                  options: activeHeads
+                  // archived one has no business appearing as a fresh choice
+                  // — withCurrent still lets the record's own (now-archived)
+                  // head show up as what it's actually set to.
+                  options: withCurrent(activeHeads, record?.headId, heads ?? [])
                 }
               ] as FieldConfig[])
             : [])
@@ -199,13 +292,17 @@ export function RecordDialog({ resource, state, onClose }: RecordDialogProps) {
             key: 'branchId',
             label: 'Branch',
             kind: 'select',
-            options: activeBranches
+            options: withCurrent(
+              activeBranches,
+              record?.branchId,
+              branches ?? []
+            )
           },
           {
             key: 'officeId',
             label: 'Office',
             kind: 'select',
-            options: activeOffices
+            options: withCurrent(activeOffices, record?.officeId, offices ?? [])
           }
         ];
     }
@@ -262,6 +359,7 @@ export function RecordDialog({ resource, state, onClose }: RecordDialogProps) {
                             {f.options?.map((o) => (
                               <SelectItem key={o.id} value={o.id}>
                                 {o.name}
+                                {o.archivedAt !== null ? ' (archived)' : ''}
                               </SelectItem>
                             ))}
                           </SelectContent>

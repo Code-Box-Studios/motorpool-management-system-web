@@ -21,9 +21,16 @@ function useOrgInvalidation(resource: OrgResource) {
   const queryClient = useQueryClient();
   return () => {
     queryClient.invalidateQueries({ queryKey: ['organization', resource] });
-    // The shared dropdown hook keys off ['branches'] and must not go stale.
+    // Every other dropdown in the app reads its own, differently-keyed query
+    // rather than this admin list, so each has to be told separately that an
+    // archive/restore/create/update here made its cache stale — otherwise the
+    // "gone from every dropdown" guarantee only actually holds for branches.
     if (resource === 'branches')
       queryClient.invalidateQueries({ queryKey: ['branches'] });
+    if (resource === 'offices')
+      queryClient.invalidateQueries({ queryKey: ['departmentOffices'] });
+    if (resource === 'office-heads')
+      queryClient.invalidateQueries({ queryKey: ['officeHeads'] });
   };
 }
 
