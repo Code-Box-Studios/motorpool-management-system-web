@@ -207,7 +207,11 @@ Historical records are unaffected, because a trip ticket resolves its branch by 
 
 ## 8. Frontend
 
-**Route.** `apps/web/src/routes/_authenticated/organization.tsx`, carrying `staticData` with `group: 'Admin'` and `allowedRoles: ['admin']` — the sidebar in `apps/web/src/components/app-sidebar/index.tsx` builds itself from route `staticData`, so the entry appears with no sidebar edit.
+**Route.** `apps/web/src/routes/_authenticated/organization.tsx`, carrying `staticData` with `group: 'Settings'` and `allowedRoles: [USER_ROLES.admin]` — the sidebar in `apps/web/src/components/app-sidebar/index.tsx` builds itself from route `staticData`, so the entry appears with no sidebar edit. `Settings` is the existing admin-only group that `tracker-devices` already uses; the three groups in play are `Assets`, `Management` and `Settings`, and this design adds no fourth.
+
+**`ApiError` must learn to carry `details`.** `apps/web/src/lib/api/client.ts` constructs `ApiError(status, code, message)` and discards the response's `details` object entirely. The blocked-archive dialog cannot render its blocker list until that field survives the throw, so the class gains an optional fourth constructor argument.
+
+**The frontend row types are hand-maintained.** `apps/web/src/lib/types/supabase.ts` is a legacy generated-style file the FE still types against; `Branch` is `Tables<'branches'>`. Its `branches`, `department_offices` and `office_heads` entries each need `archived_at: string | null` added to `Row`, `Insert` and `Update`.
 
 **Components.** `apps/web/src/components/pages/organization/`:
 
