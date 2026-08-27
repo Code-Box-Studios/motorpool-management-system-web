@@ -15,6 +15,7 @@ const TABLES = [
   'maintenance_standards',
   'maintenance',
   'borrow_requests',
+  'tool_borrows',
   'tools',
   'spare_parts',
   'gps_data',

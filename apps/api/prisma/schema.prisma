@@ -329,6 +329,7 @@ model Driver {
   mechanicJobOrders JobOrder[]      @relation("JobOrderMechanic")
   borrowedTools     Tool[]
   borrowRequests    BorrowRequest[]
+  toolBorrows       ToolBorrow[]
 
   @@map("drivers")
 }
@@ -595,6 +596,7 @@ model Tool {
 
   borrowedBy     Driver?         @relation(fields: [borrowedById], references: [id])
   borrowRequests BorrowRequest[]
+  borrows        ToolBorrow[]
 
   @@map("tools")
 }
@@ -616,6 +618,35 @@ model BorrowRequest {
   approvedBy  User?  @relation("BorrowApprovedBy", fields: [approvedById], references: [id])
 
   @@map("borrow_requests")
+}
+
+// One borrow. `returned_at IS NULL` means the tool is still out — a nullable
+// timestamp rather than a boolean, the same way Notification.readAt works:
+// "when" answers "whether" as well.
+//
+// Deliberately NOT borrow_requests. That table models a request-and-approval
+// cycle that does not exist in this app, so every column but three would stay
+// null forever (spec §6).
+model ToolBorrow {
+  id         String    @id @default(uuid()) @db.Uuid
+  toolId     String    @map("tool_id") @db.Uuid
+  borrowerId String    @map("borrower_id") @db.Uuid
+  borrowedAt DateTime  @map("borrowed_at")
+  dueAt      DateTime? @map("due_at") @db.Date
+  returnedAt DateTime? @map("returned_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  // Cascade: deleting a tool deletes its history. Restrict would refuse to
+  // delete any tool ever borrowed, newly breaking a working button — and a
+  // deleted tool has no place on a leaderboard anyway.
+  tool     Tool   @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  // Restrict (the default): a driver with borrow history is not silently deletable.
+  borrower Driver @relation(fields: [borrowerId], references: [id])
+
+  @@index([toolId, borrowedAt])
+  @@index([returnedAt])
+  @@map("tool_borrows")
 }
 
 // ---------- GPS + geofence + audit (spec §4.2, §10) ----------
