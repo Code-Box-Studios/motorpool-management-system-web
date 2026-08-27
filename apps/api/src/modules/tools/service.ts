@@ -9,6 +9,7 @@ import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
 import { findToolById, listTools } from './repository.js';
+import { syncBorrow } from './borrows.js';
 
 export async function list(query: ToolsListQuery) {
   const orderBy = toOrderBy<Prisma.ToolOrderByWithRelationInput>(
@@ -35,7 +36,16 @@ export async function getById(id: string) {
 }
 
 export async function create(body: CreateToolBody, imagePath: string | null) {
-  return prisma.tool.create({ data: { ...body, image: imagePath } });
+  return prisma.$transaction(async (tx) => {
+    const tool = await tx.tool.create({ data: { ...body, image: imagePath } });
+    // The contract allows a tool to be born already borrowed, so create needs
+    // the same treatment as update.
+    await syncBorrow(tx, tool.id, null, tool.borrowedById, {
+      borrowedAt: tool.borrowedDate,
+      dueAt: tool.estimatedReturnDate
+    });
+    return tool;
+  });
 }
 
 // Permissive passthrough (spec §6): whatever borrow fields the caller sends are
@@ -50,9 +60,23 @@ export async function update(
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Tool not found');
   const { removeImage, ...rest } = body;
   const image = newImagePath ? newImagePath : removeImage ? null : undefined;
-  return prisma.tool.update({
-    where: { id },
-    data: { ...rest, ...(image !== undefined ? { image } : {}) }
+
+  // Three-valued multipart convention: absent = leave, null = clear, value =
+  // set. Reading `undefined` as "clear" would close an open borrow every time
+  // somebody renamed a tool.
+  const prev = existing.borrowedById;
+  const next = body.borrowedById === undefined ? prev : body.borrowedById;
+
+  return prisma.$transaction(async (tx) => {
+    const tool = await tx.tool.update({
+      where: { id },
+      data: { ...rest, ...(image !== undefined ? { image } : {}) }
+    });
+    await syncBorrow(tx, id, prev, next, {
+      borrowedAt: tool.borrowedDate,
+      dueAt: tool.estimatedReturnDate
+    });
+    return tool;
   });
 }
 
