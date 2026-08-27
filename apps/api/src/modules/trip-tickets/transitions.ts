@@ -74,11 +74,21 @@ export async function approve(
 // evp approve → approved; stamps the allocation.
 export async function approveEvp(id: string, actor: AuthenticatedUser) {
   const ticket = await loadInState(id, ['pending_fuel_allocation_approval']);
+  const decidedAt = new Date();
   await prisma.$transaction(async (tx) => {
     await tx.tripTicket.update({ where: { id }, data: { status: 'approved' } });
     await tx.fuelAllocation.update({
       where: { tripTicketId: id },
-      data: { status: 'approved', approvedByEvpId: actor.id }
+      data: {
+        status: 'approved',
+        approvedByEvpId: actor.id,
+        // decidedBy/decidedAt are the history's source (spec §3.1). They overlap
+        // with approvedByEvpId on approvals but are written from the same
+        // actor.id in the same statement, so they cannot drift. approvedByEvpId
+        // stays because the trip-ticket detail screen reads it.
+        decidedById: actor.id,
+        decidedAt
+      }
     });
   });
   await events.tripApprovedByEvp(ticket, actor);
@@ -96,6 +106,7 @@ export async function disapprove(
       ? ['pending_fuel_allocation_approval']
       : ['pending_admin_approval', 'pending_fuel_allocation_approval'];
   const ticket = await loadInState(id, allowedFrom);
+  const decidedAt = new Date();
   await prisma.$transaction(async (tx) => {
     await tx.tripTicket.update({
       where: { id },
@@ -104,7 +115,14 @@ export async function disapprove(
     // Mirror onto the allocation if one exists (spec §6.1).
     await tx.fuelAllocation.updateMany({
       where: { tripTicketId: id },
-      data: { status: 'disapproved' }
+      data: {
+        status: 'disapproved',
+        // The column has existed since the first migration and nothing wrote it,
+        // so a declined allocation could never say why (spec §2).
+        disapprovedReason: reason,
+        decidedById: actor.id,
+        decidedAt
+      }
     });
     // ...and onto the outings the refusal terminates. Without this the rows
     // stay `scheduled` on a ticket nobody will ever act on again: they keep

@@ -141,6 +141,7 @@ model User {
   postTripCheckedTickets   TripTicket[]               @relation("TicketPostTripCheckedBy")
   requestedAllocations     FuelAllocation[]           @relation("AllocationRequestedBy")
   evpApprovedAllocations   FuelAllocation[]           @relation("AllocationApprovedByEvp")
+  decidedAllocations       FuelAllocation[]           @relation("AllocationDecidedBy")
   notedJobOrders           JobOrder[]                 @relation("JobOrderNotedBy")
   approvedJobOrders        JobOrder[]                 @relation("JobOrderApprovedBy")
   requestedJobOrders       JobOrder[]                 @relation("JobOrderRequestedBy")
@@ -414,13 +415,17 @@ model FuelAllocation {
   disapprovedReason String?          @map("disapproved_reason")
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
+  decidedById       String?          @map("decided_by") @db.Uuid
+  decidedAt         DateTime?        @map("decided_at")
 
   tripTicket    TripTicket @relation(fields: [tripTicketId], references: [id], onDelete: Cascade)
   vehicle       Vehicle    @relation(fields: [vehicleId], references: [id])
   branch        Branch?    @relation(fields: [branchId], references: [id])
   requestedBy   User       @relation("AllocationRequestedBy", fields: [requestedById], references: [id])
   approvedByEvp User?      @relation("AllocationApprovedByEvp", fields: [approvedByEvpId], references: [id])
+  decidedBy     User?      @relation("AllocationDecidedBy", fields: [decidedById], references: [id])
 
+  @@index([decidedAt])
   @@map("fuel_allocations")
 }
 
@@ -440,7 +445,7 @@ model JobOrder {
   approvedById        String?        @map("approved_by") @db.Uuid
   assignedMechanicId  String?        @map("assigned_mechanic") @db.Uuid
   dateOfRequest       DateTime?      @map("date_of_request") @db.Date
-  dateApproved        DateTime?      @map("date_approved") @db.Date
+  dateApproved        DateTime?      @map("date_approved")
   targetDate          DateTime?      @map("target_date") @db.Date
   actualDateOfRelease DateTime?      @map("actual_date_of_release") @db.Date
   repairDone          RepairType?    @map("repair_done")

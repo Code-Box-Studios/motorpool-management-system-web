@@ -635,4 +635,97 @@ describe('trip-ticket approval transitions', () => {
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('NOT_TICKET_OWNER');
   });
+
+  it('approveEvp records the decider and the moment on the allocation', async () => {
+    const { ticket } = await pendingTicket();
+    const { user: admin } = await createTestUser({
+      email: 'a1@test.local',
+      role: 'admin'
+    });
+    const { user: evp } = await createTestUser({
+      email: 'e1@test.local',
+      role: 'evp_operations'
+    });
+    await request(app)
+      .post(`/api/trip-tickets/${ticket.id}/approve`)
+      .set('Authorization', authHeader(admin.id, admin.email, 'admin'))
+      .send(fuelBody);
+
+    const before = new Date();
+    const res = await request(app)
+      .post(`/api/trip-tickets/${ticket.id}/approve-evp`)
+      .set('Authorization', authHeader(evp.id, evp.email, 'evp_operations'));
+    expect(res.status).toBe(200);
+
+    const allocation = await prisma.fuelAllocation.findUniqueOrThrow({
+      where: { tripTicketId: ticket.id }
+    });
+    expect(allocation.status).toBe('approved');
+    expect(allocation.decidedById).toBe(evp.id);
+    expect(allocation.decidedAt).not.toBeNull();
+    expect(allocation.decidedAt!.getTime()).toBeGreaterThanOrEqual(
+      before.getTime() - 1000
+    );
+  });
+
+  it('disapprove records the decider, the moment AND the reason on the allocation', async () => {
+    const { ticket } = await pendingTicket();
+    const { user: admin } = await createTestUser({
+      email: 'a2@test.local',
+      role: 'admin'
+    });
+    const { user: evp } = await createTestUser({
+      email: 'e2@test.local',
+      role: 'evp_operations'
+    });
+    await request(app)
+      .post(`/api/trip-tickets/${ticket.id}/approve`)
+      .set('Authorization', authHeader(admin.id, admin.email, 'admin'))
+      .send(fuelBody);
+
+    const res = await request(app)
+      .post(`/api/trip-tickets/${ticket.id}/disapprove`)
+      .set('Authorization', authHeader(evp.id, evp.email, 'evp_operations'))
+      .send({ reason: 'Budget exhausted this quarter' });
+    expect(res.status).toBe(200);
+
+    const allocation = await prisma.fuelAllocation.findUniqueOrThrow({
+      where: { tripTicketId: ticket.id }
+    });
+    expect(allocation.status).toBe('disapproved');
+    expect(allocation.decidedById).toBe(evp.id);
+    expect(allocation.decidedAt).not.toBeNull();
+    // The column has existed since the first migration and nothing has ever
+    // written it. This is the assertion that notices.
+    expect(allocation.disapprovedReason).toBe('Budget exhausted this quarter');
+  });
+
+  it('cancel settles the allocation without recording a decider', async () => {
+    const { ticket, requester } = await pendingTicket();
+    const { user: admin } = await createTestUser({
+      email: 'a3@test.local',
+      role: 'admin'
+    });
+    await request(app)
+      .post(`/api/trip-tickets/${ticket.id}/approve`)
+      .set('Authorization', authHeader(admin.id, admin.email, 'admin'))
+      .send(fuelBody);
+
+    const res = await request(app)
+      .post(`/api/trip-tickets/${ticket.id}/cancel`)
+      .set(
+        'Authorization',
+        authHeader(requester.id, requester.email, 'requester')
+      )
+      .send({ reason: 'No longer needed' });
+    expect(res.status).toBe(200);
+
+    const allocation = await prisma.fuelAllocation.findUniqueOrThrow({
+      where: { tripTicketId: ticket.id }
+    });
+    // A withdrawal is not a decision. Task 2's history must never show it.
+    expect(allocation.status).toBe('cancelled');
+    expect(allocation.decidedById).toBeNull();
+    expect(allocation.decidedAt).toBeNull();
+  });
 });
