@@ -17,6 +17,7 @@ import { notificationsRouter } from './modules/notifications/router.js';
 import { organizationRouter } from './modules/organization/router.js';
 import { gpsRouter } from './modules/gps/router.js';
 import { analyticsRouter } from './modules/analytics/router.js';
+import { approvalsRouter } from './modules/approvals/router.js';
 import { toolsRouter } from './modules/tools/router.js';
 import { trackerDevicesRouter } from './modules/tracker-devices/router.js';
 import { tripTicketsRouter } from './modules/trip-tickets/router.js';
@@ -90,6 +91,7 @@ export function createApp(): express.Express {
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/gps', gpsRouter);
   app.use('/api/analytics', analyticsRouter);
+  app.use('/api/approvals', approvalsRouter);
 
   // Domain routers mount here in later plans.
 
