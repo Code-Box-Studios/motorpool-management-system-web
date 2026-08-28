@@ -180,7 +180,7 @@ async function main() {
   for (const [i, name] of toolNames.entries()) {
     const existing = await prisma.tool.findFirst({ where: { name } });
     if (!existing) {
-      await prisma.tool.create({
+      const tool = await prisma.tool.create({
         data: {
           name,
           status: i === 0 ? 'borrowed' : 'available',
@@ -191,6 +191,22 @@ async function main() {
           estimatedReturnDate: i === 0 ? new Date('2026-07-20') : undefined
         }
       });
+      // This write goes straight to tools.borrowed_by, bypassing syncBorrow —
+      // on a FRESH database the Task 4 migration's backfill runs against an
+      // EMPTY tools table (0 rows to backfill), so without a matching row
+      // here, 'Hydraulic Jack' starts life borrowed with no tool_borrows row
+      // to show for it (round-1 review F7). Nested inside the `!existing`
+      // guard above, so a second seed run does not duplicate it.
+      if (i === 0) {
+        await prisma.toolBorrow.create({
+          data: {
+            toolId: tool.id,
+            borrowerId: drivers[1]!.id,
+            borrowedAt: new Date('2026-06-20'),
+            dueAt: new Date('2026-07-20')
+          }
+        });
+      }
     }
   }
 

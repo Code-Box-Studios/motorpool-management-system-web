@@ -4,7 +4,7 @@ import type {
   DriversListQuery,
   UpdateDriverBody
 } from '@mms/shared';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
@@ -97,5 +97,27 @@ export async function update(
 
 export async function remove(id: string): Promise<void> {
   await mustExist(id);
-  await prisma.driver.delete({ where: { id } });
+  try {
+    await prisma.driver.delete({ where: { id } });
+  } catch (err) {
+    // tool_borrows.borrower_id RESTRICTs deletion even for CLOSED rows (the
+    // FK is deliberate — borrow history must not silently vanish), so a
+    // driver who returned every tool months ago is still "in use" and the
+    // catch-all middleware's generic 409 CONFLICT gave no hint why (round-1
+    // review F5). Driver has other RESTRICT FKs too (trip tickets, job
+    // orders, an active tool loan) — only THIS constraint gets the specific
+    // message; everything else keeps falling through to that generic 409.
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2003' &&
+      err.meta?.constraint === 'tool_borrows_borrower_id_fkey'
+    ) {
+      throw new AppError(
+        409,
+        'DRIVER_HAS_BORROW_HISTORY',
+        'Driver is referenced by tool borrow history; delete that history first'
+      );
+    }
+    throw err;
+  }
 }

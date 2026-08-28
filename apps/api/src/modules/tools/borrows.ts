@@ -26,7 +26,22 @@ export async function syncBorrow(
   next: string | null,
   opts: { borrowedAt?: Date | null; dueAt?: Date | null } = {}
 ): Promise<void> {
-  if (prev === next) return;
+  if (prev === next) {
+    if (next === null) return; // nothing to do — no borrower before or after
+
+    // Same borrower, only the dates moved (extending a loan, correcting a
+    // mistyped date). Nothing else in the API ever updates an existing borrow
+    // row's dates, so without this the open row goes permanently stale
+    // against the tool row it is supposed to track (round-1 review F2).
+    await tx.toolBorrow.updateMany({
+      where: { toolId, returnedAt: null },
+      data: {
+        borrowedAt: opts.borrowedAt ?? new Date(),
+        dueAt: opts.dueAt ?? null
+      }
+    });
+    return;
+  }
 
   if (prev !== null) {
     // updateMany, not update: closing when nothing is open is a no-op, not an
