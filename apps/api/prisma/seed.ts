@@ -149,7 +149,11 @@ async function main() {
 
   // Drivers (5; first one linked to the driver-role user)
   const driverSpecs = ['Juan Dela Cruz', 'Pedro Reyes', 'Jose Ramos', 'Carlo Aquino', 'Rico Bautista'];
-  const drivers = [];
+  // Explicit element type: referencing `drivers[1]` from inside the nested
+  // `prisma.$transaction` callback below (round-2 C1) sits outside the
+  // control-flow TS tracks for an "evolving" `[]` array, so without this it
+  // falls back to an implicit `any[]` under this project's strict settings.
+  const drivers: { id: string }[] = [];
   for (const [i, fullName] of driverSpecs.entries()) {
     const email = i === 0 ? 'driver@mms.local' : `driver${i + 1}@mms.local`;
     drivers.push(
@@ -180,33 +184,42 @@ async function main() {
   for (const [i, name] of toolNames.entries()) {
     const existing = await prisma.tool.findFirst({ where: { name } });
     if (!existing) {
-      const tool = await prisma.tool.create({
-        data: {
-          name,
-          status: i === 0 ? 'borrowed' : 'available',
-          // Indices below are always in bounds (fixed-length specs seeded just above),
-          // so a non-null assertion is safe under noUncheckedIndexedAccess.
-          borrowedById: i === 0 ? drivers[1]!.id : undefined,
-          borrowedDate: i === 0 ? new Date('2026-06-20') : undefined,
-          estimatedReturnDate: i === 0 ? new Date('2026-07-20') : undefined
-        }
-      });
-      // This write goes straight to tools.borrowed_by, bypassing syncBorrow —
-      // on a FRESH database the Task 4 migration's backfill runs against an
-      // EMPTY tools table (0 rows to backfill), so without a matching row
-      // here, 'Hydraulic Jack' starts life borrowed with no tool_borrows row
-      // to show for it (round-1 review F7). Nested inside the `!existing`
-      // guard above, so a second seed run does not duplicate it.
-      if (i === 0) {
-        await prisma.toolBorrow.create({
+      // Tool create + its matching borrow row (round-1 F7) must land together
+      // or not at all (round-2 review C1): two separate statements let a
+      // crash between them commit the tool with no borrow row, and the
+      // `!existing` guard above then makes every LATER seed run skip the
+      // repair too, since it only ever looks at whether the tool exists —
+      // the forbidden state would become permanent. This does not repair a
+      // database already seeded before this commit; that is a migration
+      // concern, not this seed's.
+      await prisma.$transaction(async (tx) => {
+        const tool = await tx.tool.create({
           data: {
-            toolId: tool.id,
-            borrowerId: drivers[1]!.id,
-            borrowedAt: new Date('2026-06-20'),
-            dueAt: new Date('2026-07-20')
+            name,
+            status: i === 0 ? 'borrowed' : 'available',
+            // Indices below are always in bounds (fixed-length specs seeded just above),
+            // so a non-null assertion is safe under noUncheckedIndexedAccess.
+            borrowedById: i === 0 ? drivers[1]!.id : undefined,
+            borrowedDate: i === 0 ? new Date('2026-06-20') : undefined,
+            estimatedReturnDate: i === 0 ? new Date('2026-07-20') : undefined
           }
         });
-      }
+        // This write goes straight to tools.borrowed_by, bypassing syncBorrow
+        // — on a FRESH database the Task 4 migration's backfill runs against
+        // an EMPTY tools table (0 rows to backfill), so without a matching
+        // row here, 'Hydraulic Jack' starts life borrowed with no
+        // tool_borrows row to show for it (round-1 review F7).
+        if (i === 0) {
+          await tx.toolBorrow.create({
+            data: {
+              toolId: tool.id,
+              borrowerId: drivers[1]!.id,
+              borrowedAt: new Date('2026-06-20'),
+              dueAt: new Date('2026-07-20')
+            }
+          });
+        }
+      });
     }
   }
 

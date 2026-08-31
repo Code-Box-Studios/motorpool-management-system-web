@@ -36,7 +36,12 @@ export async function syncBorrow(
     await tx.toolBorrow.updateMany({
       where: { toolId, returnedAt: null },
       data: {
-        borrowedAt: opts.borrowedAt ?? new Date(),
+        // Only when a real start date exists (round-2 review A2). `?? new
+        // Date()` here pushed the start forward on every ordinary save for a
+        // tool borrowed without a date -- a 19-day loan would report ~0 days
+        // out. `returnedAt: null` above is also load-bearing: without it,
+        // every CLOSED row for this tool gets re-dated too.
+        ...(opts.borrowedAt ? { borrowedAt: opts.borrowedAt } : {}),
         dueAt: opts.dueAt ?? null
       }
     });

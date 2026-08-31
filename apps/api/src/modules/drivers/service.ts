@@ -112,10 +112,15 @@ export async function remove(id: string): Promise<void> {
       err.code === 'P2003' &&
       err.meta?.constraint === 'tool_borrows_borrower_id_fkey'
     ) {
+      // "delete that history first" named an action nothing in the API
+      // performs — no code path anywhere deletes a tool_borrows row (round-2
+      // review C2). Driver has a `status` field, and the sibling precedent
+      // (users/service.ts USER_IN_USE) already steers to deactivating
+      // instead, so match that rather than pointing at a dead end.
       throw new AppError(
         409,
         'DRIVER_HAS_BORROW_HISTORY',
-        'Driver is referenced by tool borrow history; delete that history first'
+        'Driver is referenced by tool borrow history; deactivate instead'
       );
     }
     throw err;
