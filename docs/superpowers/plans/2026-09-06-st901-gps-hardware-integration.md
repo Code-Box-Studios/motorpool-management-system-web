@@ -42,7 +42,7 @@ Collect from the user at the start; substitute everywhere the token appears:
 - Consumes: `<RENDER_API_URL>` from Execution Inputs.
 - Produces: `<SECRET>` — used by the gateway `.env` (Task 3) and never printed anywhere else.
 
-- [ ] **Step 1: [LOCAL] Generate the secret**
+- [x] **Step 1: [LOCAL] Generate the secret**
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
@@ -50,11 +50,11 @@ node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
 
 Save the output as `<SECRET>`.
 
-- [ ] **Step 2: [USER] Set it on Render**
+- [x] **Step 2: [USER] Set it on Render**
 
 Render dashboard → the API service → **Environment** → add `GPS_DEVICE_API_KEY=<SECRET>` → Save (service redeploys). Wait until the deploy is live.
 
-- [ ] **Step 3: [LOCAL] Verify fail-closed auth**
+- [x] **Step 3: [LOCAL] Verify fail-closed auth**
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" -X POST <RENDER_API_URL>/api/gps/ingest -H "x-device-api-key: wrong"
