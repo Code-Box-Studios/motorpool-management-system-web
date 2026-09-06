@@ -397,7 +397,13 @@ describe('tool borrow history', () => {
         toolNow.body.estimatedReturnDate as string
       );
     }
-    await rename;
+    const renameRes = await rename;
+    // round-3 review C2: status + a positive check that the rename itself
+    // landed — without these, "the borrow row is unchanged" would stay
+    // green even if this PATCH started 400ing and never reached the
+    // date-derivation code this test exists to exercise.
+    expect(renameRes.status).toBe(200);
+    expect(renameRes.body.name).toBe('Renamed Jack');
 
     const afterRename = await borrowsFor(id);
     expect(afterRename).toHaveLength(2);
@@ -466,11 +472,17 @@ describe('tool borrow history', () => {
     });
 
     // Same borrower, no dates supplied — an ordinary rename.
-    await request(app)
+    const renamed = await request(app)
       .patch(`/api/tools/${id}`)
       .set('Authorization', header)
       .field('borrowedById', driver.id)
       .field('name', 'Jack v2');
+    // round-3 review C2: without a status check and a positive assertion
+    // that the request actually did something, this test would stay green
+    // even if the PATCH started 400ing and exercised no production code —
+    // "unchanged" alone cannot tell a no-op apart from a rejected request.
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.name).toBe('Jack v2');
 
     const borrows = await borrowsFor(id);
     expect(borrows).toHaveLength(1);
@@ -479,14 +491,25 @@ describe('tool borrow history', () => {
     );
   });
 
-  it('a fresh open keeps the tool rows existing due date when none is supplied (A3, round-2 B4)', async () => {
+  it('a fresh open discards leftover dates from an unrelated past loan (A3 corrected, round-3 A/C1)', async () => {
+    // Round-2's version of this test (A3, B4) built exactly this state and
+    // then asserted the LEFTOVER dueAt was inherited — encoding the round-2
+    // A3 instruction, which round 3 identified as wrong: a fresh open
+    // "can't be an echo" is false, since a tool can reach a fresh open
+    // already carrying dead dates (from a past loan, or from being created
+    // with dates and no driver at all — see the twin test below), and the
+    // web form re-sends them regardless. The corrected rule is uniform:
+    // a date identical to what the tool row already held is discarded as
+    // an echo, whether this is a handoff or a fresh open. This test now
+    // asserts BOTH halves — borrowedAt is NOT the leftover date, and dueAt
+    // is null, not inherited — where round 2's version asserted neither
+    // of those and only checked the (wrong) opposite of the second one.
     const header = await adminHeader();
     const driver = await createDriver();
     const id = await createTool(header);
 
-    // Leftover dates from a PREVIOUS holder, with no current borrower and no
-    // open borrow row — exactly what a return leaves behind, since
-    // borrowedDate/estimatedReturnDate are never cleared.
+    // Leftover dates from a PREVIOUS, unrelated loan, with no current
+    // borrower and no open borrow row.
     await prisma.tool.update({
       where: { id },
       data: {
@@ -496,18 +519,96 @@ describe('tool borrow history', () => {
       }
     });
 
-    // A fresh open: a new driver, no new dates supplied.
+    const before = new Date();
+    // A fresh open: a new driver, echoing the leftover dates verbatim —
+    // exactly what the web form does, since it prefills from the tool row
+    // and only omits a field when it is null.
     await request(app)
       .patch(`/api/tools/${id}`)
       .set('Authorization', header)
-      .field('borrowedById', driver.id);
+      .field('borrowedById', driver.id)
+      .field('borrowedDate', '2026-07-01')
+      .field('estimatedReturnDate', '2026-07-15');
 
     const borrows = await borrowsFor(id);
     expect(borrows).toHaveLength(1);
     expect(borrows[0]!.borrowerId).toBe(driver.id);
-    // The leftover due date is the only date on offer — a fresh open has no
-    // outgoing borrow to echo, so it must NOT be discarded as one.
-    expect(borrows[0]!.dueAt?.toISOString()).toBe('2026-07-15T00:00:00.000Z');
+    // The leftover dates belong to a loan this borrower was never part of.
+    expect(borrows[0]!.borrowedAt.getTime()).toBeGreaterThanOrEqual(
+      before.getTime()
+    );
+    expect(borrows[0]!.dueAt).toBeNull();
+  });
+
+  it('a tool created with dates but no borrower does not backdate its first real borrow (round-3 twin of A3 fix)', async () => {
+    // The reproduction from the round-3 ruling, reachable with no unusual
+    // input: POST /api/tools accepts borrowedDate/estimatedReturnDate
+    // alongside an empty borrowedById (add-tools/action.ts sends exactly
+    // this), so a tool can carry dead dates before it has EVER been
+    // borrowed through the API — this is the most important new test this
+    // round, since it is the shape that actually reaches production, not
+    // just a hand-constructed edge case.
+    const header = await adminHeader();
+    const driver = await createDriver();
+
+    const created = await request(app)
+      .post('/api/tools')
+      .set('Authorization', header)
+      .field('name', 'Dated But Idle Drill')
+      .field('borrowedById', '')
+      .field('borrowedDate', '2026-07-01')
+      .field('estimatedReturnDate', '2026-07-15');
+    expect(created.status).toBe(201);
+    const id = created.body.id as string;
+    expect(await borrowsFor(id)).toHaveLength(0);
+
+    const before = new Date();
+    // Sign it out, touching only the driver select — the web form still
+    // re-sends the tool's own (leftover) dates alongside it.
+    await request(app)
+      .patch(`/api/tools/${id}`)
+      .set('Authorization', header)
+      .field('borrowedById', driver.id)
+      .field('borrowedDate', '2026-07-01')
+      .field('estimatedReturnDate', '2026-07-15');
+
+    const borrows = await borrowsFor(id);
+    expect(borrows).toHaveLength(1);
+    expect(borrows[0]!.borrowerId).toBe(driver.id);
+    expect(borrows[0]!.borrowedAt.getTime()).toBeGreaterThanOrEqual(
+      before.getTime()
+    );
+    expect(borrows[0]!.dueAt).toBeNull();
+  });
+
+  it('clears the tool rows date columns when a borrow closes, even if the PATCH never mentions them (round-3 B)', async () => {
+    // Not explicitly required by the round-3 findings (Section B asks only
+    // that this be flagged in the report as a deliberate, small behaviour
+    // change), but worth pinning since nothing else in this file verifies
+    // it directly: a return now clears tools.borrowed_date /
+    // estimated_return_date at the source, so a shelved tool no longer
+    // shows the last holder's dates and a later fresh open has no dead
+    // state left to (correctly, now) discard. `borrowedById: ''` is the
+    // only field sent — the OMITTED date fields prove the clearing is not
+    // just this request's own body happening to blank them.
+    const header = await adminHeader();
+    const driver = await createDriver();
+    const id = await createTool(header);
+
+    await request(app)
+      .patch(`/api/tools/${id}`)
+      .set('Authorization', header)
+      .field('borrowedById', driver.id)
+      .field('borrowedDate', '2026-08-10')
+      .field('estimatedReturnDate', '2026-08-20');
+
+    const returned = await request(app)
+      .patch(`/api/tools/${id}`)
+      .set('Authorization', header)
+      .field('borrowedById', '');
+    expect(returned.status).toBe(200);
+    expect(returned.body.borrowedDate).toBeNull();
+    expect(returned.body.estimatedReturnDate).toBeNull();
   });
 
   it('a tool created already borrowed carries its due date onto the opening borrow row (F6 at create, round-2 B6)', async () => {
@@ -557,24 +658,38 @@ describe('tool borrow history', () => {
     // ...then B opens a SEPARATE borrow and edits its own dates (same
     // borrower, dates only) — the write this guard protects against would
     // re-date every row for this tool, closed or not.
-    await request(app)
+    const bOpened = await request(app)
       .patch(`/api/tools/${id}`)
       .set('Authorization', header)
       .field('borrowedById', b.id)
       .field('borrowedDate', '2026-08-10')
       .field('estimatedReturnDate', '2026-08-20');
-    await request(app)
+    // round-3 review C2: status + a positive check on each PATCH below —
+    // "the closed row is unchanged" alone would stay green even if these
+    // requests started 400ing and never reached the same-borrower sync
+    // this test exists to exercise.
+    expect(bOpened.status).toBe(200);
+
+    const bEdited = await request(app)
       .patch(`/api/tools/${id}`)
       .set('Authorization', header)
       .field('borrowedById', b.id)
       .field('borrowedDate', '2026-08-12')
       .field('estimatedReturnDate', '2026-08-30');
+    expect(bEdited.status).toBe(200);
 
     const finalBorrows = await borrowsFor(id);
     expect(finalBorrows).toHaveLength(2);
     const closedRow = finalBorrows.find((r) => r.borrowerId === a.id)!;
     expect(closedRow.borrowedAt.getTime()).toBe(closedBorrowedAt.getTime());
     expect(closedRow.dueAt?.getTime()).toBe(closedDueAt!.getTime());
+    // Positive check: the OPEN row for B actually DID move to its new
+    // dates — the guard only means something if the same-borrower sync is
+    // confirmed to still do its job on the row it is supposed to touch.
+    const openRow = finalBorrows.find((r) => r.borrowerId === b.id)!;
+    expect(openRow.returnedAt).toBeNull();
+    expect(openRow.borrowedAt.toISOString()).toBe('2026-08-12T00:00:00.000Z');
+    expect(openRow.dueAt?.toISOString()).toBe('2026-08-30T00:00:00.000Z');
   });
 
   it('derives the borrower comparison from a locked read inside the transaction, not a pre-transaction snapshot (F4 mechanism check, round-2 B5)', () => {

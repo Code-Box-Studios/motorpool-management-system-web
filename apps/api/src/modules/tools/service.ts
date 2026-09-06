@@ -126,31 +126,35 @@ export async function update(
 
     let opening: { borrowedAt: Date; dueAt: Date | null } | null = null;
     let toolDateOverride: {
-      borrowedDate?: Date;
+      borrowedDate?: Date | null;
       estimatedReturnDate?: Date | null;
     } = {};
 
     if (prev !== next && next !== null) {
-      if (prev === null) {
-        // A3: a FRESH open. There is no outgoing borrow, so nothing can be
-        // an echo -- whatever this save asks for IS the truth. Running this
-        // through the handoff's echo filter below would treat leftover
-        // dates from a PRIOR, unrelated holder as "unchanged" and silently
-        // drop them (dueAt -> null) even though they are the only dates on
-        // offer.
-        opening = { borrowedAt: askedStart ?? new Date(), dueAt: askedDue ?? null };
-      } else {
-        // A HANDOFF. A date identical to the OUTGOING borrow's is the form
-        // echoing the previous holder's dates, not an intent for the new one.
-        opening = {
-          borrowedAt: sameDate(askedStart, lockedTool.borrowed_date)
-            ? new Date()
-            : (askedStart ?? new Date()),
-          dueAt: sameDate(askedDue, lockedTool.estimated_return_date)
-            ? null
-            : (askedDue ?? null)
-        };
-      }
+      // round-3 review A: a date identical to what the tool row already
+      // held is the form echoing DEAD state, not intent about THIS borrow
+      // -- true whether the previous holder just handed it over, returned
+      // it long ago, or never existed at all. There used to be a separate
+      // `prev === null` (fresh open) branch on the premise that a fresh
+      // open "can't be an echo, so whatever this save asks for IS the
+      // truth" -- false: `tools.borrowed_date` / `estimated_return_date`
+      // are never cleared on return (well, they ARE now -- see the `else
+      // if` below -- but a tool can still be CREATED with dates and no
+      // driver at all, POST /api/tools accepts both alongside an empty
+      // borrowedById), and the web form re-submits them on every save
+      // regardless. Treating a fresh open as immune let leftover dates
+      // from an unrelated past loan be honoured as real intent, while the
+      // identical values were correctly discarded as an echo on a
+      // handoff -- contradictory history from identical inputs. One rule
+      // now, applied uniformly.
+      opening = {
+        borrowedAt: sameDate(askedStart, lockedTool.borrowed_date)
+          ? new Date()
+          : (askedStart ?? new Date()),
+        dueAt: sameDate(askedDue, lockedTool.estimated_return_date)
+          ? null
+          : (askedDue ?? null)
+      };
       // A1 -- THE KEY LINE. Make the tool row agree with the borrow we are
       // opening. Without it the tool row keeps the OUTGOING holder's dates,
       // every later save re-submits them (the web form always does), and
@@ -160,6 +164,15 @@ export async function update(
         borrowedDate: opening.borrowedAt,
         estimatedReturnDate: opening.dueAt
       };
+    } else if (prev !== null && next === null) {
+      // round-3 review B: a return. Clear the tool row's OWN date columns
+      // at the source instead of leaving dead state for a later fresh open
+      // to mistakenly honour -- and it is simply correct: a tool sitting on
+      // the shelf has no borrow date, yet without this it keeps showing the
+      // last holder's. Deliberate, small, visible behaviour change beyond
+      // the original plan (tools-inner/index.tsx already gates the display
+      // on `isBorrowed`, so nothing renders worse).
+      toolDateOverride = { borrowedDate: null, estimatedReturnDate: null };
     }
 
     const tool = await tx.tool.update({
