@@ -48,12 +48,37 @@ function predictTree(
     : predictTree(node.right, features);
 }
 
+// A missing feature must fail LOUDLY, not quietly become 0 inside
+// predictTree's `?? 0`. Silent-0 is not a neutral default: a 0 can sit on
+// either side of a node's threshold, so the tree can traverse to a
+// perfectly plausible — and wrong — leaf with no error at all. This is
+// exactly what would happen to the client's decision tree
+// (client_dt_model.json) if `downtime_hours` were ever left off the feature
+// record: 0 falls below that node's 0.8224 threshold, so it would silently
+// always return 0.742 and never 1.0. Validate BEFORE traversal, for every
+// model (incumbent RF included — its 3 declared features are exactly what
+// extractFeatures already produces, so this cannot break it).
+function assertFeaturesPresent(
+  model: RFModel,
+  features: Record<string, number>
+): void {
+  for (const name of model.features) {
+    if (features[name] === undefined) {
+      throw new Error(
+        `predictRandomForest: model requires feature "${name}" but it was not supplied ` +
+          `(model declares: ${model.features.join(', ')}; supplied: ${Object.keys(features).join(', ') || '(none)'})`
+      );
+    }
+  }
+}
+
 // Soft voting: mean of P(fail) across all trees. RAW feature values (do NOT
 // scale — the model thresholds are baked to expect raw inputs; §11).
 export function predictRandomForest(
   model: RFModel,
   features: Record<string, number>
 ): number {
+  assertFeaturesPresent(model, features);
   const probs = model.trees.map((t) => predictTree(t, features));
   return probs.reduce((sum, p) => sum + p, 0) / probs.length;
 }

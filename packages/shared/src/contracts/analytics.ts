@@ -21,7 +21,13 @@ export const riskAssessmentSchema = z.object({
   maintFreq12m: z.number(),
   riskScore: z.number(), // 0-100
   priority: z.enum(['high', 'medium', 'low']),
-  usedFallback: z.boolean()
+  usedFallback: z.boolean(),
+  // The client's own decision-tree model, run ALONGSIDE the incumbent RF
+  // above as an informational cross-check only — it never changes riskScore,
+  // priority, or usedFallback. null when the client model failed to load or
+  // could not be scored (see apps/api's client-dt-brief.md).
+  crossCheckScore: z.number().nullable(),
+  crossCheckModel: z.string()
 });
 export type RiskAssessment = z.infer<typeof riskAssessmentSchema>;
 

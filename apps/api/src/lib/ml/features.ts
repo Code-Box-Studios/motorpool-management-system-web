@@ -9,8 +9,21 @@ interface MaintenanceRow {
 export function extractFeatures(
   vehicle: { mileage: number },
   maintenances: MaintenanceRow[],
-  now: Date
-): { kmSinceLastMaint: number; avgDailyKm: number; maintFreq12m: number } {
+  now: Date,
+  // Hours the vehicle has spent `under_maintenance`, per
+  // analytics/repository.ts's downtimeHoursByVehicle(). Required (not
+  // defaulted here) so every call site states its value explicitly rather
+  // than an easy-to-miss silent 0 — see random-forest.ts's
+  // assertFeaturesPresent for why a silent 0 on this exact feature is
+  // dangerous. It is NOT one of the incumbent RF's three features; it exists
+  // solely to feed the client's cross-check tree (client-dt-brief.md).
+  downtimeHours: number
+): {
+  kmSinceLastMaint: number;
+  avgDailyKm: number;
+  maintFreq12m: number;
+  downtimeHours: number;
+} {
   // Newest first.
   const rows = [...maintenances].sort(
     (a, b) => b.date.getTime() - a.date.getTime()
@@ -60,5 +73,5 @@ export function extractFeatures(
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
   const maintFreq12m = rows.filter((m) => m.date >= oneYearAgo).length;
 
-  return { kmSinceLastMaint, avgDailyKm, maintFreq12m };
+  return { kmSinceLastMaint, avgDailyKm, maintFreq12m, downtimeHours };
 }

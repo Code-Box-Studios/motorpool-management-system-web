@@ -26,6 +26,16 @@ describe('random forest (golden values from the committed model)', () => {
     expect(predictRandomForest(model!, features)).toBeCloseTo(expected, 5);
   });
 
+  // client-dt-brief.md §3: the missing-feature guard must never fire for the
+  // incumbent model. It can't, because the model declares exactly the three
+  // features extractFeatures already produces — pinned here so a future
+  // change to either side trips a test instead of silently drifting apart.
+  it("declares exactly extractFeatures' three feature names — the missing-feature guard can never fire on it", () => {
+    expect([...model!.features].sort()).toEqual(
+      ['AVG_DAILY_KM', 'KM_SINCE_LAST_MAINT', 'MAINT_FREQ_12M'].sort()
+    );
+  });
+
   it('computeVehicleRisk applies canonical 0.70/0.45 thresholds and rounds riskScore', () => {
     const high = computeVehicleRisk(model, {
       kmSinceLastMaint: 100000,
@@ -75,11 +85,20 @@ describe('feature extraction (frozen clock for determinism)', () => {
   const now = new Date('2026-07-01T00:00:00.000Z');
 
   it('no maintenance → kmSinceLastMaint = mileage, avgDailyKm 0, freq 0', () => {
-    expect(extractFeatures({ mileage: 12000 }, [], now)).toEqual({
+    expect(extractFeatures({ mileage: 12000 }, [], now, 0)).toEqual({
       kmSinceLastMaint: 12000,
       avgDailyKm: 0,
-      maintFreq12m: 0
+      maintFreq12m: 0,
+      downtimeHours: 0
     });
+  });
+
+  // downtimeHours is a pure pass-through (computed elsewhere, in
+  // analytics/repository.ts, from vehicle_status_audit) — this is the one
+  // test that pins it flowing into the returned record unchanged.
+  it('downtimeHours passes through unchanged into the returned feature record', () => {
+    const f = extractFeatures({ mileage: 12000 }, [], now, 7.5);
+    expect(f.downtimeHours).toBe(7.5);
   });
 
   it('two maintenances → km between newest/oldest over days between; freq counts last 12m', () => {
@@ -87,7 +106,7 @@ describe('feature extraction (frozen clock for determinism)', () => {
       { date: new Date('2026-06-01T00:00:00.000Z'), mileage: 11000 }, // newest
       { date: new Date('2026-05-02T00:00:00.000Z'), mileage: 10000 } // oldest (30 days earlier)
     ];
-    const f = extractFeatures({ mileage: 12000 }, maints, now);
+    const f = extractFeatures({ mileage: 12000 }, maints, now, 0);
     expect(f.kmSinceLastMaint).toBe(1000); // 12000 - 11000 (newest)
     expect(f.avgDailyKm).toBeCloseTo(1000 / 30, 4); // |11000-10000| / 30 days
     expect(f.maintFreq12m).toBe(2);
@@ -97,7 +116,7 @@ describe('feature extraction (frozen clock for determinism)', () => {
     const maints = [
       { date: new Date('2026-06-01T00:00:00.000Z'), mileage: 11000 }
     ]; // 30 days before now
-    const f = extractFeatures({ mileage: 12000 }, maints, now);
+    const f = extractFeatures({ mileage: 12000 }, maints, now, 0);
     expect(f.avgDailyKm).toBeCloseTo(1000 / 30, 4);
   });
 
@@ -110,7 +129,7 @@ describe('feature extraction (frozen clock for determinism)', () => {
     const maints = [
       { date: new Date('2026-06-01T00:00:00.000Z'), mileage: null }
     ];
-    const f = extractFeatures({ mileage: 33000 }, maints, now);
+    const f = extractFeatures({ mileage: 33000 }, maints, now, 0);
     expect(f.kmSinceLastMaint).toBe(0); // NOT 33000
     expect(f.maintFreq12m).toBe(1); // it still counts as a service
   });
@@ -120,12 +139,12 @@ describe('feature extraction (frozen clock for determinism)', () => {
       { date: new Date('2026-06-01T00:00:00.000Z'), mileage: null }, // newest: a repair, odometer not recorded
       { date: new Date('2026-05-02T00:00:00.000Z'), mileage: 30000 } // the last one we actually know
     ];
-    const f = extractFeatures({ mileage: 33000 }, maints, now);
+    const f = extractFeatures({ mileage: 33000 }, maints, now, 0);
     expect(f.kmSinceLastMaint).toBe(3000); // 33000 - 30000, not 33000 - 0
   });
 
   it('never serviced still means every kilometre is distance since service', () => {
-    const f = extractFeatures({ mileage: 33000 }, [], now);
+    const f = extractFeatures({ mileage: 33000 }, [], now, 0);
     expect(f.kmSinceLastMaint).toBe(33000);
   });
 });

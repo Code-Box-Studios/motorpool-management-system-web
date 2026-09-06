@@ -1,0 +1,71 @@
+{
+  "features": [
+    "KM_SINCE_LAST_MAINT",
+    "MAINT_FREQ_12M",
+    "downtime_hours"
+  ],
+  "n_estimators": 1,
+  "classes": [
+    0,
+    1
+  ],
+  "_provenance": "converted from client motorpool_dt_model.pkl (sklearn 1.6.1 DecisionTreeClassifier)",
+  "trees": [
+    {
+      "feature": "MAINT_FREQ_12M",
+      "threshold": 0.5,
+      "left": {
+        "feature": "KM_SINCE_LAST_MAINT",
+        "threshold": 1920.22998046875,
+        "left": {
+          "probs": [
+            1.0,
+            0.0
+          ]
+        },
+        "right": {
+          "probs": [
+            0.4,
+            0.6
+          ]
+        }
+      },
+      "right": {
+        "feature": "KM_SINCE_LAST_MAINT",
+        "threshold": 26557.935546875,
+        "left": {
+          "feature": "downtime_hours",
+          "threshold": 0.8223991990089417,
+          "left": {
+            "probs": [
+              0.25806451612903225,
+              0.7419354838709677
+            ]
+          },
+          "right": {
+            "probs": [
+              0.0,
+              1.0
+            ]
+          }
+        },
+        "right": {
+          "feature": "KM_SINCE_LAST_MAINT",
+          "threshold": 137288.1640625,
+          "left": {
+            "probs": [
+              0.35443037974683544,
+              0.6455696202531646
+            ]
+          },
+          "right": {
+            "probs": [
+              0.0,
+              1.0
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
