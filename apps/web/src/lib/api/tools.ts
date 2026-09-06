@@ -1,6 +1,7 @@
 // src/lib/api/tools.ts
 import { api, toAssetUrl } from './client.js';
 import type { Tool, NewTool, UpdateTool } from '../types';
+import type { ToolBorrowStats } from '@mms/shared';
 
 // Shape of a tool row as returned by the API (Prisma camelCase).
 interface ToolApiResponse {
@@ -93,4 +94,8 @@ export async function updateTool(
 
 export async function deleteTool(id: string): Promise<void> {
   await api.del(`/tools/${id}`);
+}
+
+export async function getToolBorrowStats(): Promise<ToolBorrowStats> {
+  return api.get<ToolBorrowStats>('/tools/stats');
 }

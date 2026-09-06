@@ -1,4 +1,4 @@
-import { useTools } from '@/lib/query/tools';
+import { useTools, useToolBorrowStats } from '@/lib/query/tools';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useListControls } from '@/hooks/use-list-controls';
@@ -20,6 +20,8 @@ import EmptyState from '@/components/shared/empty-state';
 import StatusBadge from '@/components/shared/status-badge';
 import TablePagination from '@/components/shared/table-pagination';
 import ViewTabs from '@/components/shared/view-tabs';
+import { MetricStrip } from '@/components/shared/metric-card';
+import BorrowLeaderboard from './borrow-leaderboard';
 
 const formatDate = (value: string | null) =>
   value ? new Date(value).toLocaleDateString() : undefined;
@@ -39,10 +41,26 @@ const Tools = () => {
   const { data } = useTools(page, limit, sort ?? undefined);
   // `borrowed_by` is a driver id; a row must show the person, never the key.
   const { data: drivers } = useAllDrivers();
+  const { data: stats, isLoading: statsLoading } = useToolBorrowStats();
   const navigate = useNavigate();
   const tools = data?.data ?? [];
   const totalCount = data?.count ?? 0;
   const totalPages = Math.ceil(totalCount / limit);
+
+  // An em dash, never 0: a fleet with nothing returned yet has no average, and
+  // a zero would read as "tools come back the same day".
+  const metrics = [
+    { label: 'Tools out', value: stats?.toolsOut ?? 0 },
+    { label: 'Overdue', value: stats?.overdue ?? 0 },
+    { label: 'Borrows (90d)', value: stats?.borrowsInWindow ?? 0 },
+    {
+      label: 'Avg days out',
+      value:
+        stats?.avgDaysOut === null || stats?.avgDaysOut === undefined
+          ? '—'
+          : stats.avgDaysOut.toFixed(1)
+    }
+  ];
 
   const borrowerName = (driverId: string | null) =>
     driverId
@@ -170,6 +188,14 @@ const Tools = () => {
           </Link>
         }
       />
+
+      <MetricStrip metrics={metrics} className="mb-5" />
+      <div className="mb-6">
+        <BorrowLeaderboard
+          tools={stats?.topBorrowed}
+          isLoading={statsLoading}
+        />
+      </div>
 
       {/* Keyed to the dataset count, not the page slice, so a mid page that
           happens to be empty never reads as "no tools". */}

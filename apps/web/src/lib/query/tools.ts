@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getTools, getToolById } from '@/lib/api/tools';
+import { getTools, getToolById, getToolBorrowStats } from '@/lib/api/tools';
 
 export const useTools = (
   page: number = 1,
@@ -19,3 +19,12 @@ export const useTool = (id: string) => {
     enabled: !!id
   });
 };
+
+// Keyed under ['tools'] on purpose: invalidateQueries is prefix-matching, so
+// the existing create/update/delete mutations already refresh these numbers.
+// Adding a second invalidation would be dead code.
+export const useToolBorrowStats = () =>
+  useQuery({
+    queryKey: ['tools', 'stats'],
+    queryFn: getToolBorrowStats
+  });
