@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, shot, expectText } from './helpers';
+import { login, shot, expectText, apiLogin, apiGet, CREDENTIALS } from './helpers';
 
 // Every role should be able to sign in and land on its correct home screen.
 // These assertions target the distinctive text each role's dashboard renders.
@@ -22,20 +22,60 @@ test.describe('per-role sign-in and landing screens', () => {
     await shot(page, 'requester-dashboard');
   });
 
-  test('EVP lands on the approvals queue', async ({ page }) => {
+  test('EVP lands on the approvals queue', async ({ page, request }) => {
     await login(page, 'evp');
     // The redesigned queue leads with what is waiting on them, not a page title.
     await expectText(page, /Awaiting your sign-off/i);
     await shot(page, 'evp-approvals');
 
+    // Ground truth, read independently of whatever the tab ends up showing:
+    // how many decisions actually exist right now.
+    const evp = await apiLogin(request, CREDENTIALS.evp);
+    const before = (await apiGet(
+      request,
+      '/api/approvals/history?page=1&limit=1',
+      evp.token
+    )) as { count: number };
+
     // History sits beside the queue but nothing has ever opened it in an e2e
-    // run, so a runtime error in that tab has no outside check. Open it and
-    // confirm it renders — either a decision record or its honest empty state.
-    await page.getByRole('tab', { name: 'History' }).click();
-    await expectText(
-      page,
-      /No decisions recorded yet\.|Approved by|Declined by/i
+    // run, so a runtime error in that tab has no outside check. But unlike
+    // tools.spec.ts's /stats route, /api/approvals/history is the only route
+    // on its router (approvals/router.ts) — there is no /:id below it for it
+    // to be shadowed by, so that specific bug cannot recur here. The general
+    // trap still can: ApprovalHistory (evp-approval/history.tsx) renders its
+    // "No decisions recorded yet." empty state whenever `records.length ===
+    // 0`, and `records = data?.data ?? []` reads exactly that way whether the
+    // query resolved with zero rows or never resolved at all (isLoading
+    // settles false either way). So that text alone cannot tell a broken
+    // endpoint apart from an honestly empty one. Assert the live request
+    // resolves, then assert content a failed query cannot produce.
+    const historyResponse = page.waitForResponse(
+      (res) =>
+        res.url().includes('/api/approvals/history') &&
+        res.request().method() === 'GET'
     );
+    await page.getByRole('tab', { name: 'History' }).click();
+    const res = await historyResponse;
+    expect(res.status(), 'GET /api/approvals/history resolves').toBe(200);
+
+    if (before.count > 0) {
+      // The expected steady state: fuel allocations and job orders have no
+      // hard-delete route, so a shared dev database that has ever recorded a
+      // decision keeps it. A real record renders as an <article> (history.tsx);
+      // the empty-state text is the one thing that must NOT be showing.
+      await expect(
+        page.getByRole('tabpanel').locator('article').first()
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText('No decisions recorded yet.')).toHaveCount(
+        0
+      );
+    } else {
+      // A genuinely fresh database has nothing to show a data-dependent
+      // assertion against — the empty state is the only correct render, and
+      // the network assertion above already proved the endpoint itself is
+      // healthy.
+      await expectText(page, 'No decisions recorded yet.');
+    }
   });
 
   test('security guard lands on the gate screen', async ({ page }) => {
