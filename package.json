@@ -6,6 +6,7 @@
   "engines": {
     "node": ">=20"
   },
+  "packageManager": "pnpm@10.27.0",
   "scripts": {
     "predev": "pnpm --filter @mms/shared build",
     "dev": "concurrently -n shared,api,web -c yellow,blue,green \"pnpm --filter @mms/shared dev\" \"pnpm --filter @mms/api dev\" \"pnpm --filter @mms/web dev\"",
