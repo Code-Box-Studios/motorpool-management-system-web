@@ -17,3 +17,28 @@ export async function listTools(
   ]);
   return { data, count };
 }
+
+export function countOpenBorrows() {
+  return prisma.toolBorrow.count({ where: { returnedAt: null } });
+}
+
+// Overdue means still out AND past due. `returnedAt: null` is not optional:
+// without it a tool that came back late counts forever.
+export function countOverdueBorrows(today: Date) {
+  return prisma.toolBorrow.count({
+    where: { returnedAt: null, dueAt: { lt: today } }
+  });
+}
+
+export function borrowsSince(since: Date) {
+  return prisma.toolBorrow.findMany({
+    where: { borrowedAt: { gte: since } },
+    select: {
+      toolId: true,
+      borrowedAt: true,
+      returnedAt: true,
+      dueAt: true,
+      tool: { select: { name: true } }
+    }
+  });
+}

@@ -1,5 +1,7 @@
+import { BORROW_WINDOW_DAYS } from '@mms/shared';
 import type {
   CreateToolBody,
+  ToolBorrowStats,
   ToolsListQuery,
   UpdateToolBody
 } from '@mms/shared';
@@ -8,7 +10,13 @@ import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
-import { findToolById, listTools } from './repository.js';
+import {
+  borrowsSince,
+  countOpenBorrows,
+  countOverdueBorrows,
+  findToolById,
+  listTools
+} from './repository.js';
 import { syncBorrow } from './borrows.js';
 
 export async function list(query: ToolsListQuery) {
@@ -199,4 +207,59 @@ export async function remove(id: string): Promise<void> {
   const existing = await findToolById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Tool not found');
   await prisma.tool.delete({ where: { id } });
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const TOP_N = 5;
+
+export async function stats(now: Date): Promise<ToolBorrowStats> {
+  const since = new Date(now.getTime() - BORROW_WINDOW_DAYS * MS_PER_DAY);
+  const [toolsOut, overdue, borrows] = await Promise.all([
+    countOpenBorrows(),
+    countOverdueBorrows(now),
+    borrowsSince(since)
+  ]);
+
+  const returned = borrows.filter((b) => b.returnedAt !== null);
+  const avgDaysOut =
+    returned.length === 0
+      ? null
+      : returned.reduce(
+          (sum, b) =>
+            sum + (b.returnedAt!.getTime() - b.borrowedAt.getTime()) / MS_PER_DAY,
+          0
+        ) / returned.length;
+
+  const byTool = new Map<
+    string,
+    { name: string; borrows: number; isOut: boolean; isOverdue: boolean }
+  >();
+  for (const b of borrows) {
+    const entry = byTool.get(b.toolId) ?? {
+      name: b.tool.name,
+      borrows: 0,
+      isOut: false,
+      isOverdue: false
+    };
+    entry.borrows += 1;
+    if (b.returnedAt === null) {
+      entry.isOut = true;
+      if (b.dueAt !== null && b.dueAt < now) entry.isOverdue = true;
+    }
+    byTool.set(b.toolId, entry);
+  }
+
+  const topBorrowed = [...byTool.entries()]
+    .map(([toolId, e]) => ({ toolId, ...e }))
+    // Ties break by name so the ranking does not reshuffle between two reads.
+    .sort((a, b) => b.borrows - a.borrows || a.name.localeCompare(b.name))
+    .slice(0, TOP_N);
+
+  return {
+    toolsOut,
+    overdue,
+    borrowsInWindow: borrows.length,
+    avgDaysOut,
+    topBorrowed
+  };
 }

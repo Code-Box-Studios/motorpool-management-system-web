@@ -39,3 +39,26 @@ export const updateToolBodySchema = createToolBodySchema.partial().extend({
   removeImage: booleanFromString.optional()
 });
 export type UpdateToolBody = z.infer<typeof updateToolBodySchema>;
+
+// "Frequently" means lately: a tool retired in March should not outrank one in
+// daily use. One constant, never a literal inside a query.
+export const BORROW_WINDOW_DAYS = 90;
+
+export interface TopBorrowedTool {
+  toolId: string;
+  name: string;
+  borrows: number;
+  isOut: boolean;
+  isOverdue: boolean;
+}
+
+export interface ToolBorrowStats {
+  toolsOut: number;
+  overdue: number;
+  borrowsInWindow: number;
+  // Over RETURNED borrows only. An open borrow has no duration yet, and
+  // counting it as zero would drag the average down exactly when the most tools
+  // are out. null when nothing has been returned — the UI shows an em dash.
+  avgDaysOut: number | null;
+  topBorrowed: TopBorrowedTool[];
+}

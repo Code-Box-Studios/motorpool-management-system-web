@@ -17,6 +17,14 @@ export const toolsRouter = Router();
 
 toolsRouter.use(requireAuth);
 toolsRouter.get('/', requireRole(...INVENTORY_READ_ROLES), controller.list);
+// MUST stay above '/:id'. Express matches in order, so below it this path is
+// swallowed and "stats" is handed to Prisma as a uuid — a P2023 that surfaces
+// as a 500 looking like a database fault.
+toolsRouter.get(
+  '/stats',
+  requireRole(...INVENTORY_READ_ROLES),
+  controller.stats
+);
 toolsRouter.get(
   '/:id',
   requireRole(...INVENTORY_READ_ROLES),

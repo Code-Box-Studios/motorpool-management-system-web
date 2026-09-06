@@ -721,4 +721,205 @@ describe('tool borrow history', () => {
 
     expect(src).not.toMatch(/prev\s*=\s*existing\.borrowedById/);
   });
+
+  // Fixed instants, never Date.now() offsets — TZ is pinned to UTC and a suite
+  // that passes in August must pass in December.
+  const NOW = new Date('2026-08-28T12:00:00.000Z');
+  const DAYS_AGO = (n: number) =>
+    new Date(NOW.getTime() - n * 24 * 60 * 60 * 1000);
+
+  // Tools have no unique constraint on `name`, so this is find-or-create rather
+  // than an upsert — three borrows of "Popular" must land on ONE tool row or
+  // the ranking test measures nothing.
+  async function toolByName(name: string) {
+    const existing = await prisma.tool.findFirst({ where: { name } });
+    return existing ?? (await prisma.tool.create({ data: { name } }));
+  }
+
+  async function seedBorrow(opts: {
+    toolName: string;
+    borrowerId: string;
+    borrowedAt: Date;
+    returnedAt?: Date | null;
+    dueAt?: Date | null;
+  }) {
+    const tool = await toolByName(opts.toolName);
+    await prisma.toolBorrow.create({
+      data: {
+        toolId: tool.id,
+        borrowerId: opts.borrowerId,
+        borrowedAt: opts.borrowedAt,
+        returnedAt: opts.returnedAt ?? null,
+        dueAt: opts.dueAt ?? null
+      }
+    });
+    return tool;
+  }
+
+  it('counts only OPEN borrows as tools out', async () => {
+    const header = await adminHeader();
+    const driver = await createDriver();
+    await seedBorrow({
+      toolName: 'Open Tool',
+      borrowerId: driver.id,
+      borrowedAt: DAYS_AGO(2)
+    });
+    await seedBorrow({
+      toolName: 'Returned Tool',
+      borrowerId: driver.id,
+      borrowedAt: DAYS_AGO(10),
+      returnedAt: DAYS_AGO(8)
+    });
+
+    const res = await request(app)
+      .get('/api/tools/stats')
+      .set('Authorization', header);
+
+    expect(res.status).toBe(200);
+    expect(res.body.toolsOut).toBe(1);
+  });
+
+  it('counts overdue only among OPEN borrows', async () => {
+    const header = await adminHeader();
+    const driver = await createDriver();
+    await seedBorrow({
+      toolName: 'Late And Still Out',
+      borrowerId: driver.id,
+      borrowedAt: DAYS_AGO(10),
+      dueAt: DAYS_AGO(3)
+    });
+    // Returned late. It is NOT overdue — it is back. Without this row the
+    // assertion passes even if the query forgets `returnedAt IS NULL`.
+    await seedBorrow({
+      toolName: 'Late But Returned',
+      borrowerId: driver.id,
+      borrowedAt: DAYS_AGO(20),
+      dueAt: DAYS_AGO(15),
+      returnedAt: DAYS_AGO(2)
+    });
+
+    const res = await request(app)
+      .get('/api/tools/stats')
+      .set('Authorization', header);
+
+    expect(res.body.overdue).toBe(1);
+  });
+
+  it('counts borrows inside the 90-day window and excludes older ones', async () => {
+    const header = await adminHeader();
+    const driver = await createDriver();
+    await seedBorrow({
+      toolName: 'Recent',
+      borrowerId: driver.id,
+      borrowedAt: DAYS_AGO(80),
+      returnedAt: DAYS_AGO(79)
+    });
+    await seedBorrow({
+      toolName: 'Ancient',
+      borrowerId: driver.id,
+      borrowedAt: DAYS_AGO(100),
+      returnedAt: DAYS_AGO(99)
+    });
+
+    const res = await request(app)
+      .get('/api/tools/stats')
+      .set('Authorization', header);
+
+    expect(res.body.borrowsInWindow).toBe(1);
+    expect(
+      res.body.topBorrowed.map((t: { name: string }) => t.name)
+    ).toEqual(['Recent']);
+  });
+
+  it('ranks by borrow count and breaks ties by name', async () => {
+    const header = await adminHeader();
+    const driver = await createDriver();
+    for (let i = 0; i < 3; i++) {
+      await seedBorrow({
+        toolName: 'Popular',
+        borrowerId: driver.id,
+        borrowedAt: DAYS_AGO(10 + i),
+        returnedAt: DAYS_AGO(9 + i)
+      });
+    }
+    await seedBorrow({
+      toolName: 'Beta',
+      borrowerId: driver.id,
+      borrowedAt: DAYS_AGO(5),
+      returnedAt: DAYS_AGO(4)
+    });
+    await seedBorrow({
+      toolName: 'Alpha',
+      borrowerId: driver.id,
+      borrowedAt: DAYS_AGO(6),
+      returnedAt: DAYS_AGO(5)
+    });
+
+    const res = await request(app)
+      .get('/api/tools/stats')
+      .set('Authorization', header);
+
+    expect(
+      res.body.topBorrowed.map((t: { name: string }) => t.name)
+    ).toEqual(['Popular', 'Alpha', 'Beta']);
+  });
+
+  it('reports avgDaysOut as null with nothing returned, then ignores open borrows', async () => {
+    const header = await adminHeader();
+    const driver = await createDriver();
+    await seedBorrow({
+      toolName: 'Still Out',
+      borrowerId: driver.id,
+      borrowedAt: DAYS_AGO(30)
+    });
+
+    const empty = await request(app)
+      .get('/api/tools/stats')
+      .set('Authorization', header);
+    expect(empty.body.avgDaysOut).toBeNull();
+
+    await seedBorrow({
+      toolName: 'Two Day Loan',
+      borrowerId: driver.id,
+      borrowedAt: DAYS_AGO(10),
+      returnedAt: DAYS_AGO(8)
+    });
+
+    const res = await request(app)
+      .get('/api/tools/stats')
+      .set('Authorization', header);
+    // The 30-day open borrow must not be averaged in.
+    expect(res.body.avgDaysOut).toBeCloseTo(2, 1);
+  });
+
+  it('admits a driver and refuses a security guard', async () => {
+    const { user: driverUser } = await createTestUser({
+      email: 'du@test.local',
+      role: 'driver'
+    });
+    const ok = await request(app)
+      .get('/api/tools/stats')
+      .set('Authorization', authHeader(driverUser.id, driverUser.email, 'driver'));
+    expect(ok.status).toBe(200);
+
+    const { user: guard } = await createTestUser({
+      email: 'gu@test.local',
+      role: 'security_guard'
+    });
+    const refused = await request(app)
+      .get('/api/tools/stats')
+      .set('Authorization', authHeader(guard.id, guard.email, 'security_guard'));
+    expect(refused.status).toBe(403);
+  });
+
+  it('resolves /stats as its own route, not as a tool id', async () => {
+    const header = await adminHeader();
+    const res = await request(app)
+      .get('/api/tools/stats')
+      .set('Authorization', header);
+    // A /stats declared AFTER /:id is swallowed by it and handed to Prisma as a
+    // uuid, which throws P2023 and surfaces as a 500 that looks like a DB fault.
+    expect(res.status).not.toBe(500);
+    expect(res.status).toBe(200);
+  });
 });

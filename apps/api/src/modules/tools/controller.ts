@@ -44,3 +44,7 @@ export async function remove(req: Request, res: Response): Promise<void> {
   await service.remove(requireIdParam(req));
   res.status(204).end();
 }
+
+export async function stats(_req: Request, res: Response): Promise<void> {
+  res.json(await service.stats(new Date()));
+}
