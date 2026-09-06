@@ -728,4 +728,62 @@ describe('trip-ticket approval transitions', () => {
     expect(allocation.decidedById).toBeNull();
     expect(allocation.decidedAt).toBeNull();
   });
+
+  // Round-4 review #3: cancel is reachable from `approved` (loadInState above
+  // allows it), and used to overwrite EVERY allocation for the ticket to
+  // `cancelled` regardless of whether the EVP had already decided it. The
+  // approvals-history query filters `status IN ('approved','disapproved')`,
+  // so an EVP's decision — a fact that already happened — silently vanished
+  // the moment the requester cancelled the trip. A decision made is a
+  // decision made; the ticket's own status is what records the withdrawal.
+  it('keeps a decided allocation, and its place in approvals history, after the requester cancels the trip (round-4 review #3)', async () => {
+    const { ticket, requester } = await pendingTicket();
+    const { user: admin } = await createTestUser({
+      email: 'a4@test.local',
+      role: 'admin'
+    });
+    const { user: evp } = await createTestUser({
+      email: 'e4@test.local',
+      role: 'evp_operations'
+    });
+    await request(app)
+      .post(`/api/trip-tickets/${ticket.id}/approve`)
+      .set('Authorization', authHeader(admin.id, admin.email, 'admin'))
+      .send(fuelBody);
+    const evpRes = await request(app)
+      .post(`/api/trip-tickets/${ticket.id}/approve-evp`)
+      .set('Authorization', authHeader(evp.id, evp.email, 'evp_operations'));
+    expect(evpRes.status).toBe(200);
+
+    const cancelRes = await request(app)
+      .post(`/api/trip-tickets/${ticket.id}/cancel`)
+      .set(
+        'Authorization',
+        authHeader(requester.id, requester.email, 'requester')
+      )
+      .send({ reason: 'No longer needed' });
+    expect(cancelRes.status).toBe(200);
+    // The ticket itself still records the withdrawal.
+    expect(cancelRes.body.status).toBe('cancelled');
+
+    const allocation = await prisma.fuelAllocation.findUniqueOrThrow({
+      where: { tripTicketId: ticket.id }
+    });
+    // The decision survives the ticket's later cancellation, untouched.
+    expect(allocation.status).toBe('approved');
+    expect(allocation.decidedById).toBe(evp.id);
+    expect(allocation.decidedAt).not.toBeNull();
+
+    const historyRes = await request(app)
+      .get('/api/approvals/history')
+      .set('Authorization', authHeader(evp.id, evp.email, 'evp_operations'));
+    expect(historyRes.status).toBe(200);
+    expect(historyRes.body.data).toContainEqual(
+      expect.objectContaining({
+        kind: 'fuel',
+        outcome: 'approved',
+        linkTo: `/trip-tickets/${ticket.id}`
+      })
+    );
+  });
 });

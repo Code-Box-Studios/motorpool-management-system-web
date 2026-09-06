@@ -135,6 +135,9 @@ describe('approvals history', () => {
       liters: 80,
       fuelType: 'diesel',
       title: 'Iloilo depot',
+      // The headline fact of the History tab (round-4 review #6) — asserted by
+      // no test before this, on either kind of record.
+      decidedByName: 'Test User',
       decidedByRole: 'evp_operations',
       linkTo: `/trip-tickets/${ticket.id}`
     });
@@ -189,7 +192,7 @@ describe('approvals history', () => {
       decidedById: user.id,
       decidedAt: SAME_DAY_MORNING
     });
-    await seedJobOrder({
+    const jobOrder = await seedJobOrder({
       approvedById: user.id,
       dateApproved: SAME_DAY_AFTERNOON
     });
@@ -202,6 +205,20 @@ describe('approvals history', () => {
       'repair',
       'fuel'
     ]);
+    // Round-4 review #6: `ref`, `linkTo`, `title`, `subtitle`, `decidedByName`
+    // and `decidedByRole` were read by no test on the repair side — only
+    // `kind`/`count`/ordering were. The shipped values are correct today;
+    // this is the regression fence for service.ts:56-71's mapping.
+    expect(res.body.data[0]).toMatchObject({
+      kind: 'repair',
+      outcome: 'approved',
+      ref: `JO-${jobOrder.orderNo}`,
+      linkTo: `/job-order/${jobOrder.id}`,
+      title: 'Brake overhaul',
+      subtitle: 'Toyota Hiace · GRD-0001',
+      decidedByName: 'Test User',
+      decidedByRole: 'evp_operations'
+    });
   });
 
   it('sorts a record with no decision time last', async () => {

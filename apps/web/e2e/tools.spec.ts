@@ -114,4 +114,87 @@ test.describe('tools borrow metrics', () => {
     // being set wrong would render the strip with no numbers behind it.
     await expect(page.getByText('Tools out')).toBeVisible();
   });
+
+  test('an admin returns a borrowed tool through the UI, and toolsOut drops back down', async ({
+    page,
+    request
+  }) => {
+    // Round-4 review #2: the Borrowed By select had driver items only, and a
+    // Radix select cannot be deselected, so there was NO way to record a
+    // return from the UI at all — toolsOut/overdue could only ever grow. This
+    // is the assertion that the "None (returned)" item actually reaches the
+    // API, not just that it renders.
+    const admin = await apiLogin(request, CREDENTIALS.admin);
+    const before = (await apiGet(
+      request,
+      '/api/tools/stats',
+      admin.token
+    )) as { toolsOut: number };
+
+    const drivers = (await apiGet(request, '/api/drivers?limit=1', admin.token)) as {
+      data: Array<{ id: string }>;
+    };
+    const driverId = drivers.data[0]?.id;
+    expect(driverId, 'a driver exists to borrow the probe tool').toBeTruthy();
+
+    const toolName = `E2E Return Tool ${Date.now()}`;
+    const created = await apiPost(request, '/api/tools', admin.token, {
+      name: toolName,
+      borrowedById: driverId,
+      borrowedDate: new Date().toISOString()
+    });
+    expect(created.ok, 'the probe tool is created already borrowed').toBeTruthy();
+    const toolId = (created.body as { id: string }).id;
+    probeToolId = toolId;
+
+    const afterBorrow = (await apiGet(
+      request,
+      '/api/tools/stats',
+      admin.token
+    )) as { toolsOut: number };
+    expect(afterBorrow.toolsOut).toBe(before.toolsOut + 1);
+
+    await login(page, 'admin');
+    await page.goto(`/tools/${toolId}`);
+    await page.getByRole('button', { name: 'Edit' }).click();
+
+    // Scoped through the "Borrowed By" field group rather than the first
+    // combobox on the page — the same idiom organization.spec.ts's
+    // branchGroup() uses, since this Select has no id/label association
+    // either (tools-inner/index.tsx is pre-existing and not this feature's to
+    // relabel).
+    const borrowedByGroup = page
+      .getByRole('group')
+      .filter({ hasText: 'Borrowed By' });
+    await borrowedByGroup.getByRole('combobox').click();
+    await page
+      .getByRole('option', { name: 'None (returned)', exact: true })
+      .click();
+
+    await page
+      .getByRole('button', { name: 'Update Tool', exact: true })
+      .click();
+    const confirmDialog = page.getByRole('alertdialog');
+    await expect(confirmDialog).toBeVisible({ timeout: 15_000 });
+
+    const statsResponse = page.waitForResponse(
+      (res) =>
+        res.url().includes('/api/tools/stats') &&
+        res.request().method() === 'GET'
+    );
+    // The confirm dialog's OWN button shares the exact accessible name
+    // "Update Tool" with the form's submit button and the dialog's title —
+    // scoping to the dialog is what disambiguates the click.
+    await confirmDialog
+      .getByRole('button', { name: 'Update Tool', exact: true })
+      .click();
+    await expect(confirmDialog).toBeHidden({ timeout: 15_000 });
+
+    // A successful update navigates back to /tools on its own.
+    await page.waitForURL(/\/tools$/, { timeout: 15_000 });
+    await statsResponse;
+    await expect(metricValue(page, 'Tools out')).toHaveText(
+      String(before.toolsOut)
+    );
+  });
 });

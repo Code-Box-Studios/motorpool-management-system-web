@@ -46,5 +46,15 @@ export async function remove(req: Request, res: Response): Promise<void> {
 }
 
 export async function stats(_req: Request, res: Response): Promise<void> {
-  res.json(await service.stats(new Date()));
+  // dueAt is `@db.Date` (always UTC midnight), so comparing it against a full
+  // instant makes a tool overdue from 00:00Z on its due date — two hours
+  // before local midnight in Malta (UTC+2), while the detail page compares
+  // against local calendar-day today and shows no badge until then. Truncate
+  // to UTC midnight here so the window's boundary agrees with the column it
+  // is compared against, and with the frontend.
+  const now = new Date();
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  );
+  res.json(await service.stats(today));
 }

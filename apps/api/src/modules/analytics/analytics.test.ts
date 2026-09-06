@@ -111,6 +111,124 @@ describe('analytics module', () => {
     ).toBe(true);
   });
 
+  // Round-4 review #5: `null || a number` is true of every possible response —
+  // the client model failing to load, being wired to the wrong features, or
+  // working correctly all pass it identically. These two pin real, expected
+  // numbers instead. Golden values and the tree path (root MAINT_FREQ_12M >
+  // 0.5 -> right; KM_SINCE_LAST_MAINT <= 26557.935546875 -> left; the
+  // downtime_hours leaf, threshold 0.8223991990089417) are read straight off
+  // client-dt.test.ts, which pins the same client_dt_model.json this endpoint
+  // loads.
+  it('GET /analytics/predictive-maintenance returns the model\'s actual score, not just null-or-a-number', async () => {
+    const header = await adminHeader();
+    const v = await vehicle('available', 10000);
+    // KM_SINCE_LAST_MAINT = 10000 - 0. MAINT_FREQ_12M = 1 (one record, dated
+    // "now", always inside the trailing-12-months window).
+    await prisma.maintenance.create({
+      data: { vehicleId: v.id, type: 'service', date: new Date(), mileage: 0 }
+    });
+    // A CLOSED 0.5h under_maintenance span — below the 0.822...h split. Closed
+    // because a later row exists, so the query's COALESCE(next, now) branch
+    // never runs and this is exact regardless of when the test executes.
+    const start = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    await prisma.vehicleStatusAudit.create({
+      data: {
+        vehicleId: v.id,
+        oldStatus: 'available',
+        newStatus: 'under_maintenance',
+        changeSource: 'manual_edit',
+        createdAt: start
+      }
+    });
+    await prisma.vehicleStatusAudit.create({
+      data: {
+        vehicleId: v.id,
+        oldStatus: 'under_maintenance',
+        newStatus: 'available',
+        changeSource: 'manual_edit',
+        createdAt: new Date(start.getTime() + 0.5 * 60 * 60 * 1000)
+      }
+    });
+
+    const res = await request(app)
+      .get('/api/analytics/predictive-maintenance')
+      .set('Authorization', header);
+    expect(res.status).toBe(200);
+    const score = res.body.data[0].crossCheckScore;
+    expect(typeof score).toBe('number');
+    expect(score).toBeGreaterThanOrEqual(0);
+    expect(score).toBeLessThanOrEqual(1);
+    expect(score).toBeCloseTo(0.7419354838709677, 10);
+  });
+
+  it('two vehicles straddling the same tree split get different crossCheckScores', async () => {
+    const header = await adminHeader();
+    const below = await vehicle('available', 10000);
+    const above = await vehicle('available', 10000);
+    for (const v of [below, above]) {
+      await prisma.maintenance.create({
+        data: { vehicleId: v.id, type: 'service', date: new Date(), mileage: 0 }
+      });
+    }
+    const start = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    // below: 0.5h downtime (under the split); above: 1h (over it). Identical
+    // KM_SINCE_LAST_MAINT/MAINT_FREQ_12M on both — only downtime_hours
+    // differs — so a difference in score can only come from the tree
+    // actually being traversed on that feature, not a constant leaf.
+    await prisma.vehicleStatusAudit.createMany({
+      data: [
+        {
+          vehicleId: below.id,
+          oldStatus: 'available',
+          newStatus: 'under_maintenance',
+          changeSource: 'manual_edit',
+          createdAt: start
+        },
+        {
+          vehicleId: below.id,
+          oldStatus: 'under_maintenance',
+          newStatus: 'available',
+          changeSource: 'manual_edit',
+          createdAt: new Date(start.getTime() + 0.5 * 60 * 60 * 1000)
+        },
+        {
+          vehicleId: above.id,
+          oldStatus: 'available',
+          newStatus: 'under_maintenance',
+          changeSource: 'manual_edit',
+          createdAt: start
+        },
+        {
+          vehicleId: above.id,
+          oldStatus: 'under_maintenance',
+          newStatus: 'available',
+          changeSource: 'manual_edit',
+          createdAt: new Date(start.getTime() + 1 * 60 * 60 * 1000)
+        }
+      ]
+    });
+
+    const res = await request(app)
+      .get('/api/analytics/predictive-maintenance')
+      .set('Authorization', header);
+    expect(res.status).toBe(200);
+    const byId = new Map<string, number | null>(
+      res.body.data.map(
+        (d: { vehicleId: string; crossCheckScore: number | null }) => [
+          d.vehicleId,
+          d.crossCheckScore
+        ]
+      )
+    );
+    const belowScore = byId.get(below.id);
+    const aboveScore = byId.get(above.id);
+    expect(typeof belowScore).toBe('number');
+    expect(typeof aboveScore).toBe('number');
+    expect(belowScore).not.toBe(aboveScore);
+    expect(belowScore).toBeCloseTo(0.7419354838709677, 10);
+    expect(aboveScore).toBe(1.0);
+  });
+
   it('GET /analytics/association-rules mines the job-order spare-parts join', async () => {
     const header = await adminHeader();
     const branch = await createTestBranch();

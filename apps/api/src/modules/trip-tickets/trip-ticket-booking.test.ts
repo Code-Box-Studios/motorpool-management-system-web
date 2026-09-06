@@ -580,7 +580,15 @@ describe('trip-ticket off-ramps', () => {
     const allocation = await prisma.fuelAllocation.findUniqueOrThrow({
       where: { tripTicketId: created.body.id }
     });
-    expect(allocation.status).toBe('cancelled'); // the fuel budget is released with it
+    // Round-4 review #3: the EVP already decided this allocation before the
+    // trip was cancelled, and a later withdrawal does not un-make that
+    // decision — it must survive, unchanged, so it stays visible in the
+    // approvals history. This used to assert 'cancelled', which was this
+    // exact bug pinned as correct: cancelling the TICKET overwrote every
+    // allocation regardless of whether the EVP had already ruled on it. The
+    // ticket's own `cancelled` status above is what now records the
+    // withdrawal.
+    expect(allocation.status).toBe('approved');
   });
 
   it('a COMPLETED trip cannot be deleted', async () => {

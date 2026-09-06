@@ -175,8 +175,18 @@ export async function cancel(
       where: { id },
       data: { status: 'cancelled', cancellationReason: reason }
     });
+    // Scoped to `pending` only (round-4 review #3): an allocation the EVP has
+    // already decided is a fact of record — approved or disapproved — and a
+    // later cancellation by the requester does not un-make it. Overwriting it
+    // to `cancelled` here used to erase it from the approvals-history query
+    // (`status IN ('approved','disapproved')`), so an EVP's decision vanished
+    // the moment the requester cancelled. The ticket itself still moves to
+    // `cancelled` above — that is what the trip's own status is for. An
+    // allocation still `pending` (no decision ever made) keeps the old
+    // behaviour: it moves to `cancelled` and stays out of the history, same
+    // as before.
     await tx.fuelAllocation.updateMany({
-      where: { tripTicketId: id },
+      where: { tripTicketId: id, status: 'pending' },
       data: { status: 'cancelled' }
     });
     // Cascade onto the outings this cancellation calls off. `approved` is in

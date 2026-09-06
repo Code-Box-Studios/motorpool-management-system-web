@@ -6,6 +6,7 @@ import { createApp } from '../../app.js';
 import { prisma } from '../../lib/prisma.js';
 import { authHeader, createTestUser } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
+import { stats } from './service.js';
 
 const app = createApp();
 
@@ -722,8 +723,17 @@ describe('tool borrow history', () => {
     expect(src).not.toMatch(/prev\s*=\s*existing\.borrowedById/);
   });
 
-  // Fixed instants, never Date.now() offsets — TZ is pinned to UTC and a suite
-  // that passes in August must pass in December.
+  // Fixed instant, matched to fixtures below via DAYS_AGO. The three window
+  // tests call service.stats(NOW) DIRECTLY rather than through the route —
+  // the route hands service.stats(new Date()), the real wall clock, so the
+  // 90-day window it computes slides every day while these DAYS_AGO(...)
+  // fixtures stay pinned to this literal, and the window eventually ages
+  // them out from under the assertion (they did, on a 90-day clock, sail
+  // right past this bug). Calling the service directly with this same NOW
+  // removes the wall clock from the equation entirely, so this is stable
+  // forever, not just today. Pinning TZ only makes a literal reproducible
+  // across machines; it does nothing about a window that slides with real
+  // time, which is what actually broke here.
   const NOW = new Date('2026-08-28T12:00:00.000Z');
   const DAYS_AGO = (n: number) =>
     new Date(NOW.getTime() - n * 24 * 60 * 60 * 1000);
@@ -805,8 +815,33 @@ describe('tool borrow history', () => {
     expect(res.body.overdue).toBe(1);
   });
 
-  it('counts borrows inside the 90-day window and excludes older ones', async () => {
+  it('does not count a tool due exactly today as overdue (day-boundary parity with the detail page)', async () => {
+    // dueAt is `@db.Date`, always UTC midnight. The controller must truncate
+    // `now` to the same UTC midnight before handing it to the service, or a
+    // tool due today reads as overdue here from 00:00Z while the detail page
+    // (comparing local calendar-day today) shows no badge until local
+    // midnight — a real disagreement in Malta (UTC+2) for two hours a day.
     const header = await adminHeader();
+    const driver = await createDriver();
+    const now = new Date();
+    const todayUtcMidnight = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    );
+    await seedBorrow({
+      toolName: 'Due Today',
+      borrowerId: driver.id,
+      borrowedAt: DAYS_AGO(5),
+      dueAt: todayUtcMidnight
+    });
+
+    const res = await request(app)
+      .get('/api/tools/stats')
+      .set('Authorization', header);
+
+    expect(res.body.overdue).toBe(0);
+  });
+
+  it('counts borrows inside the 90-day window and excludes older ones', async () => {
     const driver = await createDriver();
     await seedBorrow({
       toolName: 'Recent',
@@ -821,18 +856,15 @@ describe('tool borrow history', () => {
       returnedAt: DAYS_AGO(99)
     });
 
-    const res = await request(app)
-      .get('/api/tools/stats')
-      .set('Authorization', header);
+    // Driven through service.stats(NOW) directly, not the route (which hands
+    // the service the live wall clock) — see the NOW comment above.
+    const result = await stats(NOW);
 
-    expect(res.body.borrowsInWindow).toBe(1);
-    expect(
-      res.body.topBorrowed.map((t: { name: string }) => t.name)
-    ).toEqual(['Recent']);
+    expect(result.borrowsInWindow).toBe(1);
+    expect(result.topBorrowed.map((t) => t.name)).toEqual(['Recent']);
   });
 
   it('ranks by borrow count and breaks ties by name', async () => {
-    const header = await adminHeader();
     const driver = await createDriver();
     for (let i = 0; i < 3; i++) {
       await seedBorrow({
@@ -855,17 +887,16 @@ describe('tool borrow history', () => {
       returnedAt: DAYS_AGO(5)
     });
 
-    const res = await request(app)
-      .get('/api/tools/stats')
-      .set('Authorization', header);
+    const result = await stats(NOW);
 
-    expect(
-      res.body.topBorrowed.map((t: { name: string }) => t.name)
-    ).toEqual(['Popular', 'Alpha', 'Beta']);
+    expect(result.topBorrowed.map((t) => t.name)).toEqual([
+      'Popular',
+      'Alpha',
+      'Beta'
+    ]);
   });
 
   it('reports avgDaysOut as null with nothing returned, then ignores open borrows', async () => {
-    const header = await adminHeader();
     const driver = await createDriver();
     await seedBorrow({
       toolName: 'Still Out',
@@ -873,10 +904,8 @@ describe('tool borrow history', () => {
       borrowedAt: DAYS_AGO(30)
     });
 
-    const empty = await request(app)
-      .get('/api/tools/stats')
-      .set('Authorization', header);
-    expect(empty.body.avgDaysOut).toBeNull();
+    const empty = await stats(NOW);
+    expect(empty.avgDaysOut).toBeNull();
 
     await seedBorrow({
       toolName: 'Two Day Loan',
@@ -885,11 +914,9 @@ describe('tool borrow history', () => {
       returnedAt: DAYS_AGO(8)
     });
 
-    const res = await request(app)
-      .get('/api/tools/stats')
-      .set('Authorization', header);
+    const result = await stats(NOW);
     // The 30-day open borrow must not be averaged in.
-    expect(res.body.avgDaysOut).toBeCloseTo(2, 1);
+    expect(result.avgDaysOut).toBeCloseTo(2, 1);
   });
 
   it('admits a driver and refuses a security guard', async () => {

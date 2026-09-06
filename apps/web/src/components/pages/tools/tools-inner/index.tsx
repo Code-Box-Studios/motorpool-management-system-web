@@ -66,6 +66,16 @@ const formatDateTime = (value?: string | null) => {
   });
 };
 
+// A Radix Select cannot be deselected, and there is no separate Return
+// button anywhere in this form — so a tool sitting in the shelf state
+// (`borrowed_by` cleared to '') is otherwise unreachable once a driver has
+// been picked. This sentinel gives the select an explicit "give it back"
+// item; it is mapped to '' (the contract's real "clear" value) in the
+// submit handler below, rather than on the item itself, since Radix refuses
+// an empty-string item value and this way the item stays shown as selected
+// once chosen instead of reverting to the placeholder.
+const RETURN_TOOL_VALUE = '__return_tool__';
+
 // Today in the same YYYY-MM-DD shape the API stores, so a due date can be
 // compared as a plain string without a timezone shifting it across midnight.
 const localToday = () => {
@@ -126,7 +136,16 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
       updateTool.mutate(
         {
           id: tool.id,
-          updates,
+          updates: {
+            ...updates,
+            // The sentinel is a UI-only concept — only the API's real
+            // three-valued convention (absent/leave, '' -> null/clear,
+            // value/set) travels over the wire.
+            borrowed_by:
+              updates.borrowed_by === RETURN_TOOL_VALUE
+                ? ''
+                : updates.borrowed_by
+          },
           file: newImage,
           removeImage
         },
@@ -353,6 +372,9 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
                             <SelectValue placeholder="Select a driver" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value={RETURN_TOOL_VALUE}>
+                              None (returned)
+                            </SelectItem>
                             {drivers?.map((driver) => (
                               <SelectItem key={driver.id} value={driver.id}>
                                 {driver.full_name}
