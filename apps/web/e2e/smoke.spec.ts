@@ -27,6 +27,15 @@ test.describe('per-role sign-in and landing screens', () => {
     // The redesigned queue leads with what is waiting on them, not a page title.
     await expectText(page, /Awaiting your sign-off/i);
     await shot(page, 'evp-approvals');
+
+    // History sits beside the queue but nothing has ever opened it in an e2e
+    // run, so a runtime error in that tab has no outside check. Open it and
+    // confirm it renders — either a decision record or its honest empty state.
+    await page.getByRole('tab', { name: 'History' }).click();
+    await expectText(
+      page,
+      /No decisions recorded yet\.|Approved by|Declined by/i
+    );
   });
 
   test('security guard lands on the gate screen', async ({ page }) => {
