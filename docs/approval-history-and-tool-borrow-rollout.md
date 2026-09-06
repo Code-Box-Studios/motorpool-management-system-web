@@ -185,3 +185,114 @@ Both dev servers and the two open-borrow/date checks above were run against
 local Docker Postgres (`localhost:5432`, databases `mms` and `mms_test`) —
 `apps/api/.env` was confirmed pointed there, not at Neon, before anything that
 writes or deletes rows was run.
+
+---
+
+## 4. Final whole-branch review — what it found and what changed
+
+Everything above was written before the final review. Five review lenses examined
+all ten commits and every finding was put to a separate agent instructed to refute
+it; eleven were refuted and six survived. All six are now fixed in `5f7a9a5` and
+re-verified. Two of them would have caused real damage.
+
+**Two rows in the table above are now closed, not open:**
+
+- *Repair-side history field mapping is unasserted* — fixed. `approvals.test.ts`
+  now `toMatchObject`s every field of the repair record, and `decidedByName` is
+  asserted for both kinds.
+- *`SectionLabel` duplicated* and the rest of the table stand as written.
+
+### The two that would have bitten
+
+**The test suite was 31 hours from turning red on its own.**
+`tool-borrows.test.ts` froze `NOW` to a date literal while the endpoint computes
+its 90-day window from `new Date()`. The fixtures were frozen; the window slid.
+Three tests were due to fail starting 2026-09-07 with no code change at all.
+
+The fix routes those three tests through `stats(NOW)` directly instead of through
+`GET /api/tools/stats`, so the live clock cannot reach them by construction. Note
+for future work: pinning `TZ: 'UTC'` makes date literals stable **across machines**,
+not **across days**. A test whose subject reads the wall clock needs the instant
+injected, not the timezone pinned.
+
+**No operator could return a tool.**
+The Borrowed By control was a driver-only Radix Select, which cannot be
+deselected, and there was no Return button anywhere under `pages/tools/` — while
+the form's own copy said "Clearing these fields returns it". So `returnedAt` was
+only ever written when a tool passed to a *different* driver.
+
+For the metrics this work introduced that meant `toolsOut` and `overdue` could
+only ever grow, and `avgDaysOut` was computed exclusively from handoffs — two of
+the four numbers on the new strip were structurally wrong. Fixed by adding a
+`None (returned)` option that sends the contract's empty-string clear. The API
+close path was already correct and tested; it was simply unreachable.
+
+### Also fixed
+
+| Fix | Where |
+| --- | --- |
+| An EVP's approval vanished from the history when the requester later cancelled the trip — `cancel` overwrote a **decided** allocation to `cancelled`. Now scoped to `status: 'pending'`, so a decision survives a later withdrawal. | `trip-tickets/transitions.ts` |
+| A tool due **today** read Overdue on the strip but not on its own page: `dueAt < now` compared a full instant against a `@db.Date` midnight. The controller now truncates to UTC midnight. | `tools/controller.ts` |
+| The decision-tree cross-check was pinned by a tautology — `crossCheckScore: null` kept every test green. Now pinned by golden values on both sides of a tree split. | `analytics.test.ts` |
+
+**One existing assertion was deliberately changed.** `trip-ticket-booking.test.ts`
+asserted a cancelled ticket's allocation becomes `cancelled` even when an EVP had
+already approved it. That assertion *was* the bug above, pinned as correct
+behaviour. Before changing it the reviewer searched for any consumer of
+`FuelAllocation.status` — a budget ledger, analytics, an archival blocker — that
+would depend on the old value. None exists outside the approvals view and the
+ticket state machine, so releasing a "budget" on cancel was never backed by real
+accounting code. The new expectation is `approved`.
+
+### Deliberately parked, with the reasoning
+
+- **A handoff blanks the tool's due date.** Intended. An admin reassigning a tool
+  without touching the date has not agreed a return date with the new holder, and
+  showing the previous holder's date would invent an agreement. A date actually
+  typed during the handoff differs from the old value and survives to both rows.
+- **The same-borrower resync is lossy by hours.** `Tool.borrowedDate` is `@db.Date`,
+  so writing a full instant truncates to midnight and that value feeds back to the
+  borrow row. Day-grained metrics survive it. The code comment calling this a
+  "no-op" is inaccurate and worth correcting when someone is next in the file.
+- **Nothing bounds a future `borrowedDate`.** `nullableDate` is a bare
+  `z.coerce.date()`, so a mistyped year allows `returnedAt < borrowedAt` and a
+  negative `avgDaysOut`.
+- **`tool_borrows.tool_id` is `ON DELETE CASCADE`,** so deleting a tool
+  retroactively rewrites every historical window the stats endpoint reports.
+- **The incumbent random forest is miscalibrated.** 784 of its 3,830
+  `KM_SINCE_LAST_MAINT` thresholds are negative — down to −91,875 — while
+  `extractFeatures` clamps that feature with `Math.max(0, …)`. About a fifth of the
+  forest's km splits can never be taken, and on a realistic parameter sweep the
+  model returns **zero** `high` predictions, so the dashboard's high-risk card only
+  ever populates from the rule-based fallback. Unrelated to this work, found while
+  reviewing it, and a bigger prize than anything else on this list.
+
+## 5. Environment note — pnpm
+
+During this work, corepack silently upgraded its default pnpm from **10.27.0** to
+**11.22.0** while `node_modules` had been installed by 10.27.0. Every plain `pnpm`
+command then aborted with `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`, wanting to
+purge and reinstall.
+
+pnpm 11 also wrote an `allowBuilds:` block into `pnpm-workspace.yaml` containing
+literal placeholder text (`set this to true or false`) because it had no terminal
+to prompt. That is not a valid config and would have broken installs for everyone
+had it been committed. It was reverted, not committed.
+
+The durable fix is one line in the root `package.json`:
+
+```json
+"packageManager": "pnpm@10.27.0"
+```
+
+Without it, corepack hands an arbitrary pnpm version to anything that shells out.
+Do **not** "fix" the abort by setting `CI=true` or `confirmModulesPurge=false` —
+both let it actually wipe `node_modules`.
+
+## 6. Verification at handoff
+
+- API: **395 tests across 48 files**, all passing (341 across 45 at the start of
+  this work)
+- Playwright: **17 passing** (14 at the start)
+- `@mms/shared` build, `@mms/api typecheck`, `@mms/web tsc -b`, `@mms/web lint` —
+  all clean
