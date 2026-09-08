@@ -1,5 +1,5 @@
 const BASE_URL =
-  (import.meta.env.VITE_API_URL as string) ?? 'http://localhost:3000';
+  (import.meta.env.VITE_API_URL as string) ?? 'http://localhost:3001';
 
 let accessToken: string | null = null;
 export function setAccessToken(token: string | null): void {
