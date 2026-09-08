@@ -8,6 +8,7 @@ import {
   disapproveTripTicket,
   cancelTripTicket,
   cancelTripDate,
+  reassignTripTicketGuides,
   checkOutTripTicket,
   checkInTripTicket
 } from '@/lib/api/trip-tickets';
@@ -177,6 +178,21 @@ export const useCancelTripDate = () => {
     },
     onError: (error: ApiError) => {
       toast.error(`Failed to cancel trip date: ${error.message}`);
+    }
+  });
+};
+
+export const useReassignGuides = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, guideIds }: { id: string; guideIds: string[] }) =>
+      reassignTripTicketGuides(id, guideIds),
+    onSuccess: (_data, variables) => {
+      invalidateTripTicket(queryClient, variables.id);
+      toast.success('Guides reassigned successfully!');
+    },
+    onError: (error: ApiError) => {
+      toast.error(`Failed to reassign guides: ${error.message}`);
     }
   });
 };

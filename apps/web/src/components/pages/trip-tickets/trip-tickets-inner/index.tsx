@@ -29,6 +29,7 @@ import {
   DetailItem
 } from '@/components/shared/detail-view';
 import { BorrowedBadge } from '@/components/shared/borrowed-badge';
+import { GuidePicker } from '@/components/pages/trip-tickets/guide-picker';
 import { isBorrowed } from '@/lib/borrowed';
 import {
   FormLayout,
@@ -47,11 +48,16 @@ import {
   useApproveTripTicket,
   useCancelTripTicket,
   useDisapproveTripTicket,
+  useReassignGuides,
   useUpdateTripTicket
 } from '@/lib/mutation/trip-tickets';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useAllVehicles } from '@/lib/query/vehicles';
-import { useBranches, useBranchesForDisplay } from '@/lib/query/shared';
+import {
+  useBranches,
+  useBranchesForDisplay,
+  useEmployees
+} from '@/lib/query/shared';
 import { useDepartmentOfficesForDisplay } from '@/lib/query/offices';
 import { useAdmins, useAllUsers } from '@/lib/query/user-management';
 import { useAuth } from '@/hooks/use-auth';
@@ -115,12 +121,18 @@ const TripTicketsInner = () => {
   const { data: offices } = useDepartmentOfficesForDisplay();
   const { data: admins } = useAdmins();
   const { data: allUsers } = useAllUsers();
+  // The reassign picker's roster — this ticket's own branch, since a guide
+  // belongs to the branch the trip was booked under and that never changes
+  // after booking (design §5.2).
+  const { data: reassignEmployees, isLoading: reassignEmployeesLoading } =
+    useEmployees(tripTicket?.branch_id);
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
   const updateTripTicket = useUpdateTripTicket();
   const approveTripTicket = useApproveTripTicket();
   const disapproveTripTicket = useDisapproveTripTicket();
   const cancelTripTicket = useCancelTripTicket();
+  const reassignGuides = useReassignGuides();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [participants, setParticipants] = useState<string[]>(['']);
@@ -130,6 +142,13 @@ const TripTicketsInner = () => {
   const [approveOpen, setApproveOpen] = useState(false);
   const [disapproveOpen, setDisapproveOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  // The reassign control: `reassignOpen` swaps the Guides item's badges for
+  // the picker rows, seeded from the ticket's current guides when opened;
+  // `showReassignConfirm` gates the actual write behind the same
+  // ConfirmationModal every other transition on this page uses.
+  const [reassignOpen, setReassignOpen] = useState(false);
+  const [reassignGuideIds, setReassignGuideIds] = useState<string[]>(['']);
+  const [showReassignConfirm, setShowReassignConfirm] = useState(false);
 
   const form = useTripTicketUpdateForm();
 
@@ -342,6 +361,13 @@ const TripTicketsInner = () => {
     (status === TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL ||
       status === TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL ||
       status === TRIP_TICKET_STATUS.APPROVED);
+  // A guide calling in sick on the morning of the trip is routine — the same
+  // allowed-from set the server enforces on POST /trip-tickets/:id/guides, so
+  // the UI never offers a swap that will 409.
+  const canReassignGuides =
+    isAdmin &&
+    (status === TRIP_TICKET_STATUS.APPROVED ||
+      status === TRIP_TICKET_STATUS.IN_PROGRESS);
   const transitionPending =
     approveTripTicket.isPending ||
     disapproveTripTicket.isPending ||
@@ -1011,6 +1037,86 @@ const TripTicketsInner = () => {
                 />
                 <DetailItem label="End" value={dateTimeOf(tripTicket.end_ts)} />
                 <DetailItem
+                  label="Guides"
+                  wide
+                  value={
+                    reassignOpen ? (
+                      <div className="flex flex-col gap-3">
+                        <GuidePicker
+                          guideIds={reassignGuideIds}
+                          employees={reassignEmployees ?? []}
+                          employeesLoading={reassignEmployeesLoading}
+                          tripBranchId={tripTicket.branch_id}
+                          onChangeRow={(index, value) =>
+                            setReassignGuideIds((prev) =>
+                              prev.map((id, i) => (i === index ? value : id))
+                            )
+                          }
+                          onAddRow={() =>
+                            setReassignGuideIds((prev) => [...prev, ''])
+                          }
+                          onRemoveRow={(index) =>
+                            setReassignGuideIds((prev) =>
+                              prev.filter((_, i) => i !== index)
+                            )
+                          }
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={
+                              reassignGuideIds.filter(Boolean).length === 0
+                            }
+                            onClick={() => setShowReassignConfirm(true)}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setReassignOpen(false)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : tripTicket.guides.length > 0 || canReassignGuides ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {tripTicket.guides.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {tripTicket.guides.map((g) => (
+                              <Badge key={g.id} variant="outline">
+                                {g.position
+                                  ? `${g.name} — ${g.position}`
+                                  : g.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {canReassignGuides && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setReassignGuideIds(
+                                tripTicket.guides.length > 0
+                                  ? tripTicket.guides.map((g) => g.id)
+                                  : ['']
+                              );
+                              setReassignOpen(true);
+                            }}
+                          >
+                            Reassign guides
+                          </Button>
+                        )}
+                      </div>
+                    ) : undefined
+                  }
+                />
+                <DetailItem
                   label="Participants"
                   wide
                   value={
@@ -1173,6 +1279,29 @@ const TripTicketsInner = () => {
         loading={updateTripTicket.isPending}
         onConfirm={handleConfirmUpdate}
         onCancel={() => setPendingData(null)}
+      />
+
+      <ConfirmationModal
+        open={showReassignConfirm}
+        onOpenChange={setShowReassignConfirm}
+        title="Reassign Guides"
+        description="Are you sure you want to update the guides on this trip ticket?"
+        confirmLabel="Reassign Guides"
+        loading={reassignGuides.isPending}
+        onConfirm={() => {
+          reassignGuides.mutate(
+            {
+              id: tripTicket.id,
+              guideIds: reassignGuideIds.filter(Boolean)
+            },
+            {
+              onSuccess: () => {
+                setShowReassignConfirm(false);
+                setReassignOpen(false);
+              }
+            }
+          );
+        }}
       />
     </div>
   );
