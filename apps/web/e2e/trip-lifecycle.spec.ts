@@ -41,6 +41,24 @@ test('trip lifecycle: requester → admin → EVP (UI) → guard → completed',
   expect(vehicle, 'a free vehicle is available for the sim').toBeTruthy();
   const linkedDriver =
     drivers.find((d) => d.userId === driver.user.id) ?? drivers[0];
+
+  // Every ticket needs at least one employee guiding it. This spec creates
+  // nothing and cleans up nothing, so the guide is BORROWED from the seeded
+  // roster rather than being a row this run would leave behind. Prefer one
+  // from the branch the ticket is filed under, and fall back to any active
+  // employee — the same shape as linkedDriver above, and safe because the
+  // server checks only that a guide is not archived, never that they belong
+  // to the ticket's branch.
+  const employees = listData(
+    await apiGet(request, '/api/employees', admin.token)
+  );
+  const guide =
+    employees.find((e) => e.branchId === branches[0].id) ?? employees[0];
+  expect(
+    guide,
+    'a seeded employee is available to guide the trip'
+  ).toBeTruthy();
+
   const destination = `UI-E2E ${Date.now()}`;
 
   // Requester submits → always born pending_admin_approval.
@@ -55,6 +73,7 @@ test('trip lifecycle: requester → admin → EVP (UI) → guard → completed',
     dateRequested: new Date().toISOString(),
     participants: ['E2E'],
     participantsCount: 1,
+    guideIds: [guide.id as string],
     preparedBy: 'E2E',
     requestedById: requester.user.id,
     startTs: new Date().toISOString(),

@@ -467,16 +467,28 @@ test('a trip ticket filed under a branch and office that have since closed still
   const officeId = (office.body as { id: string }).id;
   createdOfficeIds.push(officeId);
 
-  // A branch created a moment ago owns no vehicles and no drivers, so the
-  // ticket borrows them from the seeded fleet. That is a supported workflow
-  // and has no bearing on the branch/office names being asserted.
+  // A branch created a moment ago owns no vehicles, no drivers and no staff, so
+  // the ticket borrows all three from the seeded fleet and roster. That is a
+  // supported workflow and has no bearing on the branch/office names being
+  // asserted.
+  //
+  // The guide in particular must NOT be created on the new branch: this test
+  // archives that branch below, and branchBlockers counts a branch's ACTIVE
+  // employees — one of our own would refuse the archive with 409 IN_USE and
+  // fail this test two hundred lines from the line that caused it. Borrowing
+  // is legitimate: the server validates only that a guide is not archived,
+  // never that they belong to the ticket's branch.
   const vehicles = listData(
     await apiGet(request, '/api/vehicles', admin.token)
   );
   const drivers = listData(await apiGet(request, '/api/drivers', admin.token));
+  const employees = listData(
+    await apiGet(request, '/api/employees', admin.token)
+  );
   const vehicle = vehicles.find((v) => v.status === 'available') ?? vehicles[0];
   expect(vehicle, 'a vehicle exists to file the ticket against').toBeTruthy();
   expect(drivers[0], 'a driver exists to file the ticket against').toBeTruthy();
+  expect(employees[0], 'an employee exists to guide the trip').toBeTruthy();
 
   // Far-future and distinct from every other spec's window — an overlap fails
   // with VEHICLE_DOUBLE_BOOKED, which would be a fixture collision rather than
@@ -492,6 +504,7 @@ test('a trip ticket filed under a branch and office that have since closed still
     dateRequested: new Date().toISOString(),
     participants: ['E2E'],
     participantsCount: 1,
+    guideIds: [employees[0].id as string],
     preparedBy: 'E2E',
     requestedById: admin.user.id,
     dates: [
