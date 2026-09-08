@@ -37,6 +37,18 @@ async function archivedOffice(header: string, branchId: string) {
   return office;
 }
 
+// An archived employee, guiding nothing — the archive guard refuses to retire
+// someone who is on a live trip, so they must be archived before they are sent
+// anywhere as a guide.
+async function archivedEmployee(header: string, branchId: string) {
+  const employee = await createTestEmployee(branchId, 'Retired Guide');
+  const res = await request(app)
+    .post(`/api/employees/${employee.id}/archive`)
+    .set('Authorization', header);
+  expect(res.status).toBe(200);
+  return employee;
+}
+
 // An archived office head, not attached to any office — same reasoning.
 async function archivedOfficeHead(header: string, branchId: string) {
   const head = await createTestOfficeHead(branchId, null, 'Closed Head');
@@ -47,6 +59,12 @@ async function archivedOfficeHead(header: string, branchId: string) {
   return head;
 }
 
+// Every trip-ticket body below carries `guideIds` with one LIVE employee on the
+// live branch. `createTripTicketBodySchema` makes it `.min(1)`, so a body
+// without it is a 400 from zod and never reaches the archived-parent check the
+// test is actually about — the live guide is scaffolding, not the subject.
+// (The two tests that put an ARCHIVED employee in `guideIds` are the subject;
+// they are marked G-3 below.)
 describe('archived branches are rejected on write, not just hidden', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
@@ -176,10 +194,6 @@ describe('archived branches are rejected on write, not just hidden', () => {
     const live = await createTestBranch('Live');
     const vehicle = await createTestVehicle(live.id);
     const driver = await createTestDriver(live.id);
-    // guideIds becomes REQUIRED when the trip-guides contract lands in the next
-    // task. Adding it now is inert — createTripTicketBodySchema is still a plain
-    // z.object and strips unknown keys — and it stops this file going red for a
-    // reason that has nothing to do with archived parents.
     const guide = await createTestEmployee(live.id, 'Enforcement Guide');
     const dead = await archivedBranch(header);
 
@@ -212,10 +226,6 @@ describe('archived branches are rejected on write, not just hidden', () => {
     const live = await createTestBranch('Live');
     const vehicle = await createTestVehicle(live.id);
     const driver = await createTestDriver(live.id);
-    // guideIds becomes REQUIRED when the trip-guides contract lands in the next
-    // task. Adding it now is inert — createTripTicketBodySchema is still a plain
-    // z.object and strips unknown keys — and it stops this file going red for a
-    // reason that has nothing to do with archived parents.
     const guide = await createTestEmployee(live.id, 'Enforcement Guide');
     // Branch B must still be EMPTY when it is archived — the guard refuses to
     // archive a branch with a live trip ticket — so archive it before the
@@ -319,10 +329,6 @@ describe('archived branches are rejected on write, not just hidden', () => {
     const live = await createTestBranch('Live');
     const vehicle = await createTestVehicle(live.id);
     const driver = await createTestDriver(live.id);
-    // guideIds becomes REQUIRED when the trip-guides contract lands in the next
-    // task. Adding it now is inert — createTripTicketBodySchema is still a plain
-    // z.object and strips unknown keys — and it stops this file going red for a
-    // reason that has nothing to do with archived parents.
     const guide = await createTestEmployee(live.id, 'Enforcement Guide');
     const office = await archivedOffice(header, live.id);
 
@@ -356,10 +362,6 @@ describe('archived branches are rejected on write, not just hidden', () => {
     const live = await createTestBranch('Live');
     const vehicle = await createTestVehicle(live.id);
     const driver = await createTestDriver(live.id);
-    // guideIds becomes REQUIRED when the trip-guides contract lands in the next
-    // task. Adding it now is inert — createTripTicketBodySchema is still a plain
-    // z.object and strips unknown keys — and it stops this file going red for a
-    // reason that has nothing to do with archived parents.
     const guide = await createTestEmployee(live.id, 'Enforcement Guide');
     const head = await archivedOfficeHead(header, live.id);
 
@@ -386,6 +388,103 @@ describe('archived branches are rejected on write, not just hidden', () => {
       });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
+  // G-3: `employeeIds` is the fourth ref key, and the only one that carries a
+  // LIST. The helper's own unit test (lib/org-refs.test.ts) proves it rejects an
+  // archived employee; nothing proved any CALLER passes the key. Delete
+  // `employeeIds: body.guideIds` from the create call site and the whole API
+  // suite stayed green while POST /api/trip-tickets happily booked an archived
+  // employee as a guide — and spec §5.2 makes that a server guarantee, not a UI
+  // one. Same shape as G-2: everything else in the request is live, so only the
+  // service actually forwarding the guide list can make these fail.
+  it('POST /api/trip-tickets rejects an ARCHIVED employee in guideIds', async () => {
+    const header = await adminHeader();
+    const live = await createTestBranch('Live');
+    const vehicle = await createTestVehicle(live.id);
+    const driver = await createTestDriver(live.id);
+    const dead = await archivedEmployee(header, live.id);
+
+    const now = Date.now();
+    const res = await request(app)
+      .post('/api/trip-tickets')
+      .set('Authorization', header)
+      .send({
+        branchId: live.id,
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        destination: 'Anywhere',
+        purpose: 'Testing',
+        dateRequested: '2026-08-26',
+        preparedBy: 'Test',
+        guideIds: [dead.id],
+        dates: [
+          {
+            startTs: new Date(now + 3_600_000).toISOString(),
+            endTs: new Date(now + 7_200_000).toISOString()
+          }
+        ]
+      });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
+  // Same reasoning as G-1: the create test cannot tell us whether the reassign
+  // call site forwards the key at all. Reassign is the one guide write that
+  // reaches a ticket AFTER approval, so it is also the one an archived employee
+  // could be slipped into long after the booking form stopped offering them.
+  it('POST /api/trip-tickets/:id/guides rejects an ARCHIVED employee', async () => {
+    const header = await adminHeader();
+    const live = await createTestBranch('Live');
+    const vehicle = await createTestVehicle(live.id);
+    const driver = await createTestDriver(live.id);
+    const guide = await createTestEmployee(live.id, 'Enforcement Guide');
+    // Archived while guiding nothing — the ticket below is raised afterwards and
+    // never names them, so the employee archive guard has nothing to trip on.
+    const dead = await archivedEmployee(header, live.id);
+
+    const now = Date.now();
+    const created = await request(app)
+      .post('/api/trip-tickets')
+      .set('Authorization', header)
+      .send({
+        branchId: live.id,
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        destination: 'Anywhere',
+        purpose: 'Testing',
+        dateRequested: '2026-08-26',
+        preparedBy: 'Test',
+        guideIds: [guide.id],
+        dates: [
+          {
+            startTs: new Date(now + 3_600_000).toISOString(),
+            endTs: new Date(now + 7_200_000).toISOString()
+          }
+        ]
+      });
+    expect(created.status).toBe(201);
+    // Forced straight through Prisma: the approval chain is not what is under
+    // test, and the reassign endpoint is only reachable from `approved` on.
+    const ticketId = created.body.id as string;
+    await prisma.tripTicket.update({
+      where: { id: ticketId },
+      data: { status: 'approved' }
+    });
+
+    const res = await request(app)
+      .post(`/api/trip-tickets/${ticketId}/guides`)
+      .set('Authorization', header)
+      .send({ guideIds: [dead.id] });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+    // ...and the guide it already had is untouched.
+    expect(
+      await prisma.tripTicketEmployee.findMany({
+        where: { tripTicketId: ticketId },
+        select: { employeeId: true }
+      })
+    ).toEqual([{ employeeId: guide.id }]);
   });
 
   it('POST /api/employees rejects an archived branchId', async () => {
