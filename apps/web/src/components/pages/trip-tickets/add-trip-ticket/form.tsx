@@ -228,8 +228,15 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // hooks because it needs tripBranchId, which only exists once the watched
   // values above have been read — still an unconditional top-level call, so
   // hook order is stable.
+  //
+  // `enabled` for the same reason the reassign picker passes it
+  // (trip-tickets-inner/index.tsx): until a branch is known, `tripBranchId` is
+  // undefined and the fetch would go out unscoped — the whole company's roster,
+  // unpaginated — on the form's first render, before anything on screen can use
+  // the result. Two call sites of one hook should not have opposite conventions.
   const { data: employees, isLoading: employeesLoading } = useEmployees(
-    tripBranchId ?? undefined
+    tripBranchId ?? undefined,
+    { enabled: !!tripBranchId }
   );
 
   // Every branch runs its own vans and borrows another branch's when it needs to.
