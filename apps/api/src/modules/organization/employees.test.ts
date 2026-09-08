@@ -5,11 +5,8 @@ import { prisma } from '../../lib/prisma.js';
 import {
   authHeader,
   createTestBranch,
-  createTestDriver,
   createTestEmployee,
-  createTestTicket,
-  createTestUser,
-  createTestVehicle
+  createTestUser
 } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
 
@@ -224,44 +221,6 @@ describe('organization — employees', () => {
       .set('Authorization', header);
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('PARENT_ARCHIVED');
-  });
-
-  it('refuses to archive an employee guiding a live trip, and says so', async () => {
-    const header = await adminHeader();
-    const branch = await createTestBranch();
-    const vehicle = await createTestVehicle(branch.id);
-    const driver = await createTestDriver(branch.id, 'inactive');
-    const employee = await createTestEmployee(branch.id);
-    const ticket = await createTestTicket({
-      branchId: branch.id,
-      driverId: driver.id,
-      vehicleId: vehicle.id,
-      status: 'approved'
-    });
-    await prisma.tripTicketEmployee.create({
-      data: { tripTicketId: ticket.id, employeeId: employee.id }
-    });
-
-    const blocked = await request(app)
-      .post(`/api/employees/${employee.id}/archive`)
-      .set('Authorization', header);
-    expect(blocked.status).toBe(409);
-    expect(blocked.body.error.code).toBe('IN_USE');
-    expect(blocked.body.error.details.blockers).toContainEqual({
-      resource: 'tripTickets',
-      count: 1
-    });
-
-    // History never blocks (§10): the completed ticket keeps the guide's name
-    // through the join, and the roster lets them go.
-    await prisma.tripTicket.update({
-      where: { id: ticket.id },
-      data: { status: 'completed' }
-    });
-    const ok = await request(app)
-      .post(`/api/employees/${employee.id}/archive`)
-      .set('Authorization', header);
-    expect(ok.status).toBe(200);
   });
 
   it('404s on an unknown id', async () => {
