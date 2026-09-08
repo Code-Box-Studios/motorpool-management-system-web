@@ -42,3 +42,29 @@ export type CreateOfficeHeadBody = z.infer<typeof createOfficeHeadBodySchema>;
 
 export const updateOfficeHeadBodySchema = createOfficeHeadBodySchema.partial();
 export type UpdateOfficeHeadBody = z.infer<typeof updateOfficeHeadBodySchema>;
+
+// Employees are people, like office heads — no name uniqueness (§4.3). What
+// differs is branchId: REQUIRED and non-nullable, so `nullableUuid` is
+// deliberately NOT used here. The guide picker is branch-locked (§5.2), so an
+// employee with a NULL branch would appear in no branch's picker anywhere,
+// with no error and no way to notice.
+export const createEmployeeBodySchema = z.object({
+  name: z.string().min(1),
+  position: nullableString,
+  phone: nullableString,
+  branchId: z.string().uuid()
+});
+export type CreateEmployeeBody = z.infer<typeof createEmployeeBodySchema>;
+
+export const updateEmployeeBodySchema = createEmployeeBodySchema.partial();
+export type UpdateEmployeeBody = z.infer<typeof updateEmployeeBodySchema>;
+
+// Employees are the only org resource with a list filter: the guide picker
+// asks for one branch's roster. includeArchived/page/limit come from
+// organizationListQuerySchema above — EXTEND it, never redeclare it. Zod
+// strips unknown keys, so the employees route must parse THIS schema; parsing
+// the base one drops ?branchId= silently and shows every branch's roster.
+export const employeesListQuerySchema = organizationListQuerySchema.extend({
+  branchId: z.string().uuid().optional()
+});
+export type EmployeesListQuery = z.infer<typeof employeesListQuerySchema>;
