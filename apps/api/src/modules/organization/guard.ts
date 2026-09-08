@@ -29,9 +29,9 @@ const liveTicket = { in: [...LIVE_TRIP_STATUSES] };
 // Vehicles block whatever their status: a van is a physical object and a depot
 // cannot be closed while vans are parked in it. Drivers and users do NOT block
 // once inactive — an inactive person is history, the same category as a
-// completed trip ticket. Child offices and heads block only while ACTIVE;
-// counting archived children would make a branch impossible to empty, because
-// children can only be archived and never deleted.
+// completed trip ticket. Child offices, heads and employees block only while
+// ACTIVE; counting archived children would make a branch impossible to empty,
+// because children can only be archived and never deleted.
 export function branchBlockers(id: string): Promise<Blocker[]> {
   return collect([
     {
@@ -59,6 +59,12 @@ export function branchBlockers(id: string): Promise<Blocker[]> {
     {
       resource: 'officeHeads',
       count: prisma.officeHead.count({
+        where: { branchId: id, archivedAt: null }
+      })
+    },
+    {
+      resource: 'employees',
+      count: prisma.employee.count({
         where: { branchId: id, archivedAt: null }
       })
     },
@@ -109,6 +115,21 @@ export function officeHeadBlockers(id: string): Promise<Blocker[]> {
       resource: 'tripTickets',
       count: prisma.tripTicket.count({
         where: { officeHeadId: id, status: liveTicket }
+      })
+    }
+  ]);
+}
+
+// An employee is referenced by exactly one thing: the trip tickets they guide
+// (TripTicketEmployee). Counting TICKETS rather than join rows keeps the
+// `tripTickets` resource name honest — the composite PK means the two numbers
+// agree today, but only the ticket count is what the dialog claims to show.
+export function employeeBlockers(id: string): Promise<Blocker[]> {
+  return collect([
+    {
+      resource: 'tripTickets',
+      count: prisma.tripTicket.count({
+        where: { guides: { some: { employeeId: id } }, status: liveTicket }
       })
     }
   ]);

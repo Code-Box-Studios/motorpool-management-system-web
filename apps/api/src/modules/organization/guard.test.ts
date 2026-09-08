@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   createTestBranch,
   createTestDriver,
+  createTestEmployee,
   createTestOffice,
   createTestOfficeHead,
   createTestTicket,
@@ -14,6 +15,7 @@ import { truncateAll } from '../../test/db.js';
 import {
   assertArchivable,
   branchBlockers,
+  employeeBlockers,
   officeBlockers,
   officeHeadBlockers
 } from './guard.js';
@@ -87,6 +89,21 @@ describe('organization archive guard', () => {
 
     await prisma.officeHead.update({
       where: { id: head.id },
+      data: { archivedAt: new Date() }
+    });
+    expect(await branchBlockers(branch.id)).toEqual([]);
+  });
+
+  it('blocks on an ACTIVE employee but NOT an archived one', async () => {
+    const branch = await createTestBranch();
+    const employee = await createTestEmployee(branch.id);
+    expect(names(await branchBlockers(branch.id))).toContain('employees');
+
+    // Same reasoning as the office and the head above: employees can only be
+    // archived, never deleted, so an archived one must release the branch or a
+    // branch that ever had a roster could never be closed.
+    await prisma.employee.update({
+      where: { id: employee.id },
       data: { archivedAt: new Date() }
     });
     expect(await branchBlockers(branch.id)).toEqual([]);
@@ -228,7 +245,7 @@ describe('organization archive guard', () => {
     expect(await officeHeadBlockers(head.id)).toEqual([]);
   });
 
-  it("does not count a sibling branch's vehicle, driver, office, or head", async () => {
+  it("does not count a sibling branch's vehicle, driver, office, head, or employee", async () => {
     const branchA = await createTestBranch('Branch A');
     const branchB = await createTestBranch('Branch B');
 
@@ -243,6 +260,7 @@ describe('organization archive guard', () => {
     await createTestDriver(branchB.id, 'active', 'sibling-driver@test.local');
     await createTestOffice(branchB.id, 'Sibling Office');
     await createTestOfficeHead(branchB.id, null, 'Sibling Head');
+    await createTestEmployee(branchB.id, 'Sibling Staff');
 
     expect(await branchBlockers(branchA.id)).toEqual([]);
   });
@@ -273,6 +291,55 @@ describe('organization archive guard', () => {
     });
 
     expect(await officeHeadBlockers(headA.id)).toEqual([]);
+  });
+
+  it('blocks an employee on live guided tickets only', async () => {
+    const branch = await createTestBranch();
+    const vehicle = await createTestVehicle(branch.id);
+    const driver = await createTestDriver(branch.id, 'inactive');
+    const employee = await createTestEmployee(branch.id);
+    expect(await employeeBlockers(employee.id)).toEqual([]);
+
+    const ticket = await createTestTicket({
+      branchId: branch.id,
+      driverId: driver.id,
+      vehicleId: vehicle.id,
+      status: 'in_progress'
+    });
+    await prisma.tripTicketEmployee.create({
+      data: { tripTicketId: ticket.id, employeeId: employee.id }
+    });
+    expect(names(await employeeBlockers(employee.id))).toEqual(['tripTickets']);
+
+    // History never blocks (§10): the finished ticket keeps rendering the
+    // guide's name through the join, but the roster has to let them go.
+    await prisma.tripTicket.update({
+      where: { id: ticket.id },
+      data: { status: 'completed' }
+    });
+    expect(await employeeBlockers(employee.id)).toEqual([]);
+  });
+
+  it("does not count another employee's ticket in employeeBlockers", async () => {
+    const branch = await createTestBranch();
+    const vehicle = await createTestVehicle(branch.id);
+    const driver = await createTestDriver(branch.id, 'inactive');
+    const guiding = await createTestEmployee(branch.id, 'On The Trip');
+    const idle = await createTestEmployee(branch.id, 'Back At Base');
+    const ticket = await createTestTicket({
+      branchId: branch.id,
+      driverId: driver.id,
+      vehicleId: vehicle.id,
+      status: 'approved'
+    });
+    // The ticket is guided by `guiding`, not `idle`. Drop the employeeId
+    // filter in guard.ts and every employee in the app would be blocked by
+    // every live ticket — the I-5 gap, one level down.
+    await prisma.tripTicketEmployee.create({
+      data: { tripTicketId: ticket.id, employeeId: guiding.id }
+    });
+
+    expect(await employeeBlockers(idle.id)).toEqual([]);
   });
 });
 
