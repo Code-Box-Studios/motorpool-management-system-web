@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   createTestBranch,
+  createTestEmployee,
   createTestOffice,
   createTestOfficeHead
 } from '../test/factories.js';
@@ -122,5 +123,52 @@ describe('assertOrgRefsActive', () => {
     expect(err.message).toBe(
       'Cannot reference an archived branch and department office'
     );
+  });
+
+  it('skips an employeeIds list that is empty or null', async () => {
+    // An empty guide list is a NO_GUIDES 400 raised by the trip-ticket
+    // service (§5.3), not an archived-parent problem — this function has to
+    // stay silent on it or the wrong error code reaches the booking form.
+    await expect(
+      assertOrgRefsActive({ employeeIds: [] })
+    ).resolves.toBeUndefined();
+    await expect(
+      assertOrgRefsActive({ employeeIds: null })
+    ).resolves.toBeUndefined();
+  });
+
+  it('does not throw when every employee in the list is active', async () => {
+    const branch = await createTestBranch();
+    const a = await createTestEmployee(branch.id, 'Active One');
+    const b = await createTestEmployee(branch.id, 'Active Two');
+    await expect(
+      assertOrgRefsActive({ employeeIds: [a.id, b.id] })
+    ).resolves.toBeUndefined();
+  });
+
+  // The archived member is deliberately NOT first in the list: a check that
+  // only looked at employeeIds[0] would pass the test above and this one too
+  // if the order were reversed.
+  it('throws PARENT_ARCHIVED when any employee in the list is archived', async () => {
+    const branch = await createTestBranch();
+    const live = await createTestEmployee(branch.id, 'Still Here');
+    const gone = await createTestEmployee(branch.id, 'Archived');
+    await prisma.employee.update({
+      where: { id: gone.id },
+      data: { archivedAt: new Date() }
+    });
+
+    let caught: unknown;
+    try {
+      await assertOrgRefsActive({ employeeIds: [live.id, gone.id] });
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBeInstanceOf(AppError);
+    const err = caught as AppError;
+    expect(err.statusCode).toBe(409);
+    expect(err.code).toBe('PARENT_ARCHIVED');
+    expect(err.message).toBe('Cannot reference an archived employee');
   });
 });

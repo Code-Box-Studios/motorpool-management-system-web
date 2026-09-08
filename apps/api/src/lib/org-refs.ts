@@ -5,6 +5,9 @@ export interface OrgRefs {
   branchId?: string | null;
   officeId?: string | null;
   officeHeadId?: string | null;
+  // Plural, unlike the three above: employees are referenced as a LIST — a
+  // ticket's guides (§5.2) — never one at a time.
+  employeeIds?: string[] | null;
 }
 
 // No write may point a non-archived record at an archived parent (§5.6).
@@ -47,6 +50,19 @@ export async function assertOrgRefsActive(refs: OrgRefs): Promise<void> {
           select: { archivedAt: true }
         })
         .then((r) => (r?.archivedAt ? 'office head' : null))
+    );
+  }
+
+  if (refs.employeeIds?.length) {
+    // One count, not N findUniques: the caller passes every guide on the
+    // ticket and only needs to know whether ANY of them is archived. An empty
+    // list falls through to the NO_GUIDES check in the trip-ticket service.
+    checks.push(
+      prisma.employee
+        .count({
+          where: { id: { in: refs.employeeIds }, archivedAt: { not: null } }
+        })
+        .then((n) => (n > 0 ? 'employee' : null))
     );
   }
 
