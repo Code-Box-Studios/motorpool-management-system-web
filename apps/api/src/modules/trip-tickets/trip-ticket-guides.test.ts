@@ -259,6 +259,41 @@ describe('trip-ticket guides: PATCH', () => {
     expect(patched.status).toBe(409);
     expect(patched.body.error.code).toBe('OVER_CAPACITY');
   });
+
+  // The test above sends `guideIds`, so it never touches the OTHER half of the
+  // rule: `body.guideIds ?? existing.guides.map(...)` in service.ts. That
+  // fallback is the entire capacity guarantee for a PATCH that grows the party
+  // without mentioning guides — mutate it to `?? []` and every other test in
+  // this repo stays green while an edit quietly overfills the van.
+  //
+  // The asserted MESSAGE is what makes it load-bearing: it names three guides,
+  // and three guides can only have come from the stored ticket.
+  it('re-checks capacity against the EXISTING guides when the edit never mentions them', async () => {
+    const s = await scaffold(); // capacity 5
+    // No participantsCount on purpose — the count is a claim about the names,
+    // and sending a stale one would fail PARTICIPANTS_MISMATCH before the seat
+    // check this test is about ever runs.
+    const created = await post(s, {
+      participants: ['A', 'B'],
+      guideIds: [s.guideA.id, s.guideB.id, s.guideC.id]
+    });
+    expect(created.status).toBe(201); // 2 + 3 = 5 of 5, exactly full
+
+    const patched = await request(app)
+      .patch(`/api/trip-tickets/${created.body.id}`)
+      .set('Authorization', s.header)
+      .send({ participants: ['A', 'B', 'C'] });
+    expect(patched.status).toBe(409);
+    expect(patched.body.error.code).toBe('OVER_CAPACITY');
+    expect(patched.body.error.message).toBe(
+      'That vehicle seats 5; the trip is for 3 participant(s) and 3 guide(s)'
+    );
+    // Refused before the transaction, so the ticket still has two participants.
+    const after = await request(app)
+      .get(`/api/trip-tickets/${created.body.id}`)
+      .set('Authorization', s.header);
+    expect(after.body.participants).toEqual(['A', 'B']);
+  });
 });
 
 describe('trip-ticket guides: reads', () => {
