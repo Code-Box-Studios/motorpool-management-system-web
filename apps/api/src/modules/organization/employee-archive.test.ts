@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import type { TripTicketStatus } from '@prisma/client';
 import { createApp } from '../../app.js';
 import { prisma } from '../../lib/prisma.js';
 import {
@@ -20,9 +21,13 @@ import { truncateAll } from '../../test/db.js';
 // until the day an employee resigns and cannot be archived, ever.
 //
 // One live-ticket IN_USE case already lives in employees.test.ts (Task 2, on
-// an explicit ruling — see its comment above that test). This file owns the
-// rest: the full status sweep proving completed/cancelled/disapproved do NOT
-// block, plus sibling isolation.
+// an explicit ruling — see its comment above that test). It covers `approved`.
+// This file owns the rest of the sweep: the OTHER three live statuses
+// (pending_admin_approval, pending_fuel_allocation_approval, in_progress) that
+// must block, the three history statuses (completed, cancelled, disapproved)
+// that must not, plus sibling isolation. All seven of TripTicketStatus are
+// accounted for across the two files — anything less and a status could be
+// dropped from LIVE_TRIP_STATUSES with every suite still green.
 const app = createApp();
 
 async function adminHeader() {
@@ -36,16 +41,12 @@ async function adminHeader() {
 // One branch, one employee, one ticket in the requested status, with the
 // employee guiding it. Everything is fresh per call — truncateAll runs before
 // each test — so a blocker count below can only have come from here.
-async function guideOnTicket(
-  status:
-    | 'pending_admin_approval'
-    | 'pending_fuel_allocation_approval'
-    | 'approved'
-    | 'in_progress'
-    | 'completed'
-    | 'cancelled'
-    | 'disapproved'
-) {
+//
+// `TripTicketStatus` is the generated Prisma enum, not a hand-rolled union: the
+// union this used to spell out was already stale-able, and a status added to
+// schema.prisma should widen this parameter automatically rather than wait for
+// someone to remember. Same import the sibling suites in trip-tickets/ use.
+async function guideOnTicket(status: TripTicketStatus) {
   const branch = await createTestBranch('Rostered');
   const vehicle = await createTestVehicle(branch.id);
   // Inactive on purpose: this suite is about the EMPLOYEE's blockers, and the
@@ -77,6 +78,36 @@ describe('archiving an employee who is guiding a trip', () => {
   // narrowing `liveTicket` to `{ in: ['approved'] }` would leave that test
   // green while quietly letting an `in_progress` guide be archived out from
   // under a trip that is literally still on the road. Only this test notices.
+  // The two PENDING statuses. A trip is booked long before it is approved, and
+  // the guide is committed to it from the moment it is filed — archiving them
+  // out from under a booked-but-unapproved trip leaves the ticket naming
+  // somebody who is off the roster, with nobody told. Remove either status from
+  // LIVE_TRIP_STATUSES and, until these two tests, the whole organization suite
+  // stayed green while exactly that became possible.
+  it('is refused while the trip is still awaiting ADMIN approval', async () => {
+    const header = await adminHeader();
+    const { employee } = await guideOnTicket('pending_admin_approval');
+
+    const res = await request(app)
+      .post(`/api/employees/${employee.id}/archive`)
+      .set('Authorization', header);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('IN_USE');
+  });
+
+  it('is refused while the trip is awaiting FUEL ALLOCATION approval', async () => {
+    const header = await adminHeader();
+    const { employee } = await guideOnTicket(
+      'pending_fuel_allocation_approval'
+    );
+
+    const res = await request(app)
+      .post(`/api/employees/${employee.id}/archive`)
+      .set('Authorization', header);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('IN_USE');
+  });
+
   it('is still refused once the trip is out on the road (in_progress)', async () => {
     const header = await adminHeader();
     const { employee } = await guideOnTicket('in_progress');
