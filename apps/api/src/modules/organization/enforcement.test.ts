@@ -176,6 +176,11 @@ describe('archived branches are rejected on write, not just hidden', () => {
     const live = await createTestBranch('Live');
     const vehicle = await createTestVehicle(live.id);
     const driver = await createTestDriver(live.id);
+    // guideIds becomes REQUIRED when the trip-guides contract lands in the next
+    // task. Adding it now is inert — createTripTicketBodySchema is still a plain
+    // z.object and strips unknown keys — and it stops this file going red for a
+    // reason that has nothing to do with archived parents.
+    const guide = await createTestEmployee(live.id, 'Enforcement Guide');
     const dead = await archivedBranch(header);
 
     const now = Date.now();
@@ -190,6 +195,7 @@ describe('archived branches are rejected on write, not just hidden', () => {
         purpose: 'Testing',
         dateRequested: '2026-08-26',
         preparedBy: 'Test',
+        guideIds: [guide.id],
         dates: [
           {
             startTs: new Date(now + 3_600_000).toISOString(),
@@ -206,6 +212,11 @@ describe('archived branches are rejected on write, not just hidden', () => {
     const live = await createTestBranch('Live');
     const vehicle = await createTestVehicle(live.id);
     const driver = await createTestDriver(live.id);
+    // guideIds becomes REQUIRED when the trip-guides contract lands in the next
+    // task. Adding it now is inert — createTripTicketBodySchema is still a plain
+    // z.object and strips unknown keys — and it stops this file going red for a
+    // reason that has nothing to do with archived parents.
+    const guide = await createTestEmployee(live.id, 'Enforcement Guide');
     // Branch B must still be EMPTY when it is archived — the guard refuses to
     // archive a branch with a live trip ticket — so archive it before the
     // ticket below is raised on branch A.
@@ -223,6 +234,7 @@ describe('archived branches are rejected on write, not just hidden', () => {
         purpose: 'Testing',
         dateRequested: '2026-08-26',
         preparedBy: 'Test',
+        guideIds: [guide.id],
         dates: [
           {
             startTs: new Date(now + 3_600_000).toISOString(),
@@ -307,6 +319,11 @@ describe('archived branches are rejected on write, not just hidden', () => {
     const live = await createTestBranch('Live');
     const vehicle = await createTestVehicle(live.id);
     const driver = await createTestDriver(live.id);
+    // guideIds becomes REQUIRED when the trip-guides contract lands in the next
+    // task. Adding it now is inert — createTripTicketBodySchema is still a plain
+    // z.object and strips unknown keys — and it stops this file going red for a
+    // reason that has nothing to do with archived parents.
+    const guide = await createTestEmployee(live.id, 'Enforcement Guide');
     const office = await archivedOffice(header, live.id);
 
     const now = Date.now();
@@ -322,6 +339,7 @@ describe('archived branches are rejected on write, not just hidden', () => {
         purpose: 'Testing',
         dateRequested: '2026-08-26',
         preparedBy: 'Test',
+        guideIds: [guide.id],
         dates: [
           {
             startTs: new Date(now + 3_600_000).toISOString(),
@@ -338,6 +356,11 @@ describe('archived branches are rejected on write, not just hidden', () => {
     const live = await createTestBranch('Live');
     const vehicle = await createTestVehicle(live.id);
     const driver = await createTestDriver(live.id);
+    // guideIds becomes REQUIRED when the trip-guides contract lands in the next
+    // task. Adding it now is inert — createTripTicketBodySchema is still a plain
+    // z.object and strips unknown keys — and it stops this file going red for a
+    // reason that has nothing to do with archived parents.
+    const guide = await createTestEmployee(live.id, 'Enforcement Guide');
     const head = await archivedOfficeHead(header, live.id);
 
     const now = Date.now();
@@ -353,6 +376,7 @@ describe('archived branches are rejected on write, not just hidden', () => {
         purpose: 'Testing',
         dateRequested: '2026-08-26',
         preparedBy: 'Test',
+        guideIds: [guide.id],
         dates: [
           {
             startTs: new Date(now + 3_600_000).toISOString(),
