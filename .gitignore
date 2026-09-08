@@ -20,3 +20,7 @@ apps/web/e2e/screenshots/
 
 apps/gps-gateway/captures/
 apps/gps-gateway/dist/
+
+# Claude Code worktrees and SDD scratch (never commit these)
+.claude/worktrees/
+.superpowers/
