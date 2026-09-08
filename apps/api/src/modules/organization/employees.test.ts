@@ -5,8 +5,11 @@ import { prisma } from '../../lib/prisma.js';
 import {
   authHeader,
   createTestBranch,
+  createTestDriver,
   createTestEmployee,
-  createTestUser
+  createTestTicket,
+  createTestUser,
+  createTestVehicle
 } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
 
@@ -221,6 +224,42 @@ describe('organization — employees', () => {
       .set('Authorization', header);
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
+  // Narrow, load-bearing coverage for the one line (service.ts's
+  // `assertArchivable(employee.name, await employeeBlockers(id))`) that stops
+  // an employee guiding a live trip from being archived. This is deliberately
+  // NOT the full status sweep — "history never blocks" (completed/cancelled/
+  // disapproved) and sibling isolation belong to Task 6's
+  // employee-archive.test.ts, which owns the archive-blocker suite end to
+  // end. This one test exists so the service call site itself is proven
+  // through the route, the same way offices.test.ts and branches.test.ts
+  // pin their own IN_USE cases.
+  it('refuses to archive an employee guiding a live trip, and says so', async () => {
+    const header = await adminHeader();
+    const branch = await createTestBranch();
+    const vehicle = await createTestVehicle(branch.id);
+    const driver = await createTestDriver(branch.id, 'inactive');
+    const employee = await createTestEmployee(branch.id);
+    const ticket = await createTestTicket({
+      branchId: branch.id,
+      driverId: driver.id,
+      vehicleId: vehicle.id,
+      status: 'approved'
+    });
+    await prisma.tripTicketEmployee.create({
+      data: { tripTicketId: ticket.id, employeeId: employee.id }
+    });
+
+    const res = await request(app)
+      .post(`/api/employees/${employee.id}/archive`)
+      .set('Authorization', header);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('IN_USE');
+    expect(res.body.error.details.blockers).toContainEqual({
+      resource: 'tripTickets',
+      count: 1
+    });
   });
 
   it('404s on an unknown id', async () => {
