@@ -52,9 +52,16 @@ function useOrgInvalidation(resource: OrgResource) {
       queryClient.invalidateQueries({ queryKey: ['departmentOffices'] });
     if (resource === 'office-heads')
       queryClient.invalidateQueries({ queryKey: ['officeHeads'] });
-    // Without this the booking form's guide picker keeps offering an employee
-    // who was just renamed, archived or moved to another branch, for as long
-    // as the tab stays open (design §9.1).
+    // This refreshes a guide picker that is ALREADY MOUNTED — a booking dialog
+    // left open while the roster is edited behind it — so it stops offering an
+    // employee who was just renamed, archived or moved to another branch.
+    //
+    // It is NOT what saves a picker mounted after the edit: main.tsx builds a
+    // bare `new QueryClient()` and `useEmployees` sets no `staleTime`, so the
+    // library defaults (staleTime 0, refetchOnMount true) already refetch on
+    // every mount. Kept because "already mounted" is a real case and because
+    // one `staleTime` added to useEmployees would make this the only thing
+    // standing between an archived employee and the picker (design §9.1).
     if (resource === 'employees')
       queryClient.invalidateQueries({ queryKey: ['employees'] });
   };

@@ -36,8 +36,15 @@ export const useBranchesForDisplay = () => {
 // The key stays under the ['employees'] prefix so the Organization tab's
 // invalidation (lib/mutation/organization.ts) reaches it: TanStack matches
 // prefixes, so invalidating ['employees'] refreshes every branch's list.
-// Without that branch in useOrgInvalidation, renaming or archiving an
-// employee leaves this picker stale indefinitely.
+//
+// What that invalidation is and is not worth: main.tsx builds a bare
+// `new QueryClient()` and this hook sets no `staleTime`, so the library
+// defaults apply (staleTime 0, refetchOnMount true) and a picker MOUNTED after
+// the edit refetches on its own. The invalidation branch matters for a picker
+// that is ALREADY MOUNTED — a booking dialog left open while someone edits the
+// roster in another tab — and it becomes the whole guarantee the day anyone
+// adds a `staleTime` here or a `defaultOptions` there. It is cheap and it is
+// kept; it is not what makes the common case correct.
 //
 // `enabled` defaults to on (omitted `options` behaves exactly as before) —
 // pass `{ enabled: false }` while the caller doesn't have a branch id yet
