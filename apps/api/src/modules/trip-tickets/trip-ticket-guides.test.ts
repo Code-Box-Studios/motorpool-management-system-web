@@ -356,15 +356,39 @@ describe('POST /api/trip-tickets/:id/guides', () => {
     expect(guideIdsOf(res.body)).toEqual([s.guideB.id]);
   });
 
-  it('the allowed-from list is EXACTLY approved + in_progress', async () => {
+  // Admin approval moves EVERY ticket to pending_fuel_allocation_approval
+  // (transitions.ts `approve`), and PATCH is refused from there (service.ts
+  // allows pending_admin_approval only). With this state out of the allowed-from
+  // set the guides could not be changed through ANY door between booking and EVP
+  // fuel sign-off — a dead zone, not a freeze.
+  it('reassigns guides on a ticket awaiting FUEL ALLOCATION approval', async () => {
     const s = await scaffold();
-    // The two pending states are out because the ordinary PATCH already
-    // handles guides there — one edit with two doors and two different guards
-    // on them is how the freeze gets holes in it. The three terminal states
-    // are out because a finished trip's record of who was on it is history.
+    const id = await ticketAt(s, 'pending_fuel_allocation_approval');
+    const res = await request(app)
+      .post(`/api/trip-tickets/${id}/guides`)
+      .set('Authorization', s.header)
+      .send({ guideIds: [s.guideC.id] });
+    expect(res.status).toBe(200);
+    expect(guideIdsOf(res.body)).toEqual([s.guideC.id]);
+    // Written through, not just echoed.
+    expect(
+      await prisma.tripTicketEmployee.findMany({
+        where: { tripTicketId: id },
+        select: { employeeId: true }
+      })
+    ).toEqual([{ employeeId: s.guideC.id }]);
+  });
+
+  it('the allowed-from list is EXACTLY pending_fuel_allocation_approval + approved + in_progress', async () => {
+    const s = await scaffold();
+    // pending_admin_approval is out because the ordinary PATCH genuinely does
+    // handle guides in that one state — one edit with two doors and two
+    // different guards on them is how the freeze gets holes in it. The three
+    // terminal states are out because a finished trip's record of who was on it
+    // is history. pending_fuel_allocation_approval is deliberately NOT here: it
+    // is allowed, and the test above proves it.
     const refused: TripTicketStatus[] = [
       'pending_admin_approval',
-      'pending_fuel_allocation_approval',
       'completed',
       'cancelled',
       'disapproved'

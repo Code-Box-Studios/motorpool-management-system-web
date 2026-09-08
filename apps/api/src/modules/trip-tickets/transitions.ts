@@ -446,12 +446,19 @@ export async function checkIn(
  * the ordinary case rather than an exception — so guides get their own
  * transition instead of a hole in the freeze.
  *
- * Allowed from `approved` and `in_progress` ONLY. Not from `completed`,
- * `cancelled` or `disapproved`: a finished trip's record of who was on it is
- * history, and rewriting it would make the ticket disagree with what actually
- * happened. Not from the two pending states either — the ordinary PATCH
- * already handles guides there, and one edit reachable through two doors with
- * two different guards on them is how a freeze stops meaning anything.
+ * Allowed from `pending_fuel_allocation_approval`, `approved` and
+ * `in_progress`. Not from `completed`, `cancelled` or `disapproved`: a finished
+ * trip's record of who was on it is history, and rewriting it would make the
+ * ticket disagree with what actually happened. Not from
+ * `pending_admin_approval` either — the ordinary PATCH already handles guides
+ * in that ONE state, and one edit reachable through two doors with two
+ * different guards on them is how a freeze stops meaning anything.
+ *
+ * `pending_fuel_allocation_approval` is in the list because admin approval
+ * moves EVERY ticket there (see `approve` above), and PATCH is refused from it
+ * (service.ts only allows `pending_admin_approval`). Leaving it out left a dead
+ * zone between booking and EVP fuel sign-off in which the guides could not be
+ * changed through any door at all — which is not a freeze, just a gap.
  *
  * The seat check runs again: swapping one guide for five can overflow the van.
  * The participant figures come off the STORED ticket, never off the request —
@@ -465,7 +472,11 @@ export async function checkIn(
  * AuthenticatedUser and an events.* call like the rest.
  */
 export async function reassignGuides(id: string, guideIds: string[]) {
-  const ticket = await loadInState(id, ['approved', 'in_progress']);
+  const ticket = await loadInState(id, [
+    'pending_fuel_allocation_approval',
+    'approved',
+    'in_progress'
+  ]);
   // An archived employee is off the roster and must not be sent to a ticket by
   // the back door — removing them from the pickers stops them being OFFERED,
   // not being POSTED. Branch membership is deliberately NOT checked, here or

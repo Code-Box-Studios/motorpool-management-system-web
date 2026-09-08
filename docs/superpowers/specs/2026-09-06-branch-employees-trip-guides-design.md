@@ -167,8 +167,9 @@ A guide changing on the morning of the trip is the normal case, and the generic 
 POST /api/trip-tickets/:id/guides   { guideIds: [...] }   admin only
 ```
 
-- Allowed from `approved` and `in_progress`. Not from `completed`, `cancelled` or `disapproved` — a finished trip's record of who was on it is history.
-- While the ticket is still `pending_admin_approval`, the ordinary `PATCH` path already handles guides; this endpoint is for after the freeze.
+- Allowed from `pending_fuel_allocation_approval`, `approved` and `in_progress`. Not from `completed`, `cancelled` or `disapproved` — a finished trip's record of who was on it is history.
+- Not from `pending_admin_approval`: that is the one state the ordinary `PATCH` still accepts (`service.ts`), so guides are editable there through the booking form and a second door would only add a second guard.
+- `pending_fuel_allocation_approval` **is** in the list, corrected after review. Admin approval moves _every_ ticket into it (`transitions.ts` `approve`), and `PATCH` is refused from it — so an earlier draft of this section, which allowed only `approved` and `in_progress` on the grounds that "the ordinary `PATCH` path already handles guides", left a dead zone: between booking and EVP fuel sign-off the guides could not be changed through any door at all. That justification held for `pending_admin_approval` alone and was wrong to extend to both pending states.
 - Re-runs the capacity check. Swapping two guides for four can overflow the van.
 - Admin only. The requester does not get to re-staff their own approved trip.
 

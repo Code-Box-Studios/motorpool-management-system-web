@@ -369,9 +369,16 @@ const TripTicketsInner = () => {
   // A guide calling in sick on the morning of the trip is routine — the same
   // allowed-from set the server enforces on POST /trip-tickets/:id/guides, so
   // the UI never offers a swap that will 409.
+  //
+  // `pending_fuel_allocation_approval` is in the set on both sides. Admin
+  // approval moves EVERY ticket there, and the ordinary PATCH — the path that
+  // edits guides before approval — is refused from it server-side. Without this
+  // state the guides could not be changed from anywhere between booking and EVP
+  // fuel sign-off.
   const canReassignGuides =
     isAdmin &&
-    (status === TRIP_TICKET_STATUS.APPROVED ||
+    (status === TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL ||
+      status === TRIP_TICKET_STATUS.APPROVED ||
       status === TRIP_TICKET_STATUS.IN_PROGRESS);
   // Branch membership is deliberately NOT re-checked server-side on the
   // reassign endpoint (transitions.ts: "the picker is branch-locked in the
