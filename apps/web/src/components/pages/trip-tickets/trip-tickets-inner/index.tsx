@@ -123,9 +123,14 @@ const TripTicketsInner = () => {
   const { data: allUsers } = useAllUsers();
   // The reassign picker's roster — this ticket's own branch, since a guide
   // belongs to the branch the trip was booked under and that never changes
-  // after booking (design §5.2).
+  // after booking (design §5.2). Disabled until the ticket itself has
+  // loaded: otherwise this fires with `branchId: undefined` on every mount
+  // — the whole company's roster, unpaginated — before there is a branch id
+  // to scope it to, or anything on screen that reads the result.
   const { data: reassignEmployees, isLoading: reassignEmployeesLoading } =
-    useEmployees(tripTicket?.branch_id);
+    useEmployees(tripTicket?.branch_id, {
+      enabled: !!tripTicket?.branch_id
+    });
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
   const updateTripTicket = useUpdateTripTicket();
@@ -368,6 +373,15 @@ const TripTicketsInner = () => {
     isAdmin &&
     (status === TRIP_TICKET_STATUS.APPROVED ||
       status === TRIP_TICKET_STATUS.IN_PROGRESS);
+  // Branch membership is deliberately NOT re-checked server-side on the
+  // reassign endpoint (transitions.ts: "the picker is branch-locked in the
+  // UI only") — an archived employee is still refused there, but a guide
+  // from another branch is not. This filter is the entire guarantee, the
+  // same one the booking form's branchEmployees applies, kept here rather
+  // than trusting the `branchId` query param alone to survive a cache hit.
+  const reassignBranchEmployees = (reassignEmployees ?? []).filter(
+    (e) => e.branch_id === tripTicket.branch_id
+  );
   const transitionPending =
     approveTripTicket.isPending ||
     disapproveTripTicket.isPending ||
@@ -1044,7 +1058,7 @@ const TripTicketsInner = () => {
                       <div className="flex flex-col gap-3">
                         <GuidePicker
                           guideIds={reassignGuideIds}
-                          employees={reassignEmployees ?? []}
+                          employees={reassignBranchEmployees}
                           employeesLoading={reassignEmployeesLoading}
                           tripBranchId={tripTicket.branch_id}
                           onChangeRow={(index, value) =>

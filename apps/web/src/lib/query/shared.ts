@@ -35,12 +35,22 @@ export const useBranchesForDisplay = () => {
 //
 // The key stays under the ['employees'] prefix so the Organization tab's
 // invalidation (lib/mutation/organization.ts) reaches it: TanStack matches
-// prefixes, so invalidating ['employees'] refreshes every branch's list AND
-// the display twin below. Without that branch in useOrgInvalidation, renaming
-// or archiving an employee leaves this picker stale indefinitely.
-export const useEmployees = (branchId?: string) => {
+// prefixes, so invalidating ['employees'] refreshes every branch's list.
+// Without that branch in useOrgInvalidation, renaming or archiving an
+// employee leaves this picker stale indefinitely.
+//
+// `enabled` defaults to on (omitted `options` behaves exactly as before) —
+// pass `{ enabled: false }` while the caller doesn't have a branch id yet
+// (e.g. the ticket detail page, still loading the ticket its reassign picker
+// is scoped to) so the query doesn't fire with `branchId: undefined` and
+// fetch the whole company's roster for a render nothing uses it in.
+export const useEmployees = (
+  branchId?: string,
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
     queryKey: ['employees', branchId],
-    queryFn: () => getEmployees(branchId)
+    queryFn: () => getEmployees(branchId),
+    enabled: options?.enabled
   });
 };
