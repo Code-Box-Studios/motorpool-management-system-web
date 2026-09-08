@@ -9,7 +9,7 @@ A pnpm-workspace monorepo for managing a motorpool: vehicles, drivers, trip tick
 | Path               | Description                                                                                                                |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `apps/web`         | React (Vite) frontend, port `5173`. Currently talks directly to Supabase — the Express API migration below is in progress. |
-| `apps/api`         | Express + Prisma backend skeleton, port `3000`.                                                                            |
+| `apps/api`         | Express + Prisma backend skeleton, port `3001`.                                                                            |
 | `apps/gps-gateway` | TCP service that decodes SinoTrack ST-901 (H02) frames and forwards them to `POST /api/gps/ingest`. See its own README.    |
 | `packages/shared`  | Shared domain enums/types consumed by both apps.                                                                           |
 | `tools/`           | Standalone tooling (firmware, ML) outside the pnpm workspace apps.                                                         |
@@ -30,7 +30,7 @@ pnpm db:migrate && pnpm db:seed  # apply migrations and seed demo data
 pnpm dev                       # run api + web together
 ```
 
-- API: http://localhost:3000 (health check at `/api/health`)
+- API: http://localhost:3001 (health check at `/api/health`)
 - Web: http://localhost:5173 (falls back to the next free port, e.g. `5174`, if taken)
 
 ### Which database am I talking to?
