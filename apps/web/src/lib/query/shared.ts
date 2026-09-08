@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getAllBranches } from '../api/shared';
+import { getAllBranches, getEmployees } from '../api/shared';
 
 // Active branches only — the list every PICKER reads. A dropdown must never
 // offer a branch that has been archived.
@@ -25,5 +25,22 @@ export const useBranchesForDisplay = () => {
   return useQuery({
     queryKey: ['branches', 'all'],
     queryFn: () => getAllBranches(true)
+  });
+};
+
+// Active employees only — the roster every guide PICKER reads, narrowed to one
+// branch because a guide belongs to the trip's own branch (design §5.2). The
+// branch id is part of the key, so switching branches on the booking form
+// fetches that branch's roster instead of being served the previous one.
+//
+// The key stays under the ['employees'] prefix so the Organization tab's
+// invalidation (lib/mutation/organization.ts) reaches it: TanStack matches
+// prefixes, so invalidating ['employees'] refreshes every branch's list AND
+// the display twin below. Without that branch in useOrgInvalidation, renaming
+// or archiving an employee leaves this picker stale indefinitely.
+export const useEmployees = (branchId?: string) => {
+  return useQuery({
+    queryKey: ['employees', branchId],
+    queryFn: () => getEmployees(branchId)
   });
 };

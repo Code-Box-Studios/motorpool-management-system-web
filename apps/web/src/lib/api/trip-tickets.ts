@@ -63,6 +63,39 @@ function dateToSnake(d: TripDateApiResponse): TripDateRow {
   };
 }
 
+// One employee guiding a trip, flattened out of the TripTicketEmployee join the
+// API embeds. The join row itself carries nothing worth rendering (a composite
+// key and two timestamps), so this is the EMPLOYEE — which is what a ticket has
+// to show, including after that employee has been archived (design §8).
+export interface TripGuideRow {
+  id: string;
+  name: string;
+  position: string | null;
+}
+
+// Shape of a TripTicketEmployee row as embedded on a ticket response, with its
+// `employee` included (repository.ts's tripTicketInclude).
+interface TripGuideApiResponse {
+  tripTicketId: string;
+  employeeId: string;
+  employee: {
+    id: string;
+    name: string;
+    position: string | null;
+    phone: string | null;
+    branchId: string;
+    archivedAt: string | null;
+  };
+}
+
+function guideToSnake(g: TripGuideApiResponse): TripGuideRow {
+  return {
+    id: g.employee.id,
+    name: g.employee.name,
+    position: g.employee.position ?? null
+  };
+}
+
 // Shape of the `fuelAllocation` embed (Prisma `FuelAllocation` model, camelCase).
 interface FuelAllocationApiResponse {
   id: string;
@@ -97,6 +130,7 @@ interface TripTicketApiResponse {
   dateRequested: string;
   participants: string[];
   participantsCount: number | null;
+  guides: TripGuideApiResponse[];
   preparedBy: string;
   requestedById: string | null;
   remarks: string | null;
@@ -134,6 +168,11 @@ function toSnake(t: TripTicketApiResponse): TripTicket {
     date_requested: t.dateRequested.slice(0, 10), // @db.Date -> YYYY-MM-DD for <input type="date">/display
     participants: t.participants ?? [],
     participants_count: t.participantsCount ?? null,
+    // `?? []` for the same reason participants above has it: if
+    // tripTicketInclude is ever missing the guides embed, a ticket renders with
+    // no guides instead of throwing — and there is no response contract
+    // anywhere to catch that (design §7.1).
+    guides: (t.guides ?? []).map(guideToSnake),
     prepared_by: t.preparedBy,
     requested_by: t.requestedById ?? null,
     remarks: t.remarks ?? null,
@@ -190,6 +229,7 @@ interface TripTicketRequestBody {
   dateRequested?: string;
   participants?: string[];
   participantsCount?: number | null;
+  guideIds?: string[];
   preparedBy?: string;
   requestedById?: string;
   remarks?: string | null;
@@ -214,6 +254,7 @@ function mapCreateBody(t: NewTripTicket): TripTicketRequestBody {
     dateRequested: t.date_requested,
     participants: t.participants ?? undefined,
     participantsCount: t.participants_count ?? undefined,
+    guideIds: t.guideIds ?? undefined,
     preparedBy: t.prepared_by,
     requestedById: t.requested_by || undefined,
     remarks: t.remarks ?? undefined,
@@ -256,6 +297,16 @@ function mapUpdateBody(u: Record<string, unknown>): TripTicketRequestBody {
   }
   if (u.participants_count !== undefined)
     body.participantsCount = u.participants_count as number | null;
+  if (u.guide_ids !== undefined) {
+    // Guides are IDS. There is deliberately no comma-string branch like the
+    // one `participants` needs above: nothing joins or splits a guide, so an
+    // employee named "Cruz, Juan" cannot silently become two people. An empty
+    // array is forwarded AS an empty array, not folded to undefined —
+    // absent means "leave the guides alone", present-but-empty is a 400
+    // VALIDATION_ERROR, the same rule the server applies to `dates` (design
+    // §5.3).
+    body.guideIds = u.guide_ids as string[];
+  }
   if (u.requested_by !== undefined)
     body.requestedById = (u.requested_by as string) || undefined;
   if (u.prepared_by !== undefined) body.preparedBy = u.prepared_by as string;
@@ -405,6 +456,20 @@ export async function cancelTripDate(
       `/trip-tickets/${ticketId}/dates/${dateId}/cancel`,
       { reason }
     )
+  );
+}
+
+// The ticket is frozen to PATCH once an admin approves it, but a guide calling
+// in sick on the morning of the trip is routine. This is the one write that
+// reaches an approved ticket, and it is admin-only server-side.
+export async function reassignTripTicketGuides(
+  id: string,
+  guideIds: string[]
+): Promise<TripTicket> {
+  return toSnake(
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/guides`, {
+      guideIds
+    })
   );
 }
 

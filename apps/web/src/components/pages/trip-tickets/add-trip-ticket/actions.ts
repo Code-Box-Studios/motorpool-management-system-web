@@ -79,6 +79,14 @@ const tripTicketSchema = z.object({
 
   // Trip purpose and participants
   purpose: z.string().min(1, 'Purpose is required'),
+  // The employees who go along to guide the trip. IDS, one per row — never the
+  // comma-joined string `participants` below is, so a guide named "Cruz, Juan"
+  // cannot split into two people. An unfilled row is '' and fails .uuid(),
+  // which is what the per-row message is for. At least one is required
+  // (design §5.3); the server refuses an empty list with 400 VALIDATION_ERROR.
+  guide_ids: z
+    .array(z.string().uuid('Pick an employee for this row'))
+    .min(1, 'A trip needs at least one guide'),
   participants: z.string().min(1, 'Participants are required'), // Will be stored as array in DB
   participants_count: z.coerce
     .number()
@@ -118,6 +126,9 @@ export const useTripTicketForm = () => {
       office_head_id: '',
       office_id: '',
       purpose: '',
+      // One empty row, like participants' useState(['']) — the field renders
+      // its rows from this array, so it must exist before the first render.
+      guide_ids: [''],
       participants: '',
       participants_count: 1,
       vehicle_id: '',
@@ -153,6 +164,11 @@ export const useAddTripTicketAction = () => {
         .split(',')
         .map((p) => p.trim())
         .filter((p) => p.length > 0),
+      // Guides are already ids: no split, no join, no reconciliation against a
+      // count. Renamed to the wire's camelCase here because mapCreateBody reads
+      // `guideIds`; the snake_case `guide_ids` the spread also carries is not a
+      // trip_tickets column and is dropped there.
+      guideIds: data.guide_ids,
       dates: data.dates.map((d) => ({
         startTs: new Date(`${d.date}T${d.start}`).toISOString(),
         endTs: new Date(`${d.date}T${d.end}`).toISOString()

@@ -10,7 +10,7 @@ import {
 } from './actions';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useAllVehicles } from '@/lib/query/vehicles';
-import { useBranches } from '@/lib/query/shared';
+import { useBranches, useEmployees } from '@/lib/query/shared';
 import { useDepartmentOffices, useOfficeHeads } from '@/lib/query/offices';
 import {
   Select,
@@ -29,6 +29,7 @@ import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import Stepper from '@/components/shared/stepper';
 import DestinationPicker from '@/components/shared/destination-picker';
 import { DetailGrid, DetailItem } from '@/components/shared/detail-view';
+import { GuidePicker } from '@/components/pages/trip-tickets/guide-picker';
 import { BorrowedBadge } from '@/components/shared/borrowed-badge';
 import { isBorrowed } from '@/lib/borrowed';
 import {
@@ -54,6 +55,7 @@ const STEPS = [
       'destination',
       'participants_count',
       'purpose',
+      'guide_ids',
       'participants'
     ]
   },
@@ -140,6 +142,15 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   const seats =
     vehicles?.find((v) => v.id === selectedVehicleId)?.capacity ?? null;
 
+  // Guides ride along, so they spend seats too — assertBookable counts them
+  // the same way (participants PLUS guides against vehicle.capacity, design
+  // §5.1). Registered with react-hook-form directly and read back with watch:
+  // guides carry ids, so none of the useState/syncParticipants machinery the
+  // string round-trip forces on participants applies here. Blank rows do not
+  // count — an unfilled row is '' until an employee is chosen.
+  const guideIds = form.watch('guide_ids');
+  const guideCount = guideIds.filter(Boolean).length;
+
   const [step, setStep] = useState(0);
   // The furthest step reached: everything up to it can be jumped back to from the
   // stepper, but you cannot skip ahead past a step you have not completed.
@@ -173,7 +184,18 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   };
 
   const namedCount = participants.filter((p) => p.trim()).length;
-  const full = seats !== null && participants.length >= seats;
+  // One budget, two buttons: a guide takes a seat exactly like a participant,
+  // so the same flag stops "Add participant" and "Add guide".
+  const full = seats !== null && participants.length + guideCount >= seats;
+
+  // The seat budget as one line, guides included — a counter that ignored them
+  // would promise room the van does not have, and the trip would be refused
+  // 409 OVER_CAPACITY only after the whole form had been filled in. Template
+  // pinned exactly so the component and the e2e assertion cannot drift.
+  const seatSummary =
+    seats === null
+      ? 'Pick a vehicle to see the seats'
+      : `${namedCount + guideCount} of ${seats} seat${seats === 1 ? '' : 's'} (${guideCount} guide${guideCount === 1 ? '' : 's'})`;
 
   // If the final submit fails validation, the offending field may be on a step
   // that isn't showing — so land on it rather than failing silently.
@@ -200,6 +222,15 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   const tripBranchId: string | null | undefined =
     review.branch_id || userBranchId;
   const tripBranchName = branches?.find((b) => b.id === tripBranchId)?.name;
+
+  // The guide roster is branch-locked, so it is fetched for the TRIP's branch,
+  // not the whole company's. Called here rather than up with the other list
+  // hooks because it needs tripBranchId, which only exists once the watched
+  // values above have been read — still an unconditional top-level call, so
+  // hook order is stable.
+  const { data: employees, isLoading: employeesLoading } = useEmployees(
+    tripBranchId ?? undefined
+  );
 
   // Every branch runs its own vans and borrows another branch's when it needs to.
   // The vans it owns are the default and come first; another branch's are
@@ -243,6 +274,26 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
       : !tripBranchId || h.branch_id === tripBranchId
   );
 
+  // An EMPLOYEE cannot be borrowed either — a guide is one of this branch's own
+  // people. Filtered client-side as well as server-side (useEmployees passes
+  // branchId) for the same reason branchOffices above is: the guarantee should
+  // not depend on a query parameter surviving a cache hit.
+  const branchEmployees = (employees ?? []).filter(
+    (e) => !tripBranchId || e.branch_id === tripBranchId
+  );
+
+  const addGuideRow = () =>
+    form.setValue('guide_ids', [...guideIds, ''], {
+      shouldValidate: form.formState.isSubmitted
+    });
+
+  const removeGuideRow = (index: number) =>
+    form.setValue(
+      'guide_ids',
+      guideIds.filter((_, i) => i !== index),
+      { shouldValidate: form.formState.isSubmitted }
+    );
+
   // Changing the branch can strand an office (and a head) that belongs to the
   // branch you just left. Drop them rather than submit a trip whose office is
   // somebody else's.
@@ -265,6 +316,25 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
     }
   }, [review.office_head_id, officeHeadsForOffice, form]);
 
+  // A guide is stranded by a branch change the same way an office is: an
+  // employee belongs to exactly one branch, so somebody picked under the old
+  // one is not on the new one's roster. Blank the stranded rows rather than
+  // book a trip guided by another branch's staff — but keep the rows
+  // themselves, so the field never collapses to zero and the requester can see
+  // what there is to re-pick.
+  useEffect(() => {
+    // Unlike the two effects above, this one waits: mid-fetch the roster is
+    // empty and EVERY pick would look stranded. Guides are required, so
+    // silently wiping a valid one costs more than the extra guard.
+    if (employeesLoading) return;
+    const cleaned = guideIds.map((id) =>
+      id && !branchEmployees.some((e) => e.id === id) ? '' : id
+    );
+    if (cleaned.some((id, i) => id !== guideIds[i])) {
+      form.setValue('guide_ids', cleaned);
+    }
+  }, [guideIds, branchEmployees, employeesLoading, form]);
+
   useEffect(() => {
     if (user) {
       form.setValue('requested_by', user.id);
@@ -283,12 +353,23 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
     // The last word on the headcount. The count field is capped and re-clamped
     // when the vehicle changes, so this should be unreachable — but the API
     // refuses an over-capacity trip (409 OVER_CAPACITY) and a form that can send
-    // one is a form that can waste someone's time filling it in.
-    if (seats !== null && data.participants_count > seats) {
-      form.setError('participants_count', {
-        message: `That vehicle seats ${seats}`
+    // one is a form that can waste someone's time filling it in. Guides are in
+    // the sum because the server puts them there too (assertBookable:
+    // max(named, claimed) + guides against vehicle.capacity, design §5.1).
+    const guides = data.guide_ids.filter(Boolean).length;
+    if (seats !== null && data.participants_count + guides > seats) {
+      // Reported on `participants`, not on `participants_count`: the count has
+      // no rendered control (it is derived from the rows), so an error set on
+      // it was invisible and the submit just stopped with no explanation. That
+      // path was hard to reach before; counting guides makes it ordinary.
+      form.setError('participants', {
+        message:
+          `That vehicle seats ${seats} — this trip is ` +
+          `${data.participants_count} participant` +
+          `${data.participants_count === 1 ? '' : 's'} and ` +
+          `${guides} guide${guides === 1 ? '' : 's'}`
       });
-      setStep(1); // the step that owns participants_count
+      setStep(1); // the step that owns participants and guide_ids
       return;
     }
     setPendingData(data);
@@ -501,13 +582,19 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                           // Changing the van changes how many people fit. Without
                           // this, picking a 9-seater, entering 9, then switching
                           // to a 4-seater left the count at 9 and the trip only
-                          // failed on submit.
+                          // failed on submit. Guides have already taken their
+                          // seats, so the room left is what remains after them.
+                          // Never below one row — a trip still has to carry
+                          // someone, and a van the guides alone fill is refused
+                          // by the over-capacity guard in onSubmit, not by
+                          // silently deleting every participant.
                           const nextSeats = vehicles?.find(
                             (v) => v.id === vehicleId
                           )?.capacity;
                           if (!nextSeats) return;
-                          if (participants.length > nextSeats) {
-                            syncParticipants(participants.slice(0, nextSeats));
+                          const room = Math.max(nextSeats - guideCount, 1);
+                          if (participants.length > room) {
+                            syncParticipants(participants.slice(0, room));
                           }
                         }}
                         value={field.value}
@@ -715,6 +802,53 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                 )}
               />
 
+              {/* Guides ride along, so they sit directly above the people they
+                  accompany and spend the same seat budget. Unlike participants
+                  these are IDS chosen from this branch's roster — nothing is
+                  ever joined into or split out of a comma-separated string, so
+                  an employee named "Cruz, Juan" cannot become two people.
+                  Ordinary Selects, not components/ui/multi-select.tsx: that one
+                  renders bare <div onClick> with no role and paints raw
+                  bg-white (design §9.3). */}
+              <Field data-invalid={!!form.formState.errors.guide_ids}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <FieldLabel htmlFor="guide_ids">Guides *</FieldLabel>
+                  <span className="text-muted-foreground text-xs tabular-nums">
+                    {guideCount} guide{guideCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+
+                <GuidePicker
+                  guideIds={guideIds}
+                  employees={branchEmployees}
+                  employeesLoading={employeesLoading}
+                  tripBranchId={tripBranchId}
+                  onChangeRow={(index, value) =>
+                    form.setValue(`guide_ids.${index}`, value, {
+                      shouldValidate: form.formState.isSubmitted
+                    })
+                  }
+                  onAddRow={addGuideRow}
+                  onRemoveRow={removeGuideRow}
+                  rowError={(index) =>
+                    form.formState.errors.guide_ids?.[index]?.message
+                  }
+                  addDisabled={full}
+                />
+
+                {/* Only the array's own min(1) message ("A trip needs at least
+                    one guide") lands here — a row's own "Pick an employee for
+                    this row" is pinned to [i] and renders under that row. The
+                    remove button is disabled at one row, so this is unreachable
+                    from the UI today; kept as the same safety net the dates
+                    field keeps. */}
+                {form.formState.errors.guide_ids?.root?.message && (
+                  <p className="text-destructive text-sm">
+                    {form.formState.errors.guide_ids.root.message}
+                  </p>
+                )}
+              </Field>
+
               <Controller
                 name="participants"
                 control={form.control}
@@ -724,11 +858,11 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                       <FieldLabel htmlFor="participants">
                         Participants *
                       </FieldLabel>
-                      {/* The seat budget, spent and remaining. */}
+                      {/* The seat budget, spent and remaining — guides
+                          included, because the API counts them against the
+                          same capacity (see seatSummary above). */}
                       <span className="text-muted-foreground text-xs tabular-nums">
-                        {seats === null
-                          ? 'Pick a vehicle to see the seats'
-                          : `${namedCount} of ${seats} seat${seats === 1 ? '' : 's'}`}
+                        {seatSummary}
                       </span>
                     </div>
 
@@ -1000,6 +1134,18 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                         ))}
                       </div>
                     ) : undefined
+                  }
+                  wide
+                />
+                <DetailItem
+                  label="Guides"
+                  value={
+                    guideCount > 0
+                      ? guideIds
+                          .filter(Boolean)
+                          .map((id) => nameOf(branchEmployees, id) ?? '—')
+                          .join(', ')
+                      : undefined
                   }
                   wide
                 />

@@ -6,7 +6,7 @@ import type {
   TablesInsert,
   TablesUpdate
 } from './types/supabase';
-import type { TripDateRow } from './api/trip-tickets';
+import type { TripDateRow, TripGuideRow } from './api/trip-tickets';
 
 export type RouteStaticData = {
   title: string;
@@ -85,12 +85,22 @@ export type UpdateTool = TablesUpdate<'tools'>;
 // A ticket now covers one or more non-consecutive outings — `dates` is the
 // `trip_dates` rows (Tasks 2-4), not a generated column, so it is added by
 // intersection rather than living in the generated `Tables<'trip_tickets'>`.
-export type TripTicket = Tables<'trip_tickets'> & { dates: TripDateRow[] };
+// `guides` is here for the same reason: the trip_ticket_employees join is
+// newer than the generated schema file.
+export type TripTicket = Tables<'trip_tickets'> & {
+  dates: TripDateRow[];
+  guides: TripGuideRow[];
+};
 export type NewTripTicket = TablesInsert<'trip_tickets'> & {
   /** Outgoing create/update shape: already camelCase, passed straight through
    *  to the request body (see mapCreateBody/mapUpdateBody). Optional — the
    *  legacy start_ts/end_ts pair below still works on its own. */
   dates?: { startTs: string; endTs: string }[];
+  /** The employees guiding the trip, as employee ids — same convention as
+   *  `dates`: already camelCase, passed straight through. REQUIRED by
+   *  createTripTicketBodySchema (.min(1)). Not optional like `dates` —
+   *  there is no legacy fallback path for guides. */
+  guideIds: string[];
 };
 export type UpdateTripTicket = TablesUpdate<'trip_tickets'>;
 
