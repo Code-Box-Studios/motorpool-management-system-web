@@ -329,11 +329,15 @@ test('a guide picked on the booking form rides along on the ticket', async ({
 // not staged through the API at all here — it is created live on the
 // Organization page's Employees tab, the same flow organization.spec.ts's own
 // "admin adds a branch employee" test drives, and is picked from the booking
-// form's Guides field moments later. This is what proves the two features
-// actually connect end to end: useOrgInvalidation's employees branch (or the
-// new row never reaches the picker) and the picker's branch lock (or a
-// sibling branch's employee leaks into it), stood up together rather than
-// each staged around the other.
+// form's Guides field moments later, in a booking dialog opened for the first
+// time in this session (so a fresh useEmployees(branchId) fetch — staleTime 0
+// — sees the new row with or without useOrgInvalidation's employees branch;
+// that invalidation guards an already-mounted picker instead, which this
+// single-dialog flow does not exercise). What this test actually pins is the
+// picker's branch lock: this branch's own new hire is offered, and a sibling
+// branch's employee — created via the API as a negative control — is not,
+// proved positively rather than by an unopened popover trivially having zero
+// options.
 test('an admin adds a branch employee, books them as a guide, and the ticket names them; a sibling-branch employee is absent from the picker', async ({
   page,
   request
