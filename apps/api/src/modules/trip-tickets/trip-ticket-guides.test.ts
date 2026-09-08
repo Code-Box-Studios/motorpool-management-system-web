@@ -509,6 +509,46 @@ describe('POST /api/trip-tickets/:id/guides', () => {
     );
   });
 
+  // ASYMMETRIC on purpose: zero participant NAMES, a count of 3. Every other
+  // seat test in this repo passes equal terms, which makes
+  // `participantHeadcount`'s `Math.max(names, count)` and a bare `names.length`
+  // indistinguishable — reduce the helper to `.length` and only this test
+  // notices, while a nameless party of three reassigns unchecked.
+  //
+  // A requester who types no names and says "3 of us" has stated the headcount
+  // just as plainly as one who lists three, and PARTICIPANTS_MISMATCH does not
+  // fire here (it needs BOTH terms present) so nothing else refuses it either.
+  it('sizes the reassign against participantsCount when no names were typed', async () => {
+    const s = await scaffold(); // capacity 5
+    const guideD = await createTestEmployee(s.branch.id, 'Dee Guide');
+    const guideE = await createTestEmployee(s.branch.id, 'Eve Guide');
+    const created = await post(s, {
+      participants: [],
+      participantsCount: 3,
+      guideIds: [s.guideA.id],
+      startTs: inDays(70, 8),
+      endTs: inDays(70, 17)
+    });
+    expect(created.status).toBe(201); // max(0, 3) + 1 = 4 of 5
+    await prisma.tripTicket.update({
+      where: { id: created.body.id },
+      data: { status: 'approved' }
+    });
+
+    const res = await request(app)
+      .post(`/api/trip-tickets/${created.body.id}/guides`)
+      .set('Authorization', s.header)
+      .send({
+        guideIds: [s.guideA.id, s.guideB.id, s.guideC.id, guideD.id, guideE.id]
+      });
+    // With `.length` this is 0 + 5 = 5 of 5 and returns 200.
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('OVER_CAPACITY');
+    expect(res.body.error.message).toBe(
+      'That vehicle seats 5; the trip is for 3 participant(s) and 5 guide(s)'
+    );
+  });
+
   it('404s on a ticket that does not exist', async () => {
     const s = await scaffold();
     const res = await request(app)

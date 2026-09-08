@@ -2,6 +2,29 @@ import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 
 /**
+ * How many seats the PARTICIPANTS take.
+ *
+ * The names are the truth and the count is a claim about them, but either may
+ * stand alone: a requester who types no names and says "4 of us" has told you
+ * the headcount just as plainly as one who lists four. So the larger of the two
+ * is the figure a van is sized against — never `participants.length` on its own,
+ * which reads a nameless party of four as an empty one.
+ *
+ * PARTICIPANTS_MISMATCH (service.ts) is what stops the two DISAGREEING when both
+ * are given; this function is only reached once they don't. It lives here next
+ * to `assertSeatsFit` because both callers of that function need this exact
+ * arithmetic, and the reassign path had its own hand-rolled copy — the guides
+ * half of the sum was extracted and this half was not, which is the one
+ * duplication a shared helper was supposed to remove.
+ */
+export function participantHeadcount(
+  participants: readonly string[] | null | undefined,
+  participantsCount: number | null | undefined
+): number {
+  return Math.max(participants?.length ?? 0, participantsCount ?? 0);
+}
+
+/**
  * Seats. A guide occupies one exactly as a participant does.
  *
  * The driver is deliberately not counted — the driver is not a passenger, and

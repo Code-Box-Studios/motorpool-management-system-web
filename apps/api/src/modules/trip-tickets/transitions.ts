@@ -21,7 +21,11 @@ import {
   resolveOutingForCheckOut,
   syncTicketStatus
 } from './dates.js';
-import { assertSeatsFit, replaceTripTicketGuides } from './guides.js';
+import {
+  assertSeatsFit,
+  participantHeadcount,
+  replaceTripTicketGuides
+} from './guides.js';
 
 // Loads the ticket and asserts its current status is in the allowed-from set.
 async function loadInState(id: string, allowedFrom: string[]) {
@@ -490,7 +494,7 @@ export async function reassignGuides(id: string, guideIds: string[]) {
   if (!vehicle) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
   assertSeatsFit(
     vehicle.capacity,
-    Math.max(ticket.participants.length, ticket.participantsCount ?? 0),
+    participantHeadcount(ticket.participants, ticket.participantsCount),
     guideIds.length
   );
 

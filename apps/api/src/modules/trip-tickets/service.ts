@@ -19,7 +19,11 @@ import {
   tripTicketInclude
 } from './repository.js';
 import { replaceTripDates } from './dates.js';
-import { assertSeatsFit, replaceTripTicketGuides } from './guides.js';
+import {
+  assertSeatsFit,
+  participantHeadcount,
+  replaceTripTicketGuides
+} from './guides.js';
 import * as events from '../notifications/events.js';
 import { formatDisplayDate } from '../../lib/timezone.js';
 
@@ -194,11 +198,12 @@ async function assertBookable(
   // Guides ride in the same van, so they take the same seats (design §5.1).
   // They are deliberately NOT reconciled against participantsCount above —
   // that count is a claim about the participant NAMES, and a guide is not a
-  // participant. The rule lives in guides.ts because POST /:id/guides re-runs
-  // exactly this check after approval, and two copies of it would drift.
+  // participant. BOTH halves of this sum live in guides.ts because
+  // POST /:id/guides re-runs exactly this check after approval, and two copies
+  // of either would drift.
   assertSeatsFit(
     vehicle.capacity,
-    Math.max(named, claimed ?? 0),
+    participantHeadcount(body.participants, body.participantsCount),
     body.guideIds.length
   );
 
