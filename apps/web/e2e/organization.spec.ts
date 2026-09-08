@@ -30,9 +30,34 @@ import {
 // left its own records in.
 const createdBranchIds: string[] = [];
 const createdOfficeIds: string[] = [];
+// Employees archive FIRST: branchBlockers counts an ACTIVE employee, so a
+// branch this spec created cannot close while one is still on its roster.
+const createdEmployeeIds: string[] = [];
 
 test.afterAll(async ({ request }) => {
   const admin = await apiLogin(request, CREDENTIALS.admin);
+
+  for (const id of createdEmployeeIds) {
+    try {
+      const r = await apiPost(
+        request,
+        `/api/employees/${id}/archive`,
+        admin.token,
+        {}
+      );
+      // 409 here just means a test already archived it — not a cleanup failure.
+      if (!r.ok && r.status !== 409) {
+        console.error(
+          `organization cleanup: archiving employee ${id} failed (HTTP ${r.status})`
+        );
+      }
+    } catch (err) {
+      console.error(
+        `organization cleanup: archiving employee ${id} threw:`,
+        err
+      );
+    }
+  }
 
   for (const id of createdOfficeIds) {
     try {
@@ -87,7 +112,7 @@ async function goToOrganization(page: Page): Promise<void> {
 
 async function selectTab(
   page: Page,
-  name: 'Branches' | 'Offices' | 'Office Heads'
+  name: 'Branches' | 'Offices' | 'Office Heads' | 'Employees'
 ): Promise<void> {
   await page.getByRole('tab', { name, exact: true }).click();
 }
@@ -585,4 +610,113 @@ test('a trip ticket filed under a branch and office that have since closed still
     'and so is the closed office'
   ).toHaveText(officeName, { timeout: 15_000 });
   await shot(page, 'organization-6-archived-parents-still-named');
+});
+
+// The fourth tab (design §9.1). Everything here is ResourceTab configuration
+// except one thing that is not: Employee.branchId is NOT NULL, so this is the
+// only picker on the page that is required, offers no "None", and has to be
+// refused in the dialog rather than by the API.
+test('admin adds a branch employee, edits it, and archives it away', async ({
+  page,
+  request
+}) => {
+  await login(page, 'admin');
+  const stamp = Date.now();
+  const employeeName = `E2E Guide ${stamp}`;
+  const renamedName = `${employeeName} Renamed`;
+
+  await goToOrganization(page);
+  await selectTab(page, 'Employees');
+
+  // ---------- Create: the branch is REQUIRED, unlike every other picker here ----------
+  await page.getByRole('button', { name: 'Add Employee' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Create a new employee.')).toBeVisible({
+    timeout: 15_000
+  });
+  await dialog.locator('#name').fill(employeeName);
+  await dialog.locator('#position').fill('Tour Guide');
+  await dialog.locator('#phone').fill('09171234567');
+
+  // Design §4.3: a branchless employee would appear in no branch's guide
+  // picker at all, with no error anywhere — so the dialog refuses the submit
+  // and stays open rather than letting the API answer.
+  await dialog.getByRole('button', { name: 'Add Employee' }).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('Branch is required')).toBeVisible({
+    timeout: 15_000
+  });
+
+  await branchGroup(dialog).getByRole('combobox').click();
+  // A required select offers no "None": the NONE sentinel the three nullable
+  // pickers use would be a click straight into the error above.
+  await expect(
+    page.getByRole('option', { name: 'None', exact: true })
+  ).toHaveCount(0);
+  await page.getByRole('option', { name: 'Main Branch', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Add Employee' }).click();
+  await expect(dialog).toBeHidden({ timeout: 15_000 });
+
+  const row = page.getByRole('row').filter({ hasText: employeeName });
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  // The three columns RESOURCE_META declares for this tab.
+  await expect(row).toContainText('Tour Guide');
+  await expect(row).toContainText('Main Branch');
+  await shot(page, 'organization-7-employee-created');
+
+  // The UI never shows the id, and cleanup needs it.
+  const admin = await apiLogin(request, CREDENTIALS.admin);
+  const created = listData(
+    await apiGet(request, '/api/employees?includeArchived=true', admin.token)
+  ).find((e) => e.name === employeeName);
+  expect(created, 'the created employee resolves via the API').toBeTruthy();
+  createdEmployeeIds.push(created!.id as string);
+  expect(created!.position, 'position round-trips').toBe('Tour Guide');
+  expect(created!.phone, 'phone round-trips').toBe('09171234567');
+
+  // ---------- Edit: rename only, leaving the branch untouched ----------
+  await row.getByRole('button', { name: 'Edit' }).click();
+  await expect(dialog.getByText('Update this employee.')).toBeVisible({
+    timeout: 15_000
+  });
+  await expect(branchGroup(dialog).getByRole('combobox')).toContainText(
+    'Main Branch'
+  );
+  await dialog.locator('#name').fill(renamedName);
+  await dialog.getByRole('button', { name: 'Save Changes' }).click();
+  await expect(dialog).toBeHidden({ timeout: 15_000 });
+
+  const renamedRow = page.getByRole('row').filter({ hasText: renamedName });
+  await expect(renamedRow).toBeVisible({ timeout: 15_000 });
+  // The PATCH sent only `name`, so the branch is still resolved in its column.
+  await expect(renamedRow).toContainText('Main Branch');
+
+  const after = listData(
+    await apiGet(request, '/api/employees?includeArchived=true', admin.token)
+  ).find((e) => e.id === created!.id);
+  expect(
+    after?.branchId,
+    "the employee's branch is unchanged by the rename"
+  ).toBe(created!.branchId);
+
+  // ---------- Archive, then restore ----------
+  await renamedRow.getByRole('button', { name: 'Archive' }).click();
+  const archiveDialog = page.getByRole('alertdialog');
+  await expect(archiveDialog).toContainText(`Archive "${renamedName}"?`);
+  await archiveDialog
+    .getByRole('button', { name: 'Archive', exact: true })
+    .click();
+  await expect(archiveDialog).toBeHidden({ timeout: 15_000 });
+  await expect(renamedRow.getByText('Archived')).toBeVisible({
+    timeout: 15_000
+  });
+  await shot(page, 'organization-8-employee-archived');
+
+  await renamedRow.getByRole('button', { name: 'Restore' }).click();
+  await expect(renamedRow.getByText('Archived')).toHaveCount(0, {
+    timeout: 15_000
+  });
+  await expect(renamedRow.getByRole('button', { name: 'Archive' })).toBeVisible(
+    { timeout: 15_000 }
+  );
 });
