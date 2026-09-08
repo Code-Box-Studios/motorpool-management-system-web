@@ -3,7 +3,8 @@ import type {
   ApproveTripTicketBody,
   CheckInBody,
   CheckOutBody,
-  ReasonBody
+  ReasonBody,
+  ReassignGuidesBody
 } from '@mms/shared';
 import { requireIdParam, requireParam, requireUser } from '../../lib/http.js';
 import * as transitions from './transitions.js';
@@ -69,6 +70,20 @@ export async function checkIn(req: Request, res: Response): Promise<void> {
       requireIdParam(req),
       requireUser(req),
       req.body as CheckInBody
+    )
+  );
+}
+
+// No requireUser here, unlike its neighbours: reassignGuides takes no actor —
+// the route is admin-gated and the transition raises no notification.
+export async function reassignGuides(
+  req: Request,
+  res: Response
+): Promise<void> {
+  res.json(
+    await transitions.reassignGuides(
+      requireIdParam(req),
+      (req.body as ReassignGuidesBody).guideIds
     )
   );
 }

@@ -6,6 +6,7 @@ import {
   checkOutBodySchema,
   createTripTicketBodySchema,
   reasonBodySchema,
+  reassignGuidesBodySchema,
   updateTripTicketBodySchema
 } from '@mms/shared';
 import { requireAuth } from '../../middleware/require-auth.js';
@@ -68,6 +69,16 @@ tripTicketsRouter.post(
   requireRole(USER_ROLES.admin, USER_ROLES.requester),
   validateBody(reasonBodySchema),
   transitionsController.cancelDate
+);
+// Re-staff an approved trip. Admin ONLY, no requester override: the generic
+// PATCH is frozen once a ticket is approved, and the point of this endpoint is
+// to reopen exactly one field of it — for the admin who approved the trip, not
+// for the person who asked for it.
+tripTicketsRouter.post(
+  '/:id/guides',
+  requireRole(USER_ROLES.admin),
+  validateBody(reassignGuidesBodySchema),
+  transitionsController.reassignGuides
 );
 
 // The guard works the gate; admin is an override for when none is on duty.

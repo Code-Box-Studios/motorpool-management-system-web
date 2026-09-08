@@ -5,6 +5,7 @@ import type {
   CheckOutBody
 } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
+import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import {
@@ -20,6 +21,7 @@ import {
   resolveOutingForCheckOut,
   syncTicketStatus
 } from './dates.js';
+import { assertSeatsFit, replaceTripTicketGuides } from './guides.js';
 
 // Loads the ticket and asserts its current status is in the allowed-from set.
 async function loadInState(id: string, allowedFrom: string[]) {
@@ -433,5 +435,61 @@ export async function checkIn(
     ticketCompleted = settled.status === 'completed';
   });
   await events.tripCheckedIn(ticket, outing, actor, ticketCompleted);
+  return findTripTicketById(id);
+}
+
+/**
+ * Swap the people guiding an already-approved trip.
+ *
+ * The generic PATCH is frozen the moment a ticket leaves
+ * `pending_admin_approval`, and a guide changing on the morning of the trip is
+ * the ordinary case rather than an exception — so guides get their own
+ * transition instead of a hole in the freeze.
+ *
+ * Allowed from `approved` and `in_progress` ONLY. Not from `completed`,
+ * `cancelled` or `disapproved`: a finished trip's record of who was on it is
+ * history, and rewriting it would make the ticket disagree with what actually
+ * happened. Not from the two pending states either — the ordinary PATCH
+ * already handles guides there, and one edit reachable through two doors with
+ * two different guards on them is how a freeze stops meaning anything.
+ *
+ * The seat check runs again: swapping one guide for five can overflow the van.
+ * The participant figures come off the STORED ticket, never off the request —
+ * this endpoint does not edit participants, and reading them from the body
+ * would let a caller shrink the party on paper to make room for the guides
+ * they are adding.
+ *
+ * No `actor` and no notification, unlike the transitions above: this is an
+ * admin-only correction to a staffing list, there is no approval decision in it
+ * and nobody is holding it for signature. If either changes it takes an
+ * AuthenticatedUser and an events.* call like the rest.
+ */
+export async function reassignGuides(id: string, guideIds: string[]) {
+  const ticket = await loadInState(id, ['approved', 'in_progress']);
+  // An archived employee is off the roster and must not be sent to a ticket by
+  // the back door — removing them from the pickers stops them being OFFERED,
+  // not being POSTED. Branch membership is deliberately NOT checked, here or
+  // anywhere: the picker is branch-locked in the UI only (design §5.2).
+  await assertOrgRefsActive({ employeeIds: guideIds });
+
+  const vehicle = await prisma.vehicle.findUnique({
+    where: { id: ticket.vehicleId },
+    select: { capacity: true }
+  });
+  if (!vehicle) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
+  assertSeatsFit(
+    vehicle.capacity,
+    Math.max(ticket.participants.length, ticket.participantsCount ?? 0),
+    guideIds.length
+  );
+
+  // Deliberately NOT assertBookable: that would re-run the date rules too, and
+  // an approved two-date event whose first outing is already driven and closed
+  // would fail TRIP_IN_THE_PAST on a request that never touched its dates.
+  await prisma.$transaction(async (tx) => {
+    // deleteMany + createMany must not half-apply — a failure between them
+    // would leave an approved trip with no guides at all.
+    await replaceTripTicketGuides(tx, id, guideIds);
+  });
   return findTripTicketById(id);
 }

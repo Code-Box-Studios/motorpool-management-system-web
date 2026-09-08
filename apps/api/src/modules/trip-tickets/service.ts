@@ -19,6 +19,7 @@ import {
   tripTicketInclude
 } from './repository.js';
 import { replaceTripDates } from './dates.js';
+import { assertSeatsFit, replaceTripTicketGuides } from './guides.js';
 import * as events from '../notifications/events.js';
 import { formatDisplayDate } from '../../lib/timezone.js';
 
@@ -96,6 +97,7 @@ async function assertBookable(
     | 'endTs'
     | 'participants'
     | 'participantsCount'
+    | 'guideIds'
   > & { dates?: TripDateInput[] },
   excludeTicketId?: string
 ): Promise<void> {
@@ -189,14 +191,16 @@ async function assertBookable(
       `${named} participant name(s) given but the count says ${claimed}`
     );
   }
-  const headcount = Math.max(named, claimed ?? 0);
-  if (headcount > vehicle.capacity) {
-    throw new AppError(
-      409,
-      'OVER_CAPACITY',
-      `That vehicle seats ${vehicle.capacity}; the trip is for ${headcount}`
-    );
-  }
+  // Guides ride in the same van, so they take the same seats (design §5.1).
+  // They are deliberately NOT reconciled against participantsCount above —
+  // that count is a claim about the participant NAMES, and a guide is not a
+  // participant. The rule lives in guides.ts because POST /:id/guides re-runs
+  // exactly this check after approval, and two copies of it would drift.
+  assertSeatsFit(
+    vehicle.capacity,
+    Math.max(named, claimed ?? 0),
+    body.guideIds.length
+  );
 
   // An inactive driver is off the roster. (`on_trip` is fine — that is a driver's
   // state right NOW, and it says nothing about a trip next week.)
@@ -254,7 +258,8 @@ export async function create(
   await assertOrgRefsActive({
     branchId: body.branchId,
     officeId: body.officeId,
-    officeHeadId: body.officeHeadId
+    officeHeadId: body.officeHeadId,
+    employeeIds: body.guideIds
   });
   await assertBookable(body);
   // WHO ASKED is the authenticated caller — not a field the client fills in. It
@@ -271,12 +276,22 @@ export async function create(
       : actor.id;
 
   const dates = normaliseTripDates(body);
+  // `guideIds` is pulled OUT of the body rather than blanked with
+  // `guideIds: undefined` the way `dates` is below, and the difference matters:
+  // `dates` IS a key on Prisma's create input (the relation), `guideIds` is not
+  // — and TypeScript excess-property-checks a key you write EXPLICITLY in an
+  // object literal, so `guideIds: undefined` is a compile error (TS2353) while
+  // leaving it inside the spread is not checked at all. Left in the spread it
+  // compiles clean and throws PrismaClientValidationError at runtime, on the
+  // create path only. Same idiom as `const { requestedById, ...editable }` in
+  // update() below.
+  const { guideIds, ...ticketData } = body;
   const ticket = await prisma.$transaction(async (tx) => {
     const created = await tx.tripTicket.create({
       // The legacy pair is still written, but only as the seed of the derived
       // span — replaceTripDates recomputes it from the rows immediately after.
       data: {
-        ...body,
+        ...ticketData,
         // `dates` on the body is the validated request list, not Prisma's `dates`
         // relation (added in Task 1) — those are shaped differently. Keep it out
         // of the ticket write; replaceTripDates below wires it into the
@@ -288,6 +303,10 @@ export async function create(
       select: { id: true }
     });
     await replaceTripDates(tx, created.id, dates);
+    // Inside the SAME transaction: a ticket that committed without its guides
+    // would be a booking nobody is staffing, and there is no later write that
+    // would notice.
+    await replaceTripTicketGuides(tx, created.id, guideIds);
     return created;
   });
   const full = await findTripTicketById(ticket.id);
@@ -304,7 +323,11 @@ export async function update(
   await assertOrgRefsActive({
     branchId: body.branchId,
     officeId: body.officeId,
-    officeHeadId: body.officeHeadId
+    officeHeadId: body.officeHeadId,
+    // Undefined when the caller is not editing guides — assertOrgRefsActive
+    // checks only the keys actually present, so an untouched guide list is
+    // never re-validated against an employee archived since.
+    employeeIds: body.guideIds
   });
   const existing = await findTripTicketById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Trip ticket not found');
@@ -373,13 +396,18 @@ export async function update(
       driverId: body.driverId ?? existing.driverId,
       participants: body.participants ?? existing.participants,
       participantsCount: body.participantsCount ?? existing.participantsCount,
+      // Same fallback shape as the fields above it: a PATCH that adds two
+      // participants without touching the guides must still be sized against
+      // the guides the ticket already has, or an edit could quietly push the
+      // party past the van's capacity.
+      guideIds: body.guideIds ?? existing.guides.map((g) => g.employeeId),
       dates: proposedDates
     },
     id
   );
   // An edit cannot hand the ticket to someone else — that is the same
   // client-controlled attribution hole as on create, via the back door.
-  const { requestedById, ...editable } = body;
+  const { requestedById, guideIds, ...editable } = body;
   // Fix round 2, item 1 (spec §4.2): startTs/endTs are the ticket's DERIVED
   // SPAN, same as `dates` above them — never a real column write from the
   // client. Before this feature they were the truth, so writing them straight
@@ -414,6 +442,18 @@ export async function update(
       (body.dates && body.dates.length > 0) || (body.startTs && body.endTs);
     if (sentDates) {
       await replaceTripDates(tx, id, normaliseTripDates(body));
+    }
+    // The same rule for the guide rows, one case simpler: there is no legacy
+    // pair to fold in, so ABSENT is the only "leave them alone" spelling.
+    //
+    // There is deliberately no empty-list gate here to match the NO_TRIP_DATES
+    // one at :349 — it would be unreachable. `.partial()` wraps `guideIds` in
+    // ZodOptional without stripping its `.min(1)`, so `{ guideIds: [] }` is
+    // refused by zod before this controller ever runs. If that `.min(1)` is
+    // ever dropped, replaceTripTicketGuides still answers an empty list with
+    // 400 NO_GUIDES rather than deleting every row.
+    if (guideIds !== undefined) {
+      await replaceTripTicketGuides(tx, id, guideIds);
     }
   });
   return findTripTicketById(id);
