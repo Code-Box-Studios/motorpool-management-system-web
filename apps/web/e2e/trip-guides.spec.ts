@@ -324,3 +324,182 @@ test('a guide picked on the booking form rides along on the ticket', async ({
     page.getByRole('button', { name: 'Reassign guides' })
   ).toBeVisible({ timeout: 15_000 });
 });
+
+// The other half of the story the first test doesn't reach: the employee is
+// not staged through the API at all here — it is created live on the
+// Organization page's Employees tab, the same flow organization.spec.ts's own
+// "admin adds a branch employee" test drives, and is picked from the booking
+// form's Guides field moments later. This is what proves the two features
+// actually connect end to end: useOrgInvalidation's employees branch (or the
+// new row never reaches the picker) and the picker's branch lock (or a
+// sibling branch's employee leaks into it), stood up together rather than
+// each staged around the other.
+test('an admin adds a branch employee, books them as a guide, and the ticket names them; a sibling-branch employee is absent from the picker', async ({
+  page,
+  request
+}) => {
+  const admin = await apiLogin(request, CREDENTIALS.admin);
+  const stamp = Date.now();
+  const employeeName = `E2E Added Guide ${stamp}`;
+  const northName = `E2E North Guide ${stamp}`;
+
+  // ---------- The negative control, staged through the API ----------
+  // An employee of a DIFFERENT branch. Nothing about creating it is under
+  // test; what matters is that it never appears in a Main Branch picker.
+  const branches = listData(
+    await apiGet(request, '/api/branches', admin.token)
+  );
+  const mainBranch = branches.find((b) => b.name === 'Main Branch');
+  const northBranch = branches.find((b) => b.name === 'North Branch');
+  expect(mainBranch, 'the seeded Main Branch resolves').toBeTruthy();
+  expect(northBranch, 'the seeded North Branch resolves').toBeTruthy();
+
+  const north = await apiPost(request, '/api/employees', admin.token, {
+    name: northName,
+    branchId: northBranch!.id as string
+  });
+  expect(north.ok, "the picker's negative control is created").toBeTruthy();
+  createdEmployeeIds.push((north.body as { id: string }).id);
+
+  // ---------- 1: add an employee through Organization → Employees ----------
+  await login(page, 'admin');
+  await page
+    .getByRole('link', { name: 'Organization', exact: true })
+    .first()
+    .click();
+  await page.waitForURL(/\/organization/, { timeout: 15_000 });
+  await page.getByRole('tab', { name: 'Employees', exact: true }).click();
+
+  await page.getByRole('button', { name: 'Add Employee' }).click();
+  const addDialog = page.getByRole('dialog');
+  await expect(addDialog.getByText('Create a new employee.')).toBeVisible({
+    timeout: 15_000
+  });
+  await addDialog.locator('#name').fill(employeeName);
+  await addDialog.locator('#position').fill('Tour Guide');
+  await fieldGroup(addDialog, 'Branch').getByRole('combobox').click();
+  await page.getByRole('option', { name: 'Main Branch', exact: true }).click();
+  // The dialog's submit shares its accessible name with the tab's own "Add
+  // Employee" button; scoping to the dialog is what disambiguates the click.
+  await addDialog.getByRole('button', { name: 'Add Employee' }).click();
+  await expect(addDialog).toBeHidden({ timeout: 15_000 });
+
+  const employeeRow = page.getByRole('row').filter({ hasText: employeeName });
+  await expect(employeeRow).toBeVisible({ timeout: 15_000 });
+  await expect(
+    employeeRow,
+    'the roster row resolves the branch and the position it was given'
+  ).toContainText('Main Branch');
+  await expect(employeeRow).toContainText('Tour Guide');
+  await shot(page, 'trip-guides-3-employee-added');
+
+  // The UI never shows the id, and teardown needs it.
+  const employeeId = listData(
+    await apiGet(request, '/api/employees?includeArchived=true', admin.token)
+  ).find((e) => e.name === employeeName)?.id as string | undefined;
+  expect(employeeId, 'the new employee resolves via the API').toBeTruthy();
+  createdEmployeeIds.push(employeeId!);
+
+  // ---------- 2: book a trip and pick them as the guide ----------
+  const dialog = await openBookingDialog(page);
+
+  await fieldGroup(dialog, 'Branch').getByRole('combobox').click();
+  await page.getByRole('option', { name: 'Main Branch', exact: true }).click();
+  await pickFirstOption(
+    page,
+    fieldGroup(dialog, 'Department/Office/College').getByRole('combobox')
+  );
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+
+  await pickFirstOption(
+    page,
+    fieldGroup(dialog, 'Vehicle').getByRole('combobox')
+  );
+  await pickFirstOption(
+    page,
+    fieldGroup(dialog, 'Driver').getByRole('combobox')
+  );
+
+  const destination = `TG-ADD-E2E ${stamp}`;
+  await dialog.locator('#destination').fill(destination);
+  await dialog.locator('#purpose').fill('E2E added guide');
+  await dialog.getByPlaceholder('Participant 1').fill('E2E Passenger');
+
+  // The branch lock, proved with a positive control in the same open
+  // listbox: asserting toHaveCount(0) against a popover that never opened
+  // would pass for entirely the wrong reason.
+  await dialog.getByRole('combobox', { name: 'Guide 1' }).click();
+  await expect(
+    page.getByRole('option', { name: `${employeeName} — Tour Guide` }),
+    "this branch's own newly-added employee is offered"
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    page.getByRole('option', { name: northName }),
+    "another branch's employee is not"
+  ).toHaveCount(0);
+  await page
+    .getByRole('option', { name: `${employeeName} — Tour Guide` })
+    .click();
+  await shot(page, 'trip-guides-4-guide-selected');
+
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+
+  // Far-future and distinct from every other spec's window, INCLUDING this
+  // file's own first test (+75 days): the same first-vehicle/first-driver
+  // pick could otherwise collide on the same day and fail with
+  // VEHICLE_DOUBLE_BOOKED — a fixture collision, not a bug.
+  const day = new Date(Date.now() + 205 * 86_400_000);
+  const isoDay = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(
+    2,
+    '0'
+  )}-${String(day.getDate()).padStart(2, '0')}`;
+  await dialog.locator('input[type="date"]').first().fill(isoDay);
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+
+  await expect(detailValue(page, 'Guides')).toContainText(employeeName, {
+    timeout: 15_000
+  });
+
+  const posted = page.waitForResponse(
+    (res) =>
+      res.url().endsWith('/api/trip-tickets') &&
+      res.request().method() === 'POST'
+  );
+  await dialog.getByRole('button', { name: 'Submit Request' }).click();
+  const confirmDialog = page.getByRole('alertdialog');
+  await confirmDialog.getByRole('button', { name: 'Submit Request' }).click();
+
+  const response = await posted;
+  expect(
+    response.status(),
+    'the booking carried a guide and was accepted'
+  ).toBe(201);
+  const tripId = ((await response.json()) as { id: string }).id;
+  // Queued for teardown the moment the id exists — before any assertion below
+  // that could throw. The browser already booked this ticket (the POST
+  // above succeeded); if a later assertion fails, the row is still real and
+  // still has to be torn down.
+  createdTicketIds.push(tripId);
+  await expect(confirmDialog).toBeHidden({ timeout: 20_000 });
+  await expect(dialog).toBeHidden({ timeout: 20_000 });
+
+  // ---------- 3: the ticket names its guide ----------
+  await page.goto(`/trip-tickets/${tripId}`);
+  await expect(
+    detailValue(page, 'Guides'),
+    'the ticket detail names the employee guiding it'
+  ).toContainText(employeeName, { timeout: 15_000 });
+  await shot(page, 'trip-guides-5-ticket-shows-guide');
+
+  // And the join really was written, rather than the page echoing something
+  // it still held from the form it was just submitted from.
+  const detail = (await apiGet(
+    request,
+    `/api/trip-tickets/${tripId}`,
+    admin.token
+  )) as { guides?: { employee: { name: string } }[] };
+  expect(
+    (detail.guides ?? []).map((g) => g.employee.name),
+    'the ticket carries exactly the one guide that was picked'
+  ).toEqual([employeeName]);
+});
