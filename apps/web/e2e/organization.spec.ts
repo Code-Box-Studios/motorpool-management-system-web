@@ -720,3 +720,93 @@ test('admin adds a branch employee, edits it, and archives it away', async ({
     { timeout: 15_000 }
   );
 });
+
+// Regression coverage for BLOCKER_LABELS.employees (lib/api/organization.ts).
+// Blocker.resource is typed `string`, not a union, so a missing or mistyped
+// 'employees' entry produces no compile error — describeBlockers would just
+// fall through to the raw API key. For count > 1 that fallback is invisible:
+// the raw key 'employees' is already the correct plural. The singular case is
+// the one assertion that can actually fail: with the label present, count 1
+// renders 'employee' (labels[0]); without it, describeBlockers falls back to
+// the resource string itself, which renders '1 employees'. This test creates
+// a fresh branch with exactly one active employee and no other blockers, so
+// the archive dialog's blocker list is exactly one line and unambiguous.
+test('archiving a branch with an active employee blocks on the human label, not the raw key', async ({
+  page,
+  request
+}) => {
+  await login(page, 'admin');
+  const branchName = `E2E Employee Branch ${Date.now()}`;
+  const employeeName = `E2E Blocker Guide ${Date.now()}`;
+
+  // ---------- Create a branch, then exactly one employee on it ----------
+  await goToOrganization(page);
+  await page.getByRole('button', { name: 'Add Branch' }).click();
+  let dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Create a new branch.')).toBeVisible({
+    timeout: 15_000
+  });
+  await dialog.locator('#name').fill(branchName);
+  await dialog.getByRole('button', { name: 'Add Branch' }).click();
+  await expect(dialog).toBeHidden({ timeout: 15_000 });
+
+  const admin = await apiLogin(request, CREDENTIALS.admin);
+  const branches = listData(
+    await apiGet(request, '/api/branches?includeArchived=true', admin.token)
+  );
+  const branchId = branches.find((b) => b.name === branchName)?.id as
+    | string
+    | undefined;
+  expect(branchId, 'the branch resolves via the API').toBeTruthy();
+  createdBranchIds.push(branchId!);
+
+  await selectTab(page, 'Employees');
+  await page.getByRole('button', { name: 'Add Employee' }).click();
+  dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Create a new employee.')).toBeVisible({
+    timeout: 15_000
+  });
+  await dialog.locator('#name').fill(employeeName);
+  await branchGroup(dialog).getByRole('combobox').click();
+  await page.getByRole('option', { name: branchName, exact: true }).click();
+  await dialog.getByRole('button', { name: 'Add Employee' }).click();
+  await expect(dialog).toBeHidden({ timeout: 15_000 });
+
+  const employees = listData(
+    await apiGet(request, '/api/employees?includeArchived=true', admin.token)
+  );
+  const employeeId = employees.find((e) => e.name === employeeName)?.id as
+    | string
+    | undefined;
+  expect(employeeId, 'the employee resolves via the API').toBeTruthy();
+  createdEmployeeIds.push(employeeId!);
+
+  // ---------- Archive the branch: exactly one active employee blocks it ----------
+  await selectTab(page, 'Branches');
+  const branchRow = page.getByRole('row').filter({ hasText: branchName });
+  await expect(branchRow).toBeVisible({ timeout: 15_000 });
+  await branchRow.getByRole('button', { name: 'Archive' }).click();
+  const archiveDialog = page.getByRole('alertdialog');
+  await expect(archiveDialog).toContainText(`Archive "${branchName}"?`);
+  await archiveDialog
+    .getByRole('button', { name: 'Archive', exact: true })
+    .click();
+
+  await expect(archiveDialog).toContainText(`Cannot archive "${branchName}"`, {
+    timeout: 15_000
+  });
+  const blockerLines = await archiveDialog.locator('li').allTextContents();
+  // Exactly one blocker, on a branch created fresh for this test — so this
+  // is not "contains a line matching /employees?$/", it is the literal
+  // singular string BLOCKER_LABELS.employees[0] produces.
+  expect(
+    blockerLines,
+    `expected the single blocker line to read '1 employee', got: ${blockerLines.join(', ')}`
+  ).toEqual(['1 employee']);
+
+  await archiveDialog.getByRole('button', { name: 'Close' }).click();
+  await expect(archiveDialog).toBeHidden({ timeout: 15_000 });
+
+  // Still active — the refused archive did not go through.
+  await expect(branchRow.getByText('Archived')).toHaveCount(0);
+});
