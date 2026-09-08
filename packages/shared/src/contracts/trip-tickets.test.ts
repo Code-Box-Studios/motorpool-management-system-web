@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { normaliseTripDates, tripDateInputSchema } from './trip-tickets.js';
+import {
+  createTripTicketBodySchema,
+  normaliseTripDates,
+  tripDateInputSchema,
+  updateTripTicketBodySchema
+} from './trip-tickets.js';
 
 describe('normaliseTripDates', () => {
   it('returns the dates array when one is given', () => {
@@ -45,5 +50,56 @@ describe('normaliseTripDates', () => {
       endTs: '2026-04-17T08:00Z'
     });
     expect(r.success).toBe(false);
+  });
+});
+
+// A guide is a real row with an id, unlike a participant, and every ticket
+// needs at least one. The interesting half is what `.partial()` does with the
+// `.min(1)`: it wraps the field in ZodOptional and does NOT reach inside to
+// strip the refinement, so ABSENT and EMPTY stay genuinely different cases on
+// PATCH — absent leaves the guides alone, empty is refused. An empty list must
+// never be mistaken for "no change".
+describe('guideIds on the trip-ticket bodies', () => {
+  const ok = {
+    branchId: '11111111-1111-4111-8111-111111111111',
+    driverId: '22222222-2222-4222-8222-222222222222',
+    vehicleId: '33333333-3333-4333-8333-333333333333',
+    destination: 'Site A',
+    purpose: 'Delivery',
+    dateRequested: '2026-09-10',
+    guideIds: ['44444444-4444-4444-8444-444444444444']
+  };
+
+  it('requires at least one guide on create', () => {
+    expect(createTripTicketBodySchema.safeParse(ok).success).toBe(true);
+
+    const noGuides: Record<string, unknown> = { ...ok };
+    delete noGuides.guideIds;
+    expect(createTripTicketBodySchema.safeParse(noGuides).success).toBe(false);
+
+    expect(
+      createTripTicketBodySchema.safeParse({ ...ok, guideIds: [] }).success
+    ).toBe(false);
+  });
+
+  it('PATCH: absent means leave the guides alone, empty is refused', () => {
+    const absent = updateTripTicketBodySchema.safeParse({
+      destination: 'Site B'
+    });
+    expect(absent.success).toBe(true);
+    // Not merely undefined — the key is ABSENT from the parsed body, which is
+    // what lets service.update() tell "not editing guides" from "set guides to
+    // nothing". (No `.default([])` here, deliberately: that is what makes
+    // `dates` behave differently — see the NO_TRIP_DATES gate in service.ts.)
+    expect(absent.success && 'guideIds' in absent.data).toBe(false);
+
+    expect(updateTripTicketBodySchema.safeParse({ guideIds: [] }).success).toBe(
+      false
+    );
+    expect(
+      updateTripTicketBodySchema.safeParse({
+        guideIds: ['44444444-4444-4444-8444-444444444444']
+      }).success
+    ).toBe(true);
   });
 });

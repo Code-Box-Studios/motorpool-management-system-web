@@ -33,7 +33,21 @@ export const createTripTicketBodySchema = z.object({
   remarks: z.string().nullable().optional(),
   startTs: z.coerce.date().nullable().optional(),
   endTs: z.coerce.date().nullable().optional(),
-  dates: z.array(tripDateInputSchema).default([])
+  dates: z.array(tripDateInputSchema).default([]),
+  // The employees who go along to guide the participants. At least one, always
+  // — in practice every trip has one, and until now their name was either
+  // missing or typed into `participants`, indistinguishable from a passenger.
+  // Ids, not names: guides are real rows, so they never pass through a
+  // comma-joined string the way participants do.
+  //
+  // NOTE the interaction with `.partial()` below: it wraps this in ZodOptional
+  // but does not strip the `.min(1)`, which gives PATCH exactly the semantics
+  // we want — ABSENT means "leave the guides alone", PRESENT-BUT-EMPTY is a
+  // 400, never a silent no-op. That is the same OUTCOME the `dates` field gets
+  // from the NO_TRIP_DATES gate in service.ts, by a different mechanism:
+  // `dates` is `.default([])` with no `.min(1)`, so its empty case reaches the
+  // service; this one is answered by zod before the controller runs.
+  guideIds: z.array(z.string().uuid()).min(1)
 });
 export type CreateTripTicketBody = z.infer<typeof createTripTicketBodySchema>;
 
@@ -81,6 +95,20 @@ export type ApproveTripTicketBody = z.infer<typeof approveTripTicketBodySchema>;
 // disapprove / cancel require a reason.
 export const reasonBodySchema = z.object({ reason: z.string().min(1) });
 export type ReasonBody = z.infer<typeof reasonBodySchema>;
+
+// Reassign the guides on an already-approved ticket (admin only) — the generic
+// PATCH is frozen the moment a ticket leaves pending_admin_approval, and a
+// guide changing on the morning of the trip is the ordinary case.
+//
+// Deliberately NOT `.min(1)`, unlike the create body: `.min(1)` would have zod
+// answer an empty list with a generic 400 VALIDATION_ERROR, and on THIS
+// endpoint the empty case is the one that needs its own name —
+// replaceTripTicketGuides throws 400 NO_GUIDES for it. Same reason `dates` on
+// the create body is `.default([])` rather than `.min(1)`.
+export const reassignGuidesBodySchema = z.object({
+  guideIds: z.array(z.string().uuid())
+});
+export type ReassignGuidesBody = z.infer<typeof reassignGuidesBodySchema>;
 
 // The guard reads the odometer at the gate, out and back. Required, not
 // optional: an optional reading is a reading nobody takes, and this is the only
