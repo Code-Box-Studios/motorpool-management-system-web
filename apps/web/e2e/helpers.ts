@@ -11,10 +11,10 @@ export const CREDENTIALS = {
 
 export type Role = keyof typeof CREDENTIALS;
 export const PASSWORD = 'Password123!';
-// Must match the API's PORT in apps/api/.env — this pointed at 3001 while the
-// API served 3000, so every direct call here (including the cleanup DELETEs)
-// silently failed and left the rows the specs had created behind.
-export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3000';
+// Must match the API's PORT in apps/api/.env. When these disagree every direct
+// call here — including the cleanup DELETEs each spec relies on — fails
+// silently and leaves the rows the specs created behind.
+export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3001';
 
 // ---------- UI helpers ----------
 
