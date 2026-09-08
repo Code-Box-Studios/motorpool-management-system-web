@@ -208,6 +208,7 @@ model Branch {
   vehicles          Vehicle[]
   departmentOffices DepartmentOffice[]
   officeHeads       OfficeHead[]
+  employees         Employee[]
   tripTickets       TripTicket[]
   jobOrders         JobOrder[]
   fuelAllocations   FuelAllocation[]
@@ -254,6 +255,28 @@ model OfficeHead {
   tripTickets TripTicket[]
 
   @@map("office_heads")
+}
+
+model Employee {
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String
+  position   String?
+  phone      String?
+  branchId   String    @map("branch_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+  // NULL means active. Set by POST /employees/:id/archive, cleared by /restore.
+  archivedAt DateTime? @map("archived_at")
+
+  branch      Branch               @relation(fields: [branchId], references: [id])
+  tripTickets TripTicketEmployee[]
+
+  @@index([branchId])
+  // NOTE: there is deliberately NO unique index on name here, unlike
+  // branches_name_lower_unique and department_offices_branch_name_lower_unique.
+  // Employees are people, and two of them named Juan Cruz is not an error
+  // (organization/service.ts:185 states the same rule for office heads).
+  @@map("employees")
 }
 
 // ---------- Fleet (spec §4.2) ----------
@@ -378,26 +401,41 @@ model TripTicket {
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
 
-  branch             Branch              @relation(fields: [branchId], references: [id])
-  driver             Driver              @relation(fields: [driverId], references: [id])
-  vehicle            Vehicle             @relation(fields: [vehicleId], references: [id])
-  office             DepartmentOffice?   @relation(fields: [officeId], references: [id])
-  officeHead         OfficeHead?         @relation(fields: [officeHeadId], references: [id])
-  requestedBy        User?               @relation("TicketRequestedBy", fields: [requestedById], references: [id])
-  approvedByAdmin    User?               @relation("TicketApprovedByAdmin", fields: [approvedByAdminId], references: [id])
-  preTripGuard       User?               @relation("TicketPreTripGuard", fields: [preTripGuardId], references: [id])
-  postTripGuard      User?               @relation("TicketPostTripGuard", fields: [postTripGuardId], references: [id])
-  preTripCheckedBy   User?               @relation("TicketPreTripCheckedBy", fields: [preTripCheckedById], references: [id])
-  postTripCheckedBy  User?               @relation("TicketPostTripCheckedBy", fields: [postTripCheckedById], references: [id])
+  branch             Branch               @relation(fields: [branchId], references: [id])
+  driver             Driver               @relation(fields: [driverId], references: [id])
+  vehicle            Vehicle              @relation(fields: [vehicleId], references: [id])
+  office             DepartmentOffice?    @relation(fields: [officeId], references: [id])
+  officeHead         OfficeHead?          @relation(fields: [officeHeadId], references: [id])
+  requestedBy        User?                @relation("TicketRequestedBy", fields: [requestedById], references: [id])
+  approvedByAdmin    User?                @relation("TicketApprovedByAdmin", fields: [approvedByAdminId], references: [id])
+  preTripGuard       User?                @relation("TicketPreTripGuard", fields: [preTripGuardId], references: [id])
+  postTripGuard      User?                @relation("TicketPostTripGuard", fields: [postTripGuardId], references: [id])
+  preTripCheckedBy   User?                @relation("TicketPreTripCheckedBy", fields: [preTripCheckedById], references: [id])
+  postTripCheckedBy  User?                @relation("TicketPostTripCheckedBy", fields: [postTripCheckedById], references: [id])
   fuelAllocation     FuelAllocation?
   gpsData            GpsData[]
   geofenceViolations GeofenceViolation[]
   dates              TripDate[]
+  guides             TripTicketEmployee[]
 
   @@index([status])
   @@index([branchId])
   @@index([driverId])
   @@map("trip_tickets")
+}
+
+model TripTicketEmployee {
+  tripTicketId String   @map("trip_ticket_id") @db.Uuid
+  employeeId   String   @map("employee_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tripTicket TripTicket @relation(fields: [tripTicketId], references: [id], onDelete: Cascade)
+  employee   Employee   @relation(fields: [employeeId], references: [id])
+
+  @@id([tripTicketId, employeeId])
+  @@index([employeeId])
+  @@map("trip_ticket_employees")
 }
 
 model FuelAllocation {

@@ -62,6 +62,27 @@ async function main() {
   });
   await prisma.departmentOffice.update({ where: { id: northOffice.id }, data: { headId: northHead.id } });
 
+  // Branch employees — the roster a ticket picks its guides from. BOTH branches
+  // get one: the guide picker is locked to the ticket's own branch, so a North
+  // Branch trip against an empty North roster could not be booked at all, and
+  // the picker would just be blank with nothing on screen to say why.
+  //
+  // Explicit element type for the same reason `drivers` has one below: the array
+  // is read back inside the ticket loop, and an evolving `[]` falls to an
+  // implicit any[] under this project's strict settings.
+  const mainEmployees: { id: string }[] = [];
+  const employeeSpecs = [
+    { id: '00000000-0000-4000-8000-000000000031', name: 'Ana Bautista', position: 'Tour Guide', phone: '+63 917 555 0131', branchId: mainBranch.id },
+    { id: '00000000-0000-4000-8000-000000000032', name: 'Rico Mendoza', position: 'Safety Officer', phone: '+63 917 555 0132', branchId: mainBranch.id },
+    { id: '00000000-0000-4000-8000-000000000033', name: 'Liza Domingo', position: 'Nurse', phone: '+63 917 555 0133', branchId: mainBranch.id },
+    { id: '00000000-0000-4000-8000-000000000034', name: 'Paolo Cruz', position: 'Tour Guide', phone: '+63 917 555 0134', branchId: northBranch.id },
+    { id: '00000000-0000-4000-8000-000000000035', name: 'Grace Lim', position: 'Safety Officer', phone: '+63 917 555 0135', branchId: northBranch.id }
+  ];
+  for (const e of employeeSpecs) {
+    const employee = await prisma.employee.upsert({ where: { id: e.id }, update: {}, create: e });
+    if (e.branchId === mainBranch.id) mainEmployees.push(employee);
+  }
+
   // One user per role (+ linked driver row for the driver-role user)
   const users = {} as Record<RoleName, { id: string }>;
   for (const name of roleNames) {
@@ -347,6 +368,16 @@ async function main() {
       const startTs = new Date(Math.min(...spanRows.map((d) => d.startTs.getTime())));
       const endTs = new Date(Math.max(...spanRows.map((d) => d.endTs.getTime())));
 
+      // Every ticket needs at least one guide (spec §5.3), and the picker is
+      // locked to the ticket's own branch — so these come from Main Branch's
+      // roster, which is the branch every seeded ticket is raised for. The
+      // approved ticket takes TWO: a multi-guide ticket is the case the capacity
+      // arithmetic can get wrong, and nothing else in the demo data exercises it.
+      // Seeded vehicles seat 4-9 against 2 participants, so 1 guide (2 on the
+      // approved ticket, whose van seats 6) stays inside capacity — a seeded
+      // ticket over capacity would be un-editable in the UI from day one.
+      const guides = status === 'approved' ? mainEmployees.slice(0, 2) : [mainEmployees[i % mainEmployees.length]!];
+
       await prisma.tripTicket.create({
         data: {
           branchId: mainBranch.id, driverId: drivers[i % drivers.length]!.id, vehicleId: vehicle.id,
@@ -363,6 +394,7 @@ async function main() {
           // are per-outing and live on the rows created below.
           startTs, endTs,
           dates: { create: dates },
+          guides: { create: guides.map((e) => ({ employeeId: e.id })) },
           fuelAllocation: hasAllocation.has(status)
             ? {
                 create: {

@@ -6,6 +6,7 @@ const TABLES = [
   'users',
   'roles',
   'fuel_allocations',
+  'trip_ticket_employees',
   'trip_tickets',
   'job_order_spare_parts',
   'job_orders',
@@ -27,6 +28,7 @@ const TABLES = [
   'vehicles',
   'department_offices',
   'office_heads',
+  'employees',
   'branches'
 ];
 

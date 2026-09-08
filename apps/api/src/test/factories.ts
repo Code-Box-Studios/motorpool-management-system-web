@@ -100,6 +100,15 @@ export async function createTestOfficeHead(
   return prisma.officeHead.create({ data: { name, branchId, officeId } });
 }
 
+// Employees are branch-scoped and REQUIRE a branch, unlike office heads —
+// there is no `null` to default to.
+export async function createTestEmployee(
+  branchId: string,
+  name = 'Ana Bautista'
+) {
+  return prisma.employee.create({ data: { name, branchId } });
+}
+
 // `preparedBy` is required with no default in schema.prisma — omitting it
 // throws at runtime, not at typecheck.
 export async function createTestTicket(opts: {
