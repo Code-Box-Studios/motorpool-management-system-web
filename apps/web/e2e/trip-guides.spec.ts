@@ -17,14 +17,31 @@ import {
 // and a key dropped there produces no compile error and no runtime error —
 // just a ticket with no guides (design §7.1). Only an end-to-end booking
 // catches that.
+//
+// It then also opens the booked ticket's OWN detail page and reads the
+// Guides row back by name. That hop is not redundant with the API-shape
+// assertion below: this test's earlier assertions read either the form's own
+// state (the review step) or the raw API payload (`g.employee.name`) —
+// neither exercises `guideToSnake`, the function that flattens the
+// TripTicketEmployee join onto its embedded employee for display. A
+// regression there (e.g. mapping the join row's own id/name instead of the
+// employee's) would leave every guide badge on every ticket rendering
+// nothing, with this suite still green. Finally, it approves the ticket and
+// confirms the admin-only Reassign guides control appears only once the
+// ticket reaches a status the server actually allows the reassign endpoint
+// to run from (transitions.ts's `loadInState(id, ['approved', 'in_progress'])`).
 
 // Employees have no hard-delete route — POST /employees/:id/archive and
 // /restore are all that exist — so cleanup archives what this spec created,
 // per-id, the way organization.spec.ts does. Tickets DO have a delete, but
-// only while still pending_admin_approval (service.remove); this spec never
-// approves the ticket it books, so DELETE is the right teardown for it, and
-// it runs BEFORE the employee archive so the employee is no longer held by a
-// live ticket (409 IN_USE).
+// only while still pending_admin_approval (service.remove) — and this spec
+// now approves the ticket it books (to prove Reassign guides appears once
+// approved), so by teardown time DELETE is refused. Cancel is the fallback:
+// legal from approved too, and a cancelled ticket is terminal history that
+// needs no further teardown, the same way organization.spec.ts's
+// archived-parent fixture is left cancelled rather than deleted. Either way
+// this runs BEFORE the employee archive so the employee is no longer held by
+// a live (non-terminal) ticket (409 IN_USE).
 const createdTicketIds: string[] = [];
 const createdEmployeeIds: string[] = [];
 
@@ -33,18 +50,30 @@ test.afterAll(async ({ request }) => {
 
   for (const id of createdTicketIds) {
     try {
-      const r = await apiDelete(
+      const del = await apiDelete(
         request,
         `/api/trip-tickets/${id}`,
         admin.token
       );
-      if (!r.ok) {
-        console.error(
-          `trip-guides cleanup: deleting ticket ${id} failed (HTTP ${r.status})`
+      if (!del.ok) {
+        const cancel = await apiPost(
+          request,
+          `/api/trip-tickets/${id}/cancel`,
+          admin.token,
+          { reason: 'e2e: trip-guides teardown' }
         );
+        if (!cancel.ok) {
+          console.error(
+            `trip-guides cleanup: ticket ${id} could neither be deleted ` +
+              `(HTTP ${del.status}) nor cancelled (HTTP ${cancel.status})`
+          );
+        }
       }
     } catch (err) {
-      console.error(`trip-guides cleanup: deleting ticket ${id} threw:`, err);
+      console.error(
+        `trip-guides cleanup: tearing down ticket ${id} threw:`,
+        err
+      );
     }
   }
 
@@ -225,10 +254,73 @@ test('a guide picked on the booking form rides along on the ticket', async ({
   const booked = tickets.find((t) => t.destination === destination) as
     | { id: string; guides: { employee: { name: string } }[] }
     | undefined;
+  // Queued for teardown the moment an id exists — before any assertion that
+  // could throw and skip it. The browser already booked this ticket (the
+  // dialog closed on the success path above); if the API lookup below fails
+  // to resolve it, or the guides-content check after that fails, the row is
+  // still real and still has to be deleted, exactly as the employee id is
+  // captured immediately after creation above.
+  if (booked) createdTicketIds.push(booked.id);
   expect(booked, 'the booked ticket resolves via the API').toBeTruthy();
-  createdTicketIds.push(booked!.id);
   expect(
     booked!.guides.map((g) => g.employee.name),
     'the guide picked in the form reached the ticket'
   ).toEqual([guideName]);
+
+  // ---------- The ticket detail page renders the guide BY NAME ----------
+  // Covers what the API-shape assertion above cannot: guideToSnake actually
+  // flattening the join row onto the employee (id/name/position), and
+  // TripTicket.guides reaching the Guides DetailItem (Step 13). A regression
+  // that mapped `id: g.id` instead of `g.employee.id` would leave the badge
+  // rendering the join row's own (non-existent) name — undefined — while
+  // every other assertion in this spec, which reads either the form's own
+  // state or the raw API payload, would stay green.
+  await page.goto(`/trip-tickets/${booked!.id}`);
+  await expect(
+    page.getByRole('heading', { name: destination, exact: true })
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(detailValue(page, 'Guides')).toContainText(guideName, {
+    timeout: 15_000
+  });
+  // Still pending_admin_approval — reassign is only offered from
+  // approved/in_progress (canReassignGuides), so the control must NOT be
+  // reachable yet. Cheap, and it is the other half of "canReassignGuides
+  // matches the server's allowed-from set" — the approved-state half is
+  // covered by the reassign block below.
+  await expect(
+    page.getByRole('button', { name: 'Reassign guides' })
+  ).toHaveCount(0);
+  await shot(page, 'trip-guides-2-detail');
+
+  // ---------- Approve the ticket, then confirm Reassign guides appears ----------
+  // Fuel allocation (admin) takes it to pending_fuel_allocation_approval;
+  // EVP approval (done via the API — a second UI login is not worth the
+  // extra time for what this block exists to check) takes it to approved,
+  // the state canReassignGuides actually gates on.
+  await page.getByRole('button', { name: 'Approve and allocate fuel' }).click();
+  const allocDialog = page.getByRole('alertdialog');
+  await allocDialog.getByRole('combobox').click();
+  await page.getByRole('option', { name: 'Gasoline' }).click();
+  await allocDialog.locator('#fuel-allocation-liters').fill('10');
+  await allocDialog
+    .getByRole('button', { name: 'Submit for Fuel Allocation Approval' })
+    .click();
+  await expect(allocDialog).toBeHidden({ timeout: 15_000 });
+
+  const evp = await apiLogin(request, CREDENTIALS.evp);
+  const evpApproved = await apiPost(
+    request,
+    `/api/trip-tickets/${booked!.id}/approve-evp`,
+    evp.token,
+    {}
+  );
+  expect(evpApproved.ok, 'evp approves the fuel allocation').toBeTruthy();
+
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: destination, exact: true })
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    page.getByRole('button', { name: 'Reassign guides' })
+  ).toBeVisible({ timeout: 15_000 });
 });
