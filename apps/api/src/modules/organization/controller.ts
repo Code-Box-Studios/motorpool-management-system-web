@@ -1,13 +1,18 @@
 import type { Request, Response } from 'express';
 import type {
   CreateBranchBody,
+  CreateEmployeeBody,
   CreateOfficeBody,
   CreateOfficeHeadBody,
   UpdateBranchBody,
+  UpdateEmployeeBody,
   UpdateOfficeBody,
   UpdateOfficeHeadBody
 } from '@mms/shared';
-import { organizationListQuerySchema } from '@mms/shared';
+import {
+  employeesListQuerySchema,
+  organizationListQuerySchema
+} from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import * as service from './service.js';
 
@@ -129,4 +134,50 @@ export async function restoreOfficeHead(
   res: Response
 ): Promise<void> {
   res.json(await service.restoreOfficeHead(requireIdParam(req)));
+}
+
+export async function listEmployees(
+  req: Request,
+  res: Response
+): Promise<void> {
+  // NOT listQuery(): zod strips unknown keys, so the shared schema would drop
+  // ?branchId= silently and hand the guide picker every branch's roster.
+  res.json(
+    await service.listEmployees(employeesListQuerySchema.parse(req.query))
+  );
+}
+
+export async function createEmployee(
+  req: Request,
+  res: Response
+): Promise<void> {
+  res
+    .status(201)
+    .json(await service.createEmployee(req.body as CreateEmployeeBody));
+}
+
+export async function updateEmployee(
+  req: Request,
+  res: Response
+): Promise<void> {
+  res.json(
+    await service.updateEmployee(
+      requireIdParam(req),
+      req.body as UpdateEmployeeBody
+    )
+  );
+}
+
+export async function archiveEmployee(
+  req: Request,
+  res: Response
+): Promise<void> {
+  res.json(await service.archiveEmployee(requireIdParam(req)));
+}
+
+export async function restoreEmployee(
+  req: Request,
+  res: Response
+): Promise<void> {
+  res.json(await service.restoreEmployee(requireIdParam(req)));
 }

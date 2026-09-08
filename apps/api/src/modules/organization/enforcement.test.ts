@@ -6,6 +6,7 @@ import {
   authHeader,
   createTestBranch,
   createTestDriver,
+  createTestEmployee,
   createTestOffice,
   createTestOfficeHead,
   createTestUser,
@@ -359,6 +360,34 @@ describe('archived branches are rejected on write, not just hidden', () => {
           }
         ]
       });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
+  it('POST /api/employees rejects an archived branchId', async () => {
+    const header = await adminHeader();
+    const branch = await archivedBranch(header);
+    const res = await request(app)
+      .post('/api/employees')
+      .set('Authorization', header)
+      .send({ name: 'Ghost Guide', branchId: branch.id });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PARENT_ARCHIVED');
+  });
+
+  // Same reasoning as G-1 above: the create test cannot tell us whether the
+  // `update` call site exists at all. Employees are the one org resource whose
+  // branchId is REQUIRED, so a PATCH that moves someone into a closed branch
+  // is a single-field request an admin can make by accident.
+  it('PATCH /api/employees/:id rejects an archived branchId', async () => {
+    const header = await adminHeader();
+    const live = await createTestBranch('Live');
+    const employee = await createTestEmployee(live.id);
+    const dead = await archivedBranch(header);
+    const res = await request(app)
+      .patch(`/api/employees/${employee.id}`)
+      .set('Authorization', header)
+      .send({ branchId: dead.id });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('PARENT_ARCHIVED');
   });

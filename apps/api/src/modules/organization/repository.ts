@@ -55,3 +55,26 @@ export async function listOfficeHeads(
   ]);
   return { data, count };
 }
+
+export async function listEmployees(
+  skipTake: SkipTake,
+  includeArchived?: boolean,
+  branchId?: string
+) {
+  // BOTH filters, never one or the other: the guide picker asks for one
+  // branch's active roster, and the Organization tab asks for one branch's
+  // full roster with ?includeArchived=true.
+  const where = {
+    ...archiveWhere(includeArchived),
+    ...(branchId ? { branchId } : {})
+  };
+  const [data, count] = await Promise.all([
+    prisma.employee.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      ...skipTake
+    }),
+    prisma.employee.count({ where })
+  ]);
+  return { data, count };
+}

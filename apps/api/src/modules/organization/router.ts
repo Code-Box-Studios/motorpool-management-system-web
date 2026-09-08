@@ -2,9 +2,11 @@ import { Router } from 'express';
 import {
   USER_ROLES,
   createBranchBodySchema,
+  createEmployeeBodySchema,
   createOfficeBodySchema,
   createOfficeHeadBodySchema,
   updateBranchBodySchema,
+  updateEmployeeBodySchema,
   updateOfficeBodySchema,
   updateOfficeHeadBodySchema
 } from '@mms/shared';
@@ -116,4 +118,39 @@ organizationRouter.post(
   requireAuth,
   requireRole(USER_ROLES.admin),
   controller.restoreOfficeHead
+);
+
+// Per-route guards again, never organizationRouter.use(...) — see the comment
+// at the top of this file: a router-wide requireAuth here 401s the device-key
+// GPS routes that share the '/api' mount.
+//
+// The read stays open to every authenticated role for the same reason
+// /branches does: the booking form's guide picker is requester-facing.
+organizationRouter.get('/employees', requireAuth, controller.listEmployees);
+
+organizationRouter.post(
+  '/employees',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  validateBody(createEmployeeBodySchema),
+  controller.createEmployee
+);
+organizationRouter.patch(
+  '/employees/:id',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  validateBody(updateEmployeeBodySchema),
+  controller.updateEmployee
+);
+organizationRouter.post(
+  '/employees/:id/archive',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  controller.archiveEmployee
+);
+organizationRouter.post(
+  '/employees/:id/restore',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  controller.restoreEmployee
 );

@@ -1,9 +1,12 @@
 import type {
   CreateBranchBody,
+  CreateEmployeeBody,
   CreateOfficeBody,
   CreateOfficeHeadBody,
+  EmployeesListQuery,
   OrganizationListQuery,
   UpdateBranchBody,
+  UpdateEmployeeBody,
   UpdateOfficeBody,
   UpdateOfficeHeadBody
 } from '@mms/shared';
@@ -14,6 +17,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   assertArchivable,
   branchBlockers,
+  employeeBlockers,
   officeBlockers,
   officeHeadBlockers
 } from './guard.js';
@@ -235,6 +239,63 @@ export async function restoreOfficeHead(id: string) {
     officeId: head.officeId
   });
   return prisma.officeHead.update({
+    where: { id },
+    data: { archivedAt: null }
+  });
+}
+
+// Employees have NO name uniqueness either, for the reason stated above: two
+// people named Juan Cruz at one branch is not an error (§4.3). There is no
+// assertEmployeeNameFree and the migration records the omission as deliberate.
+async function loadEmployee(id: string) {
+  const employee = await prisma.employee.findUnique({ where: { id } });
+  if (!employee) throw new AppError(404, 'NOT_FOUND', 'Employee not found');
+  return employee;
+}
+
+export function listEmployees(query: EmployeesListQuery) {
+  return repo.listEmployees(
+    toSkipTake(query),
+    query.includeArchived,
+    query.branchId
+  );
+}
+
+export async function createEmployee(body: CreateEmployeeBody) {
+  await assertOrgRefsActive({ branchId: body.branchId });
+  return prisma.employee.create({ data: body });
+}
+
+export async function updateEmployee(id: string, body: UpdateEmployeeBody) {
+  await loadEmployee(id);
+  // NOT create-only. branchId is required on this resource, so "move Ana to
+  // North" is a one-field PATCH an admin makes routinely — and without this
+  // line it lands an active employee under a closed branch. This is the G-1
+  // case that enforcement.test.ts exists to catch.
+  await assertOrgRefsActive({ branchId: body.branchId });
+  return prisma.employee.update({ where: { id }, data: body });
+}
+
+export async function archiveEmployee(id: string) {
+  const employee = await loadEmployee(id);
+  if (employee.archivedAt)
+    throw new AppError(409, 'ALREADY_ARCHIVED', 'Employee is already archived');
+  assertArchivable(employee.name, await employeeBlockers(id));
+  return prisma.employee.update({
+    where: { id },
+    data: { archivedAt: new Date() }
+  });
+}
+
+export async function restoreEmployee(id: string) {
+  const employee = await loadEmployee(id);
+  if (!employee.archivedAt)
+    throw new AppError(409, 'ALREADY_ARCHIVED', 'Employee is not archived');
+  // restoreOfficeHead's reasoning, minus the cycle: nothing points a branch at
+  // an employee, so requiring the branch to be active cannot deadlock a pair
+  // the way it would for the office/head cycle documented in restoreOffice.
+  await assertOrgRefsActive({ branchId: employee.branchId });
+  return prisma.employee.update({
     where: { id },
     data: { archivedAt: null }
   });
