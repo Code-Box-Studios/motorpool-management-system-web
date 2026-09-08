@@ -11,3 +11,4 @@ const orgQuery = (resource: OrgResource) => ({
 export const useBranchesAdmin = () => useQuery(orgQuery('branches'));
 export const useOfficesAdmin = () => useQuery(orgQuery('offices'));
 export const useOfficeHeadsAdmin = () => useQuery(orgQuery('office-heads'));
+export const useEmployeesAdmin = () => useQuery(orgQuery('employees'));

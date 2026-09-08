@@ -3,14 +3,16 @@ import type {
   CreateBranchBody,
   CreateOfficeBody,
   CreateOfficeHeadBody,
+  CreateEmployeeBody,
   UpdateBranchBody,
   UpdateOfficeBody,
-  UpdateOfficeHeadBody
+  UpdateOfficeHeadBody,
+  UpdateEmployeeBody
 } from '@mms/shared';
 
-// The three tabs are the same table with different columns, so one union keeps
-// the mutation hooks from being written three times.
-export type OrgResource = 'branches' | 'offices' | 'office-heads';
+// The four tabs are the same table with different columns, so one union keeps
+// the mutation hooks from being written four times.
+export type OrgResource = 'branches' | 'offices' | 'office-heads' | 'employees';
 
 export interface OrgRecord {
   id: string;
@@ -20,16 +22,22 @@ export interface OrgRecord {
   branchId?: string | null;
   headId?: string | null;
   officeId?: string | null;
+  // Employees only, and optional for the same reason every field above it is:
+  // one record type covers four tables and each tab reads the subset it has.
+  position?: string | null;
+  phone?: string | null;
 }
 
 export type CreateOrgBody =
   | CreateBranchBody
   | CreateOfficeBody
-  | CreateOfficeHeadBody;
+  | CreateOfficeHeadBody
+  | CreateEmployeeBody;
 export type UpdateOrgBody =
   | UpdateBranchBody
   | UpdateOfficeBody
-  | UpdateOfficeHeadBody;
+  | UpdateOfficeHeadBody
+  | UpdateEmployeeBody;
 
 export interface ArchiveBlocker {
   resource: string;
@@ -43,6 +51,7 @@ const BLOCKER_LABELS: Record<string, [string, string]> = {
   users: ['user', 'users'],
   departmentOffices: ['department office', 'department offices'],
   officeHeads: ['office head', 'office heads'],
+  employees: ['employee', 'employees'],
   tripTickets: ['active trip ticket', 'active trip tickets'],
   jobOrders: ['open job order', 'open job orders']
 };

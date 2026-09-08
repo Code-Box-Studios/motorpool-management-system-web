@@ -17,7 +17,8 @@ import type { OrgRecord, OrgResource } from '@/lib/api/organization';
 import {
   useBranchesAdmin,
   useOfficesAdmin,
-  useOfficeHeadsAdmin
+  useOfficeHeadsAdmin,
+  useEmployeesAdmin
 } from '@/lib/query/organization';
 import { useRestoreOrgRecord } from '@/lib/mutation/organization';
 import { ArchiveDialog } from './archive-dialog';
@@ -25,7 +26,13 @@ import { RecordDialog, type RecordDialogState } from './record-dialog';
 
 const isArchived = (r: OrgRecord) => r.archivedAt !== null;
 
-type Column = 'Name' | 'Location' | 'Branch' | 'Office' | 'Office Head';
+type Column =
+  | 'Name'
+  | 'Location'
+  | 'Position'
+  | 'Branch'
+  | 'Office'
+  | 'Office Head';
 
 const RESOURCE_META: Record<
   OrgResource,
@@ -45,6 +52,11 @@ const RESOURCE_META: Record<
     title: 'Office Heads',
     addLabel: 'Add Office Head',
     columns: ['Name', 'Branch', 'Office']
+  },
+  employees: {
+    title: 'Employees',
+    addLabel: 'Add Employee',
+    columns: ['Name', 'Position', 'Branch']
   }
 };
 
@@ -52,16 +64,17 @@ interface ResourceTabProps {
   resource: OrgResource;
 }
 
-// One table for all three tabs: which columns render and where each row's
-// data comes from is driven by RESOURCE_META, not three near-duplicate
-// components. All three admin lists are fetched unconditionally regardless of
+// One table for all four tabs: which columns render and where each row's
+// data comes from is driven by RESOURCE_META, not four near-duplicate
+// components. All four admin lists are fetched unconditionally regardless of
 // which resource this instance shows — Offices and Office Heads both need to
-// resolve names from the other two lists, and react-query dedupes the
-// requests a sibling tab already made.
+// resolve names from the other lists, hooks cannot be called conditionally
+// anyway, and react-query dedupes the requests a sibling tab already made.
 export function ResourceTab({ resource }: ResourceTabProps) {
   const branchesQuery = useBranchesAdmin();
   const officesQuery = useOfficesAdmin();
   const headsQuery = useOfficeHeadsAdmin();
+  const employeesQuery = useEmployeesAdmin();
   const restore = useRestoreOrgRecord(resource);
 
   const [dialogState, setDialogState] = useState<RecordDialogState>(null);
@@ -74,7 +87,9 @@ export function ResourceTab({ resource }: ResourceTabProps) {
       ? branchesQuery
       : resource === 'offices'
         ? officesQuery
-        : headsQuery;
+        : resource === 'office-heads'
+          ? headsQuery
+          : employeesQuery;
 
   const records = query.data ?? [];
   const meta = RESOURCE_META[resource];
@@ -96,6 +111,8 @@ export function ResourceTab({ resource }: ResourceTabProps) {
         );
       case 'Location':
         return record.location || '—';
+      case 'Position':
+        return record.position || '—';
       case 'Branch':
         return record.branchId
           ? (branchesById.get(record.branchId)?.name ?? '—')

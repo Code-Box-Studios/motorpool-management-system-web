@@ -14,7 +14,8 @@ import type { ApiError } from '@/lib/api/client';
 const LABELS: Record<OrgResource, string> = {
   branches: 'Branch',
   offices: 'Office',
-  'office-heads': 'Office head'
+  'office-heads': 'Office head',
+  employees: 'Employee'
 };
 
 function useOrgInvalidation(resource: OrgResource) {
@@ -28,8 +29,10 @@ function useOrgInvalidation(resource: OrgResource) {
     //
     // These invalidations are PREFIX matches (TanStack's default is
     // exact: false), which is what carries the archived-inclusive display
-    // twins with them: ['branches'] also invalidates ['branches', 'all'], and
-    // ['departmentOffices'] also invalidates ['departmentOffices', 'all'].
+    // twins with them: ['branches'] also invalidates ['branches', 'all'],
+    // ['departmentOffices'] also invalidates ['departmentOffices', 'all'], and
+    // ['employees'] reaches BOTH ['employees', 'all'] and the branch-scoped
+    // guide picker's ['employees', <branchId>].
     // That is load-bearing, not incidental — those twins are what render a
     // branch/office name on a historical trip ticket, job order or user row,
     // so a rename here has to reach them too, not just the pickers. Naming the
@@ -49,6 +52,11 @@ function useOrgInvalidation(resource: OrgResource) {
       queryClient.invalidateQueries({ queryKey: ['departmentOffices'] });
     if (resource === 'office-heads')
       queryClient.invalidateQueries({ queryKey: ['officeHeads'] });
+    // Without this the booking form's guide picker keeps offering an employee
+    // who was just renamed, archived or moved to another branch, for as long
+    // as the tab stays open (design §9.1).
+    if (resource === 'employees')
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
   };
 }
 
