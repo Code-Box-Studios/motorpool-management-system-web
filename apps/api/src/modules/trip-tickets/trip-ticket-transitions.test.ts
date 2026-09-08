@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   authHeader,
   createTestBranch,
+  createTestEmployee,
   createTestUser
 } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
@@ -565,6 +566,7 @@ describe('trip-ticket approval transitions', () => {
       .send({ reason: 'venue moved' });
     expect(cancelRes.status).toBe(200);
 
+    const guide = await createTestEmployee(s.branch.id, 'Rebook Guide');
     const rebook = await request(app)
       .post('/api/trip-tickets')
       .set('Authorization', adminHeader)
@@ -576,7 +578,8 @@ describe('trip-ticket approval transitions', () => {
         purpose: 'A different event',
         dateRequested: new Date().toISOString(),
         startTs: secondDate.startTs.toISOString(),
-        endTs: secondDate.endTs.toISOString()
+        endTs: secondDate.endTs.toISOString(),
+        guideIds: [guide.id]
       });
     expect(rebook.status).toBe(201);
   });

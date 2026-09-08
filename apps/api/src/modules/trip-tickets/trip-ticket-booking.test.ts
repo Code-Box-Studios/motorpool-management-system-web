@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   authHeader,
   createTestBranch,
+  createTestEmployee,
   createTestUser
 } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
@@ -69,6 +70,9 @@ async function scaffold() {
     email: 'a@test.local',
     role: 'admin'
   });
+  // Every ticket needs at least one guide now, and a guide takes a seat: this
+  // van holds 5, so the fixture's one participant plus one guide leaves three.
+  const employee = await createTestEmployee(branch.id, 'Ana Guide');
   return {
     branch,
     vehicle,
@@ -77,6 +81,7 @@ async function scaffold() {
     driver,
     otherDriver,
     inactiveDriver,
+    employee,
     header: authHeader(admin.id, admin.email, 'admin'),
     adminId: admin.id
   };
@@ -101,6 +106,7 @@ const body = (s: Scaffold, over: Record<string, unknown> = {}) => ({
   purpose: 'Delivery',
   dateRequested: inDays(1),
   participants: ['Alice'],
+  guideIds: [s.employee.id],
   requestedById: s.adminId,
   startTs: inDays(14, 8),
   endTs: inDays(14, 17),

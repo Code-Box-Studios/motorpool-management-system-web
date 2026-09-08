@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   authHeader,
   createTestBranch,
+  createTestEmployee,
   createTestUser
 } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
@@ -37,7 +38,8 @@ async function scaffold() {
       branchId: branch.id
     }
   });
-  return { branch, vehicle, driver };
+  const employee = await createTestEmployee(branch.id, 'Ana Guide');
+  return { branch, vehicle, driver, employee };
 }
 
 // Windows are relative to NOW, never hardcoded. A trip cannot be booked entirely
@@ -55,6 +57,7 @@ function ticketBody(
     branch: { id: string };
     vehicle: { id: string };
     driver: { id: string };
+    employee: { id: string };
   },
   requestedById: string
 ) {
@@ -67,6 +70,8 @@ function ticketBody(
     dateRequested: inDays(1),
     participants: ['Alice', 'Bob'],
     participantsCount: 2,
+    // Guides take seats: 2 participants + 1 guide, in a 5-seater.
+    guideIds: [s.employee.id],
     requestedById,
     startTs: inDays(7, 8),
     endTs: inDays(7, 17)
