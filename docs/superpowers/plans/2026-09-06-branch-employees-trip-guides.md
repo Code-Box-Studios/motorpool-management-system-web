@@ -4236,7 +4236,7 @@ All 17 pre-existing tests must pass (the repairs add none). If `multi-date-trip.
 ```bash
 git add apps/web/e2e/trip-lifecycle.spec.ts apps/web/e2e/multi-date-trip.spec.ts \
   apps/web/e2e/organization.spec.ts
-git commit -m "test(e2e): give the trip-ticket fixtures a guide"
+git commit -m "test(web): give the trip-ticket fixtures a guide"
 ```
 
 ---
@@ -5495,7 +5495,7 @@ git add apps/web/src/lib/api/organization.ts apps/web/src/lib/query/organization
 git commit -m "feat(web): manage branch employees from the Organization page"
 
 git add apps/web/e2e/organization.spec.ts
-git commit -m "test(e2e): cover creating, editing and archiving a branch employee"
+git commit -m "test(web): cover creating, editing and archiving a branch employee"
 ```
 
 If the branch is `main`, branch first.
@@ -7441,7 +7441,7 @@ After reverting all three, re-run, confirm `1 passed`, and confirm the run left 
 
 ```bash
 git add apps/web/e2e/trip-guides.spec.ts
-git commit -m "test(e2e): cover adding a branch employee and booking them as a trip guide"
+git commit -m "test(web): cover adding a branch employee and booking them as a trip guide"
 ```
 
 - [ ] **Step 5: Run the full repo verification set, in order**
