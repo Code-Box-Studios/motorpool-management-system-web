@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MMS real GPS connection guide</title>
+    <style>
+      :root {
+        --canvas: #f3f0ee;
+        --ink: #141413;
+        --surface: #fff;
+        --muted: #696969;
+        --line: #e5dfd7;
+        --signal: #7e2230;
+        --warn-bg: #f1e7cf;
+        --warn: #8a6a1f;
+        --ok-bg: #dfebe1;
+        --ok: #3e6b4e;
+        --code: #262627;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: 'Sofia Sans', ui-sans-serif, system-ui, sans-serif;
+        line-height: 1.48;
+      }
+      main {
+        width: min(1100px, 100%);
+        margin: auto;
+        padding: 36px 20px 64px;
+      }
+      .eyebrow {
+        color: var(--signal);
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 0.78rem;
+      }
+      h1 {
+        font-size: clamp(2.25rem, 7vw, 4.8rem);
+        max-width: 13ch;
+        letter-spacing: -0.05em;
+        line-height: 0.95;
+        margin: 0.3rem 0 1rem;
+      }
+      h2 {
+        margin: 0 0 0.35rem;
+        font-size: 1.35rem;
+        letter-spacing: -0.025em;
+      }
+      p {
+        margin: 0.4rem 0;
+      }
+      .lead {
+        max-width: 58ch;
+        color: var(--muted);
+        font-size: 1.14rem;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+      }
+      .card {
+        grid-column: span 12;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 22px;
+        box-shadow: 1px 1px 5px -2px rgba(59, 16, 22, 0.13);
+      }
+      .half {
+        grid-column: span 6;
+      }
+      .third {
+        grid-column: span 4;
+      }
+      .tag {
+        display: inline-block;
+        background: #f2e1db;
+        color: var(--signal);
+        border-radius: 999px;
+        padding: 4px 9px;
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+      .warn {
+        background: var(--warn-bg);
+        color: var(--warn);
+      }
+      .ok {
+        background: var(--ok-bg);
+        color: var(--ok);
+      }
+      .step {
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        gap: 12px;
+        align-items: start;
+      }
+      .number {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--ink);
+        color: var(--canvas);
+        font-weight: 800;
+      }
+      ul {
+        margin: 0.55rem 0 0;
+        padding-left: 1.2rem;
+      }
+      li + li {
+        margin-top: 0.35rem;
+      }
+      code {
+        background: #eee8e1;
+        color: var(--code);
+        padding: 0.12rem 0.32rem;
+        border-radius: 5px;
+        overflow-wrap: anywhere;
+      }
+      .mono {
+        font-family: 'IBM Plex Mono', ui-monospace, monospace;
+        font-size: 0.85rem;
+      }
+      .flow {
+        width: 100%;
+        height: auto;
+        color: var(--ink);
+        display: block;
+        margin: 10px 0 2px;
+      }
+      .flow text {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        font-size: 15px;
+        fill: currentColor;
+        font-weight: 700;
+      }
+      .flow .sub {
+        font-size: 12px;
+        font-weight: 500;
+        fill: #696969;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+      }
+      th,
+      td {
+        padding: 11px 9px;
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+      }
+      th {
+        color: var(--muted);
+        font-size: 0.78rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .source {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-top: 1rem;
+      }
+      @media (max-width: 720px) {
+        main {
+          padding: 24px 14px 44px;
+        }
+        .half,
+        .third {
+          grid-column: span 12;
+        }
+        .card {
+          padding: 18px;
+        }
+        th,
+        td {
+          padding: 9px 5px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">Motorpool Management System</div>
+      <h1>Connect real GPS hardware</h1>
+      <p class="lead">
+        A field-ready path for a SinoTrack ST-901/H02 tracker to appear on the
+        MMS live vehicle map. Start with the simulator; configure the tracker
+        only after the entire cloud pipeline passes.
+      </p>
+
+      <section class="grid" aria-label="System overview">
+        <article class="card">
+          <span class="tag">The connection path</span>
+          <svg
+            class="flow"
+            viewBox="0 0 1000 180"
+            role="img"
+            aria-labelledby="flow-title flow-desc"
+          >
+            <title id="flow-title">
+              Tracker data path from vehicle to MMS dashboard
+            </title>
+            <desc id="flow-desc">
+              An ST-901 sends H02 TCP data by mobile network to a gateway. The
+              gateway authenticates to the MMS API, which updates the dashboard
+              map.
+            </desc>
+            <defs>
+              <marker
+                id="arrow"
+                markerWidth="10"
+                markerHeight="8"
+                refX="9"
+                refY="4"
+                orient="auto"
+              >
+                <path d="M0,0 L10,4 L0,8Z" fill="currentColor" />
+              </marker>
+            </defs>
+            <g id="tracker">
+              <title>Physical ST-901 tracker</title>
+              <rect
+                x="10"
+                y="49"
+                width="190"
+                height="75"
+                rx="16"
+                fill="#fff"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <text x="105" y="82" text-anchor="middle">ST-901 tracker</text>
+              <text class="sub" x="105" y="106" text-anchor="middle">
+                SIM + GPS receiver
+              </text>
+            </g>
+            <g id="mobile-link">
+              <title>Mobile data and H02 TCP link</title>
+              <path
+                d="M205 86 H365"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                marker-end="url(#arrow)"
+              />
+              <text class="sub" x="285" y="62" text-anchor="middle">
+                mobile data · H02 TCP
+              </text>
+            </g>
+            <g id="gateway">
+              <title>Public GPS gateway</title>
+              <rect
+                x="370"
+                y="49"
+                width="220"
+                height="75"
+                rx="16"
+                fill="#fff"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <text x="480" y="82" text-anchor="middle">Public gateway VM</text>
+              <text class="sub" x="480" y="106" text-anchor="middle">
+                TCP port 5013
+              </text>
+            </g>
+            <g id="api-link">
+              <title>HTTPS authenticated link</title>
+              <path
+                d="M595 86 H755"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                marker-end="url(#arrow)"
+              />
+              <text class="sub" x="675" y="62" text-anchor="middle">
+                HTTPS + device key
+              </text>
+            </g>
+            <g id="mms">
+              <title>MMS API and dashboard</title>
+              <rect
+                x="760"
+                y="49"
+                width="225"
+                height="75"
+                rx="16"
+                fill="#fff"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <text x="872" y="82" text-anchor="middle">MMS API + map</text>
+              <text class="sub" x="872" y="106" text-anchor="middle">
+                registered vehicle moves
+              </text>
+            </g>
+          </svg>
+        </article>
+        <article class="card half">
+          <span class="tag warn">Compatibility gate</span>
+          <h2>Use the supported hardware path</h2>
+          <p>
+            This guide is for the SinoTrack ST-901 family that speaks H02 TCP.
+            The tracker never sends HTTP to MMS directly. A non-H02 device needs
+            a gateway decoder before it can connect.
+          </p>
+        </article>
+        <article class="card half">
+          <span class="tag warn">Network gate</span>
+          <h2>Confirm 2G before installation</h2>
+          <p>
+            The common ST-901 is 2G-only. The SIM needs SMS, data, and working
+            2G coverage where the vehicle operates. Do not mount it permanently
+            until this is confirmed.
+          </p>
+        </article>
+      </section>
+
+      <section class="grid" aria-label="Six implementation stages">
+        <article class="card third">
+          <div class="step">
+            <div class="number">1</div>
+            <div>
+              <h2>Set the API key</h2>
+              <p>
+                Generate a secret and set <code>GPS_DEVICE_API_KEY</code> on the
+                API service. Keep it off the web client.
+              </p>
+            </div>
+          </div>
+        </article>
+        <article class="card third">
+          <div class="step">
+            <div class="number">2</div>
+            <div>
+              <h2>Reserve the gateway IP</h2>
+              <p>
+                Create the VM only after reserving its static public IPv4.
+                Trackers are configured with this exact IP by SMS.
+              </p>
+            </div>
+          </div>
+        </article>
+        <article class="card third">
+          <div class="step">
+            <div class="number">3</div>
+            <div>
+              <h2>Run the gateway</h2>
+              <p>
+                Deploy the MMS gateway on the VM, supply the API URL and same
+                secret, then open TCP 5013.
+              </p>
+            </div>
+          </div>
+        </article>
+        <article class="card third">
+          <div class="step">
+            <div class="number">4</div>
+            <div>
+              <h2>Simulate first</h2>
+              <p>
+                Register fake ID <code>1234567890</code> and confirm it moves
+                the assigned MMS vehicle before hardware setup.
+              </p>
+            </div>
+          </div>
+        </article>
+        <article class="card third">
+          <div class="step">
+            <div class="number">5</div>
+            <div>
+              <h2>SMS the tracker</h2>
+              <p>
+                Set the carrier APN, the static gateway IP and port 5013, then
+                wait outside for a GPS fix.
+              </p>
+            </div>
+          </div>
+        </article>
+        <article class="card third">
+          <div class="step">
+            <div class="number">6</div>
+            <div>
+              <h2>Register the logged ID</h2>
+              <p>
+                Copy the exact device ID from the gateway warning, activate it
+                for one vehicle, then restart the gateway.
+              </p>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section
+        class="grid"
+        aria-label="Readiness checklist and expected evidence"
+      >
+        <article class="card half">
+          <span class="tag ok">Ready before SMS</span>
+          <h2>Do not proceed until this is true</h2>
+          <ul>
+            <li>
+              The API rejects a deliberately wrong device key with
+              <code>401</code>, not <code>500</code>.
+            </li>
+            <li>The VM IP is reserved and shows <code>IN_USE</code>.</li>
+            <li>The gateway log says it is listening on TCP 5013.</li>
+            <li>
+              The simulator moves an assigned vehicle on the deployed map.
+            </li>
+          </ul>
+        </article>
+        <article class="card half">
+          <span class="tag ok">Live hardware proof</span>
+          <h2>All three signals must agree</h2>
+          <ul>
+            <li>
+              Gateway log: real frames are forwarded; no
+              <code>unregistered</code> or <code>forward failed</code> messages.
+            </li>
+            <li>
+              MMS map: assigned vehicle updates at the physical tracker
+              location.
+            </li>
+            <li>
+              Trackers page: the device is Online. This can lag, so the map is
+              the decisive live signal.
+            </li>
+          </ul>
+        </article>
+        <article class="card">
+          <h2>Fast diagnosis</h2>
+          <div style="overflow-x: auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>Symptom</th>
+                  <th>Most likely cause</th>
+                  <th>Next action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>No SMS reply</td>
+                  <td>SIM or power problem</td>
+                  <td>Test the SIM in a phone; check tracker power.</td>
+                </tr>
+                <tr>
+                  <td><code>SET OK</code>, no gateway logs</td>
+                  <td>APN/data/2G issue or wrong IP</td>
+                  <td>
+                    Recheck carrier APN; rerun the simulator against the same VM
+                    IP.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>unregistered/unassigned</code></td>
+                  <td>Wrong or inactive device ID</td>
+                  <td>
+                    Register the exact ID shown in the log and restart the
+                    gateway.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>dropping void fix</code></td>
+                  <td>No satellite lock</td>
+                  <td>Take the tracker outdoors and wait several minutes.</td>
+                </tr>
+                <tr>
+                  <td>Speed about 2× wrong</td>
+                  <td>Firmware speed unit differs</td>
+                  <td>
+                    Switch <code>SPEED_UNIT</code> between
+                    <code>knots</code> and <code>kmh</code>, then restart.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="source">
+            Detailed copy-and-paste commands:
+            <span class="mono">docs/real-gps-hardware-connection.md</span>. The
+            visual uses MMS’s existing warm canvas, ink, and maroon signal
+            design tokens.
+          </p>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

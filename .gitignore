@@ -24,3 +24,6 @@ apps/gps-gateway/dist/
 # Claude Code worktrees and SDD scratch (never commit these)
 .claude/worktrees/
 .superpowers/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/

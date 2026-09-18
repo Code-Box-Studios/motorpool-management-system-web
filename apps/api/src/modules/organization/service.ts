@@ -10,10 +10,12 @@ import type {
   UpdateOfficeBody,
   UpdateOfficeHeadBody
 } from '@mms/shared';
+import { USER_ROLES } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { prisma } from '../../lib/prisma.js';
+import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import {
   assertArchivable,
   branchBlockers,
@@ -253,12 +255,25 @@ async function loadEmployee(id: string) {
   return employee;
 }
 
-export function listEmployees(query: EmployeesListQuery) {
-  return repo.listEmployees(
+export async function listEmployees(
+  query: EmployeesListQuery,
+  actor: AuthenticatedUser
+) {
+  const { data, count } = await repo.listEmployees(
     toSkipTake(query),
     query.includeArchived,
     query.branchId
   );
+  // The route is open to every authenticated role (router.ts:129) because the
+  // booking form's guide picker is requester-facing — but the picker only
+  // renders name and position. `phone` is personal data that exists for the
+  // admin roster tab alone, so strip it for everyone else rather than narrow
+  // the route and break the picker.
+  if (actor.role === USER_ROLES.admin) return { data, count };
+  return {
+    data: data.map(({ phone: _phone, ...rest }) => rest),
+    count
+  };
 }
 
 export async function createEmployee(body: CreateEmployeeBody) {

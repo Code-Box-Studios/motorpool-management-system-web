@@ -307,4 +307,48 @@ describe('organization — employees', () => {
       expect((await call).status).toBe(403);
     }
   });
+
+  // The READ stays open to every role (above) because the guide picker is
+  // requester-facing — but the picker renders name and position only. `phone`
+  // is personal data that exists for the admin roster tab alone, so it must
+  // not ride along to the four non-admin roles that can call this route.
+  it('withholds employee phone numbers from non-admin readers', async () => {
+    const branch = await createTestBranch();
+    await prisma.employee.create({
+      data: {
+        name: 'Liza Domingo',
+        position: 'Nurse',
+        phone: '0917-555-0131',
+        branchId: branch.id
+      }
+    });
+
+    for (const role of [
+      'requester',
+      'driver',
+      'security_guard',
+      'evp_operations'
+    ] as const) {
+      const { user } = await createTestUser({
+        email: `${role}@phone-test.local`,
+        role
+      });
+      const res = await request(app)
+        .get('/api/employees')
+        .set('Authorization', authHeader(user.id, user.email, role));
+
+      expect(res.status).toBe(200);
+      // Still usable as a picker: the identifying fields survive.
+      expect(res.body.data[0].name).toBe('Liza Domingo');
+      expect(res.body.data[0].position).toBe('Nurse');
+      // The leak itself.
+      expect(res.body.data[0]).not.toHaveProperty('phone');
+    }
+
+    // The admin roster tab edits the number, so admin keeps it.
+    const res = await request(app)
+      .get('/api/employees')
+      .set('Authorization', await adminHeader());
+    expect(res.body.data[0].phone).toBe('0917-555-0131');
+  });
 });

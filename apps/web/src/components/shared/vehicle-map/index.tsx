@@ -1,5 +1,6 @@
 import StatusBadge from '@/components/shared/status-badge';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { Marker as LeafletMarker } from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -88,6 +89,8 @@ interface VehicleMapProps {
   /** The map height from `md` up. Below that it is capped to the viewport. */
   height?: string;
   showTrails?: boolean;
+  selectedVehicleId?: string | null;
+  onSelectedVehicleIdChange?: (vehicleId: string) => void;
 }
 
 // `height` is a fixed pixel value, which a phone in landscape (~375px of
@@ -96,14 +99,20 @@ interface VehicleMapProps {
 // gets one.
 const VIEWPORT_HEIGHT_CAP = 'max-h-[min(360px,60vh)] md:max-h-none';
 
-function MapUpdater({ center }: { center: [number, number] }) {
+function MapUpdater({
+  center,
+  zoom
+}: {
+  center: [number, number];
+  zoom?: number;
+}) {
   const map = useMap();
 
   useEffect(() => {
     if (center[0] !== 0 && center[1] !== 0) {
-      map.setView(center, map.getZoom());
+      map.setView(center, zoom ?? map.getZoom());
     }
-  }, [center, map]);
+  }, [center, map, zoom]);
 
   return null;
 }
@@ -144,9 +153,13 @@ export function VehicleMap({
   gpsData,
   center = [7.0731, 125.6128],
   zoom = 13,
-  height = '500px'
+  height = '500px',
+  selectedVehicleId = null,
+  onSelectedVehicleIdChange
 }: VehicleMapProps) {
   const [mapCenter, setMapCenter] = useState<[number, number]>(center);
+  const [selectionZoom, setSelectionZoom] = useState<number | undefined>();
+  const markerRefs = useRef<Record<string, LeafletMarker | null>>({});
 
   const validGpsData = gpsData.filter(
     (data) => data.latitude && data.longitude && data.vehicles
@@ -160,6 +173,20 @@ export function VehicleMap({
       }
     }
   }, [validGpsData]);
+
+  useEffect(() => {
+    if (!selectedVehicleId) return;
+
+    const selected = validGpsData.find(
+      (data) => data.vehicles?.id === selectedVehicleId
+    );
+    if (!selected || selected.latitude === null || selected.longitude === null)
+      return;
+
+    setMapCenter([selected.latitude, selected.longitude]);
+    setSelectionZoom(16);
+    markerRefs.current[selectedVehicleId]?.openPopup();
+  }, [selectedVehicleId, validGpsData]);
 
   if (validGpsData.length === 0) {
     return (
@@ -204,7 +231,7 @@ export function VehicleMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapUpdater center={mapCenter} />
+        <MapUpdater center={mapCenter} zoom={selectionZoom} />
         <SingleFingerDragToggle />
 
         {validGpsData.map((data) => {
@@ -214,6 +241,12 @@ export function VehicleMap({
               key={data.gps_id}
               position={[data.latitude!, data.longitude!]}
               icon={createVehicleIcon(vehicle.status, data.speed || undefined)}
+              ref={(marker) => {
+                markerRefs.current[vehicle.id] = marker;
+              }}
+              eventHandlers={{
+                click: () => onSelectedVehicleIdChange?.(vehicle.id)
+              }}
             >
               <Popup>
                 <div style={{ minWidth: '250px' }}>

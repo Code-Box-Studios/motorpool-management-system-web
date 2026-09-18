@@ -38,11 +38,16 @@ export const getAllBranches = async (
 };
 
 // Shape of an employee row as returned by GET /employees (Prisma camelCase).
+//
+// `phone` is optional because the API omits the key entirely for non-admin
+// callers (organization/service.ts listEmployees) — the guide picker is open
+// to every role but has no business reading staff phone numbers. Only the
+// admin roster tab, which edits the field, ever sees it.
 interface EmployeeResponse {
   id: string;
   name: string;
   position: string | null;
-  phone: string | null;
+  phone?: string | null;
   branchId: string;
   archivedAt: string | null;
 }
@@ -55,7 +60,7 @@ export interface EmployeeRow {
   id: string;
   name: string;
   position: string | null;
-  phone: string | null;
+  phone?: string | null;
   branch_id: string;
   archived_at: string | null;
 }

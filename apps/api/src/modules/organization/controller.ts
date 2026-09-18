@@ -14,6 +14,7 @@ import {
   organizationListQuerySchema
 } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
+import { requireUser } from '../../lib/http.js';
 import * as service from './service.js';
 
 // Express 5: req.query is read-only — parse here, never in middleware.
@@ -142,8 +143,14 @@ export async function listEmployees(
 ): Promise<void> {
   // NOT listQuery(): zod strips unknown keys, so the shared schema would drop
   // ?branchId= silently and hand the guide picker every branch's roster.
+  //
+  // The actor goes in because the route is open to every role but `phone` is
+  // admin-only — see the note in service.listEmployees.
   res.json(
-    await service.listEmployees(employeesListQuerySchema.parse(req.query))
+    await service.listEmployees(
+      employeesListQuerySchema.parse(req.query),
+      requireUser(req)
+    )
   );
 }
 

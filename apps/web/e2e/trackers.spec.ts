@@ -115,3 +115,20 @@ test('non-admin cannot see or reach the Trackers pages', async ({ page }) => {
     page.getByRole('heading', { name: 'Tracker Device' })
   ).toHaveCount(0);
 });
+
+test('admin can open the dedicated GPS Map from the sidebar', async ({
+  page
+}) => {
+  await login(page, 'admin');
+
+  // Regression: fleet tracking must be reachable as its own workspace, not
+  // only as the small Dashboard preview.
+  await page.getByRole('link', { name: 'GPS Map', exact: true }).click();
+  await page.waitForURL(/\/gps-map$/, { timeout: 15_000 });
+  await expect(
+    page.getByRole('heading', { name: 'GPS Map', exact: true })
+  ).toBeVisible();
+  await expect(
+    page.getByText('Registered Trackers', { exact: true })
+  ).toBeVisible();
+});
