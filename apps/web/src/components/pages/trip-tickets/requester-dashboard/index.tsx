@@ -1,9 +1,10 @@
+import TablePagination from '@/components/shared/table-pagination';
 import { useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useAllVehicles } from '@/lib/query/vehicles';
-import { useTripTickets } from '@/lib/query/trip-tickets';
+import { useAllTripTickets } from '@/lib/query/trip-tickets';
 import { useCancelTripTicket } from '@/lib/mutation/trip-tickets';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import { Button } from '@/components/ui/button';
@@ -94,6 +95,7 @@ const CANCELLABLE = [...WAITING, TRIP_TICKET_STATUS.APPROVED] as string[];
  * says "My Requests" — this opens on the count instead of repeating the title.
  */
 const RequesterDashboard = () => {
+  const [historyPage, setHistoryPage] = useState(1);
   const { user } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
   const [cancellingTicketId, setCancellingTicketId] = useState<string | null>(
@@ -103,7 +105,7 @@ const RequesterDashboard = () => {
   // The server scopes a requester to `requestedById: actor.id` regardless, but
   // the filter is passed explicitly so the query key changes with the account —
   // otherwise a re-login as someone else would read the first user's cache.
-  const { data: ticketsData, isLoading } = useTripTickets(1, 100, user?.id);
+  const { data: ticketsData, isLoading } = useAllTripTickets(user?.id);
   const { data: vehicles } = useAllVehicles();
 
   const cancelTripTicket = useCancelTripTicket();
@@ -121,7 +123,7 @@ const RequesterDashboard = () => {
   // chasing an approval for, and the one most recently travelled is the one
   // being looked up afterwards.
   const { waiting, others } = useMemo(() => {
-    const all = [...(ticketsData?.data ?? [])].sort(
+    const all = [...(ticketsData ?? [])].sort(
       (a, b) =>
         new Date(a.start_ts ?? 0).getTime() -
         new Date(b.start_ts ?? 0).getTime()
@@ -130,8 +132,14 @@ const RequesterDashboard = () => {
       waiting: all.filter((t) => WAITING.includes(t.status ?? '')),
       others: all.filter((t) => !WAITING.includes(t.status ?? ''))
     };
-  }, [ticketsData?.data]);
+  }, [ticketsData]);
 
+  const historyPages = Math.max(1, Math.ceil(others.length / 10));
+  const currentHistoryPage = Math.min(historyPage, historyPages);
+  const visibleOthers = others.slice(
+    (currentHistoryPage - 1) * 10,
+    currentHistoryPage * 10
+  );
   const total = waiting.length + others.length;
 
   // The headline is the answer to "did anything move?", so it counts what is
@@ -270,7 +278,7 @@ const RequesterDashboard = () => {
             <section className="mt-10">
               <SectionLabel>Other requests</SectionLabel>
               <ul className="flex flex-col gap-2.5">
-                {others.map((ticket) => (
+                {visibleOthers.map((ticket) => (
                   <li
                     key={ticket.id}
                     className="bg-card border-border flex flex-wrap items-center gap-x-3.5 gap-y-2 rounded-[18px] border p-3.5"
@@ -326,6 +334,11 @@ const RequesterDashboard = () => {
                   </li>
                 ))}
               </ul>
+              <TablePagination
+                page={currentHistoryPage}
+                totalPages={historyPages}
+                onPageChange={setHistoryPage}
+              />
             </section>
           )}
         </>

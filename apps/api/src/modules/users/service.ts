@@ -61,6 +61,35 @@ export async function list(query: UsersListQuery) {
   return { data: data.map(toUserResponse), count };
 }
 
+// Reuse an existing personnel identity by userId first, then by email. A driver
+// contact email can change independently of the login email; its link wins.
+async function ensureDriverIdentity(
+  tx: Prisma.TransactionClient,
+  user: UserRow
+) {
+  if (await tx.driver.findUnique({ where: { userId: user.id } })) return;
+  const existing = await tx.driver.findUnique({ where: { email: user.email } });
+  if (existing) {
+    const linked = await tx.driver.updateMany({
+      where: { id: existing.id, userId: null },
+      data: { userId: user.id }
+    });
+    if (linked.count === 0) {
+      throw new AppError(409, 'EMAIL_TAKEN', 'This driver already has a login');
+    }
+  } else {
+    await tx.driver.create({
+      data: {
+        userId: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        branchId: user.branchId,
+        status: 'active'
+      }
+    });
+  }
+}
+
 // Creates a login; for the driver role, also creates or links the drivers row.
 export async function create(
   body: CreateUserBody,
@@ -80,19 +109,6 @@ export async function create(
   }
   const passwordHash = await hashPassword(body.password);
 
-  // Spec §6: creating a driver-role user also gets a linked drivers row —
-  // the app's only signup-driven driver-creation path. If a personnel record
-  // with this email already exists (created via POST /drivers), LINK it
-  // instead of colliding with the drivers.email unique constraint; if it's
-  // already linked to another login, that's a conflict. One transaction.
-  const existingDriver =
-    role.name === USER_ROLES.driver
-      ? await prisma.driver.findUnique({ where: { email: body.email } })
-      : null;
-  if (existingDriver && existingDriver.userId !== null) {
-    throw new AppError(409, 'EMAIL_TAKEN', 'This driver already has a login');
-  }
-
   const created = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
@@ -107,24 +123,7 @@ export async function create(
       },
       include: userInclude
     });
-    if (role.name === USER_ROLES.driver) {
-      if (existingDriver) {
-        await tx.driver.update({
-          where: { id: existingDriver.id },
-          data: { userId: user.id }
-        });
-      } else {
-        await tx.driver.create({
-          data: {
-            userId: user.id,
-            email: user.email,
-            fullName: user.fullName,
-            branchId: user.branchId,
-            status: 'active'
-          }
-        });
-      }
-    }
+    if (role.name === USER_ROLES.driver) await ensureDriverIdentity(tx, user);
     return user;
   });
   return toUserResponse(created);
@@ -139,11 +138,13 @@ export async function update(
   await assertOrgRefsActive({ branchId: body.branchId });
   const existing = await findUserById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'User not found');
-  if (body.roleId) {
-    const role = await prisma.role.findUnique({ where: { id: body.roleId } });
-    if (!role) throw new AppError(400, 'INVALID_ROLE', 'Unknown role');
-  }
+  const role = body.roleId
+    ? await prisma.role.findUnique({ where: { id: body.roleId } })
+    : null;
+  if (body.roleId && !role)
+    throw new AppError(400, 'INVALID_ROLE', 'Unknown role');
   const updated = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${id}::uuid FOR NO KEY UPDATE`;
     if (body.roleId) {
       // upsert: a role-less user (403 NO_ROLE on login) must be repairable here
       await tx.userRole.upsert({
@@ -152,7 +153,7 @@ export async function update(
         create: { userId: id, roleId: body.roleId }
       });
     }
-    return tx.user.update({
+    const user = await tx.user.update({
       where: { id },
       data: {
         fullName: body.fullName,
@@ -164,6 +165,8 @@ export async function update(
       },
       include: userInclude
     });
+    if (role?.name === USER_ROLES.driver) await ensureDriverIdentity(tx, user);
+    return user;
   });
   return toUserResponse(updated);
 }

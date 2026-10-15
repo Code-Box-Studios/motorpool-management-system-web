@@ -1,3 +1,4 @@
+import { RecordError } from '@/components/shared/record-error';
 import { useEffect, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { useNavigate } from '@tanstack/react-router';
@@ -88,7 +89,12 @@ const localToday = () => {
 };
 
 const ToolsInner = ({ toolId }: { toolId: string }) => {
-  const { data: tool } = useTool(toolId);
+  const {
+    data: tool,
+    isLoading: recordLoading,
+    error: recordError,
+    refetch
+  } = useTool(toolId);
   // The whole roster, not a page of it: the borrower lookup and the picker below
   // both need every driver, not just the most recently updated ones.
   const { data: drivers, isPending: driversLoading } = useAllDrivers();
@@ -178,7 +184,15 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
     setRemoveImage(false);
   };
 
-  if (!tool || driversLoading) return <Loading />;
+  if (recordError || (!recordLoading && !tool))
+    return (
+      <RecordError
+        error={recordError}
+        backTo="/tools"
+        onRetry={() => void refetch()}
+      />
+    );
+  if (recordLoading || driversLoading || !tool) return <Loading />;
 
   const status = tool.status || 'available';
   const borrowedByName = drivers?.find(
@@ -220,7 +234,7 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
         backTo="/tools"
         backLabel="Tools"
         actions={
-          isEditing ? undefined : (
+          isEditing || !isAdmin ? undefined : (
             <Button onClick={() => setIsEditing(true)}>Edit</Button>
           )
         }

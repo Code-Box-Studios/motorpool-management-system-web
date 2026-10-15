@@ -36,6 +36,7 @@ interface DriverApiResponse {
 function toSnakeDriver(d: DriverApiResponse): Driver {
   return {
     id: d.id,
+    userId: d.userId,
     email: d.email,
     full_name: d.fullName,
     phone: d.phone,
@@ -105,16 +106,16 @@ function toDriverBody(d: NewDriver | UpdateDriver): DriverRequestBody {
     fullName: d.full_name ?? undefined,
     phone: d.phone,
     address: d.address,
-    dateOfBirth: d.date_of_birth,
+    dateOfBirth: d.date_of_birth === '' ? undefined : d.date_of_birth,
     licenseNumber: d.license_number,
     licenseType: d.license_type,
-    licenseExpiry: d.license_expiry,
+    licenseExpiry: d.license_expiry === '' ? undefined : d.license_expiry,
     status: d.status ? toDbStatus(d.status) : undefined,
     assignedVehicleId: d.assigned_vehicle_id,
     branchId: d.branch_id,
     sssNumber: d.sss_number,
     tin: d.tin,
-    hireDate: d.hire_date,
+    hireDate: d.hire_date === '' ? undefined : d.hire_date,
     emergencyContactName: d.emergency_contact_name,
     emergencyContactPhone: d.emergency_contact_phone,
     notes: d.notes
@@ -153,7 +154,13 @@ export const getDriverById = async (id: string): Promise<Driver> => {
 function driverFormData(d: NewDriver | UpdateDriver, file?: File): FormData {
   const fd = new FormData();
   for (const [key, value] of Object.entries(toDriverBody(d))) {
-    if (value !== undefined && value !== null) fd.append(key, String(value));
+    if (
+      value === null &&
+      ['dateOfBirth', 'licenseExpiry', 'hireDate'].includes(key)
+    )
+      fd.append(key, 'null');
+    else if (value !== undefined && value !== null)
+      fd.append(key, String(value));
   }
   if (file) fd.append('photo', file);
   return fd;

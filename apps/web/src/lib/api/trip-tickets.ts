@@ -353,13 +353,15 @@ export async function getTripTickets(
 
 export async function getAllTripTickets(
   userId?: string,
-  branchId?: string
+  branchId?: string,
+  driverId?: string
 ): Promise<TripTicket[]> {
   const res = await api.get<{ data: TripTicketApiResponse[]; count: number }>(
     '/trip-tickets',
     {
       requestedBy: userId,
-      branchId
+      branchId,
+      driverId
     }
   );
   return res.data.map(toSnake);

@@ -791,6 +791,90 @@ describe('trip-ticket concurrency', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
 
+  it.each(['both', 'vehicle', 'driver'] as const)(
+    'parallel overlapping booking creates sharing %s yield one 201 and all remaining 409s',
+    async (resource) => {
+      const s = await scaffold();
+      const results = await Promise.all(
+        Array.from({ length: 6 }, (_, i) =>
+          post(s, {
+            ...(resource === 'vehicle' && i % 2
+              ? { driverId: s.otherDriver.id }
+              : {}),
+            ...(resource === 'driver' && i % 2
+              ? { vehicleId: s.otherVehicle.id }
+              : {})
+          })
+        )
+      );
+      expect(results.map((r) => r.status).sort()).toEqual([
+        201, 409, 409, 409, 409, 409
+      ]);
+      expect(await prisma.tripTicket.count()).toBe(1);
+      expect(await prisma.tripDate.count()).toBe(1);
+    }
+  );
+
+  it('an update racing a create cannot reserve the same window twice', async () => {
+    const s = await scaffold();
+    const draft = await post(s, {
+      startTs: inDays(20, 8),
+      endTs: inDays(20, 17)
+    });
+    expect(draft.status).toBe(201);
+    const [edited, created] = await Promise.all([
+      request(app)
+        .patch(`/api/trip-tickets/${draft.body.id}`)
+        .set('Authorization', s.header)
+        .send({ dates: [{ startTs: inDays(14, 8), endTs: inDays(14, 17) }] }),
+      post(s)
+    ]);
+    expect([edited.status, created.status].sort()).toEqual(
+      edited.status === 200 ? [200, 409] : [201, 409]
+    );
+    expect(
+      await prisma.tripDate.count({
+        where: { startTs: new Date(inDays(14, 8)) }
+      })
+    ).toBe(1);
+    if (edited.status === 409) {
+      expect(
+        await prisma.tripDate.count({
+          where: {
+            tripTicketId: draft.body.id,
+            startTs: new Date(inDays(20, 8))
+          }
+        })
+      ).toBe(1);
+    }
+  });
+
+  it('a driver currently out can still book a future nonoverlapping outing', async () => {
+    const s = await scaffold();
+    const now = Date.now();
+    const active = await prisma.tripTicket.create({
+      data: {
+        branchId: s.branch.id,
+        vehicleId: s.vehicle.id,
+        driverId: s.driver.id,
+        destination: 'Site',
+        purpose: 'Work',
+        dateRequested: new Date(),
+        preparedBy: '',
+        status: 'in_progress',
+        dates: {
+          create: {
+            startTs: new Date(now - 3600000),
+            endTs: new Date(now + 3600000),
+            status: 'in_progress'
+          }
+        }
+      }
+    });
+    expect(active.status).toBe('in_progress');
+    expect((await post(s, { vehicleId: s.otherVehicle.id })).status).toBe(201);
+  });
+
   it('two SIMULTANEOUS check-outs cannot both claim one vehicle', async () => {
     const s = await scaffold();
     const { user: guard } = await createTestUser({

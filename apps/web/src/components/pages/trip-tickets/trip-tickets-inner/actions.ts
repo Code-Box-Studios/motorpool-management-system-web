@@ -18,7 +18,9 @@ const tripTicketUpdateSchema = z.object({
   remarks: z.string().optional(),
   cancellation_reason: z.string().optional(),
   disapproved_reason: z.string().optional(),
-  participants: z.string().optional(), // Will be converted to array on submit
+  participants: z
+    .array(z.string().trim().min(1))
+    .min(1, 'Participants are required'),
   office_id: z.string().optional().or(z.literal('')),
   office_head_id: z.string().optional().or(z.literal('')),
   // Fuel allocation fields (optional - removed allocation_km and allocation_liters)
@@ -49,7 +51,7 @@ export const useTripTicketUpdateForm = () => {
       remarks: '',
       cancellation_reason: '',
       disapproved_reason: '',
-      participants: '',
+      participants: [],
       office_id: '',
       office_head_id: '',
       allocation_date: '',

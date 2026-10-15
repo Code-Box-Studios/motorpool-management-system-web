@@ -95,7 +95,17 @@ export function DriverDetails({ id }: { id: string }) {
     updateDriver.mutate(
       {
         id,
-        updates: pendingData,
+        updates: {
+          ...pendingData,
+          date_of_birth:
+            pendingData.date_of_birth ||
+            (driver?.date_of_birth ? null : undefined),
+          license_expiry:
+            pendingData.license_expiry ||
+            (driver?.license_expiry ? null : undefined),
+          hire_date:
+            pendingData.hire_date || (driver?.hire_date ? null : undefined)
+        },
         file: photoFile ?? undefined,
         removePhoto
       },

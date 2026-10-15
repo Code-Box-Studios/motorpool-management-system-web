@@ -7,7 +7,7 @@ import {
   useAddMaintenanceAction,
   type MaintenanceFormData
 } from './actions';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import {
   Select,
@@ -31,7 +31,10 @@ import {
 export function AddMaintenance() {
   const { data: vehicles } = useAllVehicles();
   const addMaintenanceAction = useAddMaintenanceAction();
-  const form = useMaintenanceForm();
+  const { date } = useSearch({
+    from: '/_authenticated/maintenance/add-maintenance'
+  });
+  const form = useMaintenanceForm(date);
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingData, setPendingData] = useState<MaintenanceFormData | null>(

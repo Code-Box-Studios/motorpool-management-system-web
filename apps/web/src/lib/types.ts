@@ -21,7 +21,7 @@ export type VehicleWithBranch = Vehicle & {
 export type NewVehicle = TablesInsert<'vehicles'>;
 export type UpdateVehicle = TablesUpdate<'vehicles'>;
 
-export type Driver = Tables<'drivers'>;
+export type Driver = Tables<'drivers'> & { userId: string | null };
 export type NewDriver = TablesInsert<'drivers'>;
 export type UpdateDriver = TablesUpdate<'drivers'>;
 

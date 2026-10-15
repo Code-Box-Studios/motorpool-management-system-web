@@ -79,15 +79,16 @@ const tripTicketSchema = z.object({
 
   // Trip purpose and participants
   purpose: z.string().min(1, 'Purpose is required'),
-  // The employees who go along to guide the trip. IDS, one per row — never the
-  // comma-joined string `participants` below is, so a guide named "Cruz, Juan"
-  // cannot split into two people. An unfilled row is '' and fails .uuid(),
+  // Employees are ids, one per row. Participant names also remain separate
+  // array entries so a name containing a comma stays one person. An unfilled row is '' and fails .uuid(),
   // which is what the per-row message is for. At least one is required
   // (design §5.3); the server refuses an empty list with 400 VALIDATION_ERROR.
   guide_ids: z
     .array(z.string().uuid('Pick an employee for this row'))
     .min(1, 'A trip needs at least one guide'),
-  participants: z.string().min(1, 'Participants are required'), // Will be stored as array in DB
+  participants: z
+    .array(z.string().trim().min(1))
+    .min(1, 'Participants are required'),
   participants_count: z.coerce
     .number()
     .min(1, 'Number of participants must be at least 1'),
@@ -129,7 +130,7 @@ export const useTripTicketForm = () => {
       // One empty row, like participants' useState(['']) — the field renders
       // its rows from this array, so it must exist before the first render.
       guide_ids: [''],
-      participants: '',
+      participants: [],
       participants_count: 1,
       vehicle_id: '',
       driver_id: '',
@@ -151,7 +152,7 @@ export const useAddTripTicketAction = () => {
   const createTripTicket = useCreateTripTicket();
 
   const addTripTicket = async (data: TripTicketFormData) => {
-    // Convert participants string to array for database, and each date row
+    // Keep participant names as an array, and convert each date row
     // to the single ISO instant the API expects. `new Date(`${date}T${time}`)`
     // parses as browser-local time; toISOString() then converts to UTC — that
     // is correct (the requester picks a wall-clock time in their own zone,
@@ -160,10 +161,7 @@ export const useAddTripTicketAction = () => {
     // the date input implies.
     const tripTicketData = {
       ...data,
-      participants: data.participants
-        .split(',')
-        .map((p) => p.trim())
-        .filter((p) => p.length > 0),
+      participants: data.participants,
       // Guides are already ids: no split, no join, no reconciliation against a
       // count. Renamed to the wire's camelCase here because mapCreateBody reads
       // `guideIds`; the snake_case `guide_ids` the spread also carries is not a

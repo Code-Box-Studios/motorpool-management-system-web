@@ -64,7 +64,7 @@ export function AppSidebar() {
   }
 
   const routesWithData: RouteWithStaticData[] = routes.filter(
-    (route): route is RouteWithStaticData => !!route.options?.staticData
+    (route): route is RouteWithStaticData => !!route.options?.staticData?.title
   );
 
   const allowedRoutes = routesWithData.filter((route) => {

@@ -18,12 +18,12 @@ const maintenanceSchema = z.object({
 
 export type MaintenanceFormData = z.infer<typeof maintenanceSchema>;
 
-export const useMaintenanceForm = () => {
+export const useMaintenanceForm = (date?: string) => {
   return useForm<MaintenanceFormData>({
     resolver: zodResolver(maintenanceSchema),
     defaultValues: {
       vehicle_id: '',
-      date: '',
+      date: date ?? '',
       type: 'preventive',
       description: '',
       cost: undefined,

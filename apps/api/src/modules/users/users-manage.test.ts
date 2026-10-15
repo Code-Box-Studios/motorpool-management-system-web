@@ -19,6 +19,102 @@ describe('PATCH /api/users/:id', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
 
+  it.each([false, true])(
+    'changing requester to driver creates or links one identity (existing=%s), idempotently',
+    async (hasDriver) => {
+      const { header } = await adminHeader();
+      const { user, password } = await createTestUser({
+        email: 'newdriver@test.local',
+        role: 'requester'
+      });
+      const role = await prisma.role.upsert({
+        where: { name: 'driver' },
+        update: {},
+        create: { name: 'driver' }
+      });
+      const existing = hasDriver
+        ? await prisma.driver.create({
+            data: {
+              email: user.email,
+              fullName: 'Personnel name',
+              notes: 'Keep me'
+            }
+          })
+        : null;
+      const change = () =>
+        request(app)
+          .patch(`/api/users/${user.id}`)
+          .set('Authorization', header)
+          .field('roleId', role.id)
+          .field('fullName', 'Driver name');
+      expect((await change()).status).toBe(200);
+      const driver = await prisma.driver.findUnique({
+        where: { userId: user.id }
+      });
+      expect(driver).not.toBeNull();
+      expect(driver!.email).toBe(user.email);
+      if (existing)
+        expect(driver).toMatchObject({
+          id: existing.id,
+          fullName: 'Personnel name',
+          notes: 'Keep me'
+        });
+      else
+        expect(driver).toMatchObject({
+          fullName: 'Driver name',
+          status: 'active'
+        });
+      expect((await change()).status).toBe(200);
+      expect(await prisma.driver.count({ where: { userId: user.id } })).toBe(1);
+      expect(await prisma.driver.count()).toBe(1);
+      const login = await request(app)
+        .post('/api/auth/login')
+        .send({ email: user.email, password });
+      expect(login.status).toBe(200);
+      const ownDrivers = await request(app)
+        .get('/api/drivers')
+        .set('Authorization', `Bearer ${login.body.accessToken}`);
+      expect(ownDrivers.status).toBe(200);
+      expect(ownDrivers.body.data.map((d: { id: string }) => d.id)).toEqual([
+        driver!.id
+      ]);
+    }
+  );
+
+  it('driver identity conflict rolls back role and profile changes', async () => {
+    const { header } = await adminHeader();
+    const { user } = await createTestUser({
+      email: 'target@test.local',
+      role: 'requester'
+    });
+    const { user: owner } = await createTestUser({
+      email: 'owner@test.local',
+      role: 'driver'
+    });
+    const role = await prisma.role.findUniqueOrThrow({
+      where: { name: 'driver' }
+    });
+    await prisma.driver.create({
+      data: { email: user.email, userId: owner.id, fullName: 'Owned driver' }
+    });
+    const res = await request(app)
+      .patch(`/api/users/${user.id}`)
+      .set('Authorization', header)
+      .field('roleId', role.id)
+      .field('fullName', 'Changed');
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('EMAIL_TAKEN');
+    expect(
+      await prisma.user.findUniqueOrThrow({
+        where: { id: user.id },
+        include: { userRole: { include: { role: true } } }
+      })
+    ).toMatchObject({
+      fullName: 'Test User',
+      userRole: { role: { name: 'requester' } }
+    });
+  });
+
   it('updates fields and role (admin)', async () => {
     const { header } = await adminHeader();
     const { user } = await createTestUser({

@@ -1,5 +1,5 @@
 import StatusBadge from '@/components/shared/status-badge';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Marker as LeafletMarker } from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -161,15 +161,25 @@ export function VehicleMap({
   const [selectionZoom, setSelectionZoom] = useState<number | undefined>();
   const markerRefs = useRef<Record<string, LeafletMarker | null>>({});
 
-  const validGpsData = gpsData.filter(
-    (data) => data.latitude && data.longitude && data.vehicles
+  const validGpsData = useMemo(
+    () =>
+      gpsData.filter(
+        (data) =>
+          data.latitude !== null && data.longitude !== null && data.vehicles
+      ),
+    [gpsData]
   );
 
   useEffect(() => {
     if (validGpsData.length > 0) {
       const firstData = validGpsData[0];
-      if (firstData.latitude && firstData.longitude) {
-        setMapCenter([firstData.latitude, firstData.longitude]);
+      if (firstData.latitude !== null && firstData.longitude !== null) {
+        const { latitude, longitude } = firstData;
+        setMapCenter((previous) =>
+          previous[0] === latitude && previous[1] === longitude
+            ? previous
+            : [latitude, longitude]
+        );
       }
     }
   }, [validGpsData]);
@@ -183,7 +193,12 @@ export function VehicleMap({
     if (!selected || selected.latitude === null || selected.longitude === null)
       return;
 
-    setMapCenter([selected.latitude, selected.longitude]);
+    const { latitude, longitude } = selected;
+    setMapCenter((previous) =>
+      previous[0] === latitude && previous[1] === longitude
+        ? previous
+        : [latitude, longitude]
+    );
     setSelectionZoom(16);
     markerRefs.current[selectedVehicleId]?.openPopup();
   }, [selectedVehicleId, validGpsData]);

@@ -43,20 +43,31 @@ export const createDriverBodySchema = z.object({
 });
 export type CreateDriverBody = z.infer<typeof createDriverBodySchema>;
 
+// JSON uses null; multipart carries the literal "null" because FormData is text.
+const nullableUpdateDate = z.preprocess(
+  (value) => (value === 'null' ? null : value),
+  z.coerce.date().nullable().optional()
+);
+
 export const updateDriverBodySchema = createDriverBodySchema.partial().extend({
+  dateOfBirth: nullableUpdateDate,
+  licenseExpiry: nullableUpdateDate,
+  hireDate: nullableUpdateDate,
   removePhoto: booleanFromString.optional()
 });
 export type UpdateDriverBody = z.infer<typeof updateDriverBodySchema>;
 
 // Response type is intentionally loose (Prisma row serialized to JSON);
 // the FE consumes it via the shared type, not runtime validation.
-export const driverResponseSchema = z.object({
-  id: z.string().uuid(),
-  email: z.string().email(),
-  fullName: z.string(),
-  status: driverStatusSchema,
-  userId: z.string().uuid().nullable(),
-  branchId: z.string().uuid().nullable(),
-  assignedVehicleId: z.string().uuid().nullable()
-}).passthrough();
+export const driverResponseSchema = z
+  .object({
+    id: z.string().uuid(),
+    email: z.string().email(),
+    fullName: z.string(),
+    status: driverStatusSchema,
+    userId: z.string().uuid().nullable(),
+    branchId: z.string().uuid().nullable(),
+    assignedVehicleId: z.string().uuid().nullable()
+  })
+  .passthrough();
 export type DriverResponse = z.infer<typeof driverResponseSchema>;

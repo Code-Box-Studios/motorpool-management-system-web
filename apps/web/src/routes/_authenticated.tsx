@@ -2,7 +2,8 @@ import {
   createFileRoute,
   Outlet,
   useNavigate,
-  useRouter
+  useRouter,
+  useMatches
 } from '@tanstack/react-router';
 import AppHeader from '@/components/app-header';
 import FocusHeader from '@/components/app-header/focus-header';
@@ -13,7 +14,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
 import { BreadcrumbProvider } from '@/components/provider/breadcrumb-provider';
 import { USER_ROLES } from '@/lib/enums';
-import { getUserRoleName } from '@/lib/utils';
 
 // Roles whose entire job is a single screen. They get a focus shell (no rail)
 // and a header that names the screen they're actually on — rather than a
@@ -32,50 +32,45 @@ export const Route = createFileRoute('/_authenticated')({
 });
 
 function AuthenticatedLayout() {
-  const { session, user } = useAuth();
+  const { session } = useAuth();
   const { data: userRole } = useUserRole();
   const navigate = useNavigate();
   const router = useRouter();
 
+  const matches = useMatches();
+  const role = userRole?.roles?.name;
+  // Resource indexes are siblings of their detail/create routes. Prefer the
+  // deepest declared policy, then inherit the matched resource's index policy.
+  const matchedRoutes = matches.map(
+    (match) => router.routesById[match.routeId]
+  );
+  const explicitRoles = [...matchedRoutes]
+    .reverse()
+    .map(
+      (route) =>
+        (route.options.staticData as { allowedRoles?: string[] } | undefined)
+          ?.allowedRoles
+    )
+    .find((roles) => roles !== undefined);
+  const resource = matchedRoutes.at(-1)?.fullPath.split('/').filter(Boolean)[0];
+  const indexRoute = Object.values(router.routesById).find(
+    (route) => route.fullPath.replace(/\/$/, '') === `/${resource}`
+  );
+  const indexRoles = (
+    indexRoute?.options.staticData as { allowedRoles?: string[] } | undefined
+  )?.allowedRoles;
+  const allowedRoles = explicitRoles ?? indexRoles;
+  const denied = !!allowedRoles && (!role || !allowedRoles.includes(role));
+
   useEffect(() => {
-    const checkAccess = async () => {
-      if (!session) {
-        navigate({ to: '/login' });
-        return;
-      }
+    if (!session) {
+      navigate({ to: '/login', replace: true });
+    } else if (denied) {
+      navigate({ to: '/dashboard', replace: true });
+    }
+  }, [session, denied, navigate]);
 
-      // Get the current route
-      const currentRoute = router.state.location.pathname;
-      const routes = router.routesByPath as unknown as Record<
-        string,
-        { options?: { staticData?: { allowedRoles?: string[] } } }
-      >;
-      const matchedRoute = routes[currentRoute];
-
-      if (matchedRoute?.options?.staticData?.allowedRoles) {
-        const allowedRoles = matchedRoute.options.staticData.allowedRoles;
-        const userRoleName = await getUserRoleName(user?.user_metadata);
-
-        if (!userRoleName || !allowedRoles.includes(userRoleName)) {
-          // User doesn't have permission, redirect to dashboard
-          navigate({ to: '/dashboard' });
-          return;
-        }
-      }
-    };
-
-    checkAccess();
-  }, [
-    session,
-    user,
-    navigate,
-    router.state.location.pathname,
-    router.routesByPath
-  ]);
-
-  if (!session) {
-    return <div>Loading...</div>;
-  }
+  if (!session || denied) return <div>Loading...</div>;
 
   // Guard and EVP get a focus shell: no rail, and a header that names the
   // screen they are actually looking at.

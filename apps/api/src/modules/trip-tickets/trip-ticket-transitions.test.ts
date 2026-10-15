@@ -480,6 +480,65 @@ describe('trip-ticket approval transitions', () => {
     expect(ticket.status).toBe('approved');
   });
 
+  it.each(['approved', 'disapproved'] as const)(
+    'final-date cancellation preserves a %s fuel decision and history',
+    async (status) => {
+      const s = await approvedTwoDateTicket();
+      const header = authHeader(s.admin.id, s.admin.email, 'admin');
+      const allocation = await prisma.fuelAllocation.create({
+        data: {
+          tripTicketId: s.ticketId,
+          requestedById: s.admin.id,
+          vehicleId: s.vehicle.id,
+          liters: 40,
+          fuelType: 'diesel',
+          date: new Date(),
+          purpose: 'Work',
+          tripTo: 'Site',
+          status,
+          decidedById: s.admin.id,
+          decidedAt: new Date(),
+          disapprovedReason: status === 'disapproved' ? 'Declined' : null
+        }
+      });
+      const dates = await prisma.tripDate.findMany({
+        where: { tripTicketId: s.ticketId }
+      });
+      for (const date of dates) {
+        expect(
+          (
+            await request(app)
+              .post(`/api/trip-tickets/${s.ticketId}/dates/${date.id}/cancel`)
+              .set('Authorization', header)
+              .send({ reason: 'Called off' })
+          ).status
+        ).toBe(200);
+      }
+      expect(
+        await prisma.tripTicket.findUniqueOrThrow({ where: { id: s.ticketId } })
+      ).toMatchObject({
+        status: 'cancelled',
+        cancellationReason: 'Called off'
+      });
+      expect(
+        await prisma.fuelAllocation.findUniqueOrThrow({
+          where: { id: allocation.id }
+        })
+      ).toEqual(allocation);
+      const history = await request(app)
+        .get('/api/approvals/history')
+        .set('Authorization', header);
+      expect(history.status).toBe(200);
+      expect(history.body.data).toContainEqual(
+        expect.objectContaining({
+          kind: 'fuel',
+          outcome: status === 'approved' ? 'approved' : 'declined',
+          linkTo: `/trip-tickets/${s.ticketId}`
+        })
+      );
+    }
+  );
+
   it('cancels the whole ticket once every date is cancelled, and records why', async () => {
     const s = await approvedTwoDateTicket();
     const dates = await prisma.tripDate.findMany({

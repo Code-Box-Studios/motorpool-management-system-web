@@ -145,8 +145,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // Guides ride along, so they spend seats too — assertBookable counts them
   // the same way (participants PLUS guides against vehicle.capacity, design
   // §5.1). Registered with react-hook-form directly and read back with watch:
-  // guides carry ids, so none of the useState/syncParticipants machinery the
-  // string round-trip forces on participants applies here. Blank rows do not
+  // guides carry ids; participants use their own rows and sync helper. Blank rows do not
   // count — an unfilled row is '' until an employee is chosen.
   const guideIds = form.watch('guide_ids');
   const guideCount = guideIds.filter(Boolean).length;
@@ -177,7 +176,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   const syncParticipants = (next: string[]) => {
     setParticipants(next);
     const named = next.map((n) => n.trim()).filter(Boolean);
-    form.setValue('participants', named.join(', '), {
+    form.setValue('participants', named, {
       shouldValidate: form.formState.isSubmitted
     });
     form.setValue('participants_count', Math.max(named.length, 1));

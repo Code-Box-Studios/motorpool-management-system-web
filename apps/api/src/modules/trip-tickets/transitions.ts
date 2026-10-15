@@ -5,6 +5,7 @@ import type {
   CheckOutBody
 } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
+import { lockDrivers, lockVehicles } from '../../lib/resource-locks.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
@@ -278,17 +279,8 @@ export async function cancelDate(
     await syncTicketStatus(tx, ticketId);
     await recomputeTicketSpan(tx, ticketId);
 
-    // If cancelling this date settled every date on the ticket with none of
-    // them completed, syncTicketStatus just derived the TICKET itself to
-    // `cancelled` — the event is over, not just this date, so it must settle
-    // exactly like a whole-ticket cancellation: its own reason recorded (or a
-    // reader opening it later sees "cancelled" with no explanation) AND the
-    // allocation cancelled alongside it, mirroring `cancel` above. The "must
-    // not touch the FuelAllocation" constraint governs the NON-terminal case
-    // only — one date off, the rest of the event still live, the single
-    // approval and allocation stand untouched — not this one, where the
-    // ticket itself is terminating and `cancelled` is a dead end nothing
-    // later corrects.
+    // A settled fuel decision survives withdrawal. Cancel only an allocation
+    // still awaiting a decision, exactly as whole-ticket cancellation does.
     const settled = await tx.tripTicket.findUniqueOrThrow({
       where: { id: ticketId },
       select: { status: true }
@@ -300,7 +292,7 @@ export async function cancelDate(
         data: { cancellationReason: reason }
       });
       await tx.fuelAllocation.updateMany({
-        where: { tripTicketId: ticketId },
+        where: { tripTicketId: ticketId, status: 'pending' },
         data: { status: 'cancelled' }
       });
     }
@@ -351,9 +343,37 @@ export async function checkOut(
   // which date, not the transaction's own client.
   let outing!: TripDate;
   await prisma.$transaction(async (tx) => {
+    await lockDrivers(tx, [ticket.driverId]);
+    await lockVehicles(tx, [ticket.vehicleId]);
+    const driver = await tx.driver.findUnique({
+      where: { id: ticket.driverId }
+    });
+    if (!driver) throw new AppError(404, 'NOT_FOUND', 'Driver not found');
+    if (driver.status === 'inactive') {
+      throw new AppError(
+        409,
+        'DRIVER_INACTIVE',
+        `${driver.fullName} is not an active driver`
+      );
+    }
+    // An open outing is the driver claim. Roster status remains independent:
+    // being out today must not prevent a nonoverlapping future booking.
+    const alreadyOut = await tx.tripDate.findFirst({
+      where: {
+        status: 'in_progress',
+        tripTicket: { driverId: ticket.driverId }
+      },
+      select: { id: true }
+    });
+    if (alreadyOut) {
+      throw new AppError(
+        409,
+        'DRIVER_ON_TRIP',
+        'This driver is already out on a trip'
+      );
+    }
     outing = await resolveOutingForCheckOut(tx, id);
-    // Claim the van FIRST: the conditional flip is what makes two simultaneous
-    // check-outs impossible. A read-then-write let both read `available`.
+    // Claim only an available vehicle after checking the locked driver.
     const { mileage } = await claimVehicleStatus(
       tx,
       ticket.vehicleId,
@@ -406,6 +426,8 @@ export async function checkIn(
   // deriveTicketStatus's rules here (see the note on events.tripCheckedIn).
   let ticketCompleted = false;
   await prisma.$transaction(async (tx) => {
+    await lockDrivers(tx, [ticket.driverId]);
+    await lockVehicles(tx, [ticket.vehicleId]);
     outing = await resolveOutingForCheckIn(tx, id);
     const vehicle = await tx.vehicle.findUniqueOrThrow({
       where: { id: ticket.vehicleId },

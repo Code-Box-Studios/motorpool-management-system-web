@@ -1,5 +1,6 @@
 import type { CompleteRepairBody, NoteJobOrderBody } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
+import { lockVehicles } from '../../lib/resource-locks.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import {
@@ -152,6 +153,7 @@ export async function completeRepair(
   }
   const releaseDate = body.actualDateOfRelease ?? new Date();
   await prisma.$transaction(async (tx) => {
+    await lockVehicles(tx, [order.vehicleId]);
     // Conditional write: only flips rows still in ongoing_repair. Under a
     // concurrent double-submit the loser blocks on the row lock, re-evaluates the
     // WHERE against the winner's committed status, matches 0, and aborts here —
@@ -196,11 +198,19 @@ export async function completeRepair(
         description: body.remarks ?? null
       }
     });
-    await changeVehicleStatus(tx, order.vehicleId, 'available', {
-      changedBy: actor.id,
-      source: 'job_order_complete',
-      expectedFrom: 'under_maintenance'
+    const heldByAnother = await tx.jobOrder.count({
+      where: {
+        vehicleId: order.vehicleId,
+        status: { in: ['assigned_mechanic', 'ongoing_repair'] }
+      }
     });
+    if (heldByAnother === 0) {
+      await changeVehicleStatus(tx, order.vehicleId, 'available', {
+        changedBy: actor.id,
+        source: 'job_order_complete',
+        expectedFrom: 'under_maintenance'
+      });
+    }
   });
   await events.jobOrderCompleted(order, actor);
   return findJobOrderById(id);

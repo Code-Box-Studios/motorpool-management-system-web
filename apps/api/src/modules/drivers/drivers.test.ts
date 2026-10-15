@@ -62,6 +62,41 @@ describe('drivers module', () => {
     expect(await prisma.driver.count()).toBe(0);
   });
 
+  it('clears optional dates through JSON and multipart updates while omitted dates remain unchanged', async () => {
+    const header = await adminHeader();
+    const driver = await prisma.driver.create({
+      data: {
+        email: 'dates@test.local',
+        fullName: 'Driver Dates',
+        dateOfBirth: new Date('1990-01-01'),
+        hireDate: new Date('2020-01-01'),
+        licenseExpiry: new Date('2030-01-01')
+      }
+    });
+    const sparse = await request(app)
+      .patch(`/api/drivers/${driver.id}`)
+      .set('Authorization', header)
+      .send({ fullName: 'Updated Dates' });
+    expect(sparse.status).toBe(200);
+    expect(sparse.body.dateOfBirth).toBe('1990-01-01T00:00:00.000Z');
+    const cleared = await request(app)
+      .patch(`/api/drivers/${driver.id}`)
+      .set('Authorization', header)
+      .send({ dateOfBirth: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.dateOfBirth).toBeNull();
+    const multipart = await request(app)
+      .patch(`/api/drivers/${driver.id}`)
+      .set('Authorization', header)
+      .field('hireDate', 'null')
+      .field('licenseExpiry', 'null');
+    expect(multipart.status).toBe(200);
+    expect([multipart.body.hireDate, multipart.body.licenseExpiry]).toEqual([
+      null,
+      null
+    ]);
+  });
+
   it('lists with pagination and total count, readable by any role', async () => {
     const { user } = await createTestUser({ role: 'evp_operations' });
     const header = authHeader(user.id, user.email, 'evp_operations');

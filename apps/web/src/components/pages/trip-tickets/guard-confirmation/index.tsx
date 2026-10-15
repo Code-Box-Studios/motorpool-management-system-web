@@ -1,4 +1,4 @@
-import { useTripTickets } from '@/lib/query/trip-tickets';
+import { useAllTripTickets } from '@/lib/query/trip-tickets';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import { useAllDrivers } from '@/lib/query/drivers';
 import {
@@ -77,9 +77,7 @@ export default function GuardConfirmationPage() {
   const guardBranchId =
     rawBranchId && isValidUUID(rawBranchId) ? rawBranchId : undefined;
 
-  const { data: tripTicketsData, isLoading } = useTripTickets(
-    1,
-    100,
+  const { data: tripTicketsData, isLoading } = useAllTripTickets(
     undefined,
     guardBranchId
   );
@@ -186,7 +184,7 @@ export default function GuardConfirmationPage() {
 
   // Anything the guard can act on: cleared to leave, or out and due back.
   const atGate =
-    tripTicketsData?.data?.filter(
+    tripTicketsData?.filter(
       (t) =>
         t.status === TRIP_TICKET_STATUS.APPROVED ||
         t.status === TRIP_TICKET_STATUS.IN_PROGRESS

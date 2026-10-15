@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useTripTickets } from '@/lib/query/trip-tickets';
+import { useAllTripTickets } from '@/lib/query/trip-tickets';
 import {
   useApproveEvpTripTicket,
   useDisapproveTripTicket
 } from '@/lib/mutation/trip-tickets';
-import { useJobOrders } from '@/lib/query/job-orders';
+import { useAllJobOrders } from '@/lib/query/job-orders';
 import { useApproveJobOrder } from '@/lib/mutation/job-orders';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useAllVehicles } from '@/lib/query/vehicles';
@@ -53,11 +53,9 @@ export default function ApprovalQueue({
   );
   const [disapprovedReason, setDisapprovedReason] = useState('');
 
-  const { data: tripTicketsData, isLoading } = useTripTickets(1, 100);
-  const { data: jobOrdersData, isLoading: jobOrdersLoading } = useJobOrders(
-    1,
-    100
-  );
+  const { data: tripTicketsData, isLoading } = useAllTripTickets();
+  const { data: jobOrdersData, isLoading: jobOrdersLoading } =
+    useAllJobOrders();
   // People and vehicles are shown by name and plate — never by database id.
   const { data: drivers } = useAllDrivers();
   const { data: vehicles } = useAllVehicles();
@@ -108,11 +106,11 @@ export default function ApprovalQueue({
   };
 
   const pendingTickets =
-    tripTicketsData?.data?.filter(
+    tripTicketsData?.filter(
       (t) => t.status === TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL
     ) ?? [];
   const pendingJobOrders =
-    jobOrdersData?.data?.filter(
+    jobOrdersData?.filter(
       (o) => o.status === JOB_ORDER_STATUS.ASSIGNED_MECHANIC
     ) ?? [];
 

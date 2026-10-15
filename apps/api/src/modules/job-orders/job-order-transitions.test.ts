@@ -52,6 +52,166 @@ describe('job-order transitions', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
 
+  it.each(['assigned_mechanic', 'ongoing_repair'] as const)(
+    'completion keeps the vehicle held by another %s repair until the final completion',
+    async (status) => {
+      const { vehicle, mechanic, order, branch } = await scaffold();
+      const { user } = await createTestUser({
+        email: 'boss@test.local',
+        role: 'admin'
+      });
+      const header = authHeader(user.id, user.email, 'admin');
+      const second = await prisma.jobOrder.create({
+        data: { vehicleId: vehicle.id, branchId: branch.id }
+      });
+      for (const id of [order.id, second.id]) {
+        expect(
+          (
+            await request(app)
+              .post(`/api/job-orders/${id}/note`)
+              .set('Authorization', header)
+              .send({ assignedMechanicId: mechanic.id, spareParts: [] })
+          ).status
+        ).toBe(200);
+      }
+      expect(
+        (
+          await request(app)
+            .post(`/api/job-orders/${order.id}/approve`)
+            .set('Authorization', header)
+        ).status
+      ).toBe(200);
+      if (status === 'ongoing_repair') {
+        expect(
+          (
+            await request(app)
+              .post(`/api/job-orders/${second.id}/approve`)
+              .set('Authorization', header)
+          ).status
+        ).toBe(200);
+      }
+      const complete = (id: string) =>
+        request(app)
+          .post(`/api/job-orders/${id}/complete-repair`)
+          .set('Authorization', header)
+          .send({ repairDone: 'simple', completedMileage: 1000 });
+      expect((await complete(order.id)).status).toBe(200);
+      expect(
+        await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })
+      ).toMatchObject({ status: 'under_maintenance' });
+      expect(
+        await prisma.vehicleStatusAudit.count({
+          where: { vehicleId: vehicle.id, newStatus: 'available' }
+        })
+      ).toBe(0);
+      if (status === 'assigned_mechanic') {
+        expect(
+          (
+            await request(app)
+              .post(`/api/job-orders/${second.id}/approve`)
+              .set('Authorization', header)
+          ).status
+        ).toBe(200);
+      }
+      expect((await complete(second.id)).status).toBe(200);
+      expect(
+        await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })
+      ).toMatchObject({ status: 'available' });
+      expect(
+        await prisma.vehicleStatusAudit.count({
+          where: { vehicleId: vehicle.id, newStatus: 'available' }
+        })
+      ).toBe(1);
+    }
+  );
+
+  it('parallel final repair completions release the vehicle once with both history entries', async () => {
+    const { vehicle, branch, order } = await scaffold('under_maintenance');
+    await prisma.jobOrder.update({
+      where: { id: order.id },
+      data: { status: 'ongoing_repair' }
+    });
+    const second = await prisma.jobOrder.create({
+      data: {
+        vehicleId: vehicle.id,
+        branchId: branch.id,
+        status: 'ongoing_repair'
+      }
+    });
+    const { user } = await createTestUser({
+      email: 'boss@test.local',
+      role: 'admin'
+    });
+    const results = await Promise.all(
+      [order.id, second.id].map((id) =>
+        request(app)
+          .post(`/api/job-orders/${id}/complete-repair`)
+          .set('Authorization', authHeader(user.id, user.email, 'admin'))
+          .send({ repairDone: 'simple', completedMileage: 1000 })
+      )
+    );
+    expect(results.map((r) => r.status)).toEqual([200, 200]);
+    expect(
+      await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })
+    ).toMatchObject({ status: 'available' });
+    expect(
+      await prisma.maintenance.count({
+        where: { vehicleId: vehicle.id, type: 'repair' }
+      })
+    ).toBe(2);
+    expect(
+      await prisma.vehicleStatusAudit.count({
+        where: { vehicleId: vehicle.id, newStatus: 'available' }
+      })
+    ).toBe(1);
+  });
+
+  it.each([0, 1, 2])(
+    'a deletion racing completion cannot erase a completed repair or deadlock (run %s)',
+    async () => {
+      const { vehicle, order } = await scaffold('under_maintenance');
+      await prisma.jobOrder.update({
+        where: { id: order.id },
+        data: { status: 'ongoing_repair' }
+      });
+      const { user } = await createTestUser({
+        email: 'boss@test.local',
+        role: 'admin'
+      });
+      const header = authHeader(user.id, user.email, 'admin');
+      const [completed, deleted] = await Promise.all([
+        request(app)
+          .post(`/api/job-orders/${order.id}/complete-repair`)
+          .set('Authorization', header)
+          .send({ repairDone: 'simple', completedMileage: 1000 }),
+        request(app)
+          .delete(`/api/job-orders/${order.id}`)
+          .set('Authorization', header)
+      ]);
+      if (completed.status === 200) {
+        expect(deleted.status).toBe(409);
+        expect(
+          await prisma.jobOrder.findUniqueOrThrow({ where: { id: order.id } })
+        ).toMatchObject({ status: 'repaired' });
+        expect(
+          await prisma.maintenance.count({ where: { vehicleId: vehicle.id } })
+        ).toBe(1);
+      } else {
+        expect(completed.status).toBe(409);
+        expect(deleted.status).toBe(204);
+        expect(await prisma.jobOrder.count({ where: { id: order.id } })).toBe(
+          0
+        );
+        expect(
+          await prisma.maintenance.count({ where: { vehicleId: vehicle.id } })
+        ).toBe(0);
+      }
+      expect(
+        await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })
+      ).toMatchObject({ status: 'available' });
+    }
+  );
+
   it('note: pending → assigned_mechanic, writes spare-parts join, flips vehicle to under_maintenance', async () => {
     const { vehicle, mechanic, part, order } = await scaffold('available');
     const { user: admin } = await createTestUser({

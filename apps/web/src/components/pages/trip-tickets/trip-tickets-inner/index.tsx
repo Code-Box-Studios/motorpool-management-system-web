@@ -1,3 +1,4 @@
+import { RecordError } from '@/components/shared/record-error';
 import {
   Fragment,
   useCallback,
@@ -96,6 +97,16 @@ const dateTimeOf = (value: string | null | undefined) => {
       });
 };
 
+// datetime-local has no timezone. Display the user's wall clock and convert
+// changed inputs back to explicit ISO instants before submission.
+const localDateTime = (value: string | null | undefined) => {
+  if (!value) return '';
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+};
+
 const sentenceCase = (value: string | null | undefined) =>
   value
     ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
@@ -105,7 +116,12 @@ const TripTicketsInner = () => {
   const { id } = useParams({ from: '/_authenticated/trip-tickets/$id' });
   const tripTicketId = id;
 
-  const { data: tripTicket } = useTripTicket(tripTicketId);
+  const {
+    data: tripTicket,
+    isLoading: recordLoading,
+    error: recordError,
+    refetch
+  } = useTripTicket(tripTicketId);
   // Unpaginated: this ticket's vehicle/driver may sit past any page, and the
   // pickers have to be able to offer every one of them.
   const { data: drivers, isPending: driversLoading } = useAllDrivers();
@@ -177,10 +193,8 @@ const TripTicketsInner = () => {
       setParticipants(participantsList.length > 0 ? participantsList : ['']);
     }
 
-    const startDateTime = tripTicket.start_ts
-      ? tripTicket.start_ts.slice(0, 16)
-      : '';
-    const endDateTime = tripTicket.end_ts ? tripTicket.end_ts.slice(0, 16) : '';
+    const startDateTime = localDateTime(tripTicket.start_ts);
+    const endDateTime = localDateTime(tripTicket.end_ts);
 
     form.reset({
       vehicle_id: tripTicket.vehicle_id,
@@ -189,16 +203,14 @@ const TripTicketsInner = () => {
       requested_by: tripTicket.requested_by || tripTicket.prepared_by,
       destination: tripTicket.destination,
       purpose: tripTicket.purpose,
-      date_requested: tripTicket.date_requested,
+      date_requested: tripTicket.date_requested.slice(0, 10),
       start_ts: startDateTime,
       end_ts: endDateTime,
       status: tripTicket.status || 'pending_admin_approval',
       remarks: tripTicket.remarks || '',
       cancellation_reason: tripTicket.cancellation_reason || '',
       disapproved_reason: tripTicket.disapproved_reason || '',
-      participants: tripTicket.participants
-        ? tripTicket.participants.join(', ')
-        : '',
+      participants: tripTicket.participants ?? [],
       office_id: tripTicket.office_id || '',
       office_head_id: tripTicket.office_head_id || '',
       allocation_date: tripTicket.allocation_date || '',
@@ -223,11 +235,11 @@ const TripTicketsInner = () => {
   const handleConfirmUpdate = () => {
     if (tripTicket && pendingData) {
       const updates = { ...pendingData } as Record<string, unknown>;
+      if (pendingData.date_requested === tripTicket.date_requested.slice(0, 10))
+        delete updates.date_requested;
       if (pendingData.participants) {
-        updates.participants = pendingData.participants
-          .split(',')
-          .map((p) => p.trim())
-          .filter((p) => p.length > 0);
+        updates.participants = pendingData.participants;
+        updates.participants_count = pendingData.participants.length;
       }
 
       // The start_ts/end_ts inputs on this form only ever show the ticket's
@@ -239,12 +251,18 @@ const TripTicketsInner = () => {
       // silently become a single five-day hold, re-creating the exact
       // continuous booking this feature exists to remove. Omitting both keys
       // leaves the API's dates untouched (its `sentDates` check is falsy), so
-      // any other field on this form stays safely editable. A ticket with one
-      // date (or the legacy zero-date case) has no such ambiguity — that
-      // window IS the trip, so the legacy behaviour is left exactly as it was.
-      if (tripTicket.dates.length > 1) {
+      // any other field on this form stays safely editable. A single-date
+      // ticket sends the pair only when the user actually changes its schedule,
+      // preserving date identities and exact instants during unrelated edits.
+      const scheduleChanged =
+        pendingData.start_ts !== localDateTime(tripTicket.start_ts) ||
+        pendingData.end_ts !== localDateTime(tripTicket.end_ts);
+      if (tripTicket.dates.length > 1 || !scheduleChanged) {
         delete updates.start_ts;
         delete updates.end_ts;
+      } else {
+        updates.start_ts = new Date(pendingData.start_ts).toISOString();
+        updates.end_ts = new Date(pendingData.end_ts).toISOString();
       }
 
       updateTripTicket.mutate(
@@ -269,7 +287,15 @@ const TripTicketsInner = () => {
     setIsEditing(false);
   };
 
-  if (!tripTicket) return <Loading />;
+  if (recordError || (!recordLoading && !tripTicket))
+    return (
+      <RecordError
+        error={recordError}
+        backTo="/trip-tickets"
+        onRetry={() => void refetch()}
+      />
+    );
+  if (recordLoading || !tripTicket) return <Loading />;
 
   // Ids are database keys: a person gets the name behind the id, or nothing.
   const personName = (userId: string | null | undefined) => {
@@ -355,6 +381,9 @@ const TripTicketsInner = () => {
   // them. Editing that span is meaningless (and, if saved, dangerous — see
   // handleConfirmUpdate), so those two inputs are locked for such a ticket.
   const hasMultipleDates = tripTicket.dates.length > 1;
+  const canEdit =
+    (isAdmin || isOwner) &&
+    status === TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL;
   const canApprove =
     isAdmin && status === TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL;
   const canDisapprove =
@@ -413,8 +442,14 @@ const TripTicketsInner = () => {
         backTo="/trip-tickets"
         backLabel="Trip Tickets"
         actions={
-          canApprove || canDisapprove || canCancel ? (
+          !isEditing &&
+          (canEdit || canApprove || canDisapprove || canCancel) ? (
             <>
+              {canEdit && (
+                <Button variant="outline" onClick={() => setIsEditing(true)}>
+                  Edit
+                </Button>
+              )}
               {canApprove && (
                 <Button
                   onClick={() => setApproveOpen(true)}
@@ -714,11 +749,11 @@ const TripTicketsInner = () => {
                                 const newParticipants = [...participants];
                                 newParticipants[index] = e.target.value;
                                 setParticipants(newParticipants);
-                                // Update form value as comma-separated string
+                                // Preserve each participant name, including commas.
                                 field.onChange(
                                   newParticipants
-                                    .filter((p) => p.trim())
-                                    .join(', ')
+                                    .map((p) => p.trim())
+                                    .filter(Boolean)
                                 );
                               }}
                               placeholder={`Participant ${index + 1} name`}

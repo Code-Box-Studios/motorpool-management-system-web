@@ -1,3 +1,5 @@
+import { useUserRole } from '@/hooks/use-user-role';
+import { USER_ROLES } from '@/lib/enums';
 import { useTools, useToolBorrowStats } from '@/lib/query/tools';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -15,7 +17,6 @@ import { cn } from '@/lib/utils';
 import PageHeader from '@/components/shared/page-header';
 import SortableTableHead from '@/components/shared/sortable-table-head';
 import EntityCard from '@/components/shared/entity-card';
-import EntityImage from '@/components/shared/entity-image';
 import EmptyState from '@/components/shared/empty-state';
 import StatusBadge from '@/components/shared/status-badge';
 import TablePagination from '@/components/shared/table-pagination';
@@ -36,6 +37,8 @@ const COLUMNS = [
 ];
 
 const Tools = () => {
+  const { data: userRole } = useUserRole();
+  const isAdmin = userRole?.roles?.name === USER_ROLES.admin;
   const { page, sort, setPage, handleSort } = useListControls();
   const limit = 10;
   const { data } = useTools(page, limit, sort ?? undefined);
@@ -137,16 +140,7 @@ const Tools = () => {
                   })
                 }
               >
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <EntityImage
-                      src={tool.image}
-                      alt=""
-                      className="border-border size-10 shrink-0 rounded-md border"
-                    />
-                    <span className="font-medium">{tool.name}</span>
-                  </div>
-                </TableCell>
+                <TableCell className="font-medium">{tool.name}</TableCell>
                 <TableCell>
                   <StatusBadge status={tool.status || 'available'} />
                 </TableCell>
@@ -183,9 +177,11 @@ const Tools = () => {
         title="Tools"
         description="Workshop tools, and which ones are currently signed out."
         action={
-          <Link to="/tools/add-tools" className={cn(buttonVariants())}>
-            Add Tool
-          </Link>
+          isAdmin ? (
+            <Link to="/tools/add-tools" className={cn(buttonVariants())}>
+              Add Tool
+            </Link>
+          ) : undefined
         }
       />
 

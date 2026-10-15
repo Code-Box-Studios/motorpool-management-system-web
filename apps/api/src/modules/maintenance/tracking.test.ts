@@ -135,6 +135,84 @@ describe('vehicle maintenance tracking', () => {
     expect(log.completedMileage).toBe(52000);
   });
 
+  it('completing oil at 52000 advances mileage and creates canonical preventive history used by analytics', async () => {
+    const a = await admin();
+    const { vehicle, standard } = await vehicleWithStandard(40000);
+    expect(
+      (
+        await request(app)
+          .post(`/api/vehicles/${vehicle.id}/maintenance-tracking`)
+          .set('Authorization', a.header)
+          .send({ maintenanceStandardId: standard.id })
+      ).status
+    ).toBe(201);
+    const oil = await prisma.vehicleMaintenanceTracking.findFirstOrThrow({
+      where: { vehicleId: vehicle.id, scheduleItem: { taskName: 'Oil' } }
+    });
+    const res = await request(app)
+      .post(`/api/maintenance-tracking/${oil.id}/complete`)
+      .set('Authorization', a.header)
+      .send({ completedMileage: 52000, notes: 'Oil changed' });
+    expect(res.status).toBe(200);
+    expect(
+      await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })
+    ).toMatchObject({ mileage: 52000 });
+    const history = await request(app)
+      .get(`/api/maintenance?vehicleId=${vehicle.id}`)
+      .set('Authorization', a.header);
+    expect(history.status).toBe(200);
+    expect(history.body.count).toBe(1);
+    expect(history.body.data[0]).toMatchObject({
+      vehicleId: vehicle.id,
+      type: 'preventive',
+      mileage: 52000
+    });
+    expect(history.body.data[0].description).toContain('Oil');
+    expect(history.body.data[0].description).toContain('Oil changed');
+    expect(
+      await prisma.maintenanceCompletionLog.count({
+        where: { vehicleMaintenanceTrackingId: oil.id }
+      })
+    ).toBe(1);
+    const analytics = await request(app)
+      .get('/api/analytics/predictive-maintenance')
+      .set('Authorization', a.header);
+    expect(analytics.status).toBe(200);
+    expect(
+      analytics.body.data.find(
+        (r: { vehicleId: string }) => r.vehicleId === vehicle.id
+      )
+    ).toMatchObject({ mileage: 52000, kmSinceLastMaint: 0, maintFreq12m: 1 });
+  });
+
+  it('rejects a completion below current mileage without changing tracking or history', async () => {
+    const a = await admin();
+    const { vehicle, standard } = await vehicleWithStandard(40000);
+    await request(app)
+      .post(`/api/vehicles/${vehicle.id}/maintenance-tracking`)
+      .set('Authorization', a.header)
+      .send({ maintenanceStandardId: standard.id });
+    const oil = await prisma.vehicleMaintenanceTracking.findFirstOrThrow({
+      where: { vehicleId: vehicle.id, scheduleItem: { taskName: 'Oil' } }
+    });
+    const res = await request(app)
+      .post(`/api/maintenance-tracking/${oil.id}/complete`)
+      .set('Authorization', a.header)
+      .send({ completedMileage: 39999 });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('ODOMETER_BACKWARDS');
+    expect(
+      await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })
+    ).toMatchObject({ mileage: 40000 });
+    expect(
+      await prisma.vehicleMaintenanceTracking.findUniqueOrThrow({
+        where: { id: oil.id }
+      })
+    ).toEqual(oil);
+    expect(await prisma.maintenance.count()).toBe(0);
+    expect(await prisma.maintenanceCompletionLog.count()).toBe(0);
+  });
+
   it('403s tracking reads for security_guard and 403s writes for non-admins', async () => {
     const { vehicle, standard } = await vehicleWithStandard();
     const { user: g } = await createTestUser({

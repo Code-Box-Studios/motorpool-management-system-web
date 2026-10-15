@@ -13,7 +13,8 @@ export const Route = createFileRoute('/_authenticated/dashboard')({
       USER_ROLES.admin,
       USER_ROLES.evp_operations,
       USER_ROLES.requester,
-      USER_ROLES.driver
+      USER_ROLES.driver,
+      USER_ROLES.security_guard
     ]
   }
 });

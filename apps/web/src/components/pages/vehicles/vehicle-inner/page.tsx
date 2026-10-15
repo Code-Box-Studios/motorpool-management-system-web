@@ -1,3 +1,4 @@
+import { RecordError } from '@/components/shared/record-error';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +48,12 @@ const formatDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString() : undefined;
 
 const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
-  const { data: vehicle } = useVehicle(vehicleId);
+  const {
+    data: vehicle,
+    isLoading: recordLoading,
+    error: recordError,
+    refetch
+  } = useVehicle(vehicleId);
   const { data: branches, isPending: branchesLoading } = useBranches();
   const { data: userRole } = useUserRole();
   const updateVehicle = useUpdateVehicle();
@@ -130,7 +136,15 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
     });
   };
 
-  if (!vehicle || branchesLoading) return <Loading />;
+  if (recordError || (!recordLoading && !vehicle))
+    return (
+      <RecordError
+        error={recordError}
+        backTo="/vehicles"
+        onRetry={() => void refetch()}
+      />
+    );
+  if (recordLoading || branchesLoading || !vehicle) return <Loading />;
 
   const branchName = branches?.find((b) => b.id === vehicle.branch)?.name;
   const fuelType = vehicle.fuel_type ? titleCase(vehicle.fuel_type) : undefined;

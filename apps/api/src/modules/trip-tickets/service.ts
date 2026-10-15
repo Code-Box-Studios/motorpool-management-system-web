@@ -7,6 +7,7 @@ import type {
 } from '@mms/shared';
 import { LIVE_TRIP_STATUSES, normaliseTripDates } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
+import { lockDrivers, lockVehicles } from '../../lib/resource-locks.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
@@ -93,6 +94,7 @@ export async function getById(id: string, actor: AuthenticatedUser) {
 // driver) could be booked twice over for the same hours — right through to the
 // guard checking BOTH trips out.
 async function assertBookable(
+  tx: Prisma.TransactionClient,
   body: Pick<
     CreateTripTicketBody,
     | 'vehicleId'
@@ -167,7 +169,7 @@ async function assertBookable(
     }
   }
 
-  const vehicle = await prisma.vehicle.findUnique({
+  const vehicle = await tx.vehicle.findUnique({
     where: { id: vehicleId },
     select: { status: true, capacity: true }
   });
@@ -209,7 +211,7 @@ async function assertBookable(
 
   // An inactive driver is off the roster. (`on_trip` is fine — that is a driver's
   // state right NOW, and it says nothing about a trip next week.)
-  const driver = await prisma.driver.findUnique({
+  const driver = await tx.driver.findUnique({
     where: { id: driverId },
     select: { status: true, fullName: true }
   });
@@ -225,7 +227,7 @@ async function assertBookable(
   // Half-open overlap, now per date row: [a.start, a.end) intersects [b.start, b.end).
   // Cancelled rows are free windows and must not block a rebooking.
   for (const d of dates) {
-    const clash = await prisma.tripDate.findFirst({
+    const clash = await tx.tripDate.findFirst({
       where: {
         status: { not: 'cancelled' },
         startTs: { lt: d.endTs },
@@ -266,7 +268,6 @@ export async function create(
     officeHeadId: body.officeHeadId,
     employeeIds: body.guideIds
   });
-  await assertBookable(body);
   // WHO ASKED is the authenticated caller — not a field the client fills in. It
   // used to be spread straight out of the body, so a requester could book a trip
   // in the admin's name, or with `requestedById: null` and no owner at all — and
@@ -292,6 +293,9 @@ export async function create(
   // update() below.
   const { guideIds, ...ticketData } = body;
   const ticket = await prisma.$transaction(async (tx) => {
+    await lockDrivers(tx, [body.driverId]);
+    await lockVehicles(tx, [body.vehicleId]);
+    await assertBookable(tx, body);
     const created = await tx.tripTicket.create({
       // The legacy pair is still written, but only as the seed of the derived
       // span — replaceTripDates recomputes it from the rows immediately after.
@@ -334,111 +338,130 @@ export async function update(
     // never re-validated against an employee archived since.
     employeeIds: body.guideIds
   });
-  const existing = await findTripTicketById(id);
-  if (!existing) throw new AppError(404, 'NOT_FOUND', 'Trip ticket not found');
-  if (actor.role !== 'admin' && existing.requestedById !== actor.id) {
-    throw new AppError(
-      403,
-      'NOT_TICKET_OWNER',
-      'You may only edit your own trip ticket'
-    );
-  }
-  if (existing.status !== 'pending_admin_approval') {
-    throw new AppError(
-      409,
-      'INVALID_TRANSITION',
-      'Trip ticket can only be edited while pending admin approval'
-    );
-  }
-  // An edit can move the trip onto another vehicle, another driver, other hours,
-  // or a bigger party, so it has to clear the same bar a new booking does.
-  //
-  // Fix round 1: this used to feed `body.startTs/endTs ?? existing.startTs/endTs`
-  // into availability. `existing.startTs/endTs` is the ticket's DERIVED SPAN
-  // (plan: display/sort only, never booking) — feeding it in here was two bugs
-  // at once. (1) A PATCH that actually changed `dates` was never checked
-  // against the NEW rows: normaliseTripDates only sees `dates` if it is passed
-  // explicitly, so the old code silently validated the STALE span instead and
-  // let the new (possibly clashing) rows write through unchecked. (2) A PATCH
-  // that changed neither `dates` nor the legacy pair fed the ticket's WHOLE
-  // multi-date span in as one continuous window, so editing e.g. `destination`
-  // on a 14th-and-18th event falsely clashed with a real booking of the gap
-  // day (the 16th) — the exact day this feature exists to keep free.
-  //
-  // The fix: always build the actual proposed rows and pass them as `dates`,
-  // and never pass startTs/endTs at all — normaliseTripDates then never falls
-  // back to the ticket's derived span.
-  //
-  // Fix round 2, item 2 (spec §5): `dates` ABSENT means "not editing dates" —
-  // a legal no-op, handled by the existing-rows fallback below. `dates`
-  // PRESENT but EMPTY is the caller asking for zero dates on the ticket, which
-  // is a validation error exactly like on create — it must not silently fall
-  // through to "keep the old rows" and return 200 having changed nothing.
-  if (body.dates !== undefined && body.dates.length === 0) {
-    throw new AppError(
-      400,
-      'NO_TRIP_DATES',
-      'A trip ticket needs at least one date'
-    );
-  }
-
-  const proposedDates: TripDateInput[] =
-    body.dates && body.dates.length > 0
-      ? body.dates
-      : body.startTs && body.endTs
-        ? [{ startTs: body.startTs, endTs: body.endTs }]
-        : // Caller sent neither: re-validate the ticket's OWN existing rows —
-          // not its derived span — so an unrelated edit re-checks exactly the
-          // windows this ticket already holds. A cancelled row is a free
-          // window and must not be re-validated as occupied.
-          existing.dates
-            .filter((d) => d.status !== 'cancelled')
-            .map((d) => ({ startTs: d.startTs, endTs: d.endTs }));
-
-  await assertBookable(
-    {
-      vehicleId: body.vehicleId ?? existing.vehicleId,
-      driverId: body.driverId ?? existing.driverId,
-      participants: body.participants ?? existing.participants,
-      participantsCount: body.participantsCount ?? existing.participantsCount,
-      // Same fallback shape as the fields above it: a PATCH that adds two
-      // participants without touching the guides must still be sized against
-      // the guides the ticket already has, or an edit could quietly push the
-      // party past the van's capacity.
-      guideIds: body.guideIds ?? existing.guides.map((g) => g.employeeId),
-      dates: proposedDates
-    },
-    id
-  );
-  // An edit cannot hand the ticket to someone else — that is the same
-  // client-controlled attribution hole as on create, via the back door.
-  const { requestedById, guideIds, ...editable } = body;
-  // Fix round 2, item 1 (spec §4.2): startTs/endTs are the ticket's DERIVED
-  // SPAN, same as `dates` above them — never a real column write from the
-  // client. Before this feature they were the truth, so writing them straight
-  // from the body was correct; now `recomputeTicketSpan` (via
-  // `replaceTripDates`, called inside the SAME transaction below) must be the
-  // only writer of these two columns. Leaving them in `editable` let a PATCH
-  // carrying just one half of the pair (the real web client's `mapUpdateBody`
-  // guards startTs/endTs independently, so a form that dirties only one field
-  // sends only one) write a value no TripDate row backs directly onto
-  // `TripTicket.startTs`/`endTs` — a lone `startTs` also validated the OLD
-  // rows in `proposedDates` above (neither half of the legacy-pair branch is
-  // true), so the unvalidated value would have landed silently.
-  const data =
-    actor.role === 'admin' && requestedById
-      ? {
-          ...editable,
-          dates: undefined,
-          startTs: undefined,
-          endTs: undefined,
-          requestedById
-        }
-      : { ...editable, dates: undefined, startTs: undefined, endTs: undefined };
-  // dates on the body is the validated request list, not Prisma's `dates`
-  // relation — see the comment in create() above.
-
   await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM trip_tickets WHERE id = ${id}::uuid FOR UPDATE`;
+    const existing = await tx.tripTicket.findUnique({
+      where: { id },
+      include: tripTicketInclude
+    });
+    if (!existing)
+      throw new AppError(404, 'NOT_FOUND', 'Trip ticket not found');
+    if (actor.role !== 'admin' && existing.requestedById !== actor.id) {
+      throw new AppError(
+        403,
+        'NOT_TICKET_OWNER',
+        'You may only edit your own trip ticket'
+      );
+    }
+    if (existing.status !== 'pending_admin_approval') {
+      throw new AppError(
+        409,
+        'INVALID_TRANSITION',
+        'Trip ticket can only be edited while pending admin approval'
+      );
+    }
+    await lockDrivers(tx, [
+      existing.driverId,
+      body.driverId ?? existing.driverId
+    ]);
+    await lockVehicles(tx, [
+      existing.vehicleId,
+      body.vehicleId ?? existing.vehicleId
+    ]);
+    // An edit can move the trip onto another vehicle, another driver, other hours,
+    // or a bigger party, so it has to clear the same bar a new booking does.
+    //
+    // Fix round 1: this used to feed `body.startTs/endTs ?? existing.startTs/endTs`
+    // into availability. `existing.startTs/endTs` is the ticket's DERIVED SPAN
+    // (plan: display/sort only, never booking) — feeding it in here was two bugs
+    // at once. (1) A PATCH that actually changed `dates` was never checked
+    // against the NEW rows: normaliseTripDates only sees `dates` if it is passed
+    // explicitly, so the old code silently validated the STALE span instead and
+    // let the new (possibly clashing) rows write through unchecked. (2) A PATCH
+    // that changed neither `dates` nor the legacy pair fed the ticket's WHOLE
+    // multi-date span in as one continuous window, so editing e.g. `destination`
+    // on a 14th-and-18th event falsely clashed with a real booking of the gap
+    // day (the 16th) — the exact day this feature exists to keep free.
+    //
+    // The fix: always build the actual proposed rows and pass them as `dates`,
+    // and never pass startTs/endTs at all — normaliseTripDates then never falls
+    // back to the ticket's derived span.
+    //
+    // Fix round 2, item 2 (spec §5): `dates` ABSENT means "not editing dates" —
+    // a legal no-op, handled by the existing-rows fallback below. `dates`
+    // PRESENT but EMPTY is the caller asking for zero dates on the ticket, which
+    // is a validation error exactly like on create — it must not silently fall
+    // through to "keep the old rows" and return 200 having changed nothing.
+    if (body.dates !== undefined && body.dates.length === 0) {
+      throw new AppError(
+        400,
+        'NO_TRIP_DATES',
+        'A trip ticket needs at least one date'
+      );
+    }
+
+    const proposedDates: TripDateInput[] =
+      body.dates && body.dates.length > 0
+        ? body.dates
+        : body.startTs && body.endTs
+          ? [{ startTs: body.startTs, endTs: body.endTs }]
+          : // Caller sent neither: re-validate the ticket's OWN existing rows —
+            // not its derived span — so an unrelated edit re-checks exactly the
+            // windows this ticket already holds. A cancelled row is a free
+            // window and must not be re-validated as occupied.
+            existing.dates
+              .filter((d) => d.status !== 'cancelled')
+              .map((d) => ({ startTs: d.startTs, endTs: d.endTs }));
+
+    await assertBookable(
+      tx,
+      {
+        vehicleId: body.vehicleId ?? existing.vehicleId,
+        driverId: body.driverId ?? existing.driverId,
+        participants: body.participants ?? existing.participants,
+        participantsCount: body.participantsCount ?? existing.participantsCount,
+        // Same fallback shape as the fields above it: a PATCH that adds two
+        // participants without touching the guides must still be sized against
+        // the guides the ticket already has, or an edit could quietly push the
+        // party past the van's capacity.
+        guideIds: body.guideIds ?? existing.guides.map((g) => g.employeeId),
+        dates: proposedDates
+      },
+      id
+    );
+    // An edit cannot hand the ticket to someone else — that is the same
+    // client-controlled attribution hole as on create, via the back door.
+    const { requestedById, guideIds, ...editable } = body;
+    // Fix round 2, item 1 (spec §4.2): startTs/endTs are the ticket's DERIVED
+    // SPAN, same as `dates` above them — never a real column write from the
+    // client. Before this feature they were the truth, so writing them straight
+    // from the body was correct; now `recomputeTicketSpan` (via
+    // `replaceTripDates`, called inside the SAME transaction below) must be the
+    // only writer of these two columns. Leaving them in `editable` let a PATCH
+    // carrying just one half of the pair (the real web client's `mapUpdateBody`
+    // guards startTs/endTs independently, so a form that dirties only one field
+    // sends only one) write a value no TripDate row backs directly onto
+    // `TripTicket.startTs`/`endTs` — a lone `startTs` also validated the OLD
+    // rows in `proposedDates` above (neither half of the legacy-pair branch is
+    // true), so the unvalidated value would have landed silently.
+    const data =
+      actor.role === 'admin' && requestedById
+        ? {
+            ...editable,
+            dates: undefined,
+            startTs: undefined,
+            endTs: undefined,
+            requestedById
+          }
+        : {
+            ...editable,
+            dates: undefined,
+            startTs: undefined,
+            endTs: undefined
+          };
+    // dates on the body is the validated request list, not Prisma's `dates`
+    // relation — see the comment in create() above.
+
     await tx.tripTicket.update({ where: { id }, data });
     // Only touch the date rows when the caller actually sent dates — a `dates`
     // array with rows, or the legacy startTs/endTs pair. A PATCH that edits only

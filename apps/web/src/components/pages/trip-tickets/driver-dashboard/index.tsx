@@ -5,7 +5,7 @@ import { QrCode, X } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useAllVehicles } from '@/lib/query/vehicles';
-import { useTripTickets } from '@/lib/query/trip-tickets';
+import { useAllTripTickets } from '@/lib/query/trip-tickets';
 import { TRIP_TICKET_STATUS } from '@/lib/enums';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -52,18 +52,12 @@ const DriverDashboard = () => {
   const { data: vehicles } = useAllVehicles();
 
   const currentDriver = useMemo(() => {
-    if (!user?.email || !drivers) return null;
-    const email = user.email.trim().toLowerCase();
-    return drivers.find((d) => d.email.trim().toLowerCase() === email) ?? null;
-  }, [user?.email, drivers]);
+    if (!user?.id || !drivers) return null;
+    return drivers.find((d) => d.userId === user.id) ?? null;
+  }, [user?.id, drivers]);
 
-  const { data: tripTicketsData, isLoading: ticketsLoading } = useTripTickets(
-    1,
-    100,
-    undefined,
-    undefined,
-    currentDriver?.id
-  );
+  const { data: tripTicketsData, isLoading: ticketsLoading } =
+    useAllTripTickets(undefined, undefined, currentDriver?.id);
 
   const vehicleOf = (vehicleId: string | null | undefined) =>
     vehicleId ? vehicles?.find((v) => v.id === vehicleId) : undefined;
@@ -82,7 +76,7 @@ const DriverDashboard = () => {
   // cancelled, so without this outer filter their still-`scheduled` rows
   // would keep slipping back in.
   const pairs = useMemo(() => {
-    const openTickets = (tripTicketsData?.data ?? []).filter(
+    const openTickets = (tripTicketsData ?? []).filter(
       (t) =>
         t.status !== TRIP_TICKET_STATUS.COMPLETED &&
         t.status !== TRIP_TICKET_STATUS.CANCELLED &&
@@ -98,7 +92,7 @@ const DriverDashboard = () => {
         new Date(a.date.start_ts).getTime() -
         new Date(b.date.start_ts).getTime()
     );
-  }, [tripTicketsData?.data]);
+  }, [tripTicketsData]);
 
   if (driversLoading || ticketsLoading) {
     return (

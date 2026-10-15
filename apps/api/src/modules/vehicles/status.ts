@@ -1,5 +1,6 @@
 import { Prisma, type VehicleStatus } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
+import { lockVehicles } from '../../lib/resource-locks.js';
 
 export type StatusChangeSource =
   | 'manual_edit'
@@ -38,6 +39,7 @@ export async function claimVehicleStatus(
     message: (current: VehicleStatus) => string;
   }
 ): Promise<{ mileage: number }> {
+  await lockVehicles(client, [vehicleId]);
   const vehicle = await client.vehicle.findUnique({
     where: { id: vehicleId },
     select: { status: true, mileage: true }
@@ -89,6 +91,7 @@ export async function requireVehicleStatus(
   code: string,
   message: (current: VehicleStatus) => string
 ): Promise<{ status: VehicleStatus; mileage: number }> {
+  await lockVehicles(client, [vehicleId]);
   const vehicle = await client.vehicle.findUnique({
     where: { id: vehicleId },
     select: { status: true, mileage: true }
@@ -132,6 +135,7 @@ export async function changeVehicleStatus(
   newStatus: VehicleStatus,
   opts: ChangeStatusOpts
 ): Promise<boolean> {
+  await lockVehicles(client, [vehicleId]);
   const vehicle = await client.vehicle.findUnique({
     where: { id: vehicleId },
     select: { status: true }

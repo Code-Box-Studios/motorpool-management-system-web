@@ -656,3 +656,131 @@ describe('trip-ticket guard transitions', () => {
     expect(outing.id).toBe(date.id);
   });
 });
+
+describe('driver gate claims', () => {
+  beforeEach(truncateAll);
+  afterAll(() => prisma.$disconnect());
+
+  async function pair() {
+    const first = await approvedTicket();
+    const secondVehicle = await prisma.vehicle.create({
+      data: {
+        make: 'T',
+        model: 'H',
+        year: 2021,
+        vin: 'V2',
+        licensePlate: 'P2',
+        capacity: 5,
+        fuelType: 'diesel',
+        mileage: START_KM,
+        branchId: first.ticket.branchId,
+        insuranceExpiry: new Date('2027-01-01'),
+        registrationExpiry: new Date('2027-01-01')
+      }
+    });
+    const second = await prisma.tripTicket.create({
+      data: {
+        branchId: first.ticket.branchId,
+        driverId: first.ticket.driverId,
+        vehicleId: secondVehicle.id,
+        destination: 'B',
+        purpose: 'P',
+        dateRequested: new Date(),
+        preparedBy: '',
+        status: 'approved',
+        dates: {
+          create: { startTs: first.date.startTs, endTs: first.date.endTs }
+        }
+      },
+      include: { dates: true }
+    });
+    const { header } = await guardHeader();
+    const depart = (id: string) =>
+      request(app)
+        .post(`/api/trip-tickets/${id}/check-out`)
+        .set('Authorization', header)
+        .send({ startMileage: START_KM });
+    return { first, second, secondVehicle, header, depart };
+  }
+
+  it('refuses a second departure for a driver already out, then allows it after arrival', async () => {
+    const s = await pair();
+    expect((await s.depart(s.first.ticket.id)).status).toBe(200);
+    const refused = await s.depart(s.second.id);
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe('DRIVER_ON_TRIP');
+    expect(
+      await prisma.tripTicket.findUniqueOrThrow({ where: { id: s.second.id } })
+    ).toMatchObject({ status: 'approved' });
+    expect(
+      await prisma.tripDate.findUniqueOrThrow({
+        where: { id: s.second.dates[0]!.id }
+      })
+    ).toMatchObject({ status: 'scheduled', startMileage: null });
+    expect(
+      await prisma.vehicle.findUniqueOrThrow({
+        where: { id: s.secondVehicle.id }
+      })
+    ).toMatchObject({ status: 'available', mileage: START_KM });
+    expect(
+      await prisma.vehicleStatusAudit.count({
+        where: { vehicleId: s.secondVehicle.id }
+      })
+    ).toBe(0);
+    expect(
+      await prisma.driver.findUniqueOrThrow({
+        where: { id: s.first.ticket.driverId }
+      })
+    ).toMatchObject({ status: 'active' });
+    expect(
+      (
+        await request(app)
+          .post(`/api/trip-tickets/${s.first.ticket.id}/check-in`)
+          .set('Authorization', s.header)
+          .send({ endMileage: START_KM + 50 })
+      ).status
+    ).toBe(200);
+    expect((await s.depart(s.second.id)).status).toBe(200);
+  });
+
+  it('parallel departures on different vehicles allow only one driver claim', async () => {
+    const s = await pair();
+    const results = await Promise.all([
+      s.depart(s.first.ticket.id),
+      s.depart(s.second.id)
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(results.find((r) => r.status === 409)!.body.error.code).toBe(
+      'DRIVER_ON_TRIP'
+    );
+    expect(
+      await prisma.tripDate.count({ where: { status: 'in_progress' } })
+    ).toBe(1);
+    expect(await prisma.vehicle.count({ where: { status: 'on_trip' } })).toBe(
+      1
+    );
+    expect(await prisma.vehicleStatusAudit.count()).toBe(1);
+  });
+
+  it('refuses a driver made inactive after approval without gate writes', async () => {
+    const s = await pair();
+    await prisma.driver.update({
+      where: { id: s.first.ticket.driverId },
+      data: { status: 'inactive' }
+    });
+    const res = await s.depart(s.first.ticket.id);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('DRIVER_INACTIVE');
+    expect(
+      await prisma.tripDate.findUniqueOrThrow({
+        where: { id: s.first.date.id }
+      })
+    ).toMatchObject({ status: 'scheduled', startMileage: null });
+    expect(
+      await prisma.vehicle.findUniqueOrThrow({
+        where: { id: s.first.vehicle.id }
+      })
+    ).toMatchObject({ status: 'available' });
+    expect(await prisma.vehicleStatusAudit.count()).toBe(0);
+  });
+});

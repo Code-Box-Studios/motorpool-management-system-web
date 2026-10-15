@@ -1,5 +1,7 @@
 import type { CompleteTrackingBody } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
+import { lockVehicles } from '../../lib/resource-locks.js';
+import { advanceOdometer } from '../vehicles/status.js';
 import { prisma } from '../../lib/prisma.js';
 import { computeNextDue, deriveTrackingStatus } from './next-due.js';
 import {
@@ -106,6 +108,31 @@ export async function complete(
   );
 
   return prisma.$transaction(async (tx) => {
+    await lockVehicles(tx, [tracking.vehicleId]);
+    const vehicle = await tx.vehicle.findUniqueOrThrow({
+      where: { id: tracking.vehicleId },
+      select: { mileage: true }
+    });
+    await advanceOdometer(
+      tx,
+      tracking.vehicleId,
+      body.completedMileage,
+      vehicle.mileage
+    );
+    // One canonical service entry per task completion, matching the task-level
+    // completion log. This is the history read by preventive analytics.
+    await tx.maintenance.create({
+      data: {
+        vehicleId: tracking.vehicleId,
+        type: 'preventive',
+        date: now,
+        mileage: body.completedMileage,
+        nextDue: nextDueDate,
+        description: body.notes
+          ? `${tracking.scheduleItem.taskName}: ${body.notes}`
+          : tracking.scheduleItem.taskName
+      }
+    });
     await tx.maintenanceCompletionLog.create({
       data: {
         vehicleMaintenanceTrackingId: trackingId,

@@ -28,10 +28,14 @@ export const useTripTickets = (
   });
 };
 
-export const useAllTripTickets = (userId?: string, branchId?: string) => {
+export const useAllTripTickets = (
+  userId?: string,
+  branchId?: string,
+  driverId?: string
+) => {
   return useQuery({
-    queryKey: ['trip_tickets', 'all', userId, branchId],
-    queryFn: () => getAllTripTickets(userId, branchId)
+    queryKey: ['trip_tickets', 'all', userId, branchId, driverId],
+    queryFn: () => getAllTripTickets(userId, branchId, driverId)
   });
 };
 

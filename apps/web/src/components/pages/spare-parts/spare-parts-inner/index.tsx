@@ -1,3 +1,4 @@
+import { RecordError } from '@/components/shared/record-error';
 import { useEffect, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { useNavigate } from '@tanstack/react-router';
@@ -49,7 +50,12 @@ const formatDateTime = (value?: string | null) => {
 };
 
 const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
-  const { data: sparePart } = useSparePart(sparePartId);
+  const {
+    data: sparePart,
+    isLoading: recordLoading,
+    error: recordError,
+    refetch
+  } = useSparePart(sparePartId);
   const { data: userRole } = useUserRole();
   const updateSparePart = useUpdateSparePart();
   const deleteSparePart = useDeleteSparePart();
@@ -124,7 +130,15 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
     setRemoveImage(false);
   };
 
-  if (!sparePart) return <Loading />;
+  if (recordError || (!recordLoading && !sparePart))
+    return (
+      <RecordError
+        error={recordError}
+        backTo="/spare-parts"
+        onRetry={() => void refetch()}
+      />
+    );
+  if (recordLoading || !sparePart) return <Loading />;
 
   const quantity = sparePart.quantity ?? 0;
 

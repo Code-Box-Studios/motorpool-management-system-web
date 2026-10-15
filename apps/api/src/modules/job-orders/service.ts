@@ -5,6 +5,7 @@ import type {
   UpdateJobOrderBody
 } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
+import { lockVehicles } from '../../lib/resource-locks.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
@@ -151,10 +152,25 @@ export async function remove(id: string): Promise<void> {
   }
 
   await prisma.$transaction(async (tx) => {
+    // Match note/completion's vehicle-first order. Re-read after waiting so a
+    // completion cannot be erased and newly issued parts are restored once.
+    await lockVehicles(tx, [existing.vehicleId]);
+    const order = await tx.jobOrder.findUnique({
+      where: { id },
+      include: { spareParts: true }
+    });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'Job order not found');
+    if (order.status === 'repaired') {
+      throw new AppError(
+        409,
+        'INVALID_TRANSITION',
+        'Cannot delete a job order that has been repaired'
+      );
+    }
     // Parts are issued at `note`. Abandoning the job puts them back on the shelf
     // — without this, reserving them at note would simply lose them: the join
     // rows cascade away on delete and the stock never returns.
-    for (const line of existing.spareParts) {
+    for (const line of order.spareParts) {
       await tx.sparePart.update({
         where: { id: line.sparePartId },
         data: { quantity: { increment: line.quantity } }
@@ -168,12 +184,12 @@ export async function remove(id: string): Promise<void> {
     // it by hand. Let it out, unless another live repair is still holding it.
     const heldByAnother = await tx.jobOrder.count({
       where: {
-        vehicleId: existing.vehicleId,
+        vehicleId: order.vehicleId,
         status: { in: ['assigned_mechanic', 'ongoing_repair'] }
       }
     });
     if (heldByAnother === 0) {
-      await changeVehicleStatus(tx, existing.vehicleId, 'available', {
+      await changeVehicleStatus(tx, order.vehicleId, 'available', {
         changedBy: null,
         source: 'job_order_note',
         reason: 'job order deleted',
