@@ -1,3 +1,7 @@
+import { useScopedListSearch } from '@/hooks/use-scoped-list-search';
+import { matchesSearch } from '@mms/shared';
+import ListSearchInput from '@/components/shared/list-search-input';
+import ListToolbar from '@/components/shared/list-toolbar';
 import {
   Card,
   CardContent,
@@ -45,6 +49,8 @@ const PreventiveMaintenance = ({
     'preventivePriority'
   ]);
   const { data: predictions, isLoading } = usePredictiveMaintenanceData();
+  const { search, setSearch } = useScopedListSearch('preventiveSearch');
+  const clearSearch = () => setSearch('');
 
   const handleViewAll = () => {
     navigate({
@@ -93,12 +99,18 @@ const PreventiveMaintenance = ({
     ? highPriorityByOldest.slice(0, 2)
     : vehiclesDueForMaintenance.filter(
         (vehicle) =>
-          !filters.preventivePriority ||
-          vehicle.priority === filters.preventivePriority
+          (!filters.preventivePriority ||
+            vehicle.priority === filters.preventivePriority) &&
+          matchesSearch(search, [
+            vehicle.vehicleName,
+            vehicle.plateNumber,
+            vehicle.reason,
+            PRIORITY[vehicle.priority].priorityLabel
+          ])
       );
 
   return (
-    <Card className="h-full">
+    <Card className="h-full" role="region" aria-label="Preventive vehicles">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <CardTitle className="min-w-[min(100%,16rem)] flex-1">
@@ -145,28 +157,39 @@ const PreventiveMaintenance = ({
               <Button onClick={handleViewAll}>View All</Button>
             </CardDescription>
           )}
-          {!showViewAll && (
-            <TableFilters
-              filters={[
-                {
-                  key: 'preventivePriority',
-                  label: 'Priority',
-                  options: (
-                    ['high', 'medium', 'low'] as MaintenancePriority[]
-                  ).map((priority) => ({
-                    value: priority,
-                    label: PRIORITY[priority].priorityLabel
-                  }))
-                }
-              ]}
-              values={filters}
-              onChange={setFilter}
-              onClear={clearFilters}
-            />
-          )}
         </div>
       </CardHeader>
       <CardContent>
+        {!showViewAll && (
+          <ListToolbar
+            searchControl={
+              <ListSearchInput
+                value={search}
+                onChange={setSearch}
+                label="Search preventive vehicles"
+              />
+            }
+            filterControl={
+              <TableFilters
+                filters={[
+                  {
+                    key: 'preventivePriority',
+                    label: 'Priority',
+                    options: (
+                      ['high', 'medium', 'low'] as MaintenancePriority[]
+                    ).map((priority) => ({
+                      value: priority,
+                      label: PRIORITY[priority].priorityLabel
+                    }))
+                  }
+                ]}
+                values={filters}
+                onChange={setFilter}
+                onClear={clearFilters}
+              />
+            }
+          />
+        )}
         {isLoading ? (
           <div className={showViewAll ? 'grid grid-cols-1 gap-4' : CARD_GRID}>
             {Array.from({ length: showViewAll ? 2 : 3 }).map((_, i) => (
@@ -176,6 +199,8 @@ const PreventiveMaintenance = ({
         ) : displayedVehicles.length === 0 ? (
           <EmptyState
             message="No vehicles currently due for preventive maintenance."
+            search={!showViewAll ? search : undefined}
+            onClearSearch={clearSearch}
             hasFilters={!showViewAll && hasFilters}
             onClearFilters={clearFilters}
           />

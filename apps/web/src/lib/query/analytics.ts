@@ -1,5 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import type { SparePartsModelAlgorithm } from '@mms/shared';
+import type {
+  SparePartsModelAlgorithm,
+  PredictiveMaintenanceAlgorithm
+} from '@mms/shared';
 import {
   getDashboardMetrics,
   getPredictiveMaintenanceData,
@@ -13,11 +16,16 @@ import {
 const DASHBOARD_QUERY_KEY = ['analytics', 'dashboard'];
 
 // Fetch predictive-maintenance risk assessments for every vehicle.
-export const usePredictiveMaintenanceData = () => {
+export const usePredictiveMaintenanceData = (
+  algorithm: PredictiveMaintenanceAlgorithm = 'random_forest',
+  refreshOnChange = false
+) => {
   return useQuery({
-    queryKey: ['analytics', 'predictive-maintenance'],
-    queryFn: getPredictiveMaintenanceData,
-    staleTime: 5 * 60 * 1000
+    queryKey: ['analytics', 'predictive-maintenance', algorithm],
+    queryFn: () => getPredictiveMaintenanceData(algorithm),
+    staleTime: refreshOnChange ? 0 : 5 * 60 * 1000,
+    refetchOnWindowFocus: !refreshOnChange,
+    retry: refreshOnChange ? false : 3
   });
 };
 
@@ -30,13 +38,17 @@ export const useSparePartsAssociations = () => {
   });
 };
 
-export const useSparePartsModel = (algorithm: SparePartsModelAlgorithm) => {
+export const useSparePartsModel = (
+  algorithm: SparePartsModelAlgorithm,
+  enabled = true
+) => {
   return useQuery({
     queryKey: ['analytics', 'spare-parts-model', algorithm],
     queryFn: () => getSparePartsModel(algorithm),
     staleTime: 0,
     retry: false,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    enabled
   });
 };
 

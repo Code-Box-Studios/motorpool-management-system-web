@@ -10,13 +10,20 @@ without re-reading `lib/ml/random-forest.ts` and `lib/ml/risk.ts` — it has a
 separately-tracked, out-of-scope issue (784 of 3830 `KM_SINCE_LAST_MAINT`
 thresholds are negative and unreachable behind `Math.max(0, …)`).
 
+The endpoint accepts `algorithm=random_forest` (default) or `usage_rules`.
+The latter explicitly selects the existing mileage/usage/service-frequency
+estimate. Each row identifies its actual `scoringMethod`; rule-based results
+retain `usedFallback=true` for existing clients and are labelled as estimates
+in the model controls. Association algorithms are rejected by this endpoint.
+
 ## `client_dt_model.json`
 
 The client's own model, sent as `motorpool_dt_model.pkl`
 (sklearn 1.6.1 `DecisionTreeClassifier`). It was decoded offline in an
-isolated container and converted to this repo's own `RFModel` JSON shape —
-**no code in this repo ever unpickles anything, and the original `.pkl` is
-NOT committed here.**
+isolated container and converted to this repo's own `RFModel` JSON shape.
+The original decision-tree `.pkl` is not committed here, and runtime inference
+loads JSON only. Offline tools may decode the separately supplied association
+bundles as described below.
 
 - Declared six training features: `KM_SINCE_LAST_MAINT`, `AVG_DAILY_KM`,
   `MAINT_FREQ_12M`, `V_AGE`, `downtime_hours`, `last_failure_days_ago`.
@@ -38,15 +45,23 @@ NOT committed here.**
 Full story: `.superpowers/sdd/2026-08-28-approval-history-and-tool-borrow-tracking/client-dt-brief.md`
 and `client-dt-report.md`.
 
+## Spare-parts association models
+
+`association_fpgrowth_model.json` and `association_eclat_model.json` preserve
+the four directional rules from the supplied `mms_fpgrowth_model.pkl` and
+`mms_eclat_model.pkl`. Both bundles use 21 training transactions and contain
+the same rules, although their files and SHA-256 hashes differ. The original
+files and restricted offline exporter live in `tools/ml`.
+
+These models drive related-parts recommendations only; their confidence,
+support, and lift are not vehicle failure-risk scores. The existing live
+Apriori endpoint remains available separately. See `tools/ml/README.md`
+for regeneration and provenance checks.
+
 ## Not here
 
-Three other `.pkl` files the client sent are archived outside this repo, not
-converted, and not wired in anywhere:
+The remaining `.pkl` file is archived outside this repo and not wired in:
 
 - `motorpool_logreg_model.pkl` — shipped with no `StandardScaler` and an empty
   `feature_names_in_` (`n_features_in_` is 6), so the column order needed to
   use it is unrecorded. Unusable until the client supplies both.
-- `mms_eclat_model.pkl` / `mms_fpgrowth_model.pkl` — byte-identical to each
-  other, mined from 21 transactions over 4 distinct parts, resting on 2
-  co-occurrences. Statistically worthless next to `lib/ml/apriori.ts`, which
-  computes the same kind of rule live from the real database.

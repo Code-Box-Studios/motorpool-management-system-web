@@ -1,3 +1,6 @@
+import { useScopedListSearch } from '@/hooks/use-scoped-list-search';
+import { useState } from 'react';
+import { matchesSearch } from '@mms/shared';
 import {
   Card,
   CardContent,
@@ -25,7 +28,17 @@ import {
   TooltipTrigger
 } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
-import { usePredictiveMaintenanceData } from '@/lib/query/analytics';
+import {
+  usePredictiveMaintenanceData,
+  useSparePartsModel
+} from '@/lib/query/analytics';
+import MaintenanceModelControls from './maintenance-model-controls';
+import {
+  DEFAULT_MAINTENANCE_MODELS,
+  RISK_MODEL_NAMES
+} from '@/lib/maintenance-models';
+import ListSearchInput from '@/components/shared/list-search-input';
+import ListToolbar from '@/components/shared/list-toolbar';
 import SparePartsModels from './spare-parts-models';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -44,8 +57,31 @@ const PredictiveMaintenance = ({
   const { filters, setFilter, clearFilters, hasFilters } = useListControls([
     'predictiveRisk'
   ]);
-  const { data: predictions, isLoading: predictionsLoading } =
-    usePredictiveMaintenanceData();
+  const [selectedModels, setSelectedModels] = useState(
+    DEFAULT_MAINTENANCE_MODELS
+  );
+  const [appliedModels, setAppliedModels] = useState(
+    DEFAULT_MAINTENANCE_MODELS
+  );
+  const predictionsQuery = usePredictiveMaintenanceData(
+    appliedModels.risk,
+    !showViewAll
+  );
+  const partsQuery = useSparePartsModel(appliedModels.parts, !showViewAll);
+  const predictions = predictionsQuery.data;
+  const predictionsLoading = showViewAll
+    ? predictionsQuery.isLoading
+    : predictionsQuery.isFetching;
+  const busy = predictionsQuery.isFetching || partsQuery.isFetching;
+  const { search, setSearch } = useScopedListSearch('predictiveSearch');
+  const clearSearch = () => setSearch('');
+
+  function runModels() {
+    if (selectedModels.risk === appliedModels.risk)
+      void predictionsQuery.refetch();
+    if (selectedModels.parts === appliedModels.parts) void partsQuery.refetch();
+    setAppliedModels(selectedModels);
+  }
 
   const handleViewAll = () => {
     navigate({
@@ -84,12 +120,33 @@ const PredictiveMaintenance = ({
     ? highPriorityByOldest.slice(0, 2)
     : predictedVehicles.filter(
         (vehicle) =>
-          !filters.predictiveRisk || vehicle.priority === filters.predictiveRisk
+          (!filters.predictiveRisk ||
+            vehicle.priority === filters.predictiveRisk) &&
+          matchesSearch(search, [
+            vehicle.vehicleName,
+            vehicle.plateNumber,
+            vehicle.reason,
+            PRIORITY[vehicle.priority].riskLabel
+          ])
       );
 
   return (
     <div className="space-y-6">
-      <Card className="h-full">
+      {!showViewAll && (
+        <MaintenanceModelControls
+          selected={selectedModels}
+          applied={appliedModels}
+          onChange={setSelectedModels}
+          onRun={runModels}
+          busy={busy}
+        />
+      )}
+      <Card
+        className="h-full"
+        role="region"
+        aria-label="Predictive vehicles"
+        aria-busy={predictionsLoading}
+      >
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <CardTitle className="min-w-[min(100%,16rem)] flex-1">
@@ -107,16 +164,20 @@ const PredictiveMaintenance = ({
                         </p>
                         <p className="text-xs">
                           {usedFallback
-                            ? 'Scores are a rule-based estimate (mileage, usage rate, and service frequency) because the risk model is not loaded — not a trained model.'
+                            ? 'Usage-based estimate from mileage, daily usage, and service frequency.'
                             : 'Uses historical data and usage patterns to predict when vehicle components are likely to fail, allowing proactive maintenance scheduling.'}
                         </p>
                       </div>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                {usedFallback && (
+                {(!showViewAll || usedFallback) && (
                   <Badge variant="outline" className="font-normal">
-                    Rule-based estimate
+                    {usedFallback
+                      ? appliedModels.risk === 'usage_rules'
+                        ? 'Usage-based estimate'
+                        : 'Rule-based estimate'
+                      : RISK_MODEL_NAMES[appliedModels.risk]}
                   </Badge>
                 )}
               </div>
@@ -132,37 +193,63 @@ const PredictiveMaintenance = ({
                 <Button onClick={handleViewAll}>View All</Button>
               </CardDescription>
             )}
-            {!showViewAll && (
-              <TableFilters
-                filters={[
-                  {
-                    key: 'predictiveRisk',
-                    label: 'Risk',
-                    options: (
-                      ['high', 'medium', 'low'] as MaintenancePriority[]
-                    ).map((priority) => ({
-                      value: priority,
-                      label: PRIORITY[priority].riskLabel
-                    }))
-                  }
-                ]}
-                values={filters}
-                onChange={setFilter}
-                onClear={clearFilters}
-              />
-            )}
           </div>
         </CardHeader>
         <CardContent>
+          {!showViewAll && (
+            <ListToolbar
+              searchControl={
+                <ListSearchInput
+                  value={search}
+                  onChange={setSearch}
+                  label="Search predictive vehicles"
+                />
+              }
+              filterControl={
+                <TableFilters
+                  filters={[
+                    {
+                      key: 'predictiveRisk',
+                      label: 'Risk',
+                      options: (
+                        ['high', 'medium', 'low'] as MaintenancePriority[]
+                      ).map((priority) => ({
+                        value: priority,
+                        label: PRIORITY[priority].riskLabel
+                      }))
+                    }
+                  ]}
+                  values={filters}
+                  onChange={setFilter}
+                  onClear={clearFilters}
+                />
+              }
+            />
+          )}
           {predictionsLoading ? (
             <div className={showViewAll ? 'grid grid-cols-1 gap-4' : CARD_GRID}>
               {Array.from({ length: showViewAll ? 2 : 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-64 w-full rounded-xl" />
               ))}
             </div>
+          ) : predictionsQuery.isError ? (
+            <div role="alert" className="space-y-3 text-sm">
+              <p>
+                Could not load vehicle risk results. Try running the model
+                again.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => void predictionsQuery.refetch()}
+              >
+                Retry vehicle results
+              </Button>
+            </div>
           ) : displayedVehicles.length === 0 ? (
             <EmptyState
               message="No vehicles currently at risk. All vehicles are well-maintained."
+              search={!showViewAll ? search : undefined}
+              onClearSearch={clearSearch}
               hasFilters={!showViewAll && hasFilters}
               onClearFilters={clearFilters}
             />
@@ -187,7 +274,14 @@ const PredictiveMaintenance = ({
         </CardContent>
       </Card>
 
-      {!showViewAll && <SparePartsModels />}
+      {!showViewAll && (
+        <SparePartsModels
+          algorithm={appliedModels.parts}
+          result={partsQuery.data}
+          isFetching={partsQuery.isFetching}
+          isError={partsQuery.isError}
+        />
+      )}
     </div>
   );
 };

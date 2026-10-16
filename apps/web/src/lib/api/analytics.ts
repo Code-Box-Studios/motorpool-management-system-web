@@ -3,6 +3,7 @@ import { api } from './client.js';
 import type {
   AssociationRule,
   DashboardMetrics,
+  PredictiveMaintenanceAlgorithm,
   RiskAssessment,
   SparePartsModelAlgorithm,
   SparePartsModelResult
@@ -19,11 +20,12 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
 // Fetch predictive-maintenance risk assessments (server-sorted riskScore
 // desc), reshaped into the FE's richer VehicleRiskAssessment display shape.
-export async function getPredictiveMaintenanceData(): Promise<
-  VehicleRiskAssessment[]
-> {
+export async function getPredictiveMaintenanceData(
+  algorithm: PredictiveMaintenanceAlgorithm = 'random_forest'
+): Promise<VehicleRiskAssessment[]> {
   const res = await api.get<{ data: RiskAssessment[]; count: number }>(
-    '/analytics/predictive-maintenance'
+    '/analytics/predictive-maintenance',
+    algorithm === 'random_forest' ? undefined : { algorithm }
   );
   return res.data.map(buildAssessmentFromApi);
 }

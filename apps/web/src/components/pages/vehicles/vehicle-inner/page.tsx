@@ -3,13 +3,12 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
-import EntityImage from '@/components/shared/entity-image';
 import { Controller } from 'react-hook-form';
 import { useVehicleUpdateForm, type UpdateVehicleFormData } from './actions';
 import type { UpdateVehicle } from '@/lib/types';
 import { useVehicle } from '@/lib/query/vehicles';
 import { useUpdateVehicle, useDeleteVehicle } from '@/lib/mutation/vehicles';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useBranches } from '@/lib/query/shared';
 import {
   Select,
@@ -19,11 +18,10 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { VEHICLE_STATUS, FUEL_TYPE, USER_ROLES } from '@/lib/enums';
-import { TrashIcon } from 'lucide-react';
+import { CarFront, ChevronLeft, ShieldCheck } from 'lucide-react';
 import { Loading } from '@/components/ui/loader';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import {
-  RecordHeader,
   DetailSection,
   DetailGrid,
   DetailItem
@@ -38,6 +36,7 @@ import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
 import { useUserRole } from '@/hooks/use-user-role';
 import { VehicleMaintenanceInsights } from './vehicle-maintenance-insights';
 import { VehicleTrackerSummary } from './vehicle-tracker-summary';
+import { VehicleOverview } from './vehicle-overview';
 
 const titleCase = (value: string) =>
   value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -156,58 +155,27 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      <RecordHeader
-        reference={vehicle.license_plate}
+    <div className="flex min-w-0 flex-col gap-5">
+      <Link
+        to="/vehicles"
+        className="text-muted-foreground hover:text-foreground inline-flex w-fit items-center gap-1 text-sm transition-colors"
+      >
+        <ChevronLeft className="size-4" aria-hidden="true" />
+        Vehicles
+      </Link>
+      <VehicleOverview
+        vehicle={vehicle}
         title={title}
-        status={vehicle.status}
-        meta={branchName}
-        backTo="/vehicles"
-        backLabel="Vehicles"
-        actions={
-          <Button
-            onClick={() => {
-              setIsEditing(!isEditing);
-              if (isEditing) {
-                setRemovedImages([]);
-              }
-            }}
-          >
-            {isEditing ? 'Cancel' : 'Edit'}
-          </Button>
-        }
+        branchName={branchName}
+        fuelType={fuelType}
+        images={images}
+        isEditing={isEditing}
+        onEdit={() => {
+          setIsEditing(!isEditing);
+          if (isEditing) setRemovedImages([]);
+        }}
+        onRemovePhoto={(url) => setRemovedImages((prev) => [...prev, url])}
       />
-
-      <div className="grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {images.length > 0 ? (
-          images.map((url, index) => (
-            <div key={url} className="relative">
-              <EntityImage
-                src={url}
-                alt={`${title} photo ${index + 1}`}
-                className="border-border aspect-video w-full rounded-lg border"
-              />
-              {isEditing && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon-sm"
-                  aria-label={`Remove photo ${index + 1}`}
-                  className="absolute top-2 right-2"
-                  onClick={() => setRemovedImages((prev) => [...prev, url])}
-                >
-                  <TrashIcon className="size-4" />
-                </Button>
-              )}
-            </div>
-          ))
-        ) : (
-          <EntityImage
-            alt=""
-            className="border-border aspect-video w-full rounded-lg border"
-          />
-        )}
-      </div>
 
       {isEditing ? (
         <form id="edit-vehicle-form" onSubmit={form.handleSubmit(onSubmit)}>
@@ -535,30 +503,61 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
           </FormLayout>
         </form>
       ) : (
-        <DetailSection title="Specification">
-          <DetailGrid>
-            <DetailItem label="Make" value={vehicle.make} />
-            <DetailItem label="Model" value={vehicle.model} />
-            <DetailItem label="Year" value={vehicle.year} />
-            <DetailItem label="Plate" value={vehicle.license_plate} mono />
-            <DetailItem label="VIN" value={vehicle.vin} mono />
-            <DetailItem label="Branch" value={branchName} />
-            <DetailItem label="Fuel Type" value={fuelType} />
-            <DetailItem
-              label="Mileage"
-              value={`${vehicle.mileage.toLocaleString()} km`}
-            />
-            <DetailItem label="Seats" value={vehicle.capacity} />
-            <DetailItem
-              label="Insurance Expiry"
-              value={formatDate(vehicle.insurance_expiry)}
-            />
-            <DetailItem
-              label="Registration Expiry"
-              value={formatDate(vehicle.registration_expiry)}
-            />
-          </DetailGrid>
-        </DetailSection>
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          <section
+            aria-labelledby="vehicle-details-title"
+            className="bg-card border-border min-w-0 rounded-[20px] border p-5 sm:p-6"
+          >
+            <h2
+              id="vehicle-details-title"
+              className="mb-5 flex items-center gap-2 font-semibold tracking-tight"
+            >
+              <CarFront
+                className="text-muted-foreground size-4"
+                aria-hidden="true"
+              />
+              Vehicle details
+            </h2>
+            <DetailGrid className="grid-cols-2 gap-x-5 sm:grid-cols-3">
+              <DetailItem label="Make" value={vehicle.make} />
+              <DetailItem label="Model" value={vehicle.model} />
+              <DetailItem label="Year" value={vehicle.year} />
+              <DetailItem label="Plate" value={vehicle.license_plate} mono />
+              <DetailItem label="Branch" value={branchName} />
+              <DetailItem
+                label="VIN"
+                value={vehicle.vin}
+                mono
+                className="col-span-2 sm:col-span-1"
+              />
+            </DetailGrid>
+          </section>
+          <section
+            aria-labelledby="vehicle-documents-title"
+            className="bg-card border-border min-w-0 rounded-[20px] border p-5 sm:p-6"
+          >
+            <h2
+              id="vehicle-documents-title"
+              className="mb-5 flex items-center gap-2 font-semibold tracking-tight"
+            >
+              <ShieldCheck
+                className="text-muted-foreground size-4"
+                aria-hidden="true"
+              />
+              Documents
+            </h2>
+            <DetailGrid className="grid-cols-2 gap-x-5 lg:grid-cols-2">
+              <DetailItem
+                label="Insurance Expiry"
+                value={formatDate(vehicle.insurance_expiry)}
+              />
+              <DetailItem
+                label="Registration Expiry"
+                value={formatDate(vehicle.registration_expiry)}
+              />
+            </DetailGrid>
+          </section>
+        </div>
       )}
 
       <ConfirmationModal

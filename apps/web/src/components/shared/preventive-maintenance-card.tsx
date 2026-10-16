@@ -13,6 +13,7 @@ import {
   Activity,
   AlertTriangle,
   Calendar,
+  ChevronRight,
   Gauge,
   TrendingUp,
   type LucideIcon
@@ -103,9 +104,10 @@ const VehicleIdentity = ({
         to="/vehicles/$vehicleId"
         params={{ vehicleId: id }}
         title={vehicleName}
-        className="block truncate text-base font-semibold hover:underline"
+        className="text-primary decoration-primary/40 focus-visible:ring-ring/50 flex max-w-full items-center gap-1 rounded-sm text-base font-semibold underline underline-offset-4 transition-colors hover:decoration-current focus-visible:ring-2 focus-visible:outline-none"
       >
-        {vehicleName}
+        <span className="truncate">{vehicleName}</span>
+        <ChevronRight aria-hidden="true" className="size-4 shrink-0" />
       </Link>
       <p className="text-muted-foreground font-mono text-xs whitespace-nowrap">
         {plateNumber}

@@ -10,6 +10,17 @@ export const dashboardMetricsSchema = z.object({
 });
 export type DashboardMetrics = z.infer<typeof dashboardMetricsSchema>;
 
+export const predictiveMaintenanceAlgorithmSchema = z.enum([
+  'random_forest',
+  'usage_rules'
+]);
+export type PredictiveMaintenanceAlgorithm = z.infer<
+  typeof predictiveMaintenanceAlgorithmSchema
+>;
+export const predictiveMaintenanceQuerySchema = z.object({
+  algorithm: predictiveMaintenanceAlgorithmSchema.default('random_forest')
+});
+
 export const riskAssessmentSchema = z.object({
   vehicleId: z.string().uuid(),
   make: z.string(),
@@ -22,6 +33,7 @@ export const riskAssessmentSchema = z.object({
   riskScore: z.number(), // 0-100
   priority: z.enum(['high', 'medium', 'low']),
   usedFallback: z.boolean(),
+  scoringMethod: predictiveMaintenanceAlgorithmSchema.optional(),
   // The client's own decision-tree model, run ALONGSIDE the incumbent RF
   // above as an informational cross-check only — it never changes riskScore,
   // priority, or usedFallback. null when the client model failed to load or

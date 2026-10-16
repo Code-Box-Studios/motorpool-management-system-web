@@ -13,7 +13,7 @@ test('runs the selected saved model and keeps draft choices separate from result
   });
   await page.goto('/maintenance?tab=predictive');
   const controls = page.getByRole('region', {
-    name: 'Spare parts model selection',
+    name: 'Maintenance model selection',
     exact: true
   });
   const results = page.getByRole('region', {
@@ -28,11 +28,13 @@ test('runs the selected saved model and keeps draft choices separate from result
   ).toBeVisible();
   await expect(results.getByRole('row')).toHaveCount(5);
   await controls
-    .getByRole('combobox', { name: 'Algorithm', exact: true })
+    .getByRole('combobox', { name: 'Parts algorithm', exact: true })
     .click();
   await page.getByRole('option', { name: 'Eclat', exact: true }).click();
   await expect(
-    controls.getByText('Run the model to apply Eclat.', { exact: true })
+    controls.getByText('Run the model to apply your selections.', {
+      exact: true
+    })
   ).toBeVisible();
   expect(requests.some((url) => url.includes('algorithm=eclat'))).toBe(false);
   await expect(
@@ -69,7 +71,7 @@ test('runs the selected saved model and keeps draft choices separate from result
     .click();
   await expect(results.getByRole('row')).toHaveCount(5);
   await controls
-    .getByRole('combobox', { name: 'Algorithm', exact: true })
+    .getByRole('combobox', { name: 'Parts algorithm', exact: true })
     .click();
   await page
     .getByRole('option', { name: 'FP-Growth (Default)', exact: true })
@@ -108,7 +110,7 @@ test('reports the selected model failure and can retry without showing stale res
   );
   await page.goto('/maintenance?tab=predictive');
   const controls = page.getByRole('region', {
-    name: 'Spare parts model selection',
+    name: 'Maintenance model selection',
     exact: true
   });
   const results = page.getByRole('region', {
@@ -119,7 +121,7 @@ test('reports the selected model failure and can retry without showing stale res
     results.getByText('FP-Growth results', { exact: true })
   ).toBeVisible();
   await controls
-    .getByRole('combobox', { name: 'Algorithm', exact: true })
+    .getByRole('combobox', { name: 'Parts algorithm', exact: true })
     .click();
   await page.getByRole('option', { name: 'Eclat', exact: true }).click();
   await controls
@@ -147,7 +149,7 @@ for (const width of [1280, 390]) {
     await login(page, 'admin');
     await page.goto('/maintenance?tab=predictive');
     const controls = page.getByRole('region', {
-      name: 'Spare parts model selection',
+      name: 'Maintenance model selection',
       exact: true
     });
     await expect(

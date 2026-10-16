@@ -2,6 +2,7 @@ import type {
   AssociationRule,
   AssociationRulesQuery,
   DashboardMetrics,
+  PredictiveMaintenanceAlgorithm,
   RiskAssessment,
   SparePartsModelAlgorithm
 } from '@mms/shared';
@@ -41,9 +42,10 @@ export async function dashboard(): Promise<DashboardMetrics> {
 }
 
 export async function predictiveMaintenance(
-  now: Date
+  now: Date,
+  algorithm: PredictiveMaintenanceAlgorithm = 'random_forest'
 ): Promise<{ data: RiskAssessment[]; count: number }> {
-  const model = loadModel();
+  const model = algorithm === 'usage_rules' ? null : loadModel();
   // On the current seeded database, zero vehicle_status_audit rows exist, so
   // downtimeHoursByVehicle returns an empty map and every vehicle falls back
   // to `?? 0` below — crossCheckScore will be the SAME constant for every
@@ -82,6 +84,9 @@ export async function predictiveMaintenance(
       riskScore: risk.riskScore,
       priority: risk.priority,
       usedFallback: risk.usedFallback,
+      scoringMethod: risk.usedFallback
+        ? ('usage_rules' as const)
+        : ('random_forest' as const),
       crossCheckScore,
       crossCheckModel: CLIENT_CROSS_CHECK_MODEL
     };

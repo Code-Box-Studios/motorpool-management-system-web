@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import {
   associationRulesQuerySchema,
+  predictiveMaintenanceQuerySchema,
   sparePartsModelQuerySchema
 } from '@mms/shared';
 import * as service from './service.js';
@@ -10,10 +11,11 @@ export async function dashboard(_req: Request, res: Response): Promise<void> {
 }
 
 export async function predictiveMaintenance(
-  _req: Request,
+  req: Request,
   res: Response
 ): Promise<void> {
-  res.json(await service.predictiveMaintenance(new Date()));
+  const { algorithm } = predictiveMaintenanceQuerySchema.parse(req.query);
+  res.json(await service.predictiveMaintenance(new Date(), algorithm));
 }
 
 export async function associationRules(

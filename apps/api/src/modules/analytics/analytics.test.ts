@@ -258,6 +258,40 @@ describe('analytics module', () => {
     expect([rule.partA, rule.partB].sort()).toEqual(['Brake Pad', 'Rotor']);
   });
 
+  it('uses the selected vehicle risk method while keeping association models out of vehicle scoring', async () => {
+    const header = await adminHeader();
+    const v = await vehicle('available', 0);
+    const estimate = await request(app)
+      .get('/api/analytics/predictive-maintenance?algorithm=usage_rules')
+      .set('Authorization', header);
+    expect(estimate.status).toBe(200);
+    expect(estimate.body.data[0]).toMatchObject({
+      vehicleId: v.id,
+      riskScore: 25,
+      priority: 'low',
+      usedFallback: true,
+      scoringMethod: 'usage_rules'
+    });
+    const forest = await request(app)
+      .get('/api/analytics/predictive-maintenance?algorithm=random_forest')
+      .set('Authorization', header);
+    expect(forest.status).toBe(200);
+    expect(forest.body.data[0].scoringMethod).toBe('random_forest');
+    expect(forest.body.data[0].usedFallback).toBe(false);
+    expect(forest.body.data[0].riskScore).not.toBe(
+      estimate.body.data[0].riskScore
+    );
+    for (const algorithm of ['eclat', 'fp_growth', 'unknown']) {
+      expect(
+        (
+          await request(app)
+            .get(`/api/analytics/predictive-maintenance?algorithm=${algorithm}`)
+            .set('Authorization', header)
+        ).status
+      ).toBe(400);
+    }
+  });
+
   it.each(['fp_growth', 'eclat'])(
     'runs the supplied %s association model without live job orders',
     async (algorithm) => {
