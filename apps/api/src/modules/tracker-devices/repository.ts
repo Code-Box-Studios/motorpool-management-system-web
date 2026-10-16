@@ -14,14 +14,21 @@ export function findTrackerDeviceByImei(imei: string) {
 
 export async function listTrackerDevices(
   skipTake: SkipTake,
-  filters: Pick<TrackerDevicesListQuery, 'vehicleId' | 'status'>,
+  filters: Pick<TrackerDevicesListQuery, 'vehicleId' | 'status' | 'assignment'>,
   orderBy: Prisma.TrackerDeviceOrderByWithRelationInput = { updatedAt: 'desc' },
   searchWhere: Prisma.TrackerDeviceWhereInput = {}
 ) {
   const where: Prisma.TrackerDeviceWhereInput = {
-    ...searchWhere,
-    ...(filters.vehicleId ? { vehicleId: filters.vehicleId } : {}),
-    ...(filters.status ? { status: filters.status } : {})
+    AND: [
+      searchWhere,
+      ...(filters.vehicleId ? [{ vehicleId: filters.vehicleId }] : []),
+      ...(filters.status ? [{ status: filters.status }] : []),
+      ...(filters.assignment === 'assigned'
+        ? [{ vehicleId: { not: null } }]
+        : filters.assignment === 'unassigned'
+          ? [{ vehicleId: null }]
+          : [])
+    ]
   };
   const [data, count] = await Promise.all([
     prisma.trackerDevice.findMany({ where, orderBy, ...skipTake }),

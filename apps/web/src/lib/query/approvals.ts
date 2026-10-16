@@ -7,10 +7,11 @@ export const useApprovalHistory = (
   page: number,
   limit = 10,
   enabled = true,
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ) =>
   useQuery({
-    queryKey: ['approvals', 'history', page, limit, search],
-    queryFn: () => getApprovalHistory(page, limit, undefined, search),
+    queryKey: ['approvals', 'history', page, limit, search, filters],
+    queryFn: () => getApprovalHistory(page, limit, undefined, search, filters),
     enabled
   });

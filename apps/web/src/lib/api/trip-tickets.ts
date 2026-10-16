@@ -364,11 +364,13 @@ export async function getTripTickets(
   branchId?: string,
   driverId?: string,
   sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ): Promise<{ data: TripTicket[]; count: number | null }> {
   const res = await api.get<{ data: TripTicketApiResponse[]; count: number }>(
     '/trip-tickets',
     {
+      ...filters,
       page,
       limit,
       requestedBy: userId,
@@ -385,11 +387,13 @@ export async function getAllTripTickets(
   userId?: string,
   branchId?: string,
   driverId?: string,
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ): Promise<TripTicket[]> {
   const res = await api.get<{ data: TripTicketApiResponse[]; count: number }>(
     '/trip-tickets',
     {
+      ...filters,
       requestedBy: userId,
       branchId,
       driverId,

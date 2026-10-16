@@ -41,7 +41,8 @@ export const trackerDevicesListQuerySchema = paginationQuerySchema
   .merge(searchQuerySchema)
   .extend({
     vehicleId: z.string().uuid().optional(),
-    status: statusSchema.optional()
+    status: statusSchema.optional(),
+    assignment: z.enum(['assigned', 'unassigned']).optional()
   })
   .merge(sortQuerySchema(TRACKER_DEVICE_SORT_COLUMNS));
 export type TrackerDevicesListQuery = z.infer<

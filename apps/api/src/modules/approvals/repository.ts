@@ -1,3 +1,5 @@
+import type { ApprovalHistoryQuery } from '@mms/shared';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 
 // Only settled decisions. A `pending` allocation has not been decided and a
@@ -5,9 +7,24 @@ import { prisma } from '../../lib/prisma.js';
 // showing either as a decision would misattribute it (spec §3.2).
 const DECIDED = ['approved', 'disapproved'] as const;
 
-export function decidedAllocations(take: number | undefined) {
+function decidedWhere(
+  outcome: ApprovalHistoryQuery['outcome']
+): Prisma.FuelAllocationWhereInput {
+  return {
+    status: outcome
+      ? outcome === 'approved'
+        ? 'approved'
+        : 'disapproved'
+      : { in: [...DECIDED] }
+  };
+}
+
+export function decidedAllocations(
+  take: number | undefined,
+  outcome?: ApprovalHistoryQuery['outcome']
+) {
   return prisma.fuelAllocation.findMany({
-    where: { status: { in: [...DECIDED] } },
+    where: decidedWhere(outcome),
     include: {
       tripTicket: { select: { id: true, ticketNo: true, destination: true } },
       vehicle: { select: { make: true, model: true, licensePlate: true } },
@@ -35,9 +52,11 @@ export function approvedJobOrders(take: number | undefined) {
   });
 }
 
-export function countDecidedAllocations() {
+export function countDecidedAllocations(
+  outcome?: ApprovalHistoryQuery['outcome']
+) {
   return prisma.fuelAllocation.count({
-    where: { status: { in: [...DECIDED] } }
+    where: decidedWhere(outcome)
   });
 }
 

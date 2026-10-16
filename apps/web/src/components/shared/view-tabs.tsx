@@ -21,6 +21,7 @@ interface ViewTabsProps {
   grid: ReactNode;
   table: ReactNode;
   searchControl?: ReactNode;
+  filterControl?: ReactNode;
   /** Content shared by both views while loading or when no records match. */
   emptyState?: ReactNode;
   /** Which view a page opens on. */
@@ -31,6 +32,7 @@ const ViewTabs = ({
   grid,
   table,
   searchControl,
+  filterControl,
   emptyState,
   defaultView = 'table'
 }: ViewTabsProps) => (
@@ -50,6 +52,7 @@ const ViewTabs = ({
           </TabsList>
           {searchControl}
         </div>
+        {filterControl}
         <TabsContent value="table" className="mt-4">
           {emptyState ?? table}
         </TabsContent>

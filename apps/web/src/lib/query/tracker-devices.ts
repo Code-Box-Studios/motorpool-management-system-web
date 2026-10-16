@@ -7,11 +7,18 @@ import {
 
 export const useTrackerDevices = (
   params: TrackerDeviceListParams = {},
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  filters?: Record<string, string>
 ) => {
   return useQuery({
-    queryKey: ['tracker-devices', params, sort?.sortBy, sort?.sortOrder],
-    queryFn: () => getTrackerDevices(params, sort)
+    queryKey: [
+      'tracker-devices',
+      params,
+      sort?.sortBy,
+      sort?.sortOrder,
+      filters
+    ],
+    queryFn: () => getTrackerDevices(params, sort, filters)
   });
 };
 

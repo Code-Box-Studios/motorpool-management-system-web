@@ -32,12 +32,10 @@ export async function list(query: DriversListQuery, actor: AuthenticatedUser) {
     },
     { updatedAt: 'desc' }
   );
-  return listDrivers(
-    toSkipTake(query),
-    onlyUserId,
-    orderBy,
-    driverSearch(query.search)
-  );
+  return listDrivers(toSkipTake(query), onlyUserId, orderBy, {
+    ...driverSearch(query.search),
+    ...(query.status ? { status: query.status } : {})
+  });
 }
 
 export async function getById(id: string, actor: AuthenticatedUser) {

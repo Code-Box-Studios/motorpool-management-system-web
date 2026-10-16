@@ -30,12 +30,10 @@ export async function list(
     },
     { updatedAt: 'desc' }
   );
-  return listMaintenance(
-    vehicleId,
-    toSkipTake(query),
-    orderBy,
-    maintenanceSearch(query.search)
-  );
+  return listMaintenance(vehicleId, toSkipTake(query), orderBy, {
+    ...maintenanceSearch(query.search),
+    ...(query.type ? { type: query.type } : {})
+  });
 }
 
 export async function getById(id: string) {

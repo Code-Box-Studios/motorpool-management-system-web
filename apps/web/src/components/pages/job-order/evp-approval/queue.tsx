@@ -1,5 +1,7 @@
 import { matchesSearch } from '@mms/shared';
 import ListSearchInput from '@/components/shared/list-search-input';
+import TableFilters from '@/components/shared/table-filters';
+import { useListControls } from '@/hooks/use-list-controls';
 import EmptyState from '@/components/shared/empty-state';
 import { useEffect, useState } from 'react';
 import { useAllTripTickets } from '@/lib/query/trip-tickets';
@@ -51,6 +53,9 @@ export default function ApprovalQueue({
   const disapproveTripTicket = useDisapproveTripTicket();
   const approveJobOrder = useApproveJobOrder();
   const [search, setSearch] = useState('');
+  const { filters, setFilter, clearFilters, hasFilters } = useListControls([
+    'pendingKind'
+  ]);
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'disapprove' | null>(
     null
@@ -120,28 +125,33 @@ export default function ApprovalQueue({
 
   const pendingTickets = allPendingTickets.filter((ticket) => {
     const vehicle = getVehicle(ticket.vehicle_id);
-    return matchesSearch(search, [
-      'Fuel sign-off Trip tickets',
-      formatRef('TT', ticket.ticket_no),
-      ticket.destination,
-      ticket.purpose,
-      ticket.allocation_fuel_type,
-      getDriverName(ticket.driver_id),
-      vehicle?.make,
-      vehicle?.model,
-      vehicle?.license_plate
-    ]);
+    return (
+      (!filters.pendingKind || filters.pendingKind === 'fuel') &&
+      matchesSearch(search, [
+        'Fuel sign-off Trip tickets',
+        formatRef('TT', ticket.ticket_no),
+        ticket.destination,
+        ticket.purpose,
+        ticket.allocation_fuel_type,
+        getDriverName(ticket.driver_id),
+        vehicle?.make,
+        vehicle?.model,
+        vehicle?.license_plate
+      ])
+    );
   });
-  const pendingJobOrders = allPendingJobOrders.filter((order) =>
-    matchesSearch(search, [
-      'Repair sign-off Job orders',
-      formatRef('JO', order.order_no),
-      order.incident_details,
-      order.vehicles?.make,
-      order.vehicles?.model,
-      order.vehicles?.license_plate,
-      getDriverName(order.assigned_mechanic)
-    ])
+  const pendingJobOrders = allPendingJobOrders.filter(
+    (order) =>
+      (!filters.pendingKind || filters.pendingKind === 'repair') &&
+      matchesSearch(search, [
+        'Repair sign-off Job orders',
+        formatRef('JO', order.order_no),
+        order.incident_details,
+        order.vehicles?.make,
+        order.vehicles?.model,
+        order.vehicles?.license_plate,
+        getDriverName(order.assigned_mechanic)
+      ])
   );
 
   const loading = isLoading || jobOrdersLoading;
@@ -157,6 +167,23 @@ export default function ApprovalQueue({
         onChange={setSearch}
         label="Search pending approvals"
       />
+      <div className="mt-4 mb-4">
+        <TableFilters
+          filters={[
+            {
+              key: 'pendingKind',
+              label: 'Request type',
+              options: [
+                { value: 'fuel', label: 'Fuel · Trip ticket' },
+                { value: 'repair', label: 'Repair · Job order' }
+              ]
+            }
+          ]}
+          values={filters}
+          onChange={setFilter}
+          onClear={clearFilters}
+        />
+      </div>
       {loading ? (
         <div className="mt-10 space-y-4">
           <Skeleton className="h-40 w-full rounded-[20px]" />
@@ -315,6 +342,8 @@ export default function ApprovalQueue({
               <div className="mt-6">
                 <EmptyState
                   message="No pending approvals."
+                  hasFilters={hasFilters}
+                  onClearFilters={clearFilters}
                   search={search}
                   onClearSearch={() => setSearch('')}
                 />

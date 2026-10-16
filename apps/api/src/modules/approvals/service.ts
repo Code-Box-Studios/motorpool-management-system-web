@@ -25,7 +25,9 @@ export async function history(
   query: ApprovalHistoryQuery
 ): Promise<{ data: DecisionRecord[]; count: number }> {
   const wantsFuel = query.kind !== 'repair';
-  const wantsRepair = query.kind !== 'fuel';
+  // Repairs record approvals only; their later workflow status is unrelated
+  // to the outcome of that historical decision.
+  const wantsRepair = query.kind !== 'fuel' && query.outcome !== 'declined';
 
   const limit = query.limit ?? (query.page === undefined ? undefined : 10);
   const page = query.page ?? 1;
@@ -37,9 +39,13 @@ export async function history(
       : (page - 1) * limit + limit;
 
   const [allocations, jobOrders, fuelCount, repairCount] = await Promise.all([
-    wantsFuel ? repo.decidedAllocations(take) : Promise.resolve([]),
+    wantsFuel
+      ? repo.decidedAllocations(take, query.outcome)
+      : Promise.resolve([]),
     wantsRepair ? repo.approvedJobOrders(take) : Promise.resolve([]),
-    wantsFuel ? repo.countDecidedAllocations() : Promise.resolve(0),
+    wantsFuel
+      ? repo.countDecidedAllocations(query.outcome)
+      : Promise.resolve(0),
     wantsRepair ? repo.countApprovedJobOrders() : Promise.resolve(0)
   ]);
 

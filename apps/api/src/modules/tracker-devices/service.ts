@@ -17,7 +17,7 @@ import {
 } from './repository.js';
 
 export async function list(query: TrackerDevicesListQuery) {
-  const { vehicleId, status, sortBy, sortOrder, ...page } = query;
+  const { vehicleId, status, assignment, sortBy, sortOrder, ...page } = query;
   const orderBy = toOrderBy<Prisma.TrackerDeviceOrderByWithRelationInput>(
     sortBy,
     sortOrder,
@@ -32,7 +32,7 @@ export async function list(query: TrackerDevicesListQuery) {
   );
   return listTrackerDevices(
     toSkipTake(page),
-    { vehicleId, status },
+    { vehicleId, status, assignment },
     orderBy,
     trackerSearch(query.search)
   );

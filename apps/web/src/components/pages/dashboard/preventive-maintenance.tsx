@@ -9,7 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Typography } from '@/components/ui/typography';
 import { useNavigate } from '@tanstack/react-router';
 import { PreventiveMaintenanceCard } from '@/components/shared/preventive-maintenance-card';
-import { lastServiceTime } from '@/lib/maintenance-format';
+import {
+  lastServiceTime,
+  PRIORITY,
+  type MaintenancePriority
+} from '@/lib/maintenance-format';
+import TableFilters from '@/components/shared/table-filters';
+import EmptyState from '@/components/shared/empty-state';
+import { useListControls } from '@/hooks/use-list-controls';
 import {
   Tooltip,
   TooltipContent,
@@ -34,6 +41,9 @@ const PreventiveMaintenance = ({
   showViewAll = true
 }: PreventiveMaintenanceProps) => {
   const navigate = useNavigate();
+  const { filters, setFilter, clearFilters, hasFilters } = useListControls([
+    'preventivePriority'
+  ]);
   const { data: predictions, isLoading } = usePredictiveMaintenanceData();
 
   const handleViewAll = () => {
@@ -81,7 +91,11 @@ const PreventiveMaintenance = ({
 
   const displayedVehicles = showViewAll
     ? highPriorityByOldest.slice(0, 2)
-    : vehiclesDueForMaintenance;
+    : vehiclesDueForMaintenance.filter(
+        (vehicle) =>
+          !filters.preventivePriority ||
+          vehicle.priority === filters.preventivePriority
+      );
 
   return (
     <Card className="h-full">
@@ -134,6 +148,27 @@ const PreventiveMaintenance = ({
         </div>
       </CardHeader>
       <CardContent>
+        {!showViewAll && (
+          <div className="mb-4">
+            <TableFilters
+              filters={[
+                {
+                  key: 'preventivePriority',
+                  label: 'Priority',
+                  options: (
+                    ['high', 'medium', 'low'] as MaintenancePriority[]
+                  ).map((priority) => ({
+                    value: priority,
+                    label: PRIORITY[priority].priorityLabel
+                  }))
+                }
+              ]}
+              values={filters}
+              onChange={setFilter}
+              onClear={clearFilters}
+            />
+          </div>
+        )}
         {isLoading ? (
           <div className={showViewAll ? 'grid grid-cols-1 gap-4' : CARD_GRID}>
             {Array.from({ length: showViewAll ? 2 : 3 }).map((_, i) => (
@@ -141,9 +176,11 @@ const PreventiveMaintenance = ({
             ))}
           </div>
         ) : displayedVehicles.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No vehicles currently due for preventive maintenance.
-          </p>
+          <EmptyState
+            message="No vehicles currently due for preventive maintenance."
+            hasFilters={!showViewAll && hasFilters}
+            onClearFilters={clearFilters}
+          />
         ) : (
           <div className={showViewAll ? 'grid grid-cols-1 gap-4' : CARD_GRID}>
             {displayedVehicles.map((vehicle) => (

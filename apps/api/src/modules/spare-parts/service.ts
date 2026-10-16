@@ -12,6 +12,15 @@ import { prisma } from '../../lib/prisma.js';
 import { findSparePartById, listSpareParts } from './repository.js';
 
 export async function list(query: SparePartsListQuery) {
+  // Match the stock badges: zero is empty, one through five is low.
+  const stockWhere: Record<
+    NonNullable<SparePartsListQuery['stock']>,
+    Prisma.SparePartWhereInput
+  > = {
+    in_stock: { quantity: { gt: 5 } },
+    low_stock: { quantity: { gt: 0, lte: 5 } },
+    out_of_stock: { quantity: 0 }
+  };
   const orderBy = toOrderBy<Prisma.SparePartOrderByWithRelationInput>(
     query.sortBy,
     query.sortOrder,
@@ -23,11 +32,10 @@ export async function list(query: SparePartsListQuery) {
     },
     { updatedAt: 'desc' }
   );
-  return listSpareParts(
-    toSkipTake(query),
-    orderBy,
-    sparePartSearch(query.search)
-  );
+  return listSpareParts(toSkipTake(query), orderBy, {
+    ...sparePartSearch(query.search),
+    ...(query.stock ? stockWhere[query.stock] : {})
+  });
 }
 
 export async function getById(id: string) {

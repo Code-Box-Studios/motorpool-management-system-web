@@ -35,7 +35,10 @@ export async function list(query: ToolsListQuery) {
     },
     { updatedAt: 'desc' }
   );
-  return listTools(toSkipTake(query), orderBy, toolSearch(query.search));
+  return listTools(toSkipTake(query), orderBy, {
+    ...toolSearch(query.search),
+    ...(query.status ? { status: query.status } : {})
+  });
 }
 
 export async function getById(id: string) {

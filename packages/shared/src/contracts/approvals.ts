@@ -7,7 +7,8 @@ export type ApprovalKind = (typeof APPROVAL_KINDS)[number];
 export const approvalHistoryQuerySchema = paginationQuerySchema
   .merge(searchQuerySchema)
   .extend({
-    kind: z.enum(APPROVAL_KINDS).optional()
+    kind: z.enum(APPROVAL_KINDS).optional(),
+    outcome: z.enum(['approved', 'declined']).optional()
   });
 export type ApprovalHistoryQuery = z.infer<typeof approvalHistoryQuerySchema>;
 

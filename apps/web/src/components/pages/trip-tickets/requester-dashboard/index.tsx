@@ -3,6 +3,8 @@ import { resolveStatus } from '@/lib/status';
 import ListSearchInput from '@/components/shared/list-search-input';
 import EmptyState from '@/components/shared/empty-state';
 import TablePagination from '@/components/shared/table-pagination';
+import TableFilters from '@/components/shared/table-filters';
+import { useListControls } from '@/hooks/use-list-controls';
 import { useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
@@ -99,8 +101,16 @@ const CANCELLABLE = [...WAITING, TRIP_TICKET_STATUS.APPROVED] as string[];
  * says "My Requests" — this opens on the count instead of repeating the title.
  */
 const RequesterDashboard = () => {
-  const [search, setSearch] = useState('');
-  const [historyPage, setHistoryPage] = useState(1);
+  const {
+    search,
+    setSearch,
+    page: historyPage,
+    setPage: setHistoryPage,
+    filters,
+    setFilter,
+    clearFilters,
+    hasFilters
+  } = useListControls(['requestStatus']);
   const { user } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
   const [cancellingTicketId, setCancellingTicketId] = useState<string | null>(
@@ -139,14 +149,20 @@ const RequesterDashboard = () => {
     };
   }, [ticketsData]);
 
-  const filteredOthers = others.filter((ticket) =>
-    matchesSearch(search, [
-      formatRef('TT', ticket.ticket_no),
-      ticket.destination,
-      ticket.purpose,
-      resolveStatus(ticket.status ?? '').label,
-      vehicleLabel(ticket.vehicle_id)
-    ])
+  const statusOptions = Object.values(TRIP_TICKET_STATUS)
+    .filter((status) => !WAITING.includes(status))
+    .map((status) => ({ value: status, label: resolveStatus(status).label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const filteredOthers = others.filter(
+    (ticket) =>
+      (!filters.requestStatus || ticket.status === filters.requestStatus) &&
+      matchesSearch(search, [
+        formatRef('TT', ticket.ticket_no),
+        ticket.destination,
+        ticket.purpose,
+        resolveStatus(ticket.status ?? '').label,
+        vehicleLabel(ticket.vehicle_id)
+      ])
   );
   const historyPages = Math.max(1, Math.ceil(filteredOthers.length / 10));
   const currentHistoryPage = Math.min(historyPage, historyPages);
@@ -294,21 +310,31 @@ const RequesterDashboard = () => {
               <div className="mb-5">
                 <ListSearchInput
                   value={search}
-                  onChange={(value) => {
-                    setSearch(value);
-                    setHistoryPage(1);
-                  }}
+                  onChange={setSearch}
                   label="Search request history"
+                />
+              </div>
+              <div className="mb-4">
+                <TableFilters
+                  filters={[
+                    {
+                      key: 'requestStatus',
+                      label: 'Status',
+                      options: statusOptions
+                    }
+                  ]}
+                  values={filters}
+                  onChange={setFilter}
+                  onClear={clearFilters}
                 />
               </div>
               {filteredOthers.length === 0 && (
                 <EmptyState
                   message="No other requests."
+                  hasFilters={hasFilters}
+                  onClearFilters={clearFilters}
                   search={search}
-                  onClearSearch={() => {
-                    setSearch('');
-                    setHistoryPage(1);
-                  }}
+                  onClearSearch={() => setSearch('')}
                 />
               )}
               <ul className="flex flex-col gap-2.5">

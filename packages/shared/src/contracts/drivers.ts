@@ -17,6 +17,7 @@ export const DRIVER_SORT_COLUMNS = [
 ] as const;
 export const driversListQuerySchema = paginationQuerySchema
   .merge(searchQuerySchema)
+  .extend({ status: driverStatusSchema.optional() })
   .merge(sortQuerySchema(DRIVER_SORT_COLUMNS));
 export type DriversListQuery = z.infer<typeof driversListQuerySchema>;
 

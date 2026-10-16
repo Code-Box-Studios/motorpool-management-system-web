@@ -1,3 +1,8 @@
+import TableFilters, {
+  type TableFilterDefinition
+} from '@/components/shared/table-filters';
+import { DRIVER_STATUS_DB } from '@/lib/enums';
+import { resolveStatus } from '@/lib/status';
 import EmptyState from '@/components/shared/empty-state';
 import ListSearchInput from '@/components/shared/list-search-input';
 import { MetricStrip } from '../../shared/metric-card';
@@ -27,15 +32,38 @@ const COLUMNS = [
   { label: 'Status', width: 'w-20', sortKey: 'status' }
 ];
 
+const FILTER_KEYS = ['status'] as const;
+const FILTER_DEFINITIONS: TableFilterDefinition[] = [
+  {
+    key: 'status',
+    label: 'Status',
+    options: DRIVER_STATUS_DB.map((value) => ({
+      value,
+      label: resolveStatus(value).label
+    }))
+  }
+];
+
 const Drivers = () => {
-  const { page, sort, setPage, handleSort, search, setSearch } =
-    useListControls();
+  const {
+    page,
+    sort,
+    setPage,
+    handleSort,
+    search,
+    setSearch,
+    filters,
+    setFilter,
+    clearFilters,
+    hasFilters
+  } = useListControls(FILTER_KEYS);
   const limit = 10;
   const { data: driversData, isLoading } = useDrivers(
     page,
     limit,
     sort ?? undefined,
-    search
+    search,
+    filters
   );
   const { data: allDrivers } = useAllDrivers();
   const navigate = useNavigate();
@@ -62,7 +90,7 @@ const Drivers = () => {
       <MetricStrip
         className="mb-5"
         metrics={[
-          { label: 'Total Drivers', value: totalCount },
+          { label: 'Total Drivers', value: allDrivers?.length ?? 0 },
           { label: 'On a Trip', value: onTrip },
           { label: 'Available', value: available }
         ]}
@@ -70,11 +98,19 @@ const Drivers = () => {
 
       <Card>
         <CardContent>
-          <div className="mb-4">
+          <div>
             <ListSearchInput
               value={search}
               onChange={setSearch}
               label="Search drivers"
+            />
+          </div>
+          <div className="mb-4">
+            <TableFilters
+              filters={FILTER_DEFINITIONS}
+              values={filters}
+              onChange={setFilter}
+              onClear={clearFilters}
             />
           </div>
           {isLoading ? (
@@ -155,6 +191,8 @@ const Drivers = () => {
                           message="No drivers yet."
                           search={search}
                           onClearSearch={() => setSearch('')}
+                          hasFilters={hasFilters}
+                          onClearFilters={clearFilters}
                         />
                       </TableCell>
                     </TableRow>

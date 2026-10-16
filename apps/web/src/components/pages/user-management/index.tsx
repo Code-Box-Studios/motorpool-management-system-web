@@ -1,3 +1,9 @@
+import TableFilters, {
+  type TableFilterDefinition
+} from '@/components/shared/table-filters';
+import { USER_ROLES } from '@/lib/enums';
+import { resolveStatus } from '@/lib/status';
+import { useBranchesForDisplay } from '@/lib/query/shared';
 import ListSearchInput from '@/components/shared/list-search-input';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -45,15 +51,58 @@ const COLUMNS = [
   { label: 'Created', sortKey: 'createdAt' }
 ];
 
+const FILTER_KEYS = ['status', 'role', 'branchId'] as const;
+const FILTER_DEFINITIONS: TableFilterDefinition[] = [
+  {
+    key: 'status',
+    label: 'Status',
+    options: ['active', 'inactive'].map((value) => ({
+      value,
+      label: resolveStatus(value).label
+    }))
+  },
+  {
+    key: 'role',
+    label: 'Role',
+    options: Object.values(USER_ROLES).map((value) => ({
+      value,
+      label: roleLabel(value) ?? value
+    }))
+  }
+];
+
 const UserManagement = () => {
-  const { page, sort, setPage, handleSort, search, setSearch } =
-    useListControls();
+  const {
+    page,
+    sort,
+    setPage,
+    handleSort,
+    search,
+    setSearch,
+    filters,
+    setFilter,
+    clearFilters,
+    hasFilters
+  } = useListControls(FILTER_KEYS);
   const limit = 10;
   const {
     data: usersData,
     isLoading,
     error
-  } = useUsers(page, limit, sort ?? undefined, search);
+  } = useUsers(page, limit, sort ?? undefined, search, filters);
+  // Archived branches still identify historical rows; this filter does not assign a branch.
+  const { data: branches } = useBranchesForDisplay();
+  const filterDefinitions: TableFilterDefinition[] = [
+    ...FILTER_DEFINITIONS,
+    {
+      key: 'branchId',
+      label: 'Branch',
+      options: (branches ?? []).map((branch) => ({
+        value: branch.id,
+        label: branch.name
+      }))
+    }
+  ];
   const navigate = useNavigate();
   const users = usersData?.data;
   const totalCount = usersData?.count ?? 0;
@@ -73,11 +122,19 @@ const UserManagement = () => {
 
       <Card>
         <CardContent>
-          <div className="mb-4">
+          <div>
             <ListSearchInput
               value={search}
               onChange={setSearch}
               label="Search users"
+            />
+          </div>
+          <div className="mb-4">
+            <TableFilters
+              filters={filterDefinitions}
+              values={filters}
+              onChange={setFilter}
+              onClear={clearFilters}
             />
           </div>
           {error ? (
@@ -89,6 +146,8 @@ const UserManagement = () => {
               message="No users yet."
               search={search}
               onClearSearch={() => setSearch('')}
+              hasFilters={hasFilters}
+              onClearFilters={clearFilters}
             />
           ) : (
             <>

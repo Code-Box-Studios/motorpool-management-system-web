@@ -1,5 +1,9 @@
 import { matchesSearch } from '@mms/shared';
 import ListSearchInput from '@/components/shared/list-search-input';
+import TableFilters, {
+  type TableFilterDefinition
+} from '@/components/shared/table-filters';
+import { useListControls } from '@/hooks/use-list-controls';
 import EmptyState from '@/components/shared/empty-state';
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
@@ -81,6 +85,11 @@ export function ResourceTab({ resource }: ResourceTabProps) {
   const restore = useRestoreOrgRecord(resource);
 
   const [search, setSearch] = useState('');
+  const statusKey = `${resource}Status`;
+  const branchKey = `${resource}Branch`;
+  const { filters, setFilter, clearFilters, hasFilters } = useListControls(
+    resource === 'branches' ? [statusKey] : [statusKey, branchKey]
+  );
   const [dialogState, setDialogState] = useState<RecordDialogState>(null);
   const [archivingRecord, setArchivingRecord] = useState<OrgRecord | null>(
     null
@@ -104,16 +113,40 @@ export function ResourceTab({ resource }: ResourceTabProps) {
   const officesById = new Map((officesQuery.data ?? []).map((o) => [o.id, o]));
   const headsById = new Map((headsQuery.data ?? []).map((h) => [h.id, h]));
 
-  const records = allRecords.filter((record) =>
-    matchesSearch(search, [
-      record.name,
-      record.location,
-      record.position,
-      record.branchId ? branchesById.get(record.branchId)?.name : null,
-      record.officeId ? officesById.get(record.officeId)?.name : null,
-      record.headId ? headsById.get(record.headId)?.name : null,
-      isArchived(record) ? 'Archived' : 'Active'
-    ])
+  const tableFilters: TableFilterDefinition[] = [
+    {
+      key: statusKey,
+      label: 'Status',
+      options: [
+        { value: 'active', label: 'Active' },
+        { value: 'archived', label: 'Archived' }
+      ]
+    }
+  ];
+  if (meta.columns.includes('Branch')) {
+    tableFilters.push({
+      key: branchKey,
+      label: 'Branch',
+      options: (branchesQuery.data ?? [])
+        .map((branch) => ({ value: branch.id, label: branch.name }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+    });
+  }
+
+  const records = allRecords.filter(
+    (record) =>
+      (!filters[statusKey] ||
+        (isArchived(record) ? 'archived' : 'active') === filters[statusKey]) &&
+      (!filters[branchKey] || record.branchId === filters[branchKey]) &&
+      matchesSearch(search, [
+        record.name,
+        record.location,
+        record.position,
+        record.branchId ? branchesById.get(record.branchId)?.name : null,
+        record.officeId ? officesById.get(record.officeId)?.name : null,
+        record.headId ? headsById.get(record.headId)?.name : null,
+        isArchived(record) ? 'Archived' : 'Active'
+      ])
   );
 
   const renderCell = (record: OrgRecord, column: Column) => {
@@ -161,6 +194,14 @@ export function ResourceTab({ resource }: ResourceTabProps) {
               value={search}
               onChange={setSearch}
               label={`Search ${meta.title.toLowerCase()}`}
+            />
+          </div>
+          <div className="mb-4">
+            <TableFilters
+              filters={tableFilters}
+              values={filters}
+              onChange={setFilter}
+              onClear={clearFilters}
             />
           </div>
           {query.isLoading ? (
@@ -243,6 +284,8 @@ export function ResourceTab({ resource }: ResourceTabProps) {
                       <EmptyState
                         message={`No ${meta.title.toLowerCase()} found.`}
                         search={search}
+                        hasFilters={hasFilters}
+                        onClearFilters={clearFilters}
                         onClearSearch={() => setSearch('')}
                       />
                     </TableCell>

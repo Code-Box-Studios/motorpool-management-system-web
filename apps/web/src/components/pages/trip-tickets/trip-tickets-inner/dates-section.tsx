@@ -8,6 +8,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import StatusBadge from '@/components/shared/status-badge';
+import TableFilters from '@/components/shared/table-filters';
+import EmptyState from '@/components/shared/empty-state';
+import { useListControls } from '@/hooks/use-list-controls';
+import { resolveStatus } from '@/lib/status';
 import { DetailSection } from '@/components/shared/detail-view';
 import {
   Table,
@@ -75,6 +79,21 @@ export function TripDatesSection({
 }: TripDatesSectionProps) {
   const [cancellingDateId, setCancellingDateId] = useState<string | null>(null);
   const cancelTripDate = useCancelTripDate();
+  const { filters, setFilter, clearFilters, hasFilters } = useListControls([
+    'dateStatus'
+  ]);
+  const dateStatuses: TripDateRow['status'][] = [
+    'scheduled',
+    'in_progress',
+    'completed',
+    'cancelled'
+  ];
+  const statusOptions = dateStatuses
+    .map((status) => ({ value: status, label: resolveStatus(status).label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const visibleDates = dates.filter(
+    (date) => !filters.dateStatus || date.status === filters.dateStatus
+  );
 
   const ticketAllowsCancel =
     ticketStatus === TRIP_TICKET_STATUS.APPROVED ||
@@ -96,6 +115,18 @@ export function TripDatesSection({
           : undefined
       }
     >
+      {dates.length > 0 && (
+        <div className="mb-4">
+          <TableFilters
+            filters={[
+              { key: 'dateStatus', label: 'Status', options: statusOptions }
+            ]}
+            values={filters}
+            onChange={setFilter}
+            onClear={clearFilters}
+          />
+        </div>
+      )}
       {dates.length === 0 ? (
         // Legacy tickets from before this feature got no backfill row — an
         // empty table with headers and no rows would look broken, not empty.
@@ -119,7 +150,18 @@ export function TripDatesSection({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {dates.map((d) => (
+            {visibleDates.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={showActionsColumn ? 8 : 7}>
+                  <EmptyState
+                    message="No dates recorded for this trip ticket."
+                    hasFilters={hasFilters}
+                    onClearFilters={clearFilters}
+                  />
+                </TableCell>
+              </TableRow>
+            )}
+            {visibleDates.map((d) => (
               <TableRow key={d.id}>
                 <TableCell className="font-medium whitespace-nowrap">
                   {dayOf(d.start_ts)}

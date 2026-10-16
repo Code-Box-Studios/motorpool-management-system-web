@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ApprovalQueue from './queue';
 import ApprovalHistory from './history';
+import { useListControls } from '@/hooks/use-list-controls';
 
 // shadcn paints the ACTIVE tab with --background, which on a light card sits
 // lighter than the --muted track behind the inactive one — the control reads
@@ -27,6 +28,8 @@ const SectionLabel = ({ children }: { children: React.ReactNode }) => (
  */
 export default function EvpApprovalPage() {
   const [pending, setPending] = useState(0);
+  const { filters, setFilter } = useListControls(['approvalTab']);
+  const tab = filters.approvalTab === 'history' ? 'history' : 'queue';
 
   return (
     <div className="md:py-6">
@@ -41,7 +44,13 @@ export default function EvpApprovalPage() {
         Fuel budgets and repair sign-offs. Declining always asks for a reason.
       </p>
 
-      <Tabs defaultValue="queue" className="mt-6">
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          setFilter('approvalTab', value === 'queue' ? '' : value)
+        }
+        className="mt-6"
+      >
         <TabsList>
           <TabsTrigger value="queue" className={ACTIVE_TAB}>
             Needs you{pending > 0 ? ` (${pending})` : ''}
@@ -51,7 +60,11 @@ export default function EvpApprovalPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="queue" className="mt-6">
+        <TabsContent
+          value="queue"
+          forceMount
+          className="mt-6 data-[state=inactive]:hidden"
+        >
           <ApprovalQueue onCountChange={setPending} />
         </TabsContent>
         <TabsContent value="history" className="mt-6">

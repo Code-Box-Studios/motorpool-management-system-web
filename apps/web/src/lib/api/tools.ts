@@ -44,11 +44,12 @@ export async function getTools(
   page = 1,
   limit = 10,
   sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ): Promise<{ data: Tool[]; count: number | null }> {
   const res = await api.get<{ data: ToolApiResponse[]; count: number }>(
     '/tools',
-    { page, limit, search, ...(sort ?? {}) }
+    { ...filters, page, limit, search, ...(sort ?? {}) }
   );
   return { data: res.data.map(toSnake), count: res.count };
 }

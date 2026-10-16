@@ -1,7 +1,11 @@
+import TableFilters, {
+  type TableFilterDefinition
+} from '@/components/shared/table-filters';
+import { resolveStatus } from '@/lib/status';
 import { Skeleton } from '@/components/ui/skeleton';
 import ListSearchInput from '@/components/shared/list-search-input';
 import { useUserRole } from '@/hooks/use-user-role';
-import { USER_ROLES } from '@/lib/enums';
+import { TOOL_STATUS, USER_ROLES } from '@/lib/enums';
 import { useTools, useToolBorrowStats } from '@/lib/query/tools';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -37,13 +41,41 @@ const COLUMNS = [
   { label: 'Description', sortKey: 'description' }
 ];
 
+const FILTER_KEYS = ['status'] as const;
+const FILTER_DEFINITIONS: TableFilterDefinition[] = [
+  {
+    key: 'status',
+    label: 'Status',
+    options: Object.values(TOOL_STATUS).map((value) => ({
+      value,
+      label: resolveStatus(value).label
+    }))
+  }
+];
+
 const Tools = () => {
   const { data: userRole } = useUserRole();
   const isAdmin = userRole?.roles?.name === USER_ROLES.admin;
-  const { page, sort, setPage, handleSort, search, setSearch } =
-    useListControls();
+  const {
+    page,
+    sort,
+    setPage,
+    handleSort,
+    search,
+    setSearch,
+    filters,
+    setFilter,
+    clearFilters,
+    hasFilters
+  } = useListControls(FILTER_KEYS);
   const limit = 10;
-  const { data, isLoading } = useTools(page, limit, sort ?? undefined, search);
+  const { data, isLoading } = useTools(
+    page,
+    limit,
+    sort ?? undefined,
+    search,
+    filters
+  );
   // `borrowed_by` is a driver id; a row must show the person, never the key.
   const { data: drivers } = useAllDrivers();
   const { data: stats, isLoading: statsLoading } = useToolBorrowStats();
@@ -203,6 +235,14 @@ const Tools = () => {
             label="Search tools"
           />
         }
+        filterControl={
+          <TableFilters
+            filters={FILTER_DEFINITIONS}
+            values={filters}
+            onChange={setFilter}
+            onClear={clearFilters}
+          />
+        }
         grid={grid}
         table={table}
         emptyState={
@@ -213,6 +253,8 @@ const Tools = () => {
               message="No tools yet."
               search={search}
               onClearSearch={() => setSearch('')}
+              hasFilters={hasFilters}
+              onClearFilters={clearFilters}
             />
           ) : undefined
         }

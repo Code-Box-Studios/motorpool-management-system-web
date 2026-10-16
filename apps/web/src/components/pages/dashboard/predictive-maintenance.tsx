@@ -10,7 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import { Typography } from '@/components/ui/typography';
 import { useNavigate } from '@tanstack/react-router';
 import { PredictiveMaintenanceCard } from '@/components/shared/preventive-maintenance-card';
-import { lastServiceTime } from '@/lib/maintenance-format';
+import {
+  lastServiceTime,
+  PRIORITY,
+  type MaintenancePriority
+} from '@/lib/maintenance-format';
+import TableFilters from '@/components/shared/table-filters';
+import EmptyState from '@/components/shared/empty-state';
+import { useListControls } from '@/hooks/use-list-controls';
 import {
   Table,
   TableBody,
@@ -44,6 +51,10 @@ const PredictiveMaintenance = ({
   showViewAll = true
 }: PredictiveMaintenanceProps) => {
   const navigate = useNavigate();
+  const { filters, setFilter, clearFilters, hasFilters } = useListControls([
+    'predictiveRisk'
+  ]);
+  const partsControls = useListControls(['partsConfidence']);
   const { data: predictions, isLoading: predictionsLoading } =
     usePredictiveMaintenanceData();
   const { data: associations, isLoading: associationsLoading } =
@@ -93,7 +104,23 @@ const PredictiveMaintenance = ({
 
   const displayedVehicles = showViewAll
     ? highPriorityByOldest.slice(0, 2)
-    : predictedVehicles;
+    : predictedVehicles.filter(
+        (vehicle) =>
+          !filters.predictiveRisk || vehicle.priority === filters.predictiveRisk
+      );
+
+  const displayedParts = coReplacedParts.filter((pair) => {
+    switch (partsControls.filters.partsConfidence) {
+      case 'high':
+        return pair.frequency >= 80;
+      case 'medium':
+        return pair.frequency >= 50 && pair.frequency < 80;
+      case 'low':
+        return pair.frequency < 50;
+      default:
+        return true;
+    }
+  });
 
   return (
     <div className="space-y-6">
@@ -143,6 +170,27 @@ const PredictiveMaintenance = ({
           </div>
         </CardHeader>
         <CardContent>
+          {!showViewAll && (
+            <div className="mb-4">
+              <TableFilters
+                filters={[
+                  {
+                    key: 'predictiveRisk',
+                    label: 'Risk',
+                    options: (
+                      ['high', 'medium', 'low'] as MaintenancePriority[]
+                    ).map((priority) => ({
+                      value: priority,
+                      label: PRIORITY[priority].riskLabel
+                    }))
+                  }
+                ]}
+                values={filters}
+                onChange={setFilter}
+                onClear={clearFilters}
+              />
+            </div>
+          )}
           {predictionsLoading ? (
             <div className={showViewAll ? 'grid grid-cols-1 gap-4' : CARD_GRID}>
               {Array.from({ length: showViewAll ? 2 : 3 }).map((_, i) => (
@@ -150,9 +198,11 @@ const PredictiveMaintenance = ({
               ))}
             </div>
           ) : displayedVehicles.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No vehicles currently at risk. All vehicles are well-maintained.
-            </p>
+            <EmptyState
+              message="No vehicles currently at risk. All vehicles are well-maintained."
+              hasFilters={!showViewAll && hasFilters}
+              onClearFilters={clearFilters}
+            />
           ) : (
             <div className={showViewAll ? 'grid grid-cols-1 gap-4' : CARD_GRID}>
               {displayedVehicles.map((vehicle) => (
@@ -184,18 +234,36 @@ const PredictiveMaintenance = ({
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <TableFilters
+                filters={[
+                  {
+                    key: 'partsConfidence',
+                    label: 'Confidence',
+                    options: [
+                      { value: 'high', label: '80% and above' },
+                      { value: 'medium', label: '50% to below 80%' },
+                      { value: 'low', label: 'Below 50%' }
+                    ]
+                  }
+                ]}
+                values={partsControls.filters}
+                onChange={partsControls.setFilter}
+                onClear={partsControls.clearFilters}
+              />
+            </div>
             {associationsLoading ? (
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Skeleton key={i} className="h-8 w-full" />
                 ))}
               </div>
-            ) : coReplacedParts.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                Not enough job order data to compute spare parts associations
-                yet. As more job orders with spare parts are recorded, patterns
-                will appear here.
-              </p>
+            ) : displayedParts.length === 0 ? (
+              <EmptyState
+                message="Not enough job order data to compute spare parts associations yet. As more job orders with spare parts are recorded, patterns will appear here."
+                hasFilters={partsControls.hasFilters}
+                onClearFilters={partsControls.clearFilters}
+              />
             ) : (
               <Table>
                 <TableHeader>
@@ -206,7 +274,7 @@ const PredictiveMaintenance = ({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {coReplacedParts.map((pair, index) => (
+                  {displayedParts.map((pair, index) => (
                     <TableRow key={index}>
                       <TableCell className="font-medium">
                         {pair.partA}

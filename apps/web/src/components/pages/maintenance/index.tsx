@@ -1,10 +1,14 @@
+import TableFilters, {
+  type TableFilterDefinition
+} from '@/components/shared/table-filters';
+import { MAINTENANCE_TYPE } from '@/lib/enums';
 import ListSearchInput from '@/components/shared/list-search-input';
 import { useAllMaintenances, useMaintenances } from '@/lib/query/maintenance';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import PageHeader from '@/components/shared/page-header';
-import { maintenanceEventColor } from '@/lib/status';
+import { maintenanceEventColor, resolveStatus } from '@/lib/status';
 import { cn } from '@/lib/utils';
 import { Eye, Pencil, Trash2 } from 'lucide-react';
 import { useDeleteMaintenance } from '@/lib/mutation/maintenance';
@@ -53,19 +57,53 @@ const ACTIVE_TAB =
 
 const EmDash = () => <span className="text-muted-foreground">—</span>;
 
+const FILTER_KEYS = ['type', 'vehicleId'] as const;
+const FILTER_DEFINITIONS: TableFilterDefinition[] = [
+  {
+    key: 'type',
+    label: 'Type',
+    options: Object.values(MAINTENANCE_TYPE).map((value) => ({
+      value,
+      label: resolveStatus(value).label
+    }))
+  }
+];
+
 const MaintenancePage = () => {
-  const { page, sort, setPage, handleSort, search, setSearch } =
-    useListControls();
+  const {
+    page,
+    sort,
+    setPage,
+    handleSort,
+    search,
+    setSearch,
+    filters,
+    setFilter,
+    clearFilters,
+    hasFilters
+  } = useListControls(FILTER_KEYS);
   const limit = 10;
   const { data: tableData, isLoading: isTableLoading } = useMaintenances(
     page,
     limit,
     sort ?? undefined,
-    search
+    search,
+    filters
   );
   const { data: calendarData, isLoading: isCalendarLoading } =
-    useAllMaintenances(search);
+    useAllMaintenances(search, filters);
   const { data: vehicles } = useAllVehicles();
+  const filterDefinitions: TableFilterDefinition[] = [
+    ...FILTER_DEFINITIONS,
+    {
+      key: 'vehicleId',
+      label: 'Vehicle',
+      options: (vehicles ?? []).map((vehicle) => ({
+        value: vehicle.id,
+        label: `${vehicle.make} ${vehicle.model} · ${vehicle.license_plate}`
+      }))
+    }
+  ];
   const navigate = useNavigate();
   const deleteMaintenance = useDeleteMaintenance();
   const searchParams = useSearch({ strict: false }) as { tab?: string };
@@ -203,6 +241,12 @@ const MaintenancePage = () => {
                     label="Search maintenance"
                   />
                 </div>
+                <TableFilters
+                  filters={filterDefinitions}
+                  values={filters}
+                  onChange={setFilter}
+                  onClear={clearFilters}
+                />
                 <TabsContent value="calendar" className="mt-4">
                   {isCalendarLoading ? (
                     <div className="text-muted-foreground py-12 text-center text-sm">
@@ -249,6 +293,8 @@ const MaintenancePage = () => {
                       message="No maintenance records yet."
                       search={search}
                       onClearSearch={() => setSearch('')}
+                      hasFilters={hasFilters}
+                      onClearFilters={clearFilters}
                     />
                   ) : (
                     <>

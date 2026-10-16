@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import EmptyState from '@/components/shared/empty-state';
 import ListSearchInput from '@/components/shared/list-search-input';
 import TablePagination from '@/components/shared/table-pagination';
+import TableFilters from '@/components/shared/table-filters';
+import { useListControls } from '@/hooks/use-list-controls';
 import { useApprovalHistory } from '@/lib/query/approvals';
 import { roleLabel } from '@/lib/role-label';
 
@@ -24,13 +25,22 @@ const formatWhen = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString() : '—';
 
 export default function ApprovalHistory() {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
+  const {
+    page,
+    setPage,
+    search,
+    setSearch,
+    filters,
+    setFilter,
+    clearFilters,
+    hasFilters
+  } = useListControls(['approvalKind', 'approvalOutcome']);
   const { data, isLoading, error } = useApprovalHistory(
     page,
     LIMIT,
     true,
-    search
+    search,
+    { kind: filters.approvalKind, outcome: filters.approvalOutcome }
   );
   const records = data?.data ?? [];
   const count = data?.count ?? 0;
@@ -41,16 +51,36 @@ export default function ApprovalHistory() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <ListSearchInput
             value={search}
-            onChange={(value) => {
-              setSearch(value);
-              setPage(1);
-            }}
+            onChange={setSearch}
             label="Search approval history"
           />
           <p className="text-muted-foreground text-sm" aria-live="polite">
             {count} decision{count === 1 ? '' : 's'} · Newest first
           </p>
         </div>
+        <TableFilters
+          filters={[
+            {
+              key: 'approvalKind',
+              label: 'Request type',
+              options: [
+                { value: 'fuel', label: 'Fuel · Trip ticket' },
+                { value: 'repair', label: 'Repair · Job order' }
+              ]
+            },
+            {
+              key: 'approvalOutcome',
+              label: 'Outcome',
+              options: [
+                { value: 'approved', label: 'Approved' },
+                { value: 'declined', label: 'Declined' }
+              ]
+            }
+          ]}
+          values={filters}
+          onChange={setFilter}
+          onClear={clearFilters}
+        />
         {isLoading ? (
           <Skeleton className="h-56 w-full rounded-[20px]" />
         ) : error ? (
@@ -60,11 +90,10 @@ export default function ApprovalHistory() {
         ) : records.length === 0 ? (
           <EmptyState
             message="No decisions recorded yet."
+            hasFilters={hasFilters}
+            onClearFilters={clearFilters}
             search={search}
-            onClearSearch={() => {
-              setSearch('');
-              setPage(1);
-            }}
+            onClearSearch={() => setSearch('')}
           />
         ) : (
           <>

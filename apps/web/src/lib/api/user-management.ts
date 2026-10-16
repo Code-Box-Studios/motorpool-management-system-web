@@ -58,10 +58,12 @@ export const getUsers = async (
   page: number = 1,
   limit: number = 10,
   sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ): Promise<{ data: UserProfileData[]; count: number }> => {
   const [res, branches] = await Promise.all([
     api.get<{ data: UserResponse[]; count: number }>('/users', {
+      ...filters,
       page,
       limit,
       search,

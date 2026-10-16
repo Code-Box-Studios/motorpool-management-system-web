@@ -34,7 +34,12 @@ export async function list(query: VehiclesListQuery) {
     },
     [{ updatedAt: 'desc' }]
   );
-  return listVehicles(toSkipTake(query), orderBy, vehicleSearch(query.search));
+  return listVehicles(toSkipTake(query), orderBy, {
+    ...vehicleSearch(query.search),
+    ...(query.status ? { status: query.status } : {}),
+    ...(query.fuelType ? { fuelType: query.fuelType } : {}),
+    ...(query.branchId ? { branchId: query.branchId } : {})
+  });
 }
 
 export async function getById(id: string) {

@@ -21,6 +21,7 @@ export const TOOL_SORT_COLUMNS = [
 ] as const;
 export const toolsListQuerySchema = paginationQuerySchema
   .merge(searchQuerySchema)
+  .extend({ status: z.nativeEnum(TOOL_STATUS).optional() })
   .merge(sortQuerySchema(TOOL_SORT_COLUMNS));
 export type ToolsListQuery = z.infer<typeof toolsListQuerySchema>;
 

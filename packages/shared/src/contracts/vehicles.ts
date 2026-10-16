@@ -23,6 +23,11 @@ export const VEHICLE_SORT_COLUMNS = [
 ] as const;
 export const vehiclesListQuerySchema = paginationQuerySchema
   .merge(searchQuerySchema)
+  .extend({
+    status: vehicleStatusSchema.optional(),
+    fuelType: fuelTypeSchema.optional(),
+    branchId: z.string().uuid().optional()
+  })
   .merge(sortQuerySchema(VEHICLE_SORT_COLUMNS));
 export type VehiclesListQuery = z.infer<typeof vehiclesListQuerySchema>;
 

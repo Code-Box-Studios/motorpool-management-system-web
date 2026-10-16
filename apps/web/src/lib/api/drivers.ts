@@ -126,11 +126,12 @@ export const getDrivers = async (
   page: number = 1,
   limit: number = 10,
   sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ): Promise<{ data: Driver[]; count: number | null }> => {
   const res = await api.get<{ data: DriverApiResponse[]; count: number }>(
     '/drivers',
-    { page, limit, search, ...(sort ?? {}) }
+    { ...filters, page, limit, search, ...(sort ?? {}) }
   );
   return { data: res.data.map(toSnakeDriver), count: res.count };
 };

@@ -22,7 +22,10 @@ export const MAINTENANCE_SORT_COLUMNS = [
 export const maintenanceListQuerySchema = paginationQuerySchema
   .merge(searchQuerySchema)
   .merge(sortQuerySchema(MAINTENANCE_SORT_COLUMNS))
-  .extend({ vehicleId: z.string().uuid().optional() });
+  .extend({
+    vehicleId: z.string().uuid().optional(),
+    type: z.nativeEnum(MAINTENANCE_TYPE).optional()
+  });
 export type MaintenanceListQuery = z.infer<typeof maintenanceListQuerySchema>;
 export const createMaintenanceBodySchema = z.object({
   vehicleId: z.string().uuid(),

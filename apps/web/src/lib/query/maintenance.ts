@@ -9,7 +9,8 @@ export const useMaintenances = (
   page: number = 1,
   limit: number = 10,
   sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ) => {
   return useQuery({
     queryKey: [
@@ -18,16 +19,20 @@ export const useMaintenances = (
       limit,
       sort?.sortBy,
       sort?.sortOrder,
-      search
+      search,
+      filters
     ],
-    queryFn: () => getMaintenances(page, limit, sort, search)
+    queryFn: () => getMaintenances(page, limit, sort, search, filters)
   });
 };
 
-export const useAllMaintenances = (search?: string) => {
+export const useAllMaintenances = (
+  search?: string,
+  filters?: Record<string, string>
+) => {
   return useQuery({
-    queryKey: ['maintenances', 'all', search],
-    queryFn: () => getAllMaintenances(search)
+    queryKey: ['maintenances', 'all', search, filters],
+    queryFn: () => getAllMaintenances(search, filters)
   });
 };
 

@@ -9,7 +9,8 @@ export const useSpareParts = (
   page: number = 1,
   limit: number = 10,
   sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ) => {
   return useQuery({
     queryKey: [
@@ -18,9 +19,10 @@ export const useSpareParts = (
       limit,
       sort?.sortBy,
       sort?.sortOrder,
-      search
+      search,
+      filters
     ],
-    queryFn: () => getSpareParts(page, limit, sort, search)
+    queryFn: () => getSpareParts(page, limit, sort, search, filters)
   });
 };
 

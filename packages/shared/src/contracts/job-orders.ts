@@ -68,7 +68,8 @@ export const JOB_ORDER_SORT_COLUMNS = [
 export const jobOrdersListQuerySchema = paginationQuerySchema
   .merge(searchQuerySchema)
   .extend({
-    status: z.nativeEnum(JOB_ORDER_STATUS).optional()
+    status: z.nativeEnum(JOB_ORDER_STATUS).optional(),
+    repairDone: z.nativeEnum(REPAIR_DONE_TYPE).optional()
   })
   .merge(sortQuerySchema(JOB_ORDER_SORT_COLUMNS));
 export type JobOrdersListQuery = z.infer<typeof jobOrdersListQuerySchema>;

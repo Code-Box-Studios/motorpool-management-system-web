@@ -5,11 +5,20 @@ export const useTools = (
   page: number = 1,
   limit: number = 10,
   sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ) => {
   return useQuery({
-    queryKey: ['tools', page, limit, sort?.sortBy, sort?.sortOrder, search],
-    queryFn: () => getTools(page, limit, sort, search)
+    queryKey: [
+      'tools',
+      page,
+      limit,
+      sort?.sortBy,
+      sort?.sortOrder,
+      search,
+      filters
+    ],
+    queryFn: () => getTools(page, limit, sort, search, filters)
   });
 };
 

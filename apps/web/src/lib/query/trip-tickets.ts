@@ -13,7 +13,8 @@ export const useTripTickets = (
   branchId?: string,
   driverId?: string,
   sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ) => {
   return useQuery({
     queryKey: [
@@ -25,10 +26,20 @@ export const useTripTickets = (
       driverId,
       sort?.sortBy,
       sort?.sortOrder,
-      search
+      search,
+      filters
     ],
     queryFn: () =>
-      getTripTickets(page, limit, userId, branchId, driverId, sort, search)
+      getTripTickets(
+        page,
+        limit,
+        userId,
+        branchId,
+        driverId,
+        sort,
+        search,
+        filters
+      )
   });
 };
 
@@ -36,11 +47,21 @@ export const useAllTripTickets = (
   userId?: string,
   branchId?: string,
   driverId?: string,
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ) => {
   return useQuery({
-    queryKey: ['trip_tickets', 'all', userId, branchId, driverId, search],
-    queryFn: () => getAllTripTickets(userId, branchId, driverId, search)
+    queryKey: [
+      'trip_tickets',
+      'all',
+      userId,
+      branchId,
+      driverId,
+      search,
+      filters
+    ],
+    queryFn: () =>
+      getAllTripTickets(userId, branchId, driverId, search, filters)
   });
 };
 

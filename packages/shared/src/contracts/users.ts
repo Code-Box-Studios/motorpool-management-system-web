@@ -90,7 +90,9 @@ export const USER_SORT_COLUMNS = [
 export const usersListQuerySchema = paginationQuerySchema
   .merge(searchQuerySchema)
   .extend({
-    role: z.string().optional()
+    role: z.string().optional(),
+    status: z.enum(['active', 'inactive']).optional(),
+    branchId: z.string().uuid().optional()
   })
   .merge(sortQuerySchema(USER_SORT_COLUMNS));
 export type UsersListQuery = z.infer<typeof usersListQuerySchema>;

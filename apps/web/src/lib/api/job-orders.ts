@@ -151,11 +151,12 @@ export async function getJobOrders(
   _userId?: string,
   _userRole?: string,
   sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ): Promise<{ data: JobOrderWithRelations[]; count: number | null }> {
   const res = await api.get<{ data: JobOrderApiResponse[]; count: number }>(
     '/job-orders',
-    { page, limit, search, ...(sort ?? {}) }
+    { ...filters, page, limit, search, ...(sort ?? {}) }
   );
   return { data: res.data.map(toSnake), count: res.count };
 }
@@ -163,11 +164,12 @@ export async function getJobOrders(
 export async function getAllJobOrders(
   _userId?: string,
   _userRole?: string,
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ): Promise<JobOrderWithRelations[]> {
   const res = await api.get<{ data: JobOrderApiResponse[]; count: number }>(
     '/job-orders',
-    { search }
+    { ...filters, search }
   );
   return res.data.map(toSnake);
 }

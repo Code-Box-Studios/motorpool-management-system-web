@@ -5,11 +5,20 @@ export const useDrivers = (
   page: number = 1,
   limit: number = 10,
   sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ) => {
   return useQuery({
-    queryKey: ['drivers', page, limit, sort?.sortBy, sort?.sortOrder, search],
-    queryFn: () => getDrivers(page, limit, sort, search)
+    queryKey: [
+      'drivers',
+      page,
+      limit,
+      sort?.sortBy,
+      sort?.sortOrder,
+      search,
+      filters
+    ],
+    queryFn: () => getDrivers(page, limit, sort, search, filters)
   });
 };
 

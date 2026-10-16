@@ -1,3 +1,9 @@
+import TableFilters, {
+  type TableFilterDefinition
+} from '@/components/shared/table-filters';
+import { VEHICLE_STATUS, FUEL_TYPE } from '@/lib/enums';
+import { resolveStatus } from '@/lib/status';
+import { useBranchesForDisplay } from '@/lib/query/shared';
 import { Skeleton } from '@/components/ui/skeleton';
 import ListSearchInput from '@/components/shared/list-search-input';
 import { useVehicles } from '@/lib/query/vehicles';
@@ -39,17 +45,61 @@ const branchLabel = (vehicle: VehicleWithBranch) => {
 const vehicleTitle = (vehicle: VehicleWithBranch) =>
   `${vehicle.make} ${vehicle.model} ${vehicle.year ?? ''}`.trim();
 
+const FILTER_KEYS = ['status', 'fuelType', 'branchId'] as const;
+const FILTER_DEFINITIONS: TableFilterDefinition[] = [
+  {
+    key: 'status',
+    label: 'Status',
+    options: Object.values(VEHICLE_STATUS).map((value) => ({
+      value,
+      label: resolveStatus(value).label
+    }))
+  },
+  {
+    key: 'fuelType',
+    label: 'Fuel type',
+    options: Object.values(FUEL_TYPE).map((value) => ({
+      value,
+      label: resolveStatus(value).label
+    }))
+  }
+];
+
 const Vehicles = () => {
-  const { page, sort, setPage, handleSort, search, setSearch } =
-    useListControls();
+  const {
+    page,
+    sort,
+    setPage,
+    handleSort,
+    search,
+    setSearch,
+    filters,
+    setFilter,
+    clearFilters,
+    hasFilters
+  } = useListControls(FILTER_KEYS);
   const limit = 10;
   const { data, isLoading } = useVehicles(
     page,
     limit,
     sort ?? undefined,
     true,
-    search
+    search,
+    filters
   );
+  // Archived branches still identify historical rows; this filter does not assign a branch.
+  const { data: branches } = useBranchesForDisplay();
+  const filterDefinitions: TableFilterDefinition[] = [
+    ...FILTER_DEFINITIONS,
+    {
+      key: 'branchId',
+      label: 'Branch',
+      options: (branches ?? []).map((branch) => ({
+        value: branch.id,
+        label: branch.name
+      }))
+    }
+  ];
   const navigate = useNavigate();
   const vehicles = data?.data ?? [];
   const totalCount = data?.count ?? 0;
@@ -225,6 +275,14 @@ const Vehicles = () => {
             label="Search vehicles"
           />
         }
+        filterControl={
+          <TableFilters
+            filters={filterDefinitions}
+            values={filters}
+            onChange={setFilter}
+            onClear={clearFilters}
+          />
+        }
         grid={grid}
         table={table}
         emptyState={
@@ -235,6 +293,8 @@ const Vehicles = () => {
               message="No vehicles yet."
               search={search}
               onClearSearch={() => setSearch('')}
+              hasFilters={hasFilters}
+              onClearFilters={clearFilters}
             />
           ) : undefined
         }

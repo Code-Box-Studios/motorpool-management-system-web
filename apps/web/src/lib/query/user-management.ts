@@ -22,11 +22,20 @@ export const useUsers = (
   page: number = 1,
   limit: number = 10,
   sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
-  search?: string
+  search?: string,
+  filters?: Record<string, string>
 ) => {
   return useQuery({
-    queryKey: ['allUsers', page, limit, sort?.sortBy, sort?.sortOrder, search],
-    queryFn: () => getUsers(page, limit, sort, search)
+    queryKey: [
+      'allUsers',
+      page,
+      limit,
+      sort?.sortBy,
+      sort?.sortOrder,
+      search,
+      filters
+    ],
+    queryFn: () => getUsers(page, limit, sort, search, filters)
   });
 };
 

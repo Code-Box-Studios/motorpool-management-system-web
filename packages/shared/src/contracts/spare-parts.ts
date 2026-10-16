@@ -16,6 +16,9 @@ export const SPARE_PART_SORT_COLUMNS = [
 ] as const;
 export const sparePartsListQuerySchema = paginationQuerySchema
   .merge(searchQuerySchema)
+  .extend({
+    stock: z.enum(['in_stock', 'low_stock', 'out_of_stock']).optional()
+  })
   .merge(sortQuerySchema(SPARE_PART_SORT_COLUMNS));
 export type SparePartsListQuery = z.infer<typeof sparePartsListQuerySchema>;
 

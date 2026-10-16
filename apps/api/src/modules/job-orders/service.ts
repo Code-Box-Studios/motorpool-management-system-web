@@ -38,23 +38,26 @@ export async function list(
   actor: AuthenticatedUser
 ) {
   const scope = await scopeFor(actor);
+  const filters: Prisma.JobOrderWhereInput = {
+    ...(query.status ? { status: query.status } : {}),
+    ...(query.repairDone ? { repairDone: query.repairDone } : {})
+  };
   const references =
     query.search && /\d/.test(query.search)
       ? await prisma.jobOrder.findMany({
-          where: {
-            ...scope,
-            ...(query.status ? { status: query.status } : {})
-          },
+          where: { AND: [scope, filters] },
           select: { orderNo: true }
         })
       : [];
   const where: Prisma.JobOrderWhereInput = {
-    ...scope,
-    ...jobOrderSearch(
-      query.search,
-      references.map((row) => row.orderNo)
-    ),
-    ...(query.status ? { status: query.status } : {})
+    AND: [
+      scope,
+      filters,
+      jobOrderSearch(
+        query.search,
+        references.map((row) => row.orderNo)
+      )
+    ]
   };
   const orderBy = toOrderBy<Prisma.JobOrderOrderByWithRelationInput>(
     query.sortBy,

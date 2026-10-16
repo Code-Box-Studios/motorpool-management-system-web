@@ -1,3 +1,6 @@
+import TableFilters, {
+  type TableFilterDefinition
+} from '@/components/shared/table-filters';
 import { Skeleton } from '@/components/ui/skeleton';
 import ListSearchInput from '@/components/shared/list-search-input';
 import { useSpareParts } from '@/lib/query/spare-parts';
@@ -33,15 +36,39 @@ const stockBadge = (quantity: number) => {
   return <Badge variant="done">In stock</Badge>;
 };
 
+const FILTER_KEYS = ['stock'] as const;
+const FILTER_DEFINITIONS: TableFilterDefinition[] = [
+  {
+    key: 'stock',
+    label: 'Stock',
+    options: [
+      { value: 'in_stock', label: 'In stock' },
+      { value: 'low_stock', label: 'Low stock' },
+      { value: 'out_of_stock', label: 'Out of stock' }
+    ]
+  }
+];
+
 const SpareParts = () => {
-  const { page, sort, setPage, handleSort, search, setSearch } =
-    useListControls();
+  const {
+    page,
+    sort,
+    setPage,
+    handleSort,
+    search,
+    setSearch,
+    filters,
+    setFilter,
+    clearFilters,
+    hasFilters
+  } = useListControls(FILTER_KEYS);
   const limit = 10;
   const { data, isLoading } = useSpareParts(
     page,
     limit,
     sort ?? undefined,
-    search
+    search,
+    filters
   );
   const navigate = useNavigate();
   const spareParts = data?.data ?? [];
@@ -187,6 +214,14 @@ const SpareParts = () => {
             label="Search spare parts"
           />
         }
+        filterControl={
+          <TableFilters
+            filters={FILTER_DEFINITIONS}
+            values={filters}
+            onChange={setFilter}
+            onClear={clearFilters}
+          />
+        }
         grid={grid}
         table={table}
         emptyState={
@@ -197,6 +232,8 @@ const SpareParts = () => {
               message="No spare parts yet."
               search={search}
               onClearSearch={() => setSearch('')}
+              hasFilters={hasFilters}
+              onClearFilters={clearFilters}
             />
           ) : undefined
         }

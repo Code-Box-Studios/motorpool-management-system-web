@@ -39,7 +39,7 @@ export function toUserResponse(user: UserRow): UserResponse {
   };
 }
 
-// Lists users, optionally filtered by role name, with pagination.
+// Apply role, status, branch, and search before pagination and count.
 export async function list(query: UsersListQuery) {
   const orderBy = toOrderBy<Prisma.UserOrderByWithRelationInput>(
     query.sortBy,
@@ -58,7 +58,11 @@ export async function list(query: UsersListQuery) {
     query.role,
     toSkipTake(query),
     orderBy,
-    userSearch(query.search)
+    {
+      ...userSearch(query.search),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.branchId ? { branchId: query.branchId } : {})
+    }
   );
   return { data: data.map(toUserResponse), count };
 }

@@ -1,3 +1,6 @@
+import TableFilters, {
+  type TableFilterDefinition
+} from '@/components/shared/table-filters';
 import ListSearchInput from '@/components/shared/list-search-input';
 import StatusBadge from '@/components/shared/status-badge';
 import { Badge } from '@/components/ui/badge';
@@ -142,6 +145,18 @@ function StatusMenu({
   );
 }
 
+const FILTER_KEYS = ['status'] as const;
+const FILTER_DEFINITIONS: TableFilterDefinition[] = [
+  {
+    key: 'status',
+    label: 'Status',
+    options: Object.values(TRIP_TICKET_STATUS).map((value) => ({
+      value,
+      label: resolveStatus(value).label
+    }))
+  }
+];
+
 const TripTicketsPage = () => {
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
@@ -157,8 +172,18 @@ const TripTicketsPage = () => {
   // same tickets by URL (the server scopes admins to everything).
   const filterUserId = isRequester ? user?.id : undefined;
 
-  const { page, sort, setPage, handleSort, search, setSearch } =
-    useListControls();
+  const {
+    page,
+    sort,
+    setPage,
+    handleSort,
+    search,
+    setSearch,
+    filters,
+    setFilter,
+    clearFilters,
+    hasFilters
+  } = useListControls(FILTER_KEYS);
   const limit = 10;
   const { data: tableData, isLoading: isTableLoading } = useTripTickets(
     page,
@@ -167,7 +192,8 @@ const TripTicketsPage = () => {
     undefined,
     undefined,
     sort ?? undefined,
-    search
+    search,
+    filters
   );
   const totalPages = Math.ceil((tableData?.count || 0) / limit);
 
@@ -183,7 +209,7 @@ const TripTicketsPage = () => {
     setPage(1);
   }, [filterUserId, setPage]);
   const { data: calendarData, isLoading: isCalendarLoading } =
-    useAllTripTickets(filterUserId, undefined, undefined, search);
+    useAllTripTickets(filterUserId, undefined, undefined, search, filters);
   const navigate = useNavigate();
   const approveTripTicket = useApproveTripTicket();
   const disapproveTripTicket = useDisapproveTripTicket();
@@ -385,6 +411,12 @@ const TripTicketsPage = () => {
                 label="Search trip tickets"
               />
             </div>
+            <TableFilters
+              filters={FILTER_DEFINITIONS}
+              values={filters}
+              onChange={setFilter}
+              onClear={clearFilters}
+            />
             <TabsContent value="calendar" className="mt-4">
               {isCalendarLoading ? (
                 <div className="text-muted-foreground py-12 text-center text-sm">
@@ -425,6 +457,8 @@ const TripTicketsPage = () => {
                   message="No trip tickets yet."
                   search={search}
                   onClearSearch={() => setSearch('')}
+                  hasFilters={hasFilters}
+                  onClearFilters={clearFilters}
                 />
               ) : (
                 /* Table already renders its own overflow-x-auto container; the

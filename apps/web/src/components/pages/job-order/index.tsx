@@ -1,3 +1,7 @@
+import TableFilters, {
+  type TableFilterDefinition
+} from '@/components/shared/table-filters';
+import { JOB_ORDER_STATUS, REPAIR_DONE_TYPE } from '@/lib/enums';
 import ListSearchInput from '@/components/shared/list-search-input';
 import { useJobOrders, useAllJobOrders } from '@/lib/query/job-orders';
 import { useNavigate } from '@tanstack/react-router';
@@ -77,6 +81,26 @@ const DateTimeCell = ({ value }: { value: string | null | undefined }) => {
   );
 };
 
+const FILTER_KEYS = ['status', 'repairDone'] as const;
+const FILTER_DEFINITIONS: TableFilterDefinition[] = [
+  {
+    key: 'status',
+    label: 'Status',
+    options: Object.values(JOB_ORDER_STATUS).map((value) => ({
+      value,
+      label: resolveStatus(value).label
+    }))
+  },
+  {
+    key: 'repairDone',
+    label: 'Repair type',
+    options: Object.values(REPAIR_DONE_TYPE).map((value) => ({
+      value,
+      label: resolveStatus(value).label
+    }))
+  }
+];
+
 const JobOrdersPage = () => {
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
@@ -89,8 +113,18 @@ const JobOrdersPage = () => {
   const completeRepair = useCompleteRepair();
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
-  const { page, sort, setPage, handleSort, search, setSearch } =
-    useListControls();
+  const {
+    page,
+    sort,
+    setPage,
+    handleSort,
+    search,
+    setSearch,
+    filters,
+    setFilter,
+    clearFilters,
+    hasFilters
+  } = useListControls(FILTER_KEYS);
   const limit = 10;
 
   const isAdmin = userRole?.roles?.name === 'admin';
@@ -104,14 +138,16 @@ const JobOrdersPage = () => {
     shouldFilter ? user?.id : undefined,
     shouldFilter ? 'driver' : undefined,
     sort ?? undefined,
-    search
+    search,
+    filters
   );
   const totalPages = Math.ceil((data?.count || 0) / limit);
 
   const { data: calendarData, isLoading: isCalendarLoading } = useAllJobOrders(
     shouldFilter ? user?.id : undefined,
     shouldFilter ? 'driver' : undefined,
-    search
+    search,
+    filters
   );
 
   const calendarEvents = useMemo(() => {
@@ -225,6 +261,12 @@ const JobOrdersPage = () => {
                 label="Search job orders"
               />
             </div>
+            <TableFilters
+              filters={FILTER_DEFINITIONS}
+              values={filters}
+              onChange={setFilter}
+              onClear={clearFilters}
+            />
             <TabsContent value="calendar" className="mt-4">
               {isCalendarLoading ? (
                 <div className="text-muted-foreground py-12 text-center text-sm">
@@ -270,6 +312,8 @@ const JobOrdersPage = () => {
                   message="No job orders yet."
                   search={search}
                   onClearSearch={() => setSearch('')}
+                  hasFilters={hasFilters}
+                  onClearFilters={clearFilters}
                 />
               ) : (
                 <>

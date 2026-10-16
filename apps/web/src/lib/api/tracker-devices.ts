@@ -35,12 +35,21 @@ export interface TrackerDeviceListParams {
 // the client's Record index signature.
 export async function getTrackerDevices(
   params: TrackerDeviceListParams = {},
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  filters?: Record<string, string>
 ): Promise<{ data: TrackerDevice[]; count: number }> {
   const { page, limit, vehicleId, status, search } = params;
   const res = await api.get<{ data: TrackerDevice[]; count: number }>(
     '/tracker-devices',
-    { page, limit, vehicleId, status, search, ...(sort ?? {}) }
+    {
+      ...filters,
+      page,
+      limit,
+      vehicleId,
+      ...(status ? { status } : {}),
+      search,
+      ...(sort ?? {})
+    }
   );
   return { data: res.data, count: res.count };
 }
