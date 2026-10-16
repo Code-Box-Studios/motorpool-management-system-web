@@ -228,16 +228,38 @@ test('maintenance filters match priority badges and confidence without changing 
       }
     })
   );
-  await page.route('**/api/analytics/association-rules', (route) =>
-    route.fulfill({
-      json: {
-        data: [
-          { partA: 'Strong oil', partB: 'Strong filter', frequency: 90 },
-          { partA: 'Weak belt', partB: 'Weak filter', frequency: 35 }
-        ],
-        count: 2
-      }
-    })
+  await page.route(
+    '**/api/analytics/association-models?algorithm=fp_growth',
+    (route) =>
+      route.fulfill({
+        json: {
+          algorithm: 'fp_growth',
+          modelName: 'FP-Growth',
+          sourceFile: 'mms_fpgrowth_model.pkl',
+          sourceSha256: '0'.repeat(64),
+          trainingTransactions: 21,
+          minSupport: 2 / 21,
+          data: [
+            {
+              antecedent: 'Strong oil',
+              consequent: 'Strong filter',
+              confidence: 0.9,
+              support: 4 / 21,
+              lift: 3,
+              coOccurrences: 4
+            },
+            {
+              antecedent: 'Weak belt',
+              consequent: 'Weak filter',
+              confidence: 0.35,
+              support: 2 / 21,
+              lift: 1.5,
+              coOccurrences: 2
+            }
+          ],
+          count: 2
+        }
+      })
   );
   await page.goto('/maintenance?tab=preventive');
   await chooseFilter(page, 'Priority', 'Low Priority');

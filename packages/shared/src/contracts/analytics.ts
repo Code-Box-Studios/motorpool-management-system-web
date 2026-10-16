@@ -48,3 +48,33 @@ export const associationRulesQuerySchema = z.object({
   vehicleType: z.string().optional()
 });
 export type AssociationRulesQuery = z.infer<typeof associationRulesQuerySchema>;
+
+export const sparePartsModelAlgorithmSchema = z.enum(['fp_growth', 'eclat']);
+export type SparePartsModelAlgorithm = z.infer<
+  typeof sparePartsModelAlgorithmSchema
+>;
+
+export const sparePartsModelQuerySchema = z.object({
+  algorithm: sparePartsModelAlgorithmSchema.default('fp_growth')
+});
+
+export const sparePartsModelResultSchema = z.object({
+  algorithm: sparePartsModelAlgorithmSchema,
+  modelName: z.string().min(1),
+  sourceFile: z.string().min(1),
+  sourceSha256: z.string().regex(/^[a-f0-9]{64}$/),
+  trainingTransactions: z.number().int().positive(),
+  minSupport: z.number().finite().gt(0).max(1),
+  count: z.number().int().nonnegative(),
+  data: z.array(
+    z.object({
+      antecedent: z.string().min(1),
+      consequent: z.string().min(1),
+      support: z.number().finite().min(0).max(1),
+      confidence: z.number().finite().min(0).max(1),
+      lift: z.number().finite().nonnegative(),
+      coOccurrences: z.number().int().nonnegative()
+    })
+  )
+});
+export type SparePartsModelResult = z.infer<typeof sparePartsModelResultSchema>;

@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
+import type { SparePartsModelAlgorithm } from '@mms/shared';
 import {
   getDashboardMetrics,
   getPredictiveMaintenanceData,
-  getSparePartsAssociations
+  getSparePartsAssociations,
+  getSparePartsModel
 } from '@/lib/api/analytics';
 
 // Both dashboard-metric hooks below share this key so they dedupe onto a
@@ -25,6 +27,16 @@ export const useSparePartsAssociations = () => {
     queryKey: ['analytics', 'spare-parts-associations'],
     queryFn: getSparePartsAssociations,
     staleTime: 5 * 60 * 1000
+  });
+};
+
+export const useSparePartsModel = (algorithm: SparePartsModelAlgorithm) => {
+  return useQuery({
+    queryKey: ['analytics', 'spare-parts-model', algorithm],
+    queryFn: () => getSparePartsModel(algorithm),
+    staleTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false
   });
 };
 

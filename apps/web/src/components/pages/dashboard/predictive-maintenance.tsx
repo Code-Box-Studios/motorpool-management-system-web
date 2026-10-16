@@ -19,24 +19,14 @@ import TableFilters from '@/components/shared/table-filters';
 import EmptyState from '@/components/shared/empty-state';
 import { useListControls } from '@/hooks/use-list-controls';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table';
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger
 } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
-import {
-  usePredictiveMaintenanceData,
-  useSparePartsAssociations
-} from '@/lib/query/analytics';
+import { usePredictiveMaintenanceData } from '@/lib/query/analytics';
+import SparePartsModels from './spare-parts-models';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface PredictiveMaintenanceProps {
@@ -54,11 +44,8 @@ const PredictiveMaintenance = ({
   const { filters, setFilter, clearFilters, hasFilters } = useListControls([
     'predictiveRisk'
   ]);
-  const partsControls = useListControls(['partsConfidence']);
   const { data: predictions, isLoading: predictionsLoading } =
     usePredictiveMaintenanceData();
-  const { data: associations, isLoading: associationsLoading } =
-    useSparePartsAssociations();
 
   const handleViewAll = () => {
     navigate({
@@ -86,15 +73,6 @@ const PredictiveMaintenance = ({
     predictedDate: v.predictedFailureDate
   }));
 
-  const coReplacedParts =
-    associations && associations.length > 0
-      ? associations.map((r) => ({
-          partA: r.partA,
-          partB: r.partB,
-          frequency: r.frequency
-        }))
-      : [];
-
   const highPriorityByOldest = [...predictedVehicles]
     .filter((v) => v.priority === 'high')
     .sort(
@@ -108,19 +86,6 @@ const PredictiveMaintenance = ({
         (vehicle) =>
           !filters.predictiveRisk || vehicle.priority === filters.predictiveRisk
       );
-
-  const displayedParts = coReplacedParts.filter((pair) => {
-    switch (partsControls.filters.partsConfidence) {
-      case 'high':
-        return pair.frequency >= 80;
-      case 'medium':
-        return pair.frequency >= 50 && pair.frequency < 80;
-      case 'low':
-        return pair.frequency < 50;
-      default:
-        return true;
-    }
-  });
 
   return (
     <div className="space-y-6">
@@ -222,89 +187,7 @@ const PredictiveMaintenance = ({
         </CardContent>
       </Card>
 
-      {!showViewAll && (
-        <Card>
-          <CardHeader className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-[min(100%,16rem)] flex-1 space-y-2">
-              <CardTitle>Frequently Co-Replaced Parts</CardTitle>
-              <CardDescription>
-                Parts that are commonly replaced together based on maintenance
-                history
-              </CardDescription>
-            </div>
-            <div className="shrink-0">
-              <TableFilters
-                filters={[
-                  {
-                    key: 'partsConfidence',
-                    label: 'Confidence',
-                    options: [
-                      { value: 'high', label: '80% and above' },
-                      { value: 'medium', label: '50% to below 80%' },
-                      { value: 'low', label: 'Below 50%' }
-                    ]
-                  }
-                ]}
-                values={partsControls.filters}
-                onChange={partsControls.setFilter}
-                onClear={partsControls.clearFilters}
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {associationsLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-8 w-full" />
-                ))}
-              </div>
-            ) : displayedParts.length === 0 ? (
-              <EmptyState
-                message="Not enough job order data to compute spare parts associations yet. As more job orders with spare parts are recorded, patterns will appear here."
-                hasFilters={partsControls.hasFilters}
-                onClearFilters={partsControls.clearFilters}
-              />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Part A</TableHead>
-                    <TableHead>Part B</TableHead>
-                    <TableHead>Confidence</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayedParts.map((pair, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">
-                        {pair.partA}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {pair.partB}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="bg-muted h-2 w-24 overflow-hidden rounded-full">
-                            <div
-                              className="bg-primary h-2 rounded-full"
-                              style={{
-                                width: `${Math.min(pair.frequency, 100)}%`
-                              }}
-                            />
-                          </div>
-                          <span className="text-muted-foreground shrink-0 text-sm whitespace-nowrap">
-                            {pair.frequency}%
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {!showViewAll && <SparePartsModels />}
     </div>
   );
 };

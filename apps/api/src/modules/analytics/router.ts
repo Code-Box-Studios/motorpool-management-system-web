@@ -15,3 +15,4 @@ analyticsRouter.get(
   controller.predictiveMaintenance
 );
 analyticsRouter.get('/association-rules', controller.associationRules);
+analyticsRouter.get('/association-models', controller.associationModel);

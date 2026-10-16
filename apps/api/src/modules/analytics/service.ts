@@ -2,9 +2,11 @@ import type {
   AssociationRule,
   AssociationRulesQuery,
   DashboardMetrics,
-  RiskAssessment
+  RiskAssessment,
+  SparePartsModelAlgorithm
 } from '@mms/shared';
 import { computeAssociationRules } from '../../lib/ml/apriori.js';
+import { loadAssociationModel } from '../../lib/ml/association-models.js';
 import { clientCrossCheckScore } from '../../lib/ml/client-dt.js';
 import { extractFeatures } from '../../lib/ml/features.js';
 import { loadModel } from '../../lib/ml/random-forest.js';
@@ -16,6 +18,10 @@ import * as repo from './repository.js';
 // (motorpool_dt_model.pkl), wired in ALONGSIDE the incumbent RF purely as an
 // informational cross-check. It drives no user-facing number.
 const CLIENT_CROSS_CHECK_MODEL = 'client_decision_tree_v1';
+
+export function associationModel(algorithm: SparePartsModelAlgorithm) {
+  return loadAssociationModel(algorithm);
+}
 
 export async function dashboard(): Promise<DashboardMetrics> {
   const [{ groups, total }, completedTrips] = await Promise.all([

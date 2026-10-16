@@ -3,7 +3,9 @@ import { api } from './client.js';
 import type {
   AssociationRule,
   DashboardMetrics,
-  RiskAssessment
+  RiskAssessment,
+  SparePartsModelAlgorithm,
+  SparePartsModelResult
 } from '@mms/shared';
 import {
   buildAssessmentFromApi,
@@ -32,4 +34,12 @@ export async function getSparePartsAssociations(): Promise<AssociationRule[]> {
     '/analytics/association-rules'
   );
   return res.data;
+}
+
+export function getSparePartsModel(
+  algorithm: SparePartsModelAlgorithm
+): Promise<SparePartsModelResult> {
+  return api.get<SparePartsModelResult>('/analytics/association-models', {
+    algorithm
+  });
 }

@@ -1,5 +1,8 @@
 import type { Request, Response } from 'express';
-import { associationRulesQuerySchema } from '@mms/shared';
+import {
+  associationRulesQuerySchema,
+  sparePartsModelQuerySchema
+} from '@mms/shared';
 import * as service from './service.js';
 
 export async function dashboard(_req: Request, res: Response): Promise<void> {
@@ -20,4 +23,9 @@ export async function associationRules(
   res.json(
     await service.associationRules(associationRulesQuerySchema.parse(req.query))
   );
+}
+
+export function associationModel(req: Request, res: Response): void {
+  const { algorithm } = sparePartsModelQuerySchema.parse(req.query);
+  res.json(service.associationModel(algorithm));
 }

@@ -119,7 +119,7 @@ describe('analytics module', () => {
   // downtime_hours leaf, threshold 0.8223991990089417) are read straight off
   // client-dt.test.ts, which pins the same client_dt_model.json this endpoint
   // loads.
-  it('GET /analytics/predictive-maintenance returns the model\'s actual score, not just null-or-a-number', async () => {
+  it("GET /analytics/predictive-maintenance returns the model's actual score, not just null-or-a-number", async () => {
     const header = await adminHeader();
     const v = await vehicle('available', 10000);
     // KM_SINCE_LAST_MAINT = 10000 - 0. MAINT_FREQ_12M = 1 (one record, dated
@@ -258,6 +258,50 @@ describe('analytics module', () => {
     expect([rule.partA, rule.partB].sort()).toEqual(['Brake Pad', 'Rotor']);
   });
 
+  it.each(['fp_growth', 'eclat'])(
+    'runs the supplied %s association model without live job orders',
+    async (algorithm) => {
+      const header = await adminHeader();
+      const res = await request(app)
+        .get(`/api/analytics/association-models?algorithm=${algorithm}`)
+        .set('Authorization', header);
+      expect(res.status).toBe(200);
+      expect(res.body.algorithm).toBe(algorithm);
+      expect(res.body.trainingTransactions).toBe(21);
+      expect(res.body.minSupport).toBeCloseTo(2 / 21, 12);
+      expect(res.body.count).toBe(4);
+      expect(res.body.data).toHaveLength(4);
+      expect(res.body.data).toContainEqual({
+        antecedent: 'Fuel Filter',
+        consequent: 'Oil Filter',
+        support: 4 / 21,
+        confidence: 1,
+        lift: 3,
+        coOccurrences: 4
+      });
+      const reverse = res.body.data.find(
+        (rule: { antecedent: string; consequent: string }) =>
+          rule.antecedent === 'Oil Filter' && rule.consequent === 'Fuel Filter'
+      );
+      expect(reverse.confidence).toBeCloseTo(4 / 7, 12);
+      expect(reverse.support).toBeCloseTo(4 / 21, 12);
+    }
+  );
+
+  it('defaults to FP-Growth and rejects an unknown association algorithm', async () => {
+    const header = await adminHeader();
+    const defaultResult = await request(app)
+      .get('/api/analytics/association-models')
+      .set('Authorization', header);
+    expect(defaultResult.status).toBe(200);
+    expect(defaultResult.body.algorithm).toBe('fp_growth');
+    const invalid = await request(app)
+      .get('/api/analytics/association-models?algorithm=random_forest')
+      .set('Authorization', header);
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
   it('403 for non-admin/non-evp roles on every analytics endpoint', async () => {
     const { user } = await createTestUser({
       email: 'r@test.local',
@@ -267,7 +311,8 @@ describe('analytics module', () => {
     for (const path of [
       '/api/analytics/dashboard',
       '/api/analytics/predictive-maintenance',
-      '/api/analytics/association-rules'
+      '/api/analytics/association-rules',
+      '/api/analytics/association-models?algorithm=eclat'
     ]) {
       expect(
         (await request(app).get(path).set('Authorization', h)).status

@@ -1,0 +1,43 @@
+{
+  "algorithm": "eclat",
+  "modelName": "Eclat",
+  "sourceFile": "mms_eclat_model.pkl",
+  "sourceSha256": "de1da6698d8a14991d5330acc89ad2134a306f62d60fd87a32045dbc45505d5c",
+  "trainingTransactions": 21,
+  "minSupport": 0.09523809523809523,
+  "count": 4,
+  "data": [
+    {
+      "antecedent": "Fuel Filter",
+      "consequent": "Oil Filter",
+      "support": 0.19047619047619047,
+      "confidence": 1.0,
+      "lift": 3.0,
+      "coOccurrences": 4
+    },
+    {
+      "antecedent": "Air Cleaner Element",
+      "consequent": "Oil Filter",
+      "support": 0.09523809523809523,
+      "confidence": 1.0,
+      "lift": 3.0,
+      "coOccurrences": 2
+    },
+    {
+      "antecedent": "Valve Cover Gasket",
+      "consequent": "Oil Filter",
+      "support": 0.09523809523809523,
+      "confidence": 1.0,
+      "lift": 3.0,
+      "coOccurrences": 2
+    },
+    {
+      "antecedent": "Oil Filter",
+      "consequent": "Fuel Filter",
+      "support": 0.19047619047619047,
+      "confidence": 0.5714285714285715,
+      "lift": 3.0000000000000004,
+      "coOccurrences": 4
+    }
+  ]
+}

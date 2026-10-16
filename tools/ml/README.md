@@ -4,6 +4,40 @@ Trains the vehicle failure-risk model the API serves at
 `GET /api/analytics/predictive-maintenance`, and exports it to the exact JSON the
 TypeScript runtime loads (`apps/api/src/assets/rf_maintenance_model.json`).
 
+## Saved spare-parts association models
+
+`mms_fpgrowth_model.pkl` and `mms_eclat_model.pkl` are supplied rule bundles,
+each containing four directional rules from 21 training transactions. Both
+currently contain the same rules; selecting another algorithm need not change
+the results. They describe spare-part co-replacement, not vehicle failure risk.
+
+Maintenance → Predictive includes a model selector and Run Model button beside
+the co-replaced parts results. FP-Growth loads by default; subsequent selections
+apply only when Run Model is clicked. Results show the model, training sample,
+confidence, support, and lift. Run Model loads saved rules; it does not retrain
+or incorporate new job orders. The existing `/api/analytics/association-rules`
+endpoint still mines live job-order data independently.
+
+The API serves `/api/analytics/association-models?algorithm=fp_growth` or `eclat`
+to administrators and EVP Operations. It loads committed, validated JSON assets,
+so deployment requires no Python service. The original pickles and their SHA-256
+hashes are retained for reproducibility. Missing or invalid assets return 503;
+unknown algorithms return 400 rather than silently substituting a model.
+
+To regenerate the assets with the offline exporter:
+
+```sh
+python3 -m venv /tmp/mms-association-models-env
+/tmp/mms-association-models-env/bin/pip install -r tools/ml/requirements-association.txt
+/tmp/mms-association-models-env/bin/python tools/ml/export_association_json.py --algorithm fp_growth --model tools/ml/mms_fpgrowth_model.pkl --out apps/api/src/assets/association_fpgrowth_model.json
+/tmp/mms-association-models-env/bin/python tools/ml/export_association_json.py --algorithm eclat --model tools/ml/mms_eclat_model.pkl --out apps/api/src/assets/association_eclat_model.json
+/tmp/mms-association-models-env/bin/python -m unittest tools/ml/test_export_association_json.py
+```
+
+The converter accepts only the known pandas/NumPy object classes in these files,
+validates metrics, preserves full precision and rule direction, and records each
+source hash. The normal API build copies these assets into `dist/assets`.
+
 ## Why this exists
 
 For a brand-new app with no operating history, training on an **external/borrowed
@@ -26,14 +60,14 @@ contract so train == serve by construction.
 
 ## Files
 
-| File | Role |
-|------|------|
-| `feature_spec.py` | Canonical feature contract — mirrors `apps/api/src/lib/ml/features.ts` + `risk.ts`. Holds the serve-alignment transform, the distribution-shift warnings, and the deterministic `fallback_score` baseline. |
-| `train_predictive_maintenance.py` | The reproducible trainer: align → split (time-based) → train → **compare against the free rule baseline** → export → print new golden values. |
-| `export_rf_json.py` | sklearn `RandomForestClassifier` → `RFModel` JSON. **Self-verifying**: re-implements the TS traversal in Python and asserts it reproduces `predict_proba` to 1e-9. |
-| `requirements.txt` | Python deps. |
-| `mms_randomforest.py` | ⚠️ Legacy Colab export (random split, no exporter). Superseded by the trainer above; kept for reference. |
-| `motorpool_ml_api.py`, `*.pkl` | ⚠️ Legacy Flask prototype + fitted artifacts. Not used by the running app (the API reimplements inference in TS). |
+| File                              | Role                                                                                                                                                                                                       |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `feature_spec.py`                 | Canonical feature contract — mirrors `apps/api/src/lib/ml/features.ts` + `risk.ts`. Holds the serve-alignment transform, the distribution-shift warnings, and the deterministic `fallback_score` baseline. |
+| `train_predictive_maintenance.py` | The reproducible trainer: align → split (time-based) → train → **compare against the free rule baseline** → export → print new golden values.                                                              |
+| `export_rf_json.py`               | sklearn `RandomForestClassifier` → `RFModel` JSON. **Self-verifying**: re-implements the TS traversal in Python and asserts it reproduces `predict_proba` to 1e-9.                                         |
+| `requirements.txt`                | Python deps.                                                                                                                                                                                               |
+| `mms_randomforest.py`             | ⚠️ Legacy Colab export (random split, no exporter). Superseded by the trainer above; kept for reference.                                                                                                   |
+| `motorpool_ml_api.py`, `*.pkl`    | ⚠️ Legacy Flask prototype + fitted artifacts. Not used by the running app (the API reimplements inference in TS).                                                                                          |
 
 ## Setup
 
