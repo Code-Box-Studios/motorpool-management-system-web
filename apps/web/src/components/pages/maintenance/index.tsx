@@ -1,3 +1,4 @@
+import ListToolbar from '@/components/shared/list-toolbar';
 import TableFilters, {
   type TableFilterDefinition
 } from '@/components/shared/table-filters';
@@ -226,28 +227,34 @@ const MaintenancePage = () => {
                 }
                 className="w-full gap-0"
               >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <TabsList>
-                    <TabsTrigger value="calendar" className={ACTIVE_TAB}>
-                      Calendar
-                    </TabsTrigger>
-                    <TabsTrigger value="table" className={ACTIVE_TAB}>
-                      Table
-                    </TabsTrigger>
-                  </TabsList>
-                  <ListSearchInput
-                    value={search}
-                    onChange={setSearch}
-                    label="Search maintenance"
-                  />
-                </div>
-                <TableFilters
-                  filters={filterDefinitions}
-                  values={filters}
-                  onChange={setFilter}
-                  onClear={clearFilters}
+                <ListToolbar
+                  viewControl={
+                    <TabsList className="grid w-[220px] max-w-full grid-cols-2">
+                      <TabsTrigger value="calendar" className={ACTIVE_TAB}>
+                        Calendar
+                      </TabsTrigger>
+                      <TabsTrigger value="table" className={ACTIVE_TAB}>
+                        Table
+                      </TabsTrigger>
+                    </TabsList>
+                  }
+                  searchControl={
+                    <ListSearchInput
+                      value={search}
+                      onChange={setSearch}
+                      label="Search maintenance"
+                    />
+                  }
+                  filterControl={
+                    <TableFilters
+                      filters={filterDefinitions}
+                      values={filters}
+                      onChange={setFilter}
+                      onClear={clearFilters}
+                    />
+                  }
                 />
-                <TabsContent value="calendar" className="mt-4">
+                <TabsContent value="calendar" className="mt-0">
                   {isCalendarLoading ? (
                     <div className="text-muted-foreground py-12 text-center text-sm">
                       Loading calendar...
@@ -274,7 +281,7 @@ const MaintenancePage = () => {
                     />
                   )}
                 </TabsContent>
-                <TabsContent value="table" className="mt-4">
+                <TabsContent value="table" className="mt-0">
                   {isTableLoading ? (
                     <TableSkeleton
                       columns={[

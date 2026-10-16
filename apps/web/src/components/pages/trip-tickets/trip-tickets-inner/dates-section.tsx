@@ -114,9 +114,8 @@ export function TripDatesSection({
           ? 'Each date is its own outing, with its own gate cycle.'
           : undefined
       }
-    >
-      {dates.length > 0 && (
-        <div className="mb-4">
+      action={
+        dates.length > 0 ? (
           <TableFilters
             filters={[
               { key: 'dateStatus', label: 'Status', options: statusOptions }
@@ -125,8 +124,9 @@ export function TripDatesSection({
             onChange={setFilter}
             onClear={clearFilters}
           />
-        </div>
-      )}
+        ) : undefined
+      }
+    >
       {dates.length === 0 ? (
         // Legacy tickets from before this feature got no backfill row — an
         // empty table with headers and no rows would look broken, not empty.

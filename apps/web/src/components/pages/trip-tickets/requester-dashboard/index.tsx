@@ -1,3 +1,4 @@
+import ListToolbar from '@/components/shared/list-toolbar';
 import { matchesSearch } from '@mms/shared';
 import { resolveStatus } from '@/lib/status';
 import ListSearchInput from '@/components/shared/list-search-input';
@@ -307,27 +308,29 @@ const RequesterDashboard = () => {
           {others.length > 0 && (
             <section className="mt-10">
               <SectionLabel>Other requests</SectionLabel>
-              <div className="mb-5">
-                <ListSearchInput
-                  value={search}
-                  onChange={setSearch}
-                  label="Search request history"
-                />
-              </div>
-              <div className="mb-4">
-                <TableFilters
-                  filters={[
-                    {
-                      key: 'requestStatus',
-                      label: 'Status',
-                      options: statusOptions
-                    }
-                  ]}
-                  values={filters}
-                  onChange={setFilter}
-                  onClear={clearFilters}
-                />
-              </div>
+              <ListToolbar
+                searchControl={
+                  <ListSearchInput
+                    value={search}
+                    onChange={setSearch}
+                    label="Search request history"
+                  />
+                }
+                filterControl={
+                  <TableFilters
+                    filters={[
+                      {
+                        key: 'requestStatus',
+                        label: 'Status',
+                        options: statusOptions
+                      }
+                    ]}
+                    values={filters}
+                    onChange={setFilter}
+                    onClear={clearFilters}
+                  />
+                }
+              />
               {filteredOthers.length === 0 && (
                 <EmptyState
                   message="No other requests."

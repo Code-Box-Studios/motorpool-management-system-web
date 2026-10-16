@@ -1,17 +1,6 @@
-import { test, expect, type Page } from '@playwright/test';
+import { chooseFilter, expectFilterValue } from './filter-controls';
+import { test, expect } from '@playwright/test';
 import { login } from './helpers';
-
-async function chooseFilter(page: Page, label: string, option: string) {
-  await page
-    .getByRole('combobox', { name: `Filter by ${label}`, exact: true })
-    .click();
-  const popup = page.getByRole('dialog', {
-    name: 'Choose an option',
-    exact: true
-  });
-  await popup.getByRole('option', { name: option, exact: true }).click();
-  await expect(popup).toBeHidden();
-}
 
 test('column filters compose, reset pagination, and preserve search, sorting, and Grid', async ({
   page
@@ -33,17 +22,11 @@ test('column filters compose, reset pagination, and preserve search, sorting, an
   await expect(page).toHaveURL(/fuelType=diesel/);
   await expect(page).toHaveURL(/status=available/);
   await page.getByRole('tab', { name: 'Table', exact: true }).click();
-  await expect(
-    page.getByRole('combobox', { name: 'Filter by status', exact: true })
-  ).toContainText('Ready');
+  await expectFilterValue(page, 'status', 'Ready');
 
   await page.reload();
-  await expect(
-    page.getByRole('combobox', { name: 'Filter by fuel type', exact: true })
-  ).toContainText('Diesel');
-  await expect(
-    page.getByRole('combobox', { name: 'Filter by status', exact: true })
-  ).toContainText('Ready');
+  await expectFilterValue(page, 'fuel type', 'Diesel');
+  await expectFilterValue(page, 'status', 'Ready');
   await chooseFilter(page, 'status', 'All');
   await expect(page).not.toHaveURL(/status=/);
   await expect(page).toHaveURL(/fuelType=diesel/);
@@ -81,18 +64,14 @@ test('unavailable dynamic filter options stay visible and clearable', async ({
 }) => {
   await login(page, 'admin');
   await page.goto('/vehicles?branchId=ffffffff-ffff-4fff-8fff-ffffffffffff');
-  await expect(
-    page.getByRole('combobox', { name: 'Filter by branch', exact: true })
-  ).toContainText('Unavailable option');
+  await expectFilterValue(page, 'branch', 'Unavailable option');
   await expect(page.getByText('No records match your filters.')).toBeVisible();
   await page
     .getByRole('button', { name: 'Clear filters', exact: true })
     .first()
     .click();
   await expect(page).not.toHaveURL(/branchId=/);
-  await expect(
-    page.getByRole('combobox', { name: 'Filter by branch', exact: true })
-  ).toContainText('All');
+  await expectFilterValue(page, 'branch', 'All');
 });
 
 for (const check of [
@@ -187,12 +166,7 @@ for (const check of [
     expect(result.ok()).toBeTruthy();
     await expect(page).not.toHaveURL(/page=2/);
     expect(new URL(page.url()).searchParams.get(check.key)).toBe(check.value);
-    await expect(
-      page.getByRole('combobox', {
-        name: `Filter by ${check.label}`,
-        exact: true
-      })
-    ).toContainText(check.option);
+    await expectFilterValue(page, check.label, check.option);
     await page
       .getByRole('button', { name: 'Clear filters', exact: true })
       .first()

@@ -126,9 +126,9 @@ const PredictiveMaintenance = ({
     <div className="space-y-6">
       <Card className="h-full">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>
-              <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <CardTitle className="min-w-[min(100%,16rem)] flex-1">
+              <div className="flex flex-wrap items-center gap-2">
                 <span>Predictive Maintenance</span>
                 <TooltipProvider>
                   <Tooltip>
@@ -167,11 +167,7 @@ const PredictiveMaintenance = ({
                 <Button onClick={handleViewAll}>View All</Button>
               </CardDescription>
             )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {!showViewAll && (
-            <div className="mb-4">
+            {!showViewAll && (
               <TableFilters
                 filters={[
                   {
@@ -189,8 +185,10 @@ const PredictiveMaintenance = ({
                 onChange={setFilter}
                 onClear={clearFilters}
               />
-            </div>
-          )}
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
           {predictionsLoading ? (
             <div className={showViewAll ? 'grid grid-cols-1 gap-4' : CARD_GRID}>
               {Array.from({ length: showViewAll ? 2 : 3 }).map((_, i) => (
@@ -226,15 +224,15 @@ const PredictiveMaintenance = ({
 
       {!showViewAll && (
         <Card>
-          <CardHeader>
-            <CardTitle>Frequently Co-Replaced Parts</CardTitle>
-            <CardDescription>
-              Parts that are commonly replaced together based on maintenance
-              history
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4">
+          <CardHeader className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-[min(100%,16rem)] flex-1 space-y-2">
+              <CardTitle>Frequently Co-Replaced Parts</CardTitle>
+              <CardDescription>
+                Parts that are commonly replaced together based on maintenance
+                history
+              </CardDescription>
+            </div>
+            <div className="shrink-0">
               <TableFilters
                 filters={[
                   {
@@ -252,6 +250,8 @@ const PredictiveMaintenance = ({
                 onClear={partsControls.clearFilters}
               />
             </div>
+          </CardHeader>
+          <CardContent>
             {associationsLoading ? (
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (

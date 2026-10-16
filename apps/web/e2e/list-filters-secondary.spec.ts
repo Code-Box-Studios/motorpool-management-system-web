@@ -1,15 +1,10 @@
-import { test, expect, type Page } from '@playwright/test';
+import {
+  chooseFilter,
+  expectFilterValue,
+  openFilters
+} from './filter-controls';
+import { test, expect } from '@playwright/test';
 import { login, apiLogin, apiGet, listData, CREDENTIALS } from './helpers';
-
-async function chooseFilter(page: Page, label: string, option: string) {
-  await page
-    .getByRole('combobox', {
-      name: `Filter by ${label.toLowerCase()}`,
-      exact: true
-    })
-    .click();
-  await page.getByRole('option', { name: option, exact: true }).click();
-}
 
 test('organization combines archive and branch filters and preserves each tab', async ({
   page
@@ -176,15 +171,15 @@ test('requester status options include later pages and filter before pagination'
   ).toBeVisible();
   completedOnly = true;
   await page.goto('/dashboard?requestStatus=approved');
-  await expect(
-    page.getByRole('combobox', { name: 'Filter by status' })
-  ).toContainText('Approved');
+  await expectFilterValue(page, 'status', 'Approved');
   await expect(page.getByText('No records match your filters.')).toBeVisible();
-  await page.getByRole('combobox', { name: 'Filter by status' }).click();
+  const drawer = await openFilters(page, 'status');
+  await drawer.getByRole('combobox', { name: 'Filter by status' }).click();
   await expect(
     page.getByRole('option', { name: 'On the road', exact: true })
   ).toBeVisible();
   await page.keyboard.press('Escape');
+  await drawer.getByRole('button', { name: 'Done', exact: true }).click();
   await page
     .getByRole('button', { name: 'Clear filters', exact: true })
     .first()
@@ -262,7 +257,7 @@ test('maintenance filters match priority badges and confidence without changing 
   await page.goto('/dashboard?predictiveRisk=low&preventivePriority=low');
   await expect(page.getByText('TEST-HIGH', { exact: true })).toHaveCount(2);
   await expect(
-    page.getByRole('combobox', { name: 'Filter by risk' })
+    page.getByRole('button', { name: /^Filters:.*Risk/ })
   ).toHaveCount(0);
 });
 
@@ -291,9 +286,7 @@ test('approval request and outcome filters preserve the pending action count', a
   ).toHaveAttribute('data-state', 'active');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(headline);
   await page.getByRole('tab', { name: /Needs you/ }).click();
-  await expect(
-    page.getByRole('combobox', { name: 'Filter by request type' })
-  ).toContainText('Repair · Job order');
+  await expectFilterValue(page, 'request type', 'Repair · Job order');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(headline);
 });
 

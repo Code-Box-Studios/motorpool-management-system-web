@@ -1,3 +1,4 @@
+import ListToolbar from '@/components/shared/list-toolbar';
 import TableFilters, {
   type TableFilterDefinition
 } from '@/components/shared/table-filters';
@@ -98,21 +99,23 @@ const Drivers = () => {
 
       <Card>
         <CardContent>
-          <div>
-            <ListSearchInput
-              value={search}
-              onChange={setSearch}
-              label="Search drivers"
-            />
-          </div>
-          <div className="mb-4">
-            <TableFilters
-              filters={FILTER_DEFINITIONS}
-              values={filters}
-              onChange={setFilter}
-              onClear={clearFilters}
-            />
-          </div>
+          <ListToolbar
+            searchControl={
+              <ListSearchInput
+                value={search}
+                onChange={setSearch}
+                label="Search drivers"
+              />
+            }
+            filterControl={
+              <TableFilters
+                filters={FILTER_DEFINITIONS}
+                values={filters}
+                onChange={setFilter}
+                onClear={clearFilters}
+              />
+            }
+          />
           {isLoading ? (
             <TableSkeleton columns={COLUMNS} />
           ) : (

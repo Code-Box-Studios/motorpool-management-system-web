@@ -1,3 +1,4 @@
+import ListToolbar from '@/components/shared/list-toolbar';
 import TableFilters, {
   type TableFilterDefinition
 } from '@/components/shared/table-filters';
@@ -122,21 +123,23 @@ const UserManagement = () => {
 
       <Card>
         <CardContent>
-          <div>
-            <ListSearchInput
-              value={search}
-              onChange={setSearch}
-              label="Search users"
-            />
-          </div>
-          <div className="mb-4">
-            <TableFilters
-              filters={filterDefinitions}
-              values={filters}
-              onChange={setFilter}
-              onClear={clearFilters}
-            />
-          </div>
+          <ListToolbar
+            searchControl={
+              <ListSearchInput
+                value={search}
+                onChange={setSearch}
+                label="Search users"
+              />
+            }
+            filterControl={
+              <TableFilters
+                filters={filterDefinitions}
+                values={filters}
+                onChange={setFilter}
+                onClear={clearFilters}
+              />
+            }
+          />
           {error ? (
             <p className="text-destructive text-sm">
               Error loading users: {error.message}

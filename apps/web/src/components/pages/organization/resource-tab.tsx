@@ -1,3 +1,4 @@
+import ListToolbar from '@/components/shared/list-toolbar';
 import { matchesSearch } from '@mms/shared';
 import ListSearchInput from '@/components/shared/list-search-input';
 import TableFilters, {
@@ -189,21 +190,23 @@ export function ResourceTab({ resource }: ResourceTabProps) {
 
       <Card>
         <CardContent>
-          <div className="mb-4">
-            <ListSearchInput
-              value={search}
-              onChange={setSearch}
-              label={`Search ${meta.title.toLowerCase()}`}
-            />
-          </div>
-          <div className="mb-4">
-            <TableFilters
-              filters={tableFilters}
-              values={filters}
-              onChange={setFilter}
-              onClear={clearFilters}
-            />
-          </div>
+          <ListToolbar
+            searchControl={
+              <ListSearchInput
+                value={search}
+                onChange={setSearch}
+                label={`Search ${meta.title.toLowerCase()}`}
+              />
+            }
+            filterControl={
+              <TableFilters
+                filters={tableFilters}
+                values={filters}
+                onChange={setFilter}
+                onClear={clearFilters}
+              />
+            }
+          />
           {query.isLoading ? (
             // meta.columns + Actions: the real table below renders an extra
             // Actions header, so a skeleton built from meta.columns alone is

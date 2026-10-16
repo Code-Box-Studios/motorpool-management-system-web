@@ -1,3 +1,4 @@
+import ListToolbar from '@/components/shared/list-toolbar';
 import { Link } from '@tanstack/react-router';
 import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -48,38 +49,45 @@ export default function ApprovalHistory() {
   return (
     <Card>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <ListSearchInput
-            value={search}
-            onChange={setSearch}
-            label="Search approval history"
-          />
-          <p className="text-muted-foreground text-sm" aria-live="polite">
-            {count} decision{count === 1 ? '' : 's'} · Newest first
-          </p>
-        </div>
-        <TableFilters
-          filters={[
-            {
-              key: 'approvalKind',
-              label: 'Request type',
-              options: [
-                { value: 'fuel', label: 'Fuel · Trip ticket' },
-                { value: 'repair', label: 'Repair · Job order' }
-              ]
-            },
-            {
-              key: 'approvalOutcome',
-              label: 'Outcome',
-              options: [
-                { value: 'approved', label: 'Approved' },
-                { value: 'declined', label: 'Declined' }
-              ]
-            }
-          ]}
-          values={filters}
-          onChange={setFilter}
-          onClear={clearFilters}
+        <ListToolbar
+          className="mb-0"
+          viewControl={
+            <p className="text-muted-foreground text-sm" aria-live="polite">
+              {count} decision{count === 1 ? '' : 's'} · Newest first
+            </p>
+          }
+          searchControl={
+            <ListSearchInput
+              value={search}
+              onChange={setSearch}
+              label="Search approval history"
+            />
+          }
+          filterControl={
+            <TableFilters
+              filters={[
+                {
+                  key: 'approvalKind',
+                  label: 'Request type',
+                  options: [
+                    { value: 'fuel', label: 'Fuel · Trip ticket' },
+                    { value: 'repair', label: 'Repair · Job order' }
+                  ]
+                },
+                {
+                  key: 'approvalOutcome',
+                  label: 'Outcome',
+                  options: [
+                    { value: 'approved', label: 'Approved' },
+                    { value: 'declined', label: 'Declined' }
+                  ]
+                }
+              ]}
+              values={filters}
+              onChange={setFilter}
+              onClear={clearFilters}
+            />
+          }
         />
         {isLoading ? (
           <Skeleton className="h-56 w-full rounded-[20px]" />

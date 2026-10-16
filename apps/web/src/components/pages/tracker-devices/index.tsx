@@ -1,3 +1,4 @@
+import ListToolbar from '@/components/shared/list-toolbar';
 import TableFilters, {
   type TableFilterDefinition
 } from '@/components/shared/table-filters';
@@ -103,21 +104,23 @@ const TrackerDevices = () => {
 
       <Card>
         <CardContent>
-          <div>
-            <ListSearchInput
-              value={search}
-              onChange={setSearch}
-              label="Search tracker devices"
-            />
-          </div>
-          <div className="mb-4">
-            <TableFilters
-              filters={FILTER_DEFINITIONS}
-              values={filters}
-              onChange={setFilter}
-              onClear={clearFilters}
-            />
-          </div>
+          <ListToolbar
+            searchControl={
+              <ListSearchInput
+                value={search}
+                onChange={setSearch}
+                label="Search tracker devices"
+              />
+            }
+            filterControl={
+              <TableFilters
+                filters={FILTER_DEFINITIONS}
+                values={filters}
+                onChange={setFilter}
+                onClear={clearFilters}
+              />
+            }
+          />
           {isLoading ? (
             <TableSkeleton rows={5} columns={COLUMNS} />
           ) : error ? (

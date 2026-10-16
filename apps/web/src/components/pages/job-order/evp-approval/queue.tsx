@@ -1,3 +1,4 @@
+import ListToolbar from '@/components/shared/list-toolbar';
 import { matchesSearch } from '@mms/shared';
 import ListSearchInput from '@/components/shared/list-search-input';
 import TableFilters from '@/components/shared/table-filters';
@@ -162,28 +163,32 @@ export default function ApprovalQueue({
 
   return (
     <>
-      <ListSearchInput
-        value={search}
-        onChange={setSearch}
-        label="Search pending approvals"
+      <ListToolbar
+        searchControl={
+          <ListSearchInput
+            value={search}
+            onChange={setSearch}
+            label="Search pending approvals"
+          />
+        }
+        filterControl={
+          <TableFilters
+            filters={[
+              {
+                key: 'pendingKind',
+                label: 'Request type',
+                options: [
+                  { value: 'fuel', label: 'Fuel · Trip ticket' },
+                  { value: 'repair', label: 'Repair · Job order' }
+                ]
+              }
+            ]}
+            values={filters}
+            onChange={setFilter}
+            onClear={clearFilters}
+          />
+        }
       />
-      <div className="mt-4 mb-4">
-        <TableFilters
-          filters={[
-            {
-              key: 'pendingKind',
-              label: 'Request type',
-              options: [
-                { value: 'fuel', label: 'Fuel · Trip ticket' },
-                { value: 'repair', label: 'Repair · Job order' }
-              ]
-            }
-          ]}
-          values={filters}
-          onChange={setFilter}
-          onClear={clearFilters}
-        />
-      </div>
       {loading ? (
         <div className="mt-10 space-y-4">
           <Skeleton className="h-40 w-full rounded-[20px]" />
