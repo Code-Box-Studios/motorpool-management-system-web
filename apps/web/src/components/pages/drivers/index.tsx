@@ -1,3 +1,5 @@
+import EmptyState from '@/components/shared/empty-state';
+import ListSearchInput from '@/components/shared/list-search-input';
 import { MetricStrip } from '../../shared/metric-card';
 import { Card, CardContent } from '@/components/ui/card';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
@@ -26,12 +28,14 @@ const COLUMNS = [
 ];
 
 const Drivers = () => {
-  const { page, sort, setPage, handleSort } = useListControls();
+  const { page, sort, setPage, handleSort, search, setSearch } =
+    useListControls();
   const limit = 10;
   const { data: driversData, isLoading } = useDrivers(
     page,
     limit,
-    sort ?? undefined
+    sort ?? undefined,
+    search
   );
   const { data: allDrivers } = useAllDrivers();
   const navigate = useNavigate();
@@ -54,6 +58,14 @@ const Drivers = () => {
         title="Drivers"
         description="Who is on the roster, and who is free to take a trip."
       />
+
+      <div className="mb-6">
+        <ListSearchInput
+          value={search}
+          onChange={setSearch}
+          label="Search drivers"
+        />
+      </div>
 
       <MetricStrip
         className="mb-5"
@@ -140,7 +152,11 @@ const Drivers = () => {
                         colSpan={COLUMNS.length}
                         className="text-muted-foreground py-8 text-center"
                       >
-                        No drivers yet.
+                        <EmptyState
+                          message="No drivers yet."
+                          search={search}
+                          onClearSearch={() => setSearch('')}
+                        />
                       </TableCell>
                     </TableRow>
                   )}

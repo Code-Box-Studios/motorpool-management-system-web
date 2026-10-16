@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { paginationQuerySchema, sortQuerySchema } from './common.js';
+import {
+  paginationQuerySchema,
+  searchQuerySchema,
+  sortQuerySchema
+} from './common.js';
 
 export const userResponseSchema = z.object({
   id: z.string().uuid(),
@@ -84,6 +88,7 @@ export const USER_SORT_COLUMNS = [
   'createdAt'
 ] as const;
 export const usersListQuerySchema = paginationQuerySchema
+  .merge(searchQuerySchema)
   .extend({
     role: z.string().optional()
   })

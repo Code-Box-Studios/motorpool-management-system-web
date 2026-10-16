@@ -10,9 +10,13 @@ export function findMaintenanceById(id: string) {
 export async function listMaintenance(
   vehicleId: string | undefined,
   skipTake: SkipTake,
-  orderBy: Prisma.MaintenanceOrderByWithRelationInput = { updatedAt: 'desc' }
+  orderBy: Prisma.MaintenanceOrderByWithRelationInput = { updatedAt: 'desc' },
+  searchWhere: Prisma.MaintenanceWhereInput = {}
 ) {
-  const where = vehicleId ? { vehicleId } : undefined;
+  const where: Prisma.MaintenanceWhereInput = {
+    ...searchWhere,
+    ...(vehicleId ? { vehicleId } : {})
+  };
   const [data, count] = await Promise.all([
     prisma.maintenance.findMany({ where, orderBy, ...skipTake }),
     prisma.maintenance.count({ where })

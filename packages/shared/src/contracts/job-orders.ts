@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { JOB_ORDER_STATUS, REPAIR_DONE_TYPE } from '../enums.js';
-import { paginationQuerySchema, sortQuerySchema } from './common.js';
+import {
+  paginationQuerySchema,
+  searchQuerySchema,
+  sortQuerySchema
+} from './common.js';
 
 export const createJobOrderBodySchema = z.object({
   vehicleId: z.string().uuid(),
@@ -26,7 +30,12 @@ export const noteJobOrderBodySchema = z.object({
   dateOfRequest: z.coerce.date().nullable().optional(),
   targetDate: z.coerce.date().nullable().optional(),
   spareParts: z
-    .array(z.object({ sparePartId: z.string().uuid(), quantity: z.coerce.number().int().min(1).default(1) }))
+    .array(
+      z.object({
+        sparePartId: z.string().uuid(),
+        quantity: z.coerce.number().int().min(1).default(1)
+      })
+    )
     .default([])
 });
 export type NoteJobOrderBody = z.infer<typeof noteJobOrderBodySchema>;
@@ -57,6 +66,7 @@ export const JOB_ORDER_SORT_COLUMNS = [
 ] as const;
 
 export const jobOrdersListQuerySchema = paginationQuerySchema
+  .merge(searchQuerySchema)
   .extend({
     status: z.nativeEnum(JOB_ORDER_STATUS).optional()
   })

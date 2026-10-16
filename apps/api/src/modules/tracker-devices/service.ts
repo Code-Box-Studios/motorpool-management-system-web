@@ -1,3 +1,4 @@
+import { trackerSearch } from '../../lib/list-search.js';
 import type {
   CreateTrackerDeviceBody,
   ResolveDeviceResponse,
@@ -29,7 +30,12 @@ export async function list(query: TrackerDevicesListQuery) {
     },
     { updatedAt: 'desc' }
   );
-  return listTrackerDevices(toSkipTake(page), { vehicleId, status }, orderBy);
+  return listTrackerDevices(
+    toSkipTake(page),
+    { vehicleId, status },
+    orderBy,
+    trackerSearch(query.search)
+  );
 }
 
 export async function getById(id: string) {

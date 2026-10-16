@@ -15,3 +15,5 @@ export * from './contracts/tracker-devices.js';
 export * from './contracts/notifications.js';
 export * from './contracts/organization.js';
 export * from './contracts/approvals.js';
+export * from './status-labels.js';
+export * from './search.js';

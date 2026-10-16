@@ -1,12 +1,14 @@
 import { z } from 'zod';
-import { paginationQuerySchema } from './common.js';
+import { paginationQuerySchema, searchQuerySchema } from './common.js';
 
 export const APPROVAL_KINDS = ['fuel', 'repair'] as const;
 export type ApprovalKind = (typeof APPROVAL_KINDS)[number];
 
-export const approvalHistoryQuerySchema = paginationQuerySchema.extend({
-  kind: z.enum(APPROVAL_KINDS).optional()
-});
+export const approvalHistoryQuerySchema = paginationQuerySchema
+  .merge(searchQuerySchema)
+  .extend({
+    kind: z.enum(APPROVAL_KINDS).optional()
+  });
 export type ApprovalHistoryQuery = z.infer<typeof approvalHistoryQuerySchema>;
 
 /**

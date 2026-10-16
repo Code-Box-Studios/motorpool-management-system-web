@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { login, shot, expectText, apiLogin, apiGet, CREDENTIALS } from './helpers';
+import {
+  login,
+  shot,
+  expectText,
+  apiLogin,
+  apiGet,
+  CREDENTIALS
+} from './helpers';
 
 // Every role should be able to sign in and land on its correct home screen.
 // These assertions target the distinctive text each role's dashboard renders.
@@ -61,14 +68,12 @@ test.describe('per-role sign-in and landing screens', () => {
     if (before.count > 0) {
       // The expected steady state: fuel allocations and job orders have no
       // hard-delete route, so a shared dev database that has ever recorded a
-      // decision keeps it. A real record renders as an <article> (history.tsx);
+      // decision keeps it. A real record renders as a table row (history.tsx);
       // the empty-state text is the one thing that must NOT be showing.
       await expect(
-        page.getByRole('tabpanel').locator('article').first()
+        page.getByRole('tabpanel').locator('tbody tr').first()
       ).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByText('No decisions recorded yet.')).toHaveCount(
-        0
-      );
+      await expect(page.getByText('No decisions recorded yet.')).toHaveCount(0);
     } else {
       // A genuinely fresh database has nothing to show a data-dependent
       // assertion against — the empty state is the only correct render, and

@@ -1,106 +1,173 @@
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Eye } from 'lucide-react';
-import type { DecisionRecord } from '@mms/shared';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import EmptyState from '@/components/shared/empty-state';
+import ListSearchInput from '@/components/shared/list-search-input';
 import TablePagination from '@/components/shared/table-pagination';
 import { useApprovalHistory } from '@/lib/query/approvals';
 import { roleLabel } from '@/lib/role-label';
 
 const LIMIT = 10;
-
 const formatWhen = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString() : '—';
 
 export default function ApprovalHistory() {
   const [page, setPage] = useState(1);
-  const { data, isLoading } = useApprovalHistory(page, LIMIT);
-
+  const [search, setSearch] = useState('');
+  const { data, isLoading, error } = useApprovalHistory(
+    page,
+    LIMIT,
+    true,
+    search
+  );
   const records = data?.data ?? [];
-  const totalPages = Math.ceil((data?.count ?? 0) / LIMIT);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-24 w-full rounded-[20px]" />
-        <Skeleton className="h-24 w-full rounded-[20px]" />
-      </div>
-    );
-  }
-
-  if (records.length === 0) {
-    return <EmptyState message="No decisions recorded yet." />;
-  }
+  const count = data?.count ?? 0;
 
   return (
-    <>
-      <div className="flex flex-col gap-4">
-        {records.map((record: DecisionRecord) => (
-          <article
-            key={`${record.kind}-${record.id}`}
-            className="bg-card border-border flex flex-wrap items-center gap-5 rounded-[20px] border p-6"
-          >
-            <div className="min-w-[230px] flex-1">
-              <div className="text-muted-foreground font-mono text-xs">
-                {record.ref}
-              </div>
-              <h3 className="mt-1 text-lg font-semibold tracking-tight">
-                {record.title}
-              </h3>
-              <p className="text-slate mt-1.5 text-sm leading-relaxed">
-                {record.subtitle}
-                <br />
-                {record.outcome === 'approved' ? 'Approved' : 'Declined'} by{' '}
-                <strong className="text-foreground font-semibold">
-                  {record.decidedByName ?? '—'}
-                </strong>
-                {/* An EVP must be able to tell a sign-off they never made from
-                    one they did — /approve-evp admits an admin as an override. */}
-                {record.decidedByRole && record.decidedByRole !== 'evp_operations' && (
-                  <> ({roleLabel(record.decidedByRole)} override)</>
-                )}{' '}
-                · {formatWhen(record.decidedAt)}
-              </p>
-              {record.reason && (
-                <p className="text-slate mt-2 text-sm italic">
-                  “{record.reason}”
-                </p>
-              )}
-            </div>
-
-            {record.liters !== null && (
-              <div className="flex-none text-right">
-                <div className="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
-                  Fuel budget
-                </div>
-                <div className="text-2xl font-medium tracking-tight">
-                  {record.liters} L
-                </div>
-                {record.fuelType && (
-                  <div className="text-slate mt-0.5 text-xs capitalize">
-                    {record.fuelType}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <Button variant="ghost" size="icon" asChild>
-              <Link to={record.linkTo}>
-                <Eye />
-                <span className="sr-only">View {record.ref}</span>
-              </Link>
-            </Button>
-          </article>
-        ))}
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <ListSearchInput
+          value={search}
+          onChange={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
+          label="Search approval history"
+        />
+        <p className="text-muted-foreground text-sm" aria-live="polite">
+          {count} decision{count === 1 ? '' : 's'} · Newest first
+        </p>
       </div>
-
-      <TablePagination
-        page={page}
-        totalPages={totalPages}
-        onPageChange={setPage}
-      />
-    </>
+      {isLoading ? (
+        <Skeleton className="h-56 w-full rounded-[20px]" />
+      ) : error ? (
+        <p role="alert" className="text-destructive">
+          Unable to load approval history. {error.message}
+        </p>
+      ) : records.length === 0 ? (
+        <EmptyState
+          message="No decisions recorded yet."
+          search={search}
+          onClearSearch={() => {
+            setSearch('');
+            setPage(1);
+          }}
+        />
+      ) : (
+        <Card>
+          <CardContent className="pt-4">
+            <Table className="min-w-[1000px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Request</TableHead>
+                  <TableHead>Vehicle</TableHead>
+                  <TableHead>Outcome</TableHead>
+                  <TableHead>Decided by</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Details</TableHead>
+                  <TableHead>
+                    <span className="sr-only">View</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {records.map((record) => (
+                  <TableRow key={`${record.kind}-${record.id}`}>
+                    <TableCell>
+                      <div className="font-mono text-xs">{record.ref}</div>
+                      <div className="text-muted-foreground mt-1 text-xs">
+                        {record.kind === 'fuel'
+                          ? 'Fuel · Trip ticket'
+                          : 'Repair · Job order'}
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-64 min-w-40 whitespace-normal">
+                      <Link
+                        to={record.linkTo}
+                        className="font-medium hover:underline"
+                      >
+                        {record.title}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="max-w-56 text-sm whitespace-normal">
+                      {record.subtitle ?? '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          record.outcome === 'approved' ? 'done' : 'stop'
+                        }
+                      >
+                        {record.outcome === 'approved'
+                          ? 'Approved'
+                          : 'Declined'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">
+                        {record.decidedByName ?? '—'}
+                      </div>
+                      {record.decidedByRole && (
+                        <div className="text-muted-foreground mt-1 text-xs">
+                          {roleLabel(record.decidedByRole)}
+                          {record.decidedByRole !== 'evp_operations'
+                            ? ' override'
+                            : ''}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {formatWhen(record.decidedAt)}
+                    </TableCell>
+                    <TableCell className="max-w-64 min-w-32 text-sm whitespace-normal">
+                      {record.liters !== null && (
+                        <p>
+                          {record.liters} L{' '}
+                          <span className="text-muted-foreground capitalize">
+                            {record.fuelType}
+                          </span>
+                        </p>
+                      )}
+                      {record.reason && (
+                        <p className="text-muted-foreground mt-1">
+                          {record.reason}
+                        </p>
+                      )}
+                      {record.liters === null && !record.reason && '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" asChild>
+                        <Link to={record.linkTo}>
+                          <Eye />
+                          <span className="sr-only">View {record.ref}</span>
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <TablePagination
+              page={page}
+              totalPages={Math.ceil(count / LIMIT)}
+              onPageChange={setPage}
+            />
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }

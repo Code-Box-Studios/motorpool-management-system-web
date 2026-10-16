@@ -6,10 +6,11 @@ import { getApprovalHistory } from '@/lib/api/approvals';
 export const useApprovalHistory = (
   page: number,
   limit = 10,
-  enabled = true
+  enabled = true,
+  search?: string
 ) =>
   useQuery({
-    queryKey: ['approvals', 'history', page, limit],
-    queryFn: () => getApprovalHistory(page, limit),
+    queryKey: ['approvals', 'history', page, limit, search],
+    queryFn: () => getApprovalHistory(page, limit, undefined, search),
     enabled
   });

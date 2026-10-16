@@ -6,6 +6,7 @@ import {
   nullableString,
   nullableUuid,
   paginationQuerySchema,
+  searchQuerySchema,
   sortQuerySchema
 } from './common.js';
 
@@ -18,9 +19,9 @@ export const TOOL_SORT_COLUMNS = [
   'estimatedReturnDate',
   'description'
 ] as const;
-export const toolsListQuerySchema = paginationQuerySchema.merge(
-  sortQuerySchema(TOOL_SORT_COLUMNS)
-);
+export const toolsListQuerySchema = paginationQuerySchema
+  .merge(searchQuerySchema)
+  .merge(sortQuerySchema(TOOL_SORT_COLUMNS));
 export type ToolsListQuery = z.infer<typeof toolsListQuerySchema>;
 
 // Permissive by design: the tools UI writes borrow/return state directly onto

@@ -68,19 +68,23 @@ function toMaintenanceBody(
 export const getMaintenances = async (
   page: number = 1,
   limit: number = 10,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  search?: string
 ): Promise<{ data: Maintenance[]; count: number | null }> => {
   const res = await api.get<{ data: MaintenanceApiResponse[]; count: number }>(
     '/maintenance',
-    { page, limit, ...(sort ?? {}) }
+    { page, limit, search, ...(sort ?? {}) }
   );
   return { data: res.data.map(toSnake), count: res.count };
 };
 
 // Fetch every maintenance record, unpaginated (omits page/limit).
-export const getAllMaintenances = async (): Promise<Maintenance[]> => {
+export const getAllMaintenances = async (
+  search?: string
+): Promise<Maintenance[]> => {
   const res = await api.get<{ data: MaintenanceApiResponse[]; count: number }>(
-    '/maintenance'
+    '/maintenance',
+    { search }
   );
   return res.data.map(toSnake);
 };

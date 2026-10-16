@@ -1,3 +1,4 @@
+import { sparePartSearch } from '../../lib/list-search.js';
 import type {
   CreateSparePartBody,
   SparePartsListQuery,
@@ -22,7 +23,11 @@ export async function list(query: SparePartsListQuery) {
     },
     { updatedAt: 'desc' }
   );
-  return listSpareParts(toSkipTake(query), orderBy);
+  return listSpareParts(
+    toSkipTake(query),
+    orderBy,
+    sparePartSearch(query.search)
+  );
 }
 
 export async function getById(id: string) {

@@ -1,3 +1,4 @@
+import { matchesSearch } from '@mms/shared';
 import type { ApprovalHistoryQuery, DecisionRecord } from '@mms/shared';
 import * as repo from './repository.js';
 
@@ -6,11 +7,13 @@ import * as repo from './repository.js';
 const ref = (prefix: string, n: number | null | undefined) =>
   n == null ? prefix : `${prefix}-${n}`;
 
-const plate = (v: {
-  make: string;
-  model: string;
-  licensePlate: string;
-} | null) => (v ? `${v.make} ${v.model} · ${v.licensePlate}` : null);
+const plate = (
+  v: {
+    make: string;
+    model: string;
+    licensePlate: string;
+  } | null
+) => (v ? `${v.make} ${v.model} · ${v.licensePlate}` : null);
 
 /**
  * Merged in memory, which is honest at this fleet's volumes (hundreds of rows)
@@ -28,7 +31,10 @@ export async function history(
   const page = query.page ?? 1;
   // Read enough from EACH source that the merged slice is complete: the whole
   // requested window could come from one side.
-  const take = limit === undefined ? undefined : (page - 1) * limit + limit;
+  const take =
+    query.search || limit === undefined
+      ? undefined
+      : (page - 1) * limit + limit;
 
   const [allocations, jobOrders, fuelCount, repairCount] = await Promise.all([
     wantsFuel ? repo.decidedAllocations(take) : Promise.resolve([]),
@@ -79,7 +85,25 @@ export async function history(
     return b.decidedAt.localeCompare(a.decidedAt);
   });
 
-  const count = fuelCount + repairCount;
-  if (limit === undefined) return { data: merged, count };
-  return { data: merged.slice((page - 1) * limit, page * limit), count };
+  // Search the complete merged history before slicing. The existing merge
+  // already runs in memory at fleet scale; never filter just the fetched page.
+  const filtered = query.search
+    ? merged.filter((record) =>
+        matchesSearch(query.search!, [
+          record.ref,
+          record.kind,
+          record.kind === 'fuel' ? 'Trip ticket' : 'Job order',
+          record.title,
+          record.subtitle,
+          record.outcome,
+          record.decidedByName,
+          record.decidedByRole,
+          record.reason,
+          record.fuelType
+        ])
+      )
+    : merged;
+  const count = query.search ? filtered.length : fuelCount + repairCount;
+  if (limit === undefined) return { data: filtered, count };
+  return { data: filtered.slice((page - 1) * limit, page * limit), count };
 }

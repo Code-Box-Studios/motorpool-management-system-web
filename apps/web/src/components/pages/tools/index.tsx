@@ -1,3 +1,5 @@
+import { Skeleton } from '@/components/ui/skeleton';
+import ListSearchInput from '@/components/shared/list-search-input';
 import { useUserRole } from '@/hooks/use-user-role';
 import { USER_ROLES } from '@/lib/enums';
 import { useTools, useToolBorrowStats } from '@/lib/query/tools';
@@ -39,9 +41,10 @@ const COLUMNS = [
 const Tools = () => {
   const { data: userRole } = useUserRole();
   const isAdmin = userRole?.roles?.name === USER_ROLES.admin;
-  const { page, sort, setPage, handleSort } = useListControls();
+  const { page, sort, setPage, handleSort, search, setSearch } =
+    useListControls();
   const limit = 10;
-  const { data } = useTools(page, limit, sort ?? undefined);
+  const { data, isLoading } = useTools(page, limit, sort ?? undefined, search);
   // `borrowed_by` is a driver id; a row must show the person, never the key.
   const { data: drivers } = useAllDrivers();
   const { data: stats, isLoading: statsLoading } = useToolBorrowStats();
@@ -185,6 +188,14 @@ const Tools = () => {
         }
       />
 
+      <div className="mb-6">
+        <ListSearchInput
+          value={search}
+          onChange={setSearch}
+          label="Search tools"
+        />
+      </div>
+
       <MetricStrip metrics={metrics} className="mb-5" />
       <div className="mb-6">
         <BorrowLeaderboard
@@ -195,11 +206,21 @@ const Tools = () => {
 
       {/* Keyed to the dataset count, not the page slice, so a mid page that
           happens to be empty never reads as "no tools". */}
-      {totalCount === 0 ? (
-        <EmptyState message="No tools yet." />
-      ) : (
-        <ViewTabs grid={grid} table={table} />
-      )}
+      <ViewTabs
+        grid={grid}
+        table={table}
+        emptyState={
+          isLoading ? (
+            <Skeleton className="h-64 w-full rounded-[20px]" />
+          ) : totalCount === 0 ? (
+            <EmptyState
+              message="No tools yet."
+              search={search}
+              onClearSearch={() => setSearch('')}
+            />
+          ) : undefined
+        }
+      />
     </div>
   );
 };

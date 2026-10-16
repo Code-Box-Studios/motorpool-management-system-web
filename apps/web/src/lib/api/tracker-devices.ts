@@ -22,6 +22,7 @@ export interface TrackerDevice {
 }
 
 export interface TrackerDeviceListParams {
+  search?: string;
   page?: number;
   limit?: number;
   vehicleId?: string;
@@ -36,10 +37,10 @@ export async function getTrackerDevices(
   params: TrackerDeviceListParams = {},
   sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
 ): Promise<{ data: TrackerDevice[]; count: number }> {
-  const { page, limit, vehicleId, status } = params;
+  const { page, limit, vehicleId, status, search } = params;
   const res = await api.get<{ data: TrackerDevice[]; count: number }>(
     '/tracker-devices',
-    { page, limit, vehicleId, status, ...(sort ?? {}) }
+    { page, limit, vehicleId, status, search, ...(sort ?? {}) }
   );
   return { data: res.data, count: res.count };
 }

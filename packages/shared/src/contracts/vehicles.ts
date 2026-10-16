@@ -3,6 +3,7 @@ import { FUEL_TYPE, VEHICLE_STATUS } from '../enums.js';
 import {
   nullableUuid,
   paginationQuerySchema,
+  searchQuerySchema,
   sortQuerySchema
 } from './common.js';
 
@@ -20,9 +21,9 @@ export const VEHICLE_SORT_COLUMNS = [
   'capacity',
   'branch'
 ] as const;
-export const vehiclesListQuerySchema = paginationQuerySchema.merge(
-  sortQuerySchema(VEHICLE_SORT_COLUMNS)
-);
+export const vehiclesListQuerySchema = paginationQuerySchema
+  .merge(searchQuerySchema)
+  .merge(sortQuerySchema(VEHICLE_SORT_COLUMNS));
 export type VehiclesListQuery = z.infer<typeof vehiclesListQuerySchema>;
 
 // Validation deliberately mirrors the current (lax) FE rules: year floor 1900
@@ -45,9 +46,11 @@ export const createVehicleBodySchema = z.object({
 export type CreateVehicleBody = z.infer<typeof createVehicleBodySchema>;
 
 // Partial for PATCH, plus removedImages (URLs to drop from images[] on edit).
-export const updateVehicleBodySchema = createVehicleBodySchema.partial().extend({
-  removedImages: z.union([z.string(), z.array(z.string())]).optional()
-});
+export const updateVehicleBodySchema = createVehicleBodySchema
+  .partial()
+  .extend({
+    removedImages: z.union([z.string(), z.array(z.string())]).optional()
+  });
 export type UpdateVehicleBody = z.infer<typeof updateVehicleBodySchema>;
 
 // Loose response type (Prisma row serialized to JSON); the FE consumes the

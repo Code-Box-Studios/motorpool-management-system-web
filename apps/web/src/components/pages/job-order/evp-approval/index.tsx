@@ -29,10 +29,10 @@ export default function EvpApprovalPage() {
   const [pending, setPending] = useState(0);
 
   return (
-    <div className="mx-auto w-full max-w-[880px] md:py-6">
+    <div className="mx-auto w-full max-w-7xl md:py-6">
       <SectionLabel>Awaiting your sign-off</SectionLabel>
 
-      <h1 className="text-3xl font-medium tracking-tight md:text-[44px] md:leading-[1.05]">
+      <h1 className="text-3xl font-medium tracking-tight md:text-4xl">
         {pending === 0
           ? 'Nothing needs you'
           : `${pending} thing${pending === 1 ? '' : 's'} need${pending === 1 ? 's' : ''} you`}
@@ -41,7 +41,7 @@ export default function EvpApprovalPage() {
         Fuel budgets and repair sign-offs. Declining always asks for a reason.
       </p>
 
-      <Tabs defaultValue="queue" className="mt-8">
+      <Tabs defaultValue="queue" className="mt-6">
         <TabsList>
           <TabsTrigger value="queue" className={ACTIVE_TAB}>
             Needs you{pending > 0 ? ` (${pending})` : ''}

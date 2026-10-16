@@ -9,11 +9,13 @@ export function findSparePartById(id: string) {
 
 export async function listSpareParts(
   skipTake: SkipTake,
-  orderBy: Prisma.SparePartOrderByWithRelationInput = { updatedAt: 'desc' }
+  orderBy: Prisma.SparePartOrderByWithRelationInput = { updatedAt: 'desc' },
+  searchWhere: Prisma.SparePartWhereInput = {}
 ) {
+  const where = searchWhere;
   const [data, count] = await Promise.all([
-    prisma.sparePart.findMany({ orderBy, ...skipTake }),
-    prisma.sparePart.count()
+    prisma.sparePart.findMany({ where, orderBy, ...skipTake }),
+    prisma.sparePart.count({ where })
   ]);
   return { data, count };
 }

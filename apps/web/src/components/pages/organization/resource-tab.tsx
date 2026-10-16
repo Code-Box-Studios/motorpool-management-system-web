@@ -1,3 +1,6 @@
+import { matchesSearch } from '@mms/shared';
+import ListSearchInput from '@/components/shared/list-search-input';
+import EmptyState from '@/components/shared/empty-state';
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -77,6 +80,7 @@ export function ResourceTab({ resource }: ResourceTabProps) {
   const employeesQuery = useEmployeesAdmin();
   const restore = useRestoreOrgRecord(resource);
 
+  const [search, setSearch] = useState('');
   const [dialogState, setDialogState] = useState<RecordDialogState>(null);
   const [archivingRecord, setArchivingRecord] = useState<OrgRecord | null>(
     null
@@ -91,7 +95,7 @@ export function ResourceTab({ resource }: ResourceTabProps) {
           ? headsQuery
           : employeesQuery;
 
-  const records = query.data ?? [];
+  const allRecords = query.data ?? [];
   const meta = RESOURCE_META[resource];
 
   const branchesById = new Map(
@@ -99,6 +103,18 @@ export function ResourceTab({ resource }: ResourceTabProps) {
   );
   const officesById = new Map((officesQuery.data ?? []).map((o) => [o.id, o]));
   const headsById = new Map((headsQuery.data ?? []).map((h) => [h.id, h]));
+
+  const records = allRecords.filter((record) =>
+    matchesSearch(search, [
+      record.name,
+      record.location,
+      record.position,
+      record.branchId ? branchesById.get(record.branchId)?.name : null,
+      record.officeId ? officesById.get(record.officeId)?.name : null,
+      record.headId ? headsById.get(record.headId)?.name : null,
+      isArchived(record) ? 'Archived' : 'Active'
+    ])
+  );
 
   const renderCell = (record: OrgRecord, column: Column) => {
     switch (column) {
@@ -138,6 +154,13 @@ export function ResourceTab({ resource }: ResourceTabProps) {
         </Button>
       </div>
 
+      <div className="mb-5">
+        <ListSearchInput
+          value={search}
+          onChange={setSearch}
+          label={`Search ${meta.title.toLowerCase()}`}
+        />
+      </div>
       <Card>
         <CardContent className="pt-6">
           {query.isLoading ? (
@@ -217,7 +240,11 @@ export function ResourceTab({ resource }: ResourceTabProps) {
                       colSpan={meta.columns.length + 1}
                       className="text-muted-foreground py-8 text-center"
                     >
-                      No {meta.title.toLowerCase()} found
+                      <EmptyState
+                        message={`No ${meta.title.toLowerCase()} found.`}
+                        search={search}
+                        onClearSearch={() => setSearch('')}
+                      />
                     </TableCell>
                   </TableRow>
                 )}

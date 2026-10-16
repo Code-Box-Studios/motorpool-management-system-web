@@ -4,11 +4,12 @@ import { getAllDrivers, getDriverById, getDrivers } from '../api/drivers';
 export const useDrivers = (
   page: number = 1,
   limit: number = 10,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  search?: string
 ) => {
   return useQuery({
-    queryKey: ['drivers', page, limit, sort?.sortBy, sort?.sortOrder],
-    queryFn: () => getDrivers(page, limit, sort)
+    queryKey: ['drivers', page, limit, sort?.sortBy, sort?.sortOrder, search],
+    queryFn: () => getDrivers(page, limit, sort, search)
   });
 };
 

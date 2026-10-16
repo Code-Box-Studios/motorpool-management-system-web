@@ -13,13 +13,14 @@ export const useVehicles = (
   // For callers that mount this before they know whether the screen they are
   // building even has a vehicle picker on it — see the dashboard, where the
   // hook has to run above the role branches that decide.
-  enabled: boolean = true
+  enabled: boolean = true,
+  search?: string
 ) => {
   return useQuery<{ data: VehicleWithBranch[]; count: number | null }>({
     // `limit` is part of the key: the pickers fetch page 1 at limit 100/200
     // and must not share a cache entry with the vehicles list's page 1 of 10.
-    queryKey: ['vehicles', page, limit, sort?.sortBy, sort?.sortOrder],
-    queryFn: () => getVehicles(page, limit, sort),
+    queryKey: ['vehicles', page, limit, sort?.sortBy, sort?.sortOrder, search],
+    queryFn: () => getVehicles(page, limit, sort, search),
     enabled
   });
 };

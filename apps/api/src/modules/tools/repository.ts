@@ -9,11 +9,13 @@ export function findToolById(id: string) {
 
 export async function listTools(
   skipTake: SkipTake,
-  orderBy: Prisma.ToolOrderByWithRelationInput = { updatedAt: 'desc' }
+  orderBy: Prisma.ToolOrderByWithRelationInput = { updatedAt: 'desc' },
+  searchWhere: Prisma.ToolWhereInput = {}
 ) {
+  const where = searchWhere;
   const [data, count] = await Promise.all([
-    prisma.tool.findMany({ orderBy, ...skipTake }),
-    prisma.tool.count()
+    prisma.tool.findMany({ where, orderBy, ...skipTake }),
+    prisma.tool.count({ where })
   ]);
   return { data, count };
 }

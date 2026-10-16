@@ -1,3 +1,4 @@
+import { userSearch } from '../../lib/list-search.js';
 import { USER_ROLES } from '@mms/shared';
 import type {
   ChangePasswordBody,
@@ -56,7 +57,8 @@ export async function list(query: UsersListQuery) {
   const { data, count } = await listUsers(
     query.role,
     toSkipTake(query),
-    orderBy
+    orderBy,
+    userSearch(query.search)
   );
   return { data: data.map(toUserResponse), count };
 }

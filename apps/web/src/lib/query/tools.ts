@@ -4,11 +4,12 @@ import { getTools, getToolById, getToolBorrowStats } from '@/lib/api/tools';
 export const useTools = (
   page: number = 1,
   limit: number = 10,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  search?: string
 ) => {
   return useQuery({
-    queryKey: ['tools', page, sort?.sortBy, sort?.sortOrder],
-    queryFn: () => getTools(page, limit, sort)
+    queryKey: ['tools', page, limit, sort?.sortBy, sort?.sortOrder, search],
+    queryFn: () => getTools(page, limit, sort, search)
   });
 };
 

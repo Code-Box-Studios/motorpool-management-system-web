@@ -1,3 +1,4 @@
+import { tripTicketSearch } from '../../lib/list-search.js';
 import type { Prisma } from '@prisma/client';
 import type {
   CreateTripTicketBody,
@@ -53,11 +54,27 @@ export async function list(
     ...(query.driverId ? { driverId: query.driverId } : {}),
     ...(query.status ? { status: query.status } : {})
   };
+  const references =
+    query.search && /\d/.test(query.search)
+      ? await prisma.tripTicket.findMany({
+          where: { AND: [scope, filters] },
+          select: { ticketNo: true }
+        })
+      : [];
   // AND the caller's scope with the client filters — NEVER merge them by spread,
   // or a requester/driver ?requestedBy=/?driverId= filter would OVERWRITE the
   // scope key and read others' tickets (spec §5 IDOR). AND keeps scope binding:
   // admin/evp/guard scope is {} so their filters apply unchanged.
-  const where: Prisma.TripTicketWhereInput = { AND: [scope, filters] };
+  const where: Prisma.TripTicketWhereInput = {
+    AND: [
+      scope,
+      filters,
+      tripTicketSearch(
+        query.search,
+        references.map((row) => row.ticketNo)
+      )
+    ]
+  };
   const orderBy = toOrderBy<Prisma.TripTicketOrderByWithRelationInput>(
     query.sortBy,
     query.sortOrder,

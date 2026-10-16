@@ -58,12 +58,14 @@ function toSnake(v: VehicleResponse): Vehicle {
 export async function getVehicles(
   page = 1,
   limit = 10,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  search?: string
 ): Promise<{ data: VehicleWithBranch[]; count: number | null }> {
   const [res, branches] = await Promise.all([
     api.get<{ data: VehicleResponse[]; count: number }>('/vehicles', {
       page,
       limit,
+      search,
       ...(sort ?? {})
     }),
     getAllBranches(true)

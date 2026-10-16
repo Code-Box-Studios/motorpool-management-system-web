@@ -8,11 +8,19 @@ import {
 export const useSpareParts = (
   page: number = 1,
   limit: number = 10,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  search?: string
 ) => {
   return useQuery({
-    queryKey: ['spare_parts', page, limit, sort?.sortBy, sort?.sortOrder],
-    queryFn: () => getSpareParts(page, limit, sort)
+    queryKey: [
+      'spare_parts',
+      page,
+      limit,
+      sort?.sortBy,
+      sort?.sortOrder,
+      search
+    ],
+    queryFn: () => getSpareParts(page, limit, sort, search)
   });
 };
 

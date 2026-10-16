@@ -335,7 +335,8 @@ export async function getTripTickets(
   userId?: string,
   branchId?: string,
   driverId?: string,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  search?: string
 ): Promise<{ data: TripTicket[]; count: number | null }> {
   const res = await api.get<{ data: TripTicketApiResponse[]; count: number }>(
     '/trip-tickets',
@@ -345,6 +346,7 @@ export async function getTripTickets(
       requestedBy: userId,
       branchId,
       driverId,
+      search,
       ...(sort ?? {})
     }
   );
@@ -354,14 +356,16 @@ export async function getTripTickets(
 export async function getAllTripTickets(
   userId?: string,
   branchId?: string,
-  driverId?: string
+  driverId?: string,
+  search?: string
 ): Promise<TripTicket[]> {
   const res = await api.get<{ data: TripTicketApiResponse[]; count: number }>(
     '/trip-tickets',
     {
       requestedBy: userId,
       branchId,
-      driverId
+      driverId,
+      search
     }
   );
   return res.data.map(toSnake);

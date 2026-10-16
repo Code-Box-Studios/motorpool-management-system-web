@@ -10,7 +10,8 @@ export const useJobOrders = (
   limit: number = 10,
   userId?: string,
   userRole?: string,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  search?: string
 ) => {
   return useQuery({
     queryKey: [
@@ -20,16 +21,21 @@ export const useJobOrders = (
       userId,
       userRole,
       sort?.sortBy,
-      sort?.sortOrder
+      sort?.sortOrder,
+      search
     ],
-    queryFn: () => getJobOrders(page, limit, userId, userRole, sort)
+    queryFn: () => getJobOrders(page, limit, userId, userRole, sort, search)
   });
 };
 
-export const useAllJobOrders = (userId?: string, userRole?: string) => {
+export const useAllJobOrders = (
+  userId?: string,
+  userRole?: string,
+  search?: string
+) => {
   return useQuery({
-    queryKey: ['all_job_orders', userId, userRole],
-    queryFn: () => getAllJobOrders(userId, userRole)
+    queryKey: ['all_job_orders', userId, userRole, search],
+    queryFn: () => getAllJobOrders(userId, userRole, search)
   });
 };
 

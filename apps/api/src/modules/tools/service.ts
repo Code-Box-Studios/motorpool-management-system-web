@@ -1,3 +1,4 @@
+import { toolSearch } from '../../lib/list-search.js';
 import { BORROW_WINDOW_DAYS } from '@mms/shared';
 import type {
   CreateToolBody,
@@ -34,7 +35,7 @@ export async function list(query: ToolsListQuery) {
     },
     { updatedAt: 'desc' }
   );
-  return listTools(toSkipTake(query), orderBy);
+  return listTools(toSkipTake(query), orderBy, toolSearch(query.search));
 }
 
 export async function getById(id: string) {
@@ -197,7 +198,10 @@ export async function update(
       id,
       prev,
       next,
-      opening ?? { borrowedAt: tool.borrowedDate, dueAt: tool.estimatedReturnDate }
+      opening ?? {
+        borrowedAt: tool.borrowedDate,
+        dueAt: tool.estimatedReturnDate
+      }
     );
     return tool;
   });
@@ -226,7 +230,8 @@ export async function stats(now: Date): Promise<ToolBorrowStats> {
       ? null
       : returned.reduce(
           (sum, b) =>
-            sum + (b.returnedAt!.getTime() - b.borrowedAt.getTime()) / MS_PER_DAY,
+            sum +
+            (b.returnedAt!.getTime() - b.borrowedAt.getTime()) / MS_PER_DAY,
           0
         ) / returned.length;
 

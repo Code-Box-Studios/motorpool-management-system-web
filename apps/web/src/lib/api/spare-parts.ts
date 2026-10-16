@@ -36,11 +36,12 @@ function toSnake(p: SparePartApiResponse): SparePart {
 export async function getSpareParts(
   page = 1,
   limit = 10,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  search?: string
 ): Promise<{ data: SparePart[]; count: number | null }> {
   const res = await api.get<{ data: SparePartApiResponse[]; count: number }>(
     '/spare-parts',
-    { page, limit, ...(sort ?? {}) }
+    { page, limit, search, ...(sort ?? {}) }
   );
   return { data: res.data.map(toSnake), count: res.count };
 }

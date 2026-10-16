@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { FUEL_TYPE, TRIP_TICKET_STATUS } from '../enums.js';
-import { paginationQuerySchema, sortQuerySchema } from './common.js';
+import {
+  paginationQuerySchema,
+  searchQuerySchema,
+  sortQuerySchema
+} from './common.js';
 
 // One outing: a date with its own departure and return. An event may run on the
 // 17th and the 21st, so a ticket carries a list of these rather than one window.
@@ -135,6 +139,7 @@ export const TRIP_TICKET_SORT_COLUMNS = [
 ] as const;
 
 export const tripTicketsListQuerySchema = paginationQuerySchema
+  .merge(searchQuerySchema)
   .extend({
     requestedBy: z.string().uuid().optional(),
     branchId: z.string().uuid().optional(),

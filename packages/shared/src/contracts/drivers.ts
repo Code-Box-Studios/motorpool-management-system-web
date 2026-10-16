@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   booleanFromString,
   paginationQuerySchema,
+  searchQuerySchema,
   sortQuerySchema
 } from './common.js';
 
@@ -14,9 +15,9 @@ export const DRIVER_SORT_COLUMNS = [
   'phone',
   'status'
 ] as const;
-export const driversListQuerySchema = paginationQuerySchema.merge(
-  sortQuerySchema(DRIVER_SORT_COLUMNS)
-);
+export const driversListQuerySchema = paginationQuerySchema
+  .merge(searchQuerySchema)
+  .merge(sortQuerySchema(DRIVER_SORT_COLUMNS));
 export type DriversListQuery = z.infer<typeof driversListQuerySchema>;
 
 // The photo rides in as a multipart file (field name `photo`), never in the

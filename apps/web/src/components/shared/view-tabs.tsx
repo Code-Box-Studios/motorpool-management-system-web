@@ -19,11 +19,18 @@ export const ACTIVE_TAB =
 interface ViewTabsProps {
   grid: ReactNode;
   table: ReactNode;
+  /** Content shared by both views while loading or when no records match. */
+  emptyState?: ReactNode;
   /** Which view a page opens on. */
   defaultView?: 'grid' | 'table';
 }
 
-const ViewTabs = ({ grid, table, defaultView = 'table' }: ViewTabsProps) => (
+const ViewTabs = ({
+  grid,
+  table,
+  emptyState,
+  defaultView = 'table'
+}: ViewTabsProps) => (
   <Tabs defaultValue={defaultView} className="w-full">
     {/* Table first: the view a page opens on leads the control, as it does on
         the trip-ticket and job-order tables. */}
@@ -36,10 +43,10 @@ const ViewTabs = ({ grid, table, defaultView = 'table' }: ViewTabsProps) => (
       </TabsTrigger>
     </TabsList>
     <TabsContent value="table" className="mt-6">
-      {table}
+      {emptyState ?? table}
     </TabsContent>
     <TabsContent value="grid" className="mt-6">
-      {grid}
+      {emptyState ?? grid}
     </TabsContent>
   </Tabs>
 );

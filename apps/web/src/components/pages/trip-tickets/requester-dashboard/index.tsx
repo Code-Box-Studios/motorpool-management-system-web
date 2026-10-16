@@ -1,3 +1,7 @@
+import { matchesSearch } from '@mms/shared';
+import { resolveStatus } from '@/lib/status';
+import ListSearchInput from '@/components/shared/list-search-input';
+import EmptyState from '@/components/shared/empty-state';
 import TablePagination from '@/components/shared/table-pagination';
 import { useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
@@ -95,6 +99,7 @@ const CANCELLABLE = [...WAITING, TRIP_TICKET_STATUS.APPROVED] as string[];
  * says "My Requests" — this opens on the count instead of repeating the title.
  */
 const RequesterDashboard = () => {
+  const [search, setSearch] = useState('');
   const [historyPage, setHistoryPage] = useState(1);
   const { user } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
@@ -134,9 +139,18 @@ const RequesterDashboard = () => {
     };
   }, [ticketsData]);
 
-  const historyPages = Math.max(1, Math.ceil(others.length / 10));
+  const filteredOthers = others.filter((ticket) =>
+    matchesSearch(search, [
+      formatRef('TT', ticket.ticket_no),
+      ticket.destination,
+      ticket.purpose,
+      resolveStatus(ticket.status ?? '').label,
+      vehicleLabel(ticket.vehicle_id)
+    ])
+  );
+  const historyPages = Math.max(1, Math.ceil(filteredOthers.length / 10));
   const currentHistoryPage = Math.min(historyPage, historyPages);
-  const visibleOthers = others.slice(
+  const visibleOthers = filteredOthers.slice(
     (currentHistoryPage - 1) * 10,
     currentHistoryPage * 10
   );
@@ -277,6 +291,26 @@ const RequesterDashboard = () => {
           {others.length > 0 && (
             <section className="mt-10">
               <SectionLabel>Other requests</SectionLabel>
+              <div className="mb-5">
+                <ListSearchInput
+                  value={search}
+                  onChange={(value) => {
+                    setSearch(value);
+                    setHistoryPage(1);
+                  }}
+                  label="Search request history"
+                />
+              </div>
+              {filteredOthers.length === 0 && (
+                <EmptyState
+                  message="No other requests."
+                  search={search}
+                  onClearSearch={() => {
+                    setSearch('');
+                    setHistoryPage(1);
+                  }}
+                />
+              )}
               <ul className="flex flex-col gap-2.5">
                 {visibleOthers.map((ticket) => (
                   <li

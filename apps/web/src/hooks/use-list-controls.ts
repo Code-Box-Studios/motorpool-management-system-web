@@ -6,6 +6,7 @@ type ListSearch = {
   page?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  search?: string;
 };
 
 // List-table controls (page + sort) live in the URL rather than component
@@ -17,6 +18,22 @@ type ListSearch = {
 export function useListControls() {
   const search = useSearch({ strict: false }) as ListSearch;
   const navigate = useNavigate();
+  const term = typeof search.search === 'string' ? search.search : '';
+
+  const setSearch = useCallback(
+    (value: string) => {
+      void navigate({
+        to: '.',
+        search: (prev: Record<string, unknown>) => ({
+          ...prev,
+          search: value.trim() || undefined,
+          page: undefined
+        }),
+        replace: true
+      });
+    },
+    [navigate]
+  );
 
   const rawPage = Number(search.page);
   const page = Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
@@ -62,5 +79,5 @@ export function useListControls() {
     [navigate]
   );
 
-  return { page, sort, setPage, handleSort };
+  return { page, sort, setPage, handleSort, search: term, setSearch };
 }

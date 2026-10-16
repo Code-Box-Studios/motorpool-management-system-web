@@ -15,9 +15,11 @@ export function findTrackerDeviceByImei(imei: string) {
 export async function listTrackerDevices(
   skipTake: SkipTake,
   filters: Pick<TrackerDevicesListQuery, 'vehicleId' | 'status'>,
-  orderBy: Prisma.TrackerDeviceOrderByWithRelationInput = { updatedAt: 'desc' }
+  orderBy: Prisma.TrackerDeviceOrderByWithRelationInput = { updatedAt: 'desc' },
+  searchWhere: Prisma.TrackerDeviceWhereInput = {}
 ) {
-  const where = {
+  const where: Prisma.TrackerDeviceWhereInput = {
+    ...searchWhere,
     ...(filters.vehicleId ? { vehicleId: filters.vehicleId } : {}),
     ...(filters.status ? { status: filters.status } : {})
   };

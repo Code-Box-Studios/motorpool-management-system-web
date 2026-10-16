@@ -11,7 +11,8 @@ export const useTripTickets = (
   userId?: string,
   branchId?: string,
   driverId?: string,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  search?: string
 ) => {
   return useQuery({
     queryKey: [
@@ -22,20 +23,23 @@ export const useTripTickets = (
       branchId,
       driverId,
       sort?.sortBy,
-      sort?.sortOrder
+      sort?.sortOrder,
+      search
     ],
-    queryFn: () => getTripTickets(page, limit, userId, branchId, driverId, sort)
+    queryFn: () =>
+      getTripTickets(page, limit, userId, branchId, driverId, sort, search)
   });
 };
 
 export const useAllTripTickets = (
   userId?: string,
   branchId?: string,
-  driverId?: string
+  driverId?: string,
+  search?: string
 ) => {
   return useQuery({
-    queryKey: ['trip_tickets', 'all', userId, branchId, driverId],
-    queryFn: () => getAllTripTickets(userId, branchId, driverId)
+    queryKey: ['trip_tickets', 'all', userId, branchId, driverId, search],
+    queryFn: () => getAllTripTickets(userId, branchId, driverId, search)
   });
 };
 

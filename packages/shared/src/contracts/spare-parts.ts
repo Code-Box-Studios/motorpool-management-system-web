@@ -3,6 +3,7 @@ import {
   booleanFromString,
   nullableString,
   paginationQuerySchema,
+  searchQuerySchema,
   sortQuerySchema
 } from './common.js';
 
@@ -13,9 +14,9 @@ export const SPARE_PART_SORT_COLUMNS = [
   'quantity',
   'description'
 ] as const;
-export const sparePartsListQuerySchema = paginationQuerySchema.merge(
-  sortQuerySchema(SPARE_PART_SORT_COLUMNS)
-);
+export const sparePartsListQuerySchema = paginationQuerySchema
+  .merge(searchQuerySchema)
+  .merge(sortQuerySchema(SPARE_PART_SORT_COLUMNS));
 export type SparePartsListQuery = z.infer<typeof sparePartsListQuerySchema>;
 
 export const createSparePartBodySchema = z.object({
@@ -26,7 +27,9 @@ export const createSparePartBodySchema = z.object({
 });
 export type CreateSparePartBody = z.infer<typeof createSparePartBodySchema>;
 
-export const updateSparePartBodySchema = createSparePartBodySchema.partial().extend({
-  removeImage: booleanFromString.optional()
-});
+export const updateSparePartBodySchema = createSparePartBodySchema
+  .partial()
+  .extend({
+    removeImage: booleanFromString.optional()
+  });
 export type UpdateSparePartBody = z.infer<typeof updateSparePartBodySchema>;

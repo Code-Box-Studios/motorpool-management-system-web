@@ -1,3 +1,4 @@
+import { jobOrderSearch } from '../../lib/list-search.js';
 import type { Prisma } from '@prisma/client';
 import type {
   CreateJobOrderBody,
@@ -37,8 +38,22 @@ export async function list(
   actor: AuthenticatedUser
 ) {
   const scope = await scopeFor(actor);
+  const references =
+    query.search && /\d/.test(query.search)
+      ? await prisma.jobOrder.findMany({
+          where: {
+            ...scope,
+            ...(query.status ? { status: query.status } : {})
+          },
+          select: { orderNo: true }
+        })
+      : [];
   const where: Prisma.JobOrderWhereInput = {
     ...scope,
+    ...jobOrderSearch(
+      query.search,
+      references.map((row) => row.orderNo)
+    ),
     ...(query.status ? { status: query.status } : {})
   };
   const orderBy = toOrderBy<Prisma.JobOrderOrderByWithRelationInput>(

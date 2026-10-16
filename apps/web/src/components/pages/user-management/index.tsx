@@ -1,3 +1,4 @@
+import ListSearchInput from '@/components/shared/list-search-input';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -45,13 +46,14 @@ const COLUMNS = [
 ];
 
 const UserManagement = () => {
-  const { page, sort, setPage, handleSort } = useListControls();
+  const { page, sort, setPage, handleSort, search, setSearch } =
+    useListControls();
   const limit = 10;
   const {
     data: usersData,
     isLoading,
     error
-  } = useUsers(page, limit, sort ?? undefined);
+  } = useUsers(page, limit, sort ?? undefined, search);
   const navigate = useNavigate();
   const users = usersData?.data;
   const totalCount = usersData?.count ?? 0;
@@ -69,6 +71,14 @@ const UserManagement = () => {
         }
       />
 
+      <div className="mb-6">
+        <ListSearchInput
+          value={search}
+          onChange={setSearch}
+          label="Search users"
+        />
+      </div>
+
       {error ? (
         <Card>
           <CardContent className="text-destructive pt-6 text-sm">
@@ -76,7 +86,11 @@ const UserManagement = () => {
           </CardContent>
         </Card>
       ) : !isLoading && totalCount === 0 ? (
-        <EmptyState message="No users yet." />
+        <EmptyState
+          message="No users yet."
+          search={search}
+          onClearSearch={() => setSearch('')}
+        />
       ) : (
         <Card>
           <CardContent className="pt-6">

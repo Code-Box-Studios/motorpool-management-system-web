@@ -16,11 +16,13 @@ export function findUserByEmail(email: string) {
 export async function listUsers(
   roleName: string | undefined,
   skipTake: { skip: number; take: number } | Record<string, never>,
-  orderBy: Prisma.UserOrderByWithRelationInput = { updatedAt: 'desc' }
+  orderBy: Prisma.UserOrderByWithRelationInput = { updatedAt: 'desc' },
+  searchWhere: Prisma.UserWhereInput = {}
 ) {
-  const where = roleName
-    ? { userRole: { role: { name: roleName } } }
-    : undefined;
+  const where: Prisma.UserWhereInput = {
+    ...searchWhere,
+    ...(roleName ? { userRole: { role: { name: roleName } } } : {})
+  };
   const [data, count] = await Promise.all([
     prisma.user.findMany({
       where,

@@ -8,18 +8,26 @@ import {
 export const useMaintenances = (
   page: number = 1,
   limit: number = 10,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  search?: string
 ) => {
   return useQuery({
-    queryKey: ['maintenances', page, limit, sort?.sortBy, sort?.sortOrder],
-    queryFn: () => getMaintenances(page, limit, sort)
+    queryKey: [
+      'maintenances',
+      page,
+      limit,
+      sort?.sortBy,
+      sort?.sortOrder,
+      search
+    ],
+    queryFn: () => getMaintenances(page, limit, sort, search)
   });
 };
 
-export const useAllMaintenances = () => {
+export const useAllMaintenances = (search?: string) => {
   return useQuery({
-    queryKey: ['maintenances', 'all'],
-    queryFn: () => getAllMaintenances()
+    queryKey: ['maintenances', 'all', search],
+    queryFn: () => getAllMaintenances(search)
   });
 };
 

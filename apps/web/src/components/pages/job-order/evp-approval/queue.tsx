@@ -1,3 +1,6 @@
+import { matchesSearch } from '@mms/shared';
+import ListSearchInput from '@/components/shared/list-search-input';
+import EmptyState from '@/components/shared/empty-state';
 import { useEffect, useState } from 'react';
 import { useAllTripTickets } from '@/lib/query/trip-tickets';
 import {
@@ -47,6 +50,7 @@ export default function ApprovalQueue({
   const approveEvpTripTicket = useApproveEvpTripTicket();
   const disapproveTripTicket = useDisapproveTripTicket();
   const approveJobOrder = useApproveJobOrder();
+  const [search, setSearch] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'disapprove' | null>(
     null
@@ -105,23 +109,54 @@ export default function ApprovalQueue({
     });
   };
 
-  const pendingTickets =
+  const allPendingTickets =
     tripTicketsData?.filter(
       (t) => t.status === TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL
     ) ?? [];
-  const pendingJobOrders =
+  const allPendingJobOrders =
     jobOrdersData?.filter(
       (o) => o.status === JOB_ORDER_STATUS.ASSIGNED_MECHANIC
     ) ?? [];
 
+  const pendingTickets = allPendingTickets.filter((ticket) => {
+    const vehicle = getVehicle(ticket.vehicle_id);
+    return matchesSearch(search, [
+      'Fuel sign-off Trip tickets',
+      formatRef('TT', ticket.ticket_no),
+      ticket.destination,
+      ticket.purpose,
+      ticket.allocation_fuel_type,
+      getDriverName(ticket.driver_id),
+      vehicle?.make,
+      vehicle?.model,
+      vehicle?.license_plate
+    ]);
+  });
+  const pendingJobOrders = allPendingJobOrders.filter((order) =>
+    matchesSearch(search, [
+      'Repair sign-off Job orders',
+      formatRef('JO', order.order_no),
+      order.incident_details,
+      order.vehicles?.make,
+      order.vehicles?.model,
+      order.vehicles?.license_plate,
+      getDriverName(order.assigned_mechanic)
+    ])
+  );
+
   const loading = isLoading || jobOrdersLoading;
-  const total = pendingTickets.length + pendingJobOrders.length;
+  const total = allPendingTickets.length + allPendingJobOrders.length;
   useEffect(() => {
     onCountChange(loading ? 0 : total);
   }, [loading, total, onCountChange]);
 
   return (
     <>
+      <ListSearchInput
+        value={search}
+        onChange={setSearch}
+        label="Search pending approvals"
+      />
       {loading ? (
         <div className="mt-10 space-y-4">
           <Skeleton className="h-40 w-full rounded-[20px]" />
@@ -131,8 +166,10 @@ export default function ApprovalQueue({
         <>
           {/* ---------- Fuel sign-off ---------- */}
           {pendingTickets.length > 0 && (
-            <section className="mt-10">
-              <SectionLabel>Fuel sign-off · Trip tickets</SectionLabel>
+            <section className="mt-6">
+              <SectionLabel>
+                Fuel sign-off · Trip tickets ({pendingTickets.length})
+              </SectionLabel>
               <div className="flex flex-col gap-4">
                 {pendingTickets.map((ticket) => {
                   const vehicle = getVehicle(ticket.vehicle_id);
@@ -213,8 +250,10 @@ export default function ApprovalQueue({
 
           {/* ---------- Repair sign-off ---------- */}
           {pendingJobOrders.length > 0 && (
-            <section className="mt-10">
-              <SectionLabel>Repair sign-off · Job orders</SectionLabel>
+            <section className="mt-6">
+              <SectionLabel>
+                Repair sign-off · Job orders ({pendingJobOrders.length})
+              </SectionLabel>
               <div className="flex flex-col gap-4">
                 {pendingJobOrders.map((order) => (
                   <article
@@ -270,6 +309,17 @@ export default function ApprovalQueue({
             </section>
           )}
 
+          {total > 0 &&
+            pendingTickets.length === 0 &&
+            pendingJobOrders.length === 0 && (
+              <div className="mt-6">
+                <EmptyState
+                  message="No pending approvals."
+                  search={search}
+                  onClearSearch={() => setSearch('')}
+                />
+              </div>
+            )}
           {total === 0 && (
             <div className="border-border text-muted-foreground mt-10 rounded-[20px] border border-dashed py-16 text-center">
               You&apos;re all caught up. Nothing is waiting on your sign-off.

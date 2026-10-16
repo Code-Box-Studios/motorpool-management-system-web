@@ -1,3 +1,5 @@
+import { Skeleton } from '@/components/ui/skeleton';
+import ListSearchInput from '@/components/shared/list-search-input';
 import { useSpareParts } from '@/lib/query/spare-parts';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { buttonVariants } from '@/components/ui/button';
@@ -14,7 +16,6 @@ import {
 import { cn } from '@/lib/utils';
 import PageHeader from '@/components/shared/page-header';
 import EntityCard from '@/components/shared/entity-card';
-import EntityImage from '@/components/shared/entity-image';
 import EmptyState from '@/components/shared/empty-state';
 import TablePagination from '@/components/shared/table-pagination';
 import SortableTableHead from '@/components/shared/sortable-table-head';
@@ -34,9 +35,15 @@ const stockBadge = (quantity: number) => {
 };
 
 const SpareParts = () => {
-  const { page, sort, setPage, handleSort } = useListControls();
+  const { page, sort, setPage, handleSort, search, setSearch } =
+    useListControls();
   const limit = 10;
-  const { data } = useSpareParts(page, limit, sort ?? undefined);
+  const { data, isLoading } = useSpareParts(
+    page,
+    limit,
+    sort ?? undefined,
+    search
+  );
   const navigate = useNavigate();
   const spareParts = data?.data ?? [];
   const totalCount = data?.count ?? 0;
@@ -132,14 +139,7 @@ const SpareParts = () => {
                   }
                 >
                   <TableCell>
-                    <div className="flex items-center gap-3">
-                      <EntityImage
-                        src={sparePart.image}
-                        alt=""
-                        className="border-border size-10 shrink-0 rounded-md border"
-                      />
-                      <span className="font-medium">{sparePart.name}</span>
-                    </div>
+                    <span className="font-medium">{sparePart.name}</span>
                   </TableCell>
                   <TableCell className="text-sm whitespace-nowrap">
                     {sparePart.brand || '—'}
@@ -180,13 +180,31 @@ const SpareParts = () => {
         }
       />
 
+      <div className="mb-6">
+        <ListSearchInput
+          value={search}
+          onChange={setSearch}
+          label="Search spare parts"
+        />
+      </div>
+
       {/* Count, not the page slice: a mid page can come back empty while the
           shelf itself is not. */}
-      {totalCount === 0 ? (
-        <EmptyState message="No spare parts yet." />
-      ) : (
-        <ViewTabs grid={grid} table={table} />
-      )}
+      <ViewTabs
+        grid={grid}
+        table={table}
+        emptyState={
+          isLoading ? (
+            <Skeleton className="h-64 w-full rounded-[20px]" />
+          ) : totalCount === 0 ? (
+            <EmptyState
+              message="No spare parts yet."
+              search={search}
+              onClearSearch={() => setSearch('')}
+            />
+          ) : undefined
+        }
+      />
     </div>
   );
 };

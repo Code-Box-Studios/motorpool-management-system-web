@@ -1,3 +1,4 @@
+import ListSearchInput from '@/components/shared/list-search-input';
 import { useJobOrders, useAllJobOrders } from '@/lib/query/job-orders';
 import { useNavigate } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
@@ -88,7 +89,8 @@ const JobOrdersPage = () => {
   const completeRepair = useCompleteRepair();
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
-  const { page, sort, setPage, handleSort } = useListControls();
+  const { page, sort, setPage, handleSort, search, setSearch } =
+    useListControls();
   const limit = 10;
 
   const isAdmin = userRole?.roles?.name === 'admin';
@@ -101,13 +103,15 @@ const JobOrdersPage = () => {
     limit,
     shouldFilter ? user?.id : undefined,
     shouldFilter ? 'driver' : undefined,
-    sort ?? undefined
+    sort ?? undefined,
+    search
   );
   const totalPages = Math.ceil((data?.count || 0) / limit);
 
   const { data: calendarData, isLoading: isCalendarLoading } = useAllJobOrders(
     shouldFilter ? user?.id : undefined,
-    shouldFilter ? 'driver' : undefined
+    shouldFilter ? 'driver' : undefined,
+    search
   );
 
   const calendarEvents = useMemo(() => {
@@ -186,6 +190,14 @@ const JobOrdersPage = () => {
         }
       />
 
+      <div className="mb-6">
+        <ListSearchInput
+          value={search}
+          onChange={setSearch}
+          label="Search job orders"
+        />
+      </div>
+
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
@@ -255,7 +267,11 @@ const JobOrdersPage = () => {
                 /* Keyed on count, not the current page's rows, so a mid page
                    left empty by a stale `page` never masquerades as "no job
                    orders at all". */
-                <EmptyState message="No job orders yet." />
+                <EmptyState
+                  message="No job orders yet."
+                  search={search}
+                  onClearSearch={() => setSearch('')}
+                />
               ) : (
                 <>
                   {/* Table already renders its own overflow-x-auto container; the

@@ -14,11 +14,13 @@ export async function listVehicles(
     | Prisma.VehicleOrderByWithRelationInput[] = [
     { make: 'asc' },
     { model: 'asc' }
-  ]
+  ],
+  searchWhere: Prisma.VehicleWhereInput = {}
 ) {
+  const where = searchWhere;
   const [data, count] = await Promise.all([
-    prisma.vehicle.findMany({ orderBy, ...skipTake }),
-    prisma.vehicle.count()
+    prisma.vehicle.findMany({ where, orderBy, ...skipTake }),
+    prisma.vehicle.count({ where })
   ]);
   return { data, count };
 }

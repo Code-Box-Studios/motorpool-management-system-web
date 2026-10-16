@@ -12,10 +12,14 @@ export function findDriverByEmail(email: string) {
 export async function listDrivers(
   skipTake: { skip: number; take: number } | Record<string, never>,
   onlyUserId?: string,
-  orderBy: Prisma.DriverOrderByWithRelationInput = { updatedAt: 'desc' }
+  orderBy: Prisma.DriverOrderByWithRelationInput = { updatedAt: 'desc' },
+  searchWhere: Prisma.DriverWhereInput = {}
 ) {
   // Spec §5 matrix: driver-role callers see only their own personnel row.
-  const where = onlyUserId ? { userId: onlyUserId } : undefined;
+  const where: Prisma.DriverWhereInput = {
+    ...searchWhere,
+    ...(onlyUserId ? { userId: onlyUserId } : {})
+  };
   const [data, count] = await Promise.all([
     prisma.driver.findMany({ where, orderBy, ...skipTake }),
     prisma.driver.count({ where })

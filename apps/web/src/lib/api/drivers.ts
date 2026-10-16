@@ -125,11 +125,12 @@ function toDriverBody(d: NewDriver | UpdateDriver): DriverRequestBody {
 export const getDrivers = async (
   page: number = 1,
   limit: number = 10,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  search?: string
 ): Promise<{ data: Driver[]; count: number | null }> => {
   const res = await api.get<{ data: DriverApiResponse[]; count: number }>(
     '/drivers',
-    { page, limit, ...(sort ?? {}) }
+    { page, limit, search, ...(sort ?? {}) }
   );
   return { data: res.data.map(toSnakeDriver), count: res.count };
 };

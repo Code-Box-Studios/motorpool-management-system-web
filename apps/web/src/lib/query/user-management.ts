@@ -21,11 +21,12 @@ export const useAllUsers = () => {
 export const useUsers = (
   page: number = 1,
   limit: number = 10,
-  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' }
+  sort?: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  search?: string
 ) => {
   return useQuery({
-    queryKey: ['allUsers', page, limit, sort?.sortBy, sort?.sortOrder],
-    queryFn: () => getUsers(page, limit, sort)
+    queryKey: ['allUsers', page, limit, sort?.sortBy, sort?.sortOrder, search],
+    queryFn: () => getUsers(page, limit, sort, search)
   });
 };
 

@@ -1,3 +1,4 @@
+import { maintenanceSearch } from '../../lib/list-search.js';
 import type {
   CreateMaintenanceBody,
   UpdateMaintenanceBody,
@@ -29,7 +30,12 @@ export async function list(
     },
     { updatedAt: 'desc' }
   );
-  return listMaintenance(vehicleId, toSkipTake(query), orderBy);
+  return listMaintenance(
+    vehicleId,
+    toSkipTake(query),
+    orderBy,
+    maintenanceSearch(query.search)
+  );
 }
 
 export async function getById(id: string) {

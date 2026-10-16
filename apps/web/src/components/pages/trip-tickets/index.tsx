@@ -1,3 +1,4 @@
+import ListSearchInput from '@/components/shared/list-search-input';
 import StatusBadge from '@/components/shared/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { useTripTickets, useAllTripTickets } from '@/lib/query/trip-tickets';
@@ -156,7 +157,8 @@ const TripTicketsPage = () => {
   // same tickets by URL (the server scopes admins to everything).
   const filterUserId = isRequester ? user?.id : undefined;
 
-  const { page, sort, setPage, handleSort } = useListControls();
+  const { page, sort, setPage, handleSort, search, setSearch } =
+    useListControls();
   const limit = 10;
   const { data: tableData, isLoading: isTableLoading } = useTripTickets(
     page,
@@ -164,7 +166,8 @@ const TripTicketsPage = () => {
     filterUserId,
     undefined,
     undefined,
-    sort ?? undefined
+    sort ?? undefined,
+    search
   );
   const totalPages = Math.ceil((tableData?.count || 0) / limit);
 
@@ -180,7 +183,7 @@ const TripTicketsPage = () => {
     setPage(1);
   }, [filterUserId, setPage]);
   const { data: calendarData, isLoading: isCalendarLoading } =
-    useAllTripTickets(filterUserId, undefined);
+    useAllTripTickets(filterUserId, undefined, undefined, search);
   const navigate = useNavigate();
   const approveTripTicket = useApproveTripTicket();
   const disapproveTripTicket = useDisapproveTripTicket();
@@ -332,6 +335,14 @@ const TripTicketsPage = () => {
         }
       />
 
+      <div className="mb-6">
+        <ListSearchInput
+          value={search}
+          onChange={setSearch}
+          label="Search trip tickets"
+        />
+      </div>
+
       <Dialog
         open={createOpen}
         onOpenChange={(open) => {
@@ -411,7 +422,11 @@ const TripTicketsPage = () => {
                   ]}
                 />
               ) : !tableData?.count ? (
-                <EmptyState message="No trip tickets yet." />
+                <EmptyState
+                  message="No trip tickets yet."
+                  search={search}
+                  onClearSearch={() => setSearch('')}
+                />
               ) : (
                 /* Table already renders its own overflow-x-auto container; the
                    min-width is what actually makes it scroll rather than letting

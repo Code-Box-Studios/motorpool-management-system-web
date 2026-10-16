@@ -7,6 +7,10 @@ export const paginationQuerySchema = z.object({
 });
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
 
+export const searchQuerySchema = z.object({
+  search: z.string().trim().optional()
+});
+
 // ?sortBy= / ?sortOrder= — sortBy is allow-listed per entity, so a caller can
 // never order a list by a private or unindexed column. Both optional: omitting
 // them keeps the list's default ordering.

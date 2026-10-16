@@ -1,3 +1,4 @@
+import { vehicleSearch } from '../../lib/list-search.js';
 import { Prisma } from '@prisma/client';
 import type {
   CreateVehicleBody,
@@ -33,7 +34,7 @@ export async function list(query: VehiclesListQuery) {
     },
     [{ updatedAt: 'desc' }]
   );
-  return listVehicles(toSkipTake(query), orderBy);
+  return listVehicles(toSkipTake(query), orderBy, vehicleSearch(query.search));
 }
 
 export async function getById(id: string) {

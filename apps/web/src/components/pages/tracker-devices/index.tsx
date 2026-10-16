@@ -1,3 +1,5 @@
+import EmptyState from '@/components/shared/empty-state';
+import ListSearchInput from '@/components/shared/list-search-input';
 import { Link } from '@tanstack/react-router';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -35,10 +37,11 @@ const COLUMNS: { label: string; width: string; sortKey?: string }[] = [
 ];
 
 const TrackerDevices = () => {
-  const { page, sort, setPage, handleSort } = useListControls();
+  const { page, sort, setPage, handleSort, search, setSearch } =
+    useListControls();
   const limit = 10;
   const { data, isLoading, error } = useTrackerDevices(
-    { page, limit },
+    { page, limit, search },
     sort ?? undefined
   );
   // A device's vehicleId is a key; the row has to name the vehicle instead.
@@ -61,6 +64,14 @@ const TrackerDevices = () => {
           </Link>
         }
       />
+
+      <div className="mb-6">
+        <ListSearchInput
+          value={search}
+          onChange={setSearch}
+          label="Search tracker devices"
+        />
+      </div>
 
       <Card>
         <CardContent className="pt-6">
@@ -140,7 +151,11 @@ const TrackerDevices = () => {
                         colSpan={COLUMNS.length}
                         className="text-muted-foreground py-8 text-center"
                       >
-                        No tracker devices found
+                        <EmptyState
+                          message="No tracker devices found."
+                          search={search}
+                          onClearSearch={() => setSearch('')}
+                        />
                       </TableCell>
                     </TableRow>
                   )}

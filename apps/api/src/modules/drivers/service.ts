@@ -1,3 +1,4 @@
+import { driverSearch } from '../../lib/list-search.js';
 import { USER_ROLES } from '@mms/shared';
 import type {
   CreateDriverBody,
@@ -31,7 +32,12 @@ export async function list(query: DriversListQuery, actor: AuthenticatedUser) {
     },
     { updatedAt: 'desc' }
   );
-  return listDrivers(toSkipTake(query), onlyUserId, orderBy);
+  return listDrivers(
+    toSkipTake(query),
+    onlyUserId,
+    orderBy,
+    driverSearch(query.search)
+  );
 }
 
 export async function getById(id: string, actor: AuthenticatedUser) {

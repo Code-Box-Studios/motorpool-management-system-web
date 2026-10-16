@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { TRACKER_DEVICE_STATUS } from '../enums.js';
-import { paginationQuerySchema, sortQuerySchema } from './common.js';
+import {
+  paginationQuerySchema,
+  searchQuerySchema,
+  sortQuerySchema
+} from './common.js';
 
 const statusSchema = z.nativeEnum(TRACKER_DEVICE_STATUS);
 
@@ -14,10 +18,15 @@ export const createTrackerDeviceBodySchema = z.object({
   status: statusSchema.default('active'),
   notes: z.string().nullable().optional()
 });
-export type CreateTrackerDeviceBody = z.infer<typeof createTrackerDeviceBodySchema>;
+export type CreateTrackerDeviceBody = z.infer<
+  typeof createTrackerDeviceBodySchema
+>;
 
-export const updateTrackerDeviceBodySchema = createTrackerDeviceBodySchema.partial();
-export type UpdateTrackerDeviceBody = z.infer<typeof updateTrackerDeviceBodySchema>;
+export const updateTrackerDeviceBodySchema =
+  createTrackerDeviceBodySchema.partial();
+export type UpdateTrackerDeviceBody = z.infer<
+  typeof updateTrackerDeviceBodySchema
+>;
 
 // The list's sortable columns — the table's visible columns, nothing more.
 // (Vehicle is resolved client-side from a lookup, so it is not sortable here.)
@@ -29,15 +38,20 @@ export const TRACKER_DEVICE_SORT_COLUMNS = [
   'lastSeenAt'
 ] as const;
 export const trackerDevicesListQuerySchema = paginationQuerySchema
+  .merge(searchQuerySchema)
   .extend({
     vehicleId: z.string().uuid().optional(),
     status: statusSchema.optional()
   })
   .merge(sortQuerySchema(TRACKER_DEVICE_SORT_COLUMNS));
-export type TrackerDevicesListQuery = z.infer<typeof trackerDevicesListQuerySchema>;
+export type TrackerDevicesListQuery = z.infer<
+  typeof trackerDevicesListQuerySchema
+>;
 
 // The gateway sends the identifier the tracker reported; we resolve it to a vehicle.
-export const resolveDeviceQuerySchema = z.object({ deviceId: z.string().min(1) });
+export const resolveDeviceQuerySchema = z.object({
+  deviceId: z.string().min(1)
+});
 export type ResolveDeviceQuery = z.infer<typeof resolveDeviceQuerySchema>;
 
 export interface ResolveDeviceResponse {

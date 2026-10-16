@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { INTERVAL_TYPE, MAINTENANCE_TYPE } from '../enums.js';
-import { paginationQuerySchema, sortQuerySchema } from './common.js';
+import {
+  paginationQuerySchema,
+  searchQuerySchema,
+  sortQuerySchema
+} from './common.js';
 
 // ----- Simple service-history rows (/maintenance) -----
 
@@ -16,6 +20,7 @@ export const MAINTENANCE_SORT_COLUMNS = [
   'nextDue'
 ] as const;
 export const maintenanceListQuerySchema = paginationQuerySchema
+  .merge(searchQuerySchema)
   .merge(sortQuerySchema(MAINTENANCE_SORT_COLUMNS))
   .extend({ vehicleId: z.string().uuid().optional() });
 export type MaintenanceListQuery = z.infer<typeof maintenanceListQuerySchema>;
@@ -30,7 +35,8 @@ export const createMaintenanceBodySchema = z.object({
 });
 export type CreateMaintenanceBody = z.infer<typeof createMaintenanceBodySchema>;
 
-export const updateMaintenanceBodySchema = createMaintenanceBodySchema.partial();
+export const updateMaintenanceBodySchema =
+  createMaintenanceBodySchema.partial();
 export type UpdateMaintenanceBody = z.infer<typeof updateMaintenanceBodySchema>;
 
 // ----- Standards + nested schedule items (/maintenance-standards) -----
@@ -41,7 +47,9 @@ export const createScheduleItemBodySchema = z.object({
   intervalMileage: z.coerce.number().int().min(0).nullable().optional(),
   intervalMonths: z.coerce.number().int().min(0).nullable().optional()
 });
-export type CreateScheduleItemBody = z.infer<typeof createScheduleItemBodySchema>;
+export type CreateScheduleItemBody = z.infer<
+  typeof createScheduleItemBodySchema
+>;
 
 export const createStandardBodySchema = z.object({
   name: z.string().min(1),

@@ -1,3 +1,5 @@
+import { STATUS_LABELS } from '@mms/shared';
+
 // The single source of truth for what a status *means*. The raw enum names
 // ("pending_fuel_allocation_approval") belong to the database; people get
 // "Awaiting fuel", and every surface — badges, calendars — derives its colour
@@ -9,54 +11,54 @@ export interface StatusMeta {
   label: string;
 }
 
-const STATUS_MAP: Record<string, StatusMeta> = {
+const STATUS_TONES: Record<string, StatusTone> = {
   // --- Trip tickets ---
-  pending_admin_approval: { tone: 'wait', label: 'Needs approval' },
-  pending_fuel_allocation_approval: { tone: 'wait', label: 'Awaiting fuel' },
-  approved: { tone: 'neutral', label: 'Approved' },
-  in_progress: { tone: 'move', label: 'On the road' },
-  completed: { tone: 'done', label: 'Completed' },
-  cancelled: { tone: 'stop', label: 'Cancelled' },
-  disapproved: { tone: 'stop', label: 'Declined' },
+  pending_admin_approval: 'wait',
+  pending_fuel_allocation_approval: 'wait',
+  approved: 'neutral',
+  in_progress: 'move',
+  completed: 'done',
+  cancelled: 'stop',
+  disapproved: 'stop',
 
   // --- Trip dates (one outing's own status, distinct from its ticket's) ---
-  scheduled: { tone: 'neutral', label: 'Scheduled' },
+  scheduled: 'neutral',
 
   // --- Job orders ---
-  pending: { tone: 'wait', label: 'Pending' },
-  assigned_mechanic: { tone: 'wait', label: 'Awaiting sign-off' },
-  ongoing_repair: { tone: 'move', label: 'In repair' },
-  repaired: { tone: 'done', label: 'Repaired' },
+  pending: 'wait',
+  assigned_mechanic: 'wait',
+  ongoing_repair: 'move',
+  repaired: 'done',
 
   // --- Vehicles ---
-  available: { tone: 'done', label: 'Ready' },
-  on_trip: { tone: 'move', label: 'On the road' },
-  in_use: { tone: 'move', label: 'On the road' },
-  under_maintenance: { tone: 'wait', label: 'In the shop' },
-  maintenance: { tone: 'wait', label: 'In the shop' },
-  out_of_service: { tone: 'stop', label: 'Out of service' },
-  unavailable: { tone: 'neutral', label: 'Unavailable' },
-  not_available: { tone: 'neutral', label: 'Unavailable' },
-  to_be_repaired: { tone: 'wait', label: 'Needs repair' },
+  available: 'done',
+  on_trip: 'move',
+  in_use: 'move',
+  under_maintenance: 'wait',
+  maintenance: 'wait',
+  out_of_service: 'stop',
+  unavailable: 'neutral',
+  not_available: 'neutral',
+  to_be_repaired: 'wait',
 
   // --- Tools ---
-  borrowed: { tone: 'neutral', label: 'Borrowed' },
+  borrowed: 'neutral',
 
   // --- Drivers / trackers / accounts ---
-  active: { tone: 'done', label: 'Active' },
-  inactive: { tone: 'neutral', label: 'Inactive' },
-  decommissioned: { tone: 'stop', label: 'Decommissioned' },
+  active: 'done',
+  inactive: 'neutral',
+  decommissioned: 'stop',
 
   // --- Maintenance tracking ---
-  due_soon: { tone: 'wait', label: 'Due soon' },
-  overdue: { tone: 'stop', label: 'Overdue' }
+  due_soon: 'wait',
+  overdue: 'stop'
 };
 
 // An unknown status still renders sensibly: title-cased, neutral tone.
 export function resolveStatus(status: string): StatusMeta {
   const key = status.toLowerCase();
-  const known = STATUS_MAP[key];
-  if (known) return known;
+  const tone = STATUS_TONES[key];
+  if (tone) return { tone, label: STATUS_LABELS[key] };
   return {
     tone: 'neutral',
     label: key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())

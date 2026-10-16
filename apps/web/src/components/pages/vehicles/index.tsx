@@ -1,3 +1,5 @@
+import { Skeleton } from '@/components/ui/skeleton';
+import ListSearchInput from '@/components/shared/list-search-input';
 import { useVehicles } from '@/lib/query/vehicles';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { buttonVariants } from '@/components/ui/button';
@@ -39,9 +41,16 @@ const vehicleTitle = (vehicle: VehicleWithBranch) =>
   `${vehicle.make} ${vehicle.model} ${vehicle.year ?? ''}`.trim();
 
 const Vehicles = () => {
-  const { page, sort, setPage, handleSort } = useListControls();
+  const { page, sort, setPage, handleSort, search, setSearch } =
+    useListControls();
   const limit = 10;
-  const { data } = useVehicles(page, limit, sort ?? undefined);
+  const { data, isLoading } = useVehicles(
+    page,
+    limit,
+    sort ?? undefined,
+    true,
+    search
+  );
   const navigate = useNavigate();
   const vehicles = data?.data ?? [];
   const totalCount = data?.count ?? 0;
@@ -209,13 +218,31 @@ const Vehicles = () => {
         }
       />
 
+      <div className="mb-6">
+        <ListSearchInput
+          value={search}
+          onChange={setSearch}
+          label="Search vehicles"
+        />
+      </div>
+
       {/* The server count drives the empty state, so a page past the end of
           the list never reads as an empty fleet. */}
-      {totalCount === 0 ? (
-        <EmptyState message="No vehicles yet." />
-      ) : (
-        <ViewTabs grid={grid} table={table} />
-      )}
+      <ViewTabs
+        grid={grid}
+        table={table}
+        emptyState={
+          isLoading ? (
+            <Skeleton className="h-64 w-full rounded-[20px]" />
+          ) : totalCount === 0 ? (
+            <EmptyState
+              message="No vehicles yet."
+              search={search}
+              onClearSearch={() => setSearch('')}
+            />
+          ) : undefined
+        }
+      />
     </div>
   );
 };

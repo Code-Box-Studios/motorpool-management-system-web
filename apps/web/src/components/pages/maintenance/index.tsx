@@ -1,3 +1,4 @@
+import ListSearchInput from '@/components/shared/list-search-input';
 import { useAllMaintenances, useMaintenances } from '@/lib/query/maintenance';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -53,15 +54,17 @@ const ACTIVE_TAB =
 const EmDash = () => <span className="text-muted-foreground">—</span>;
 
 const MaintenancePage = () => {
-  const { page, sort, setPage, handleSort } = useListControls();
+  const { page, sort, setPage, handleSort, search, setSearch } =
+    useListControls();
   const limit = 10;
   const { data: tableData, isLoading: isTableLoading } = useMaintenances(
     page,
     limit,
-    sort ?? undefined
+    sort ?? undefined,
+    search
   );
   const { data: calendarData, isLoading: isCalendarLoading } =
-    useAllMaintenances();
+    useAllMaintenances(search);
   const { data: vehicles } = useAllVehicles();
   const navigate = useNavigate();
   const deleteMaintenance = useDeleteMaintenance();
@@ -156,6 +159,16 @@ const MaintenancePage = () => {
         }
       />
 
+      {activeTab === 'schedule' && (
+        <div className="mb-6">
+          <ListSearchInput
+            value={search}
+            onChange={setSearch}
+            label="Search maintenance"
+          />
+        </div>
+      )}
+
       <Tabs
         value={activeTab}
         onValueChange={handleTabChange}
@@ -237,7 +250,11 @@ const MaintenancePage = () => {
                       ]}
                     />
                   ) : totalCount === 0 ? (
-                    <EmptyState message="No maintenance records yet." />
+                    <EmptyState
+                      message="No maintenance records yet."
+                      search={search}
+                      onClearSearch={() => setSearch('')}
+                    />
                   ) : (
                     <>
                       {/* Table already renders its own overflow-x-auto container;

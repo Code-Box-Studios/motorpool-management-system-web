@@ -4,10 +4,11 @@ import type { DecisionRecord } from '@mms/shared';
 export async function getApprovalHistory(
   page = 1,
   limit = 10,
-  kind?: 'fuel' | 'repair'
+  kind?: 'fuel' | 'repair',
+  search?: string
 ): Promise<{ data: DecisionRecord[]; count: number }> {
   return api.get<{ data: DecisionRecord[]; count: number }>(
     '/approvals/history',
-    { page, limit, ...(kind ? { kind } : {}) }
+    { page, limit, search, ...(kind ? { kind } : {}) }
   );
 }
