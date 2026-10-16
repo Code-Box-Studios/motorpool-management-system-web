@@ -2,15 +2,11 @@ import { useId } from 'react';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  Sheet,
-  SheetTrigger,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-  SheetClose
-} from '@/components/ui/sheet';
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverClose
+} from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -50,9 +46,9 @@ export default function TableFilters({
     .join('; ');
 
   return (
-    <Sheet>
+    <Popover>
       <div className="flex items-center gap-1">
-        <SheetTrigger asChild>
+        <PopoverTrigger asChild>
           <Button
             type="button"
             variant="outline"
@@ -71,7 +67,7 @@ export default function TableFilters({
               </span>
             )}
           </Button>
-        </SheetTrigger>
+        </PopoverTrigger>
         {active.length > 0 && (
           <Button
             type="button"
@@ -86,18 +82,24 @@ export default function TableFilters({
           </Button>
         )}
       </div>
-      <SheetContent className="w-full sm:max-w-sm">
-        <SheetHeader className="p-6 pr-12">
-          <SheetTitle>Filters</SheetTitle>
-          <SheetDescription>
-            Narrow the list by column. Changes apply immediately.
-          </SheetDescription>
-        </SheetHeader>
-        <div
-          role="group"
-          aria-label="Table filters"
-          className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 pb-6"
-        >
+      <PopoverContent aria-labelledby={`${id}-title`} className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h3 id={`${id}-title`} className="text-sm font-semibold">
+            Filters
+          </h3>
+          <PopoverClose asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              aria-label="Close filters"
+            >
+              <X aria-hidden="true" className="size-4" />
+            </Button>
+          </PopoverClose>
+        </div>
+        <div role="group" aria-label="Table filters" className="space-y-4">
           {filters.map((filter) => (
             <div key={filter.key} className="flex min-w-0 flex-col gap-1.5">
               <label
@@ -141,21 +143,24 @@ export default function TableFilters({
             </div>
           ))}
         </div>
-        <SheetFooter className="border-border flex-row justify-between border-t p-6">
+        <div className="border-border flex items-center justify-between gap-2 border-t pt-3">
           <Button
             type="button"
             variant="outline"
+            size="sm"
             disabled={active.length === 0}
             onClick={onClear}
           >
             <X aria-hidden="true" className="size-3.5" />
             Clear filters
           </Button>
-          <SheetClose asChild>
-            <Button type="button">Done</Button>
-          </SheetClose>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+          <PopoverClose asChild>
+            <Button type="button" size="sm">
+              Done
+            </Button>
+          </PopoverClose>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

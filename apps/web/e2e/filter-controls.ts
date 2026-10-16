@@ -1,19 +1,19 @@
 import { expect, type Page } from '@playwright/test';
 
 export async function openFilters(page: Page, label: string) {
-  const drawer = page.getByRole('dialog', { name: 'Filters', exact: true });
-  if (!(await drawer.isVisible())) {
+  const panel = page.getByRole('dialog', { name: 'Filters', exact: true });
+  if (!(await panel.isVisible())) {
     await page
       .getByRole('button', { name: new RegExp(`^Filters:.*${label}`, 'i') })
       .click();
   }
-  await expect(drawer).toBeVisible();
-  return drawer;
+  await expect(panel).toBeVisible();
+  return panel;
 }
 
 export async function chooseFilter(page: Page, label: string, option: string) {
-  const drawer = await openFilters(page, label);
-  await drawer
+  const panel = await openFilters(page, label);
+  await panel
     .getByRole('combobox', {
       name: `Filter by ${label.toLowerCase()}`,
       exact: true
@@ -24,8 +24,8 @@ export async function chooseFilter(page: Page, label: string, option: string) {
     exact: true
   });
   await options.getByRole('option', { name: option, exact: true }).click();
-  await drawer.getByRole('button', { name: 'Done', exact: true }).click();
-  await expect(drawer).toBeHidden();
+  await panel.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(panel).toBeHidden();
 }
 
 export async function expectFilterValue(
@@ -33,13 +33,13 @@ export async function expectFilterValue(
   label: string,
   value: string
 ) {
-  const drawer = await openFilters(page, label);
+  const panel = await openFilters(page, label);
   await expect(
-    drawer.getByRole('combobox', {
+    panel.getByRole('combobox', {
       name: `Filter by ${label.toLowerCase()}`,
       exact: true
     })
   ).toContainText(value);
-  await drawer.getByRole('button', { name: 'Done', exact: true }).click();
-  await expect(drawer).toBeHidden();
+  await panel.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(panel).toBeHidden();
 }

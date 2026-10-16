@@ -173,13 +173,13 @@ test('requester status options include later pages and filter before pagination'
   await page.goto('/dashboard?requestStatus=approved');
   await expectFilterValue(page, 'status', 'Approved');
   await expect(page.getByText('No records match your filters.')).toBeVisible();
-  const drawer = await openFilters(page, 'status');
-  await drawer.getByRole('combobox', { name: 'Filter by status' }).click();
+  const panel = await openFilters(page, 'status');
+  await panel.getByRole('combobox', { name: 'Filter by status' }).click();
   await expect(
     page.getByRole('option', { name: 'On the road', exact: true })
   ).toBeVisible();
   await page.keyboard.press('Escape');
-  await drawer.getByRole('button', { name: 'Done', exact: true }).click();
+  await panel.getByRole('button', { name: 'Done', exact: true }).click();
   await page
     .getByRole('button', { name: 'Clear filters', exact: true })
     .first()

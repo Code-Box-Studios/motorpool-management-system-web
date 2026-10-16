@@ -38,7 +38,8 @@ export function useListControls(filterKeys: readonly string[] = NO_FILTERS) {
           [key]: value.trim() || undefined,
           page: undefined
         }),
-        replace: true
+        replace: true,
+        resetScroll: false
       });
     },
     [navigate, filterKeys]
@@ -52,7 +53,8 @@ export function useListControls(filterKeys: readonly string[] = NO_FILTERS) {
         ...Object.fromEntries(filterKeys.map((key) => [key, undefined])),
         page: undefined
       }),
-      replace: true
+      replace: true,
+      resetScroll: false
     });
   }, [navigate, filterKeys]);
 
