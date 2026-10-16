@@ -79,14 +79,18 @@ function AuthenticatedLayout() {
     return (
       <div className="bg-background min-h-dvh">
         <FocusHeader title={focusTitle} />
-        {/* The gutter lives here, not in each page. The gate and approvals
-            screens were written self-padding because this shell gave them
-            nothing, which left any page shared with the sidebar shell — the
-            profile — flush against the edge of a phone. Those two still carry
-            their own px-4, so they are unchanged; new focus pages get a
-            sensible margin for free. */}
+        {/* Keep gutters in the shell so shared detail pages have consistent
+            margins. EVP records use the same width as the approvals queue. */}
         <main className="px-4 py-6 md:px-6">
-          <Outlet />
+          <div
+            className={
+              role === USER_ROLES.evp_operations
+                ? 'mx-auto w-full max-w-7xl'
+                : undefined
+            }
+          >
+            <Outlet />
+          </div>
         </main>
       </div>
     );

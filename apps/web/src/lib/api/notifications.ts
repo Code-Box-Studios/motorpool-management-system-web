@@ -11,6 +11,8 @@ export interface NotificationRow {
   linkTo: string | null;
   readAt: string | null;
   createdAt: string;
+  /** Current linked-record status, separate from the historical event. */
+  currentStatus: string | null;
 }
 
 interface NotificationListResponse {

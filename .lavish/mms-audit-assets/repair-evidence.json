@@ -1,0 +1,188 @@
+{
+  "completedAt": "2026-10-14T01:22:01.638305+08:00",
+  "fixedFindings": [
+    "F01",
+    "F02",
+    "F03",
+    "F04",
+    "F05",
+    "F06",
+    "F07",
+    "F08",
+    "F09",
+    "F10",
+    "F11",
+    "F12",
+    "F13",
+    "F14",
+    "F15",
+    "F16"
+  ],
+  "tests": {
+    "api": 481,
+    "shared": 10,
+    "gateway": 28,
+    "unitIntegration": 519,
+    "browser": 33,
+    "total": 552,
+    "skipped": 0,
+    "failed": 0
+  },
+  "checks": {
+    "build": "passed",
+    "lint": "passed",
+    "configuredTypechecks": "passed",
+    "webTypecheck": "passed in build",
+    "diffCheck": "passed"
+  },
+  "review": {
+    "backend": "approved",
+    "frontend": "approved",
+    "final": "approved after correction",
+    "blockingFindings": 0,
+    "resolvedIntegrationFinding": "Foreign-key lock conflict between repair note and booking/departure; two deterministic database regressions pass",
+    "minor": "Existing expected ML fallback, npm/Prisma and color-environment diagnostic noise"
+  },
+  "integration": {
+    "sourceApplied": true,
+    "matchedSourceFiles": 48,
+    "sourceHead": "29b80acd6deb27d139340b9ac6c9da527288f63a",
+    "web": {
+      "url": "http://localhost:5174",
+      "status": 200
+    },
+    "api": {
+      "url": "http://localhost:3001/api/health",
+      "status": 200
+    },
+    "gateway": {
+      "port": 5013,
+      "tcpListening": true
+    },
+    "originalDatabase": {
+      "users": 5,
+      "vehicles": 8,
+      "trackers": 0
+    }
+  },
+  "liveBrowser": {
+    "login": "passed",
+    "dashboard": "rendered with fleet data and map",
+    "gps": "map rendered with 2 markers",
+    "missingTool": "Record not found with Retry and Go back",
+    "profile": "account page rendered"
+  },
+  "originalBranch": "main",
+  "sourceStaged": false,
+  "commands": [
+    "pnpm test",
+    "pnpm typecheck",
+    "pnpm lint",
+    "pnpm build",
+    "python3 /tmp/mms-fix-run-browser.py --reporter=list",
+    "node /tmp/mms-app-fix-verification.mjs",
+    "pnpm --filter @mms/shared build (original checkout)"
+  ],
+  "probeResults": [
+    {
+      "name": "Vehicle released with another active repair",
+      "fixed": true,
+      "actual": {
+        "issueReproduced": false,
+        "vehicleStatus": "under_maintenance",
+        "otherRepairStatus": "assigned_mechanic"
+      }
+    },
+    {
+      "name": "Same driver departs on two vehicles before returning",
+      "fixed": true,
+      "actual": {
+        "issueReproduced": false,
+        "departureHttpStatuses": [
+          200,
+          409
+        ],
+        "ticketStatuses": [
+          "in_progress",
+          "approved"
+        ]
+      }
+    },
+    {
+      "name": "Cancelling final date removes settled fuel history",
+      "fixed": true,
+      "actual": {
+        "issueReproduced": false,
+        "historyIncludedBefore": true,
+        "historyIncludedAfter": true,
+        "fuelStatus": "approved",
+        "ticketStatus": "cancelled"
+      }
+    },
+    {
+      "name": "Changing requester role to driver leaves no driver identity",
+      "fixed": true,
+      "actual": {
+        "issueReproduced": false,
+        "loginRole": "driver",
+        "linkedDriverCount": 1
+      }
+    },
+    {
+      "name": "Scheduled preventive completion leaves mileage and service history stale",
+      "fixed": true,
+      "actual": {
+        "issueReproduced": false,
+        "completedMileage": 52000,
+        "vehicleMileage": 52000,
+        "maintenanceHistoryRows": 1
+      }
+    },
+    {
+      "name": "Concurrent overlapping reservations",
+      "fixed": true,
+      "actual": {
+        "issueReproduced": false,
+        "simultaneousAttempts": 6,
+        "acceptedOverlappingTickets": 1,
+        "httpStatuses": [
+          201,
+          409,
+          409,
+          409,
+          409,
+          409
+        ]
+      }
+    }
+  ],
+  "rulings": [
+    "Ruling: User instruction to fix the already reviewed audit accepts its suggested repairs; do not request another approval for the same scope \u2014 prior scope and fix recommendations were concrete \u2014 risk if wrong: user may prefer a different implementation and can review/revise the resulting diff.",
+    "Ruling: Complete each preventive task as one canonical preventive service-history row, advance the odometer atomically, and reject backwards readings \u2014 existing UI records individual completed tasks with no service-visit grouping \u2014 risk if wrong: several tasks at one visit count as several history entries, requiring a later grouping design.",
+    "Ruling: Use active outings plus consistent driver row locking as the gate claim; do not automatically change Driver.status to on_trip \u2014 future nonoverlapping booking must continue to work \u2014 risk if wrong: driver roster status remains a manual administrative attribute, while active trip records remain the operational truth.",
+    "Ruling: Apply reviewed patches to the original checkout without merging or changing its branch, after git apply --check \u2014 user wants the currently running local app fixed; managed worktree provides isolation/review \u2014 risk if wrong: concurrent user edits could conflict, requiring a normal conflict resolution rather than overwriting them.",
+    "Ruling: Retain expected existing test diagnostics rather than expanding this repair into unrelated logger/config cleanup \u2014 reviewers marked this Minor and the baseline had the same warnings \u2014 risk if wrong: noisy output can obscure a future failure; test exit codes and assertions remain authoritative.",
+    "Ruling: Do not backfill historical preventive rows in this repair \u2014 the accepted fix changes the completion transaction and no trustworthy historical grouping/backfill was specified \u2014 risk if wrong: older omitted history remains incomplete until a separately designed backfill.",
+    "Ruling: Preserve the accepted per-task preventive model without adding service-visit grouping or a new global idempotency protocol \u2014 recurring tasks already use individual completion records \u2014 risk if wrong: duplicate operator submissions need a separate workflow design.",
+    "Ruling: Keep the authorized complete-list queue solution without a new server-pagination or fleet-load redesign \u2014 real regressions verify the reported boundary beyond 100 records \u2014 risk if wrong: very large installations may later require measured pagination work.",
+    "Ruling: Do not rewrite unrelated existing approval/cancellation, duplicate-note or spare-part races without a concrete in-scope regression \u2014 the user approved the sixteen audited repairs \u2014 risk if wrong: untested older variants may still need a subsequent audit. The newly introduced FK deadlock is in scope and must be fixed now.",
+    "Ruling: Preserve existing administrator vehicle status/mileage overrides \u2014 changing that policy was not requested \u2014 risk if wrong: operator misuse can still create inconsistent manual records.",
+    "Ruling: Preserve browser-local scheduling policy and verify Manila conversions, without a product-wide timezone redesign \u2014 the current app and user operate with these semantics \u2014 risk if wrong: other regional deployments may require an explicit timezone policy.",
+    "Ruling: Use execution logs, isolated-service metadata and final original-database read checks for provenance \u2014 a read-only code review cannot independently reconstruct historical test execution \u2014 risk if wrong: those artifacts cannot prove every past write, so report the actual checks without claiming absolute forensic proof.",
+    "Ruling: Complete original-checkout patch application, live web/API/gateway checks and artifact update after the corrected final gate \u2014 these are still required controller tasks, not exclusions from the user request \u2014 risk if wrong: a worktree-only repair would leave the user's running app unfixed."
+  ],
+  "limits": [
+    "Physical GPS hardware and camera scanning were not exercised.",
+    "Mobile coverage samples selected screens; complete responsive coverage is not claimed.",
+    "Historical missing preventive rows were not backfilled."
+  ],
+  "graft": {
+    "fixAndReviewCalls": 64,
+    "fixAndReviewEstimatedTokensSaved": 902548,
+    "auditCalls": 86,
+    "auditEstimatedTokensSaved": 2143682,
+    "totalCalls": 150,
+    "totalEstimatedTokensSaved": 3046230,
+    "savingsAreToolEstimates": true
+  }
+}

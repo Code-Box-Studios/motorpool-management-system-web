@@ -492,28 +492,19 @@ test('a trip ticket filed under a branch and office that have since closed still
   const officeId = (office.body as { id: string }).id;
   createdOfficeIds.push(officeId);
 
-  // A branch created a moment ago owns no vehicles, no drivers and no staff, so
-  // the ticket borrows all three from the seeded fleet and roster. That is a
-  // supported workflow and has no bearing on the branch/office names being
-  // asserted.
-  //
-  // The guide in particular must NOT be created on the new branch: this test
-  // archives that branch below, and branchBlockers counts a branch's ACTIVE
-  // employees — one of our own would refuse the archive with 409 IN_USE and
-  // fail this test two hundred lines from the line that caused it. Borrowing
-  // is legitimate: the server validates only that a guide is not archived,
-  // never that they belong to the ticket's branch.
+  // The new branch borrows a seeded vehicle and driver. Guide users are
+  // independent of branch, so creating extra organization employees is unnecessary.
   const vehicles = listData(
     await apiGet(request, '/api/vehicles', admin.token)
   );
   const drivers = listData(await apiGet(request, '/api/drivers', admin.token));
-  const employees = listData(
-    await apiGet(request, '/api/employees', admin.token)
+  const guides = listData(
+    await apiGet(request, '/api/trip-tickets/guide-options', admin.token)
   );
   const vehicle = vehicles.find((v) => v.status === 'available') ?? vehicles[0];
   expect(vehicle, 'a vehicle exists to file the ticket against').toBeTruthy();
   expect(drivers[0], 'a driver exists to file the ticket against').toBeTruthy();
-  expect(employees[0], 'an employee exists to guide the trip').toBeTruthy();
+  expect(guides[0], 'an active user exists to guide the trip').toBeTruthy();
 
   // Far-future and distinct from every other spec's window — an overlap fails
   // with VEHICLE_DOUBLE_BOOKED, which would be a fixture collision rather than
@@ -529,7 +520,7 @@ test('a trip ticket filed under a branch and office that have since closed still
     dateRequested: new Date().toISOString(),
     participants: ['E2E'],
     participantsCount: 1,
-    guideIds: [employees[0].id as string],
+    guideIds: [guides[0].id as string],
     preparedBy: 'E2E',
     requestedById: admin.user.id,
     dates: [
@@ -638,9 +629,7 @@ test('admin adds a branch employee, edits it, and archives it away', async ({
   await dialog.locator('#position').fill('Tour Guide');
   await dialog.locator('#phone').fill('09171234567');
 
-  // Design §4.3: a branchless employee would appear in no branch's guide
-  // picker at all, with no error anywhere — so the dialog refuses the submit
-  // and stays open rather than letting the API answer.
+  // Organization employees require a branch, so the form refuses an unset one.
   await dialog.getByRole('button', { name: 'Add Employee' }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText('Branch is required')).toBeVisible({

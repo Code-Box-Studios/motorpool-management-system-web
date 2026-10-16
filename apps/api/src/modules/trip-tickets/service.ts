@@ -22,6 +22,7 @@ import {
 } from './repository.js';
 import { replaceTripDates } from './dates.js';
 import {
+  assertGuideUsersActive,
   assertSeatsFit,
   participantHeadcount,
   replaceTripTicketGuides
@@ -282,9 +283,9 @@ export async function create(
   await assertOrgRefsActive({
     branchId: body.branchId,
     officeId: body.officeId,
-    officeHeadId: body.officeHeadId,
-    employeeIds: body.guideIds
+    officeHeadId: body.officeHeadId
   });
+  await assertGuideUsersActive(body.guideIds);
   // WHO ASKED is the authenticated caller — not a field the client fills in. It
   // used to be spread straight out of the body, so a requester could book a trip
   // in the admin's name, or with `requestedById: null` and no owner at all — and
@@ -349,12 +350,9 @@ export async function update(
   await assertOrgRefsActive({
     branchId: body.branchId,
     officeId: body.officeId,
-    officeHeadId: body.officeHeadId,
-    // Undefined when the caller is not editing guides — assertOrgRefsActive
-    // checks only the keys actually present, so an untouched guide list is
-    // never re-validated against an employee archived since.
-    employeeIds: body.guideIds
+    officeHeadId: body.officeHeadId
   });
+  if (body.guideIds !== undefined) await assertGuideUsersActive(body.guideIds);
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM trip_tickets WHERE id = ${id}::uuid FOR UPDATE`;
     const existing = await tx.tripTicket.findUnique({
@@ -441,7 +439,9 @@ export async function update(
         // participants without touching the guides must still be sized against
         // the guides the ticket already has, or an edit could quietly push the
         // party past the van's capacity.
-        guideIds: body.guideIds ?? existing.guides.map((g) => g.employeeId),
+        guideIds:
+          body.guideIds ??
+          existing.guides.map((g) => g.userId ?? g.employeeId!),
         dates: proposedDates
       },
       id
@@ -449,6 +449,15 @@ export async function update(
     // An edit cannot hand the ticket to someone else — that is the same
     // client-controlled attribution hole as on create, via the back door.
     const { requestedById, guideIds, ...editable } = body;
+    // A text-only destination edit no longer refers to the stored map pin.
+    if (
+      body.destination !== undefined &&
+      body.destination !== existing.destination &&
+      body.destinationLatitude === undefined
+    ) {
+      editable.destinationLatitude = null;
+      editable.destinationLongitude = null;
+    }
     // Fix round 2, item 1 (spec §4.2): startTs/endTs are the ticket's DERIVED
     // SPAN, same as `dates` above them — never a real column write from the
     // client. Before this feature they were the truth, so writing them straight

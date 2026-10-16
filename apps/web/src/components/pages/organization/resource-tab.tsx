@@ -154,15 +154,15 @@ export function ResourceTab({ resource }: ResourceTabProps) {
         </Button>
       </div>
 
-      <div className="mb-5">
-        <ListSearchInput
-          value={search}
-          onChange={setSearch}
-          label={`Search ${meta.title.toLowerCase()}`}
-        />
-      </div>
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
+          <div className="mb-4">
+            <ListSearchInput
+              value={search}
+              onChange={setSearch}
+              label={`Search ${meta.title.toLowerCase()}`}
+            />
+          </div>
           {query.isLoading ? (
             // meta.columns + Actions: the real table below renders an extra
             // Actions header, so a skeleton built from meta.columns alone is

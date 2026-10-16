@@ -1,0 +1,69 @@
+[
+  {
+    "name": "Vehicle released with another active repair",
+    "issueReproduced": true,
+    "vehicleStatus": "available",
+    "otherRepairStatus": "assigned_mechanic"
+  },
+  {
+    "name": "Same driver departs on two vehicles before returning",
+    "issueReproduced": true,
+    "departureHttpStatuses": [
+      200,
+      200
+    ],
+    "ticketStatuses": [
+      "in_progress",
+      "in_progress"
+    ]
+  },
+  {
+    "name": "Cancelling final date removes settled fuel history",
+    "issueReproduced": true,
+    "historyIncludedBefore": true,
+    "historyIncludedAfter": false,
+    "fuelStatus": "cancelled",
+    "ticketStatus": "cancelled"
+  },
+  {
+    "name": "Changing requester role to driver leaves no driver identity",
+    "issueReproduced": true,
+    "loginRole": "driver",
+    "linkedDriverCount": 0
+  },
+  {
+    "name": "Scheduled preventive completion leaves mileage and service history stale",
+    "issueReproduced": true,
+    "completedMileage": 52000,
+    "vehicleMileage": 40000,
+    "maintenanceHistoryRows": 0
+  },
+  {
+    "name": "Driver edit rejects empty optional dates",
+    "issueReproduced": true,
+    "httpStatus": 400,
+    "errorCode": "VALIDATION_ERROR"
+  },
+  {
+    "name": "Participant comma splits one person into two",
+    "issueReproduced": true,
+    "inputPeopleCount": 1,
+    "serializedPeopleCount": 2,
+    "httpStatus": 400,
+    "errorCode": "PARTICIPANTS_MISMATCH"
+  },
+  {
+    "name": "Concurrent overlapping reservations",
+    "issueReproduced": true,
+    "simultaneousAttempts": 6,
+    "acceptedOverlappingTickets": 5,
+    "httpStatuses": [
+      201,
+      201,
+      201,
+      409,
+      201,
+      201
+    ]
+  }
+]

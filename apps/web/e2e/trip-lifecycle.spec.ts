@@ -42,21 +42,14 @@ test('trip lifecycle: requester → admin → EVP (UI) → guard → completed',
   const linkedDriver =
     drivers.find((d) => d.userId === driver.user.id) ?? drivers[0];
 
-  // Every ticket needs at least one employee guiding it. This spec creates
-  // nothing and cleans up nothing, so the guide is BORROWED from the seeded
-  // roster rather than being a row this run would leave behind. Prefer one
-  // from the branch the ticket is filed under, and fall back to any active
-  // employee — the same shape as linkedDriver above, and safe because the
-  // server checks only that a guide is not archived, never that they belong
-  // to the ticket's branch.
-  const employees = listData(
-    await apiGet(request, '/api/employees', admin.token)
+  // Reuse an eligible user without creating another fixture account.
+  const guides = listData(
+    await apiGet(request, '/api/trip-tickets/guide-options', admin.token)
   );
-  const guide =
-    employees.find((e) => e.branchId === branches[0].id) ?? employees[0];
+  const guide = guides[0];
   expect(
     guide,
-    'a seeded employee is available to guide the trip'
+    'an active driver or requester can guide the trip'
   ).toBeTruthy();
 
   const destination = `UI-E2E ${Date.now()}`;

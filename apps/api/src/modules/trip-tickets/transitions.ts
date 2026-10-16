@@ -23,6 +23,7 @@ import {
   syncTicketStatus
 } from './dates.js';
 import {
+  assertGuideUsersActive,
   assertSeatsFit,
   participantHeadcount,
   replaceTripTicketGuides
@@ -503,11 +504,7 @@ export async function reassignGuides(id: string, guideIds: string[]) {
     'approved',
     'in_progress'
   ]);
-  // An archived employee is off the roster and must not be sent to a ticket by
-  // the back door — removing them from the pickers stops them being OFFERED,
-  // not being POSTED. Branch membership is deliberately NOT checked, here or
-  // anywhere: the picker is branch-locked in the UI only (design §5.2).
-  await assertOrgRefsActive({ employeeIds: guideIds });
+  await assertGuideUsersActive(guideIds);
 
   const vehicle = await prisma.vehicle.findUnique({
     where: { id: ticket.vehicleId },

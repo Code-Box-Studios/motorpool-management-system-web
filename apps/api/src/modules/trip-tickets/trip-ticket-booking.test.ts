@@ -5,7 +5,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   authHeader,
   createTestBranch,
-  createTestEmployee,
+  createTestGuide,
   createTestUser
 } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
@@ -72,7 +72,7 @@ async function scaffold() {
   });
   // Every ticket needs at least one guide now, and a guide takes a seat: this
   // van holds 5, so the fixture's one participant plus one guide leaves three.
-  const employee = await createTestEmployee(branch.id, 'Ana Guide');
+  const employee = await createTestGuide(branch.id, 'Ana Guide');
   return {
     branch,
     vehicle,

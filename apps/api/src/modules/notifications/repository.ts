@@ -25,11 +25,49 @@ export async function listForUser(
   userId: string,
   opts: { unreadOnly: boolean; limit: number }
 ) {
-  return prisma.notification.findMany({
+  const rows = await prisma.notification.findMany({
     where: { userId, ...(opts.unreadOnly ? { readAt: null } : {}) },
     orderBy: { createdAt: 'desc' },
     take: opts.limit
   });
+
+  // Resolve only the records linked by this recipient's recent notifications.
+  // Batch by resource so the bell does not issue one query per history row.
+  const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+  const tripLink = new RegExp(`^/trip-tickets/(${uuid})$`, 'i');
+  const jobLink = new RegExp(`^/job-order/(${uuid})$`, 'i');
+  const idsFor = (pattern: RegExp) => [
+    ...new Set(
+      rows.flatMap((row) => {
+        const id = pattern.exec(row.linkTo ?? '')?.[1];
+        return id ? [id.toLowerCase()] : [];
+      })
+    )
+  ];
+  const tripIds = idsFor(tripLink);
+  const jobIds = idsFor(jobLink);
+  const [trips, orders] = await Promise.all([
+    tripIds.length > 0
+      ? prisma.tripTicket.findMany({
+          where: { id: { in: tripIds } },
+          select: { id: true, status: true }
+        })
+      : [],
+    jobIds.length > 0
+      ? prisma.jobOrder.findMany({
+          where: { id: { in: jobIds } },
+          select: { id: true, status: true }
+        })
+      : []
+  ]);
+  const currentStatuses = new Map<string, string>([
+    ...trips.map((trip) => [`/trip-tickets/${trip.id}`, trip.status] as const),
+    ...orders.map((order) => [`/job-order/${order.id}`, order.status] as const)
+  ]);
+  return rows.map((row) => ({
+    ...row,
+    currentStatus: currentStatuses.get(row.linkTo?.toLowerCase() ?? '') ?? null
+  }));
 }
 
 export async function countUnread(userId: string): Promise<number> {

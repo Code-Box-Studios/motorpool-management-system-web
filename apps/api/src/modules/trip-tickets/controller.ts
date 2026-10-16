@@ -3,6 +3,14 @@ import type { CreateTripTicketBody, UpdateTripTicketBody } from '@mms/shared';
 import { tripTicketsListQuerySchema } from '@mms/shared';
 import { requireIdParam, requireUser } from '../../lib/http.js';
 import * as service from './service.js';
+import { listGuideOptions } from './guides.js';
+
+export async function guideOptions(
+  _req: Request,
+  res: Response
+): Promise<void> {
+  res.json(await listGuideOptions());
+}
 
 export async function list(req: Request, res: Response): Promise<void> {
   const query = tripTicketsListQuerySchema.parse(req.query);

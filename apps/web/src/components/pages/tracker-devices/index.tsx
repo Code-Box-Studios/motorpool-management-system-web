@@ -65,16 +65,15 @@ const TrackerDevices = () => {
         }
       />
 
-      <div className="mb-6">
-        <ListSearchInput
-          value={search}
-          onChange={setSearch}
-          label="Search tracker devices"
-        />
-      </div>
-
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
+          <div className="mb-4">
+            <ListSearchInput
+              value={search}
+              onChange={setSearch}
+              label="Search tracker devices"
+            />
+          </div>
           {isLoading ? (
             <TableSkeleton rows={5} columns={COLUMNS} />
           ) : error ? (

@@ -6,7 +6,7 @@ import {
   authHeader,
   createTestBranch,
   createTestDriver,
-  createTestEmployee,
+  createTestGuide,
   createTestTicket,
   createTestUser,
   createTestVehicle
@@ -19,7 +19,7 @@ async function fixture() {
   const branch = await createTestBranch();
   const vehicle = await createTestVehicle(branch.id);
   const mechanic = await createTestDriver(branch.id);
-  const guide = await createTestEmployee(branch.id);
+  const guide = await createTestGuide(branch.id);
   const { user } = await createTestUser({ role: 'admin' });
   const header = authHeader(user.id, user.email, 'admin');
   const order = await prisma.jobOrder.create({

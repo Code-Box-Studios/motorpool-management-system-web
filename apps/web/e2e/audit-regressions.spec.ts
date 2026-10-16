@@ -1,7 +1,14 @@
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
-import { login, apiLogin, apiGet, CREDENTIALS, listData } from './helpers';
+import {
+  login,
+  apiLogin,
+  apiGet,
+  CREDENTIALS,
+  listData,
+  pickDate
+} from './helpers';
 
 // These fixtures exercise the running API, not mocked HTTP responses. Refuse
 // fixture writes anywhere except the disposable audit database.
@@ -221,10 +228,16 @@ test.describe('audit regressions', () => {
     page,
     request
   }) => {
-    const employee = await db.employee.create({
-      data: { name: marker, branchId, position: 'Guide' }
-    });
-    employeeIds.push(employee.id);
+    const requesterSession = await apiLogin(request, CREDENTIALS.requester);
+    const guides = listData(
+      await apiGet(
+        request,
+        '/api/trip-tickets/guide-options',
+        requesterSession.token
+      )
+    );
+    const guide = guides.find((user) => user.role === 'requester') ?? guides[0];
+    expect(guide, 'an eligible user exists to guide the trip').toBeTruthy();
     await login(page, 'requester');
     await page.getByRole('button', { name: /Request a trip/i }).click();
     const dialog = page.getByRole('dialog');
@@ -237,16 +250,29 @@ test.describe('audit regressions', () => {
     await dialog.getByRole('button', { name: 'Continue' }).click();
     await group(dialog, 'Vehicle').getByRole('combobox').click();
     await page.getByRole('option', { name: new RegExp(marker) }).click();
-    await firstOption(page, group(dialog, 'Driver').getByRole('combobox'));
+    await firstOption(
+      page,
+      dialog.getByRole('combobox').filter({ hasText: /^Select a driver$/ })
+    );
     await dialog.locator('#destination').fill(`${marker} booked`);
     await dialog.locator('#purpose').fill('Audit comma booking');
     await dialog
       .getByPlaceholder('Participant 1', { exact: true })
       .fill('Dela Cruz, Juan');
     await dialog.getByRole('combobox', { name: 'Guide 1' }).click();
-    await page.getByRole('option', { name: new RegExp(marker) }).click();
+    const roleLabel = guide.role === 'driver' ? 'Driver' : 'Requester';
+    await page
+      .getByRole('option', {
+        name: `${guide.fullName} — ${roleLabel}`,
+        exact: true
+      })
+      .click();
     await dialog.getByRole('button', { name: 'Continue' }).click();
-    await dialog.locator('input[type=date]').first().fill('2034-01-20');
+    await pickDate(
+      page,
+      dialog.locator('button[id="dates.0.date"]'),
+      '2034-01-20'
+    );
     await dialog.getByRole('button', { name: 'Continue' }).click();
     await dialog.getByRole('button', { name: 'Submit Request' }).click();
     const response = page.waitForResponse(

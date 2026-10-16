@@ -7,43 +7,15 @@ import {
   apiGet,
   apiPost,
   apiDelete,
-  listData
+  listData,
+  API_URL,
+  pickDate
 } from './helpers';
 
-// Every trip is accompanied by at least one branch employee, and the booking
-// form is where they are picked. This spec drives that picker in a real
-// browser and then reads the ticket back through the API, because the FE
-// renames guide_ids -> guideIds in exactly one place (lib/api/trip-tickets.ts)
-// and a key dropped there produces no compile error and no runtime error —
-// just a ticket with no guides (design §7.1). Only an end-to-end booking
-// catches that.
-//
-// It then also opens the booked ticket's OWN detail page and reads the
-// Guides row back by name. That hop is not redundant with the API-shape
-// assertion below: this test's earlier assertions read either the form's own
-// state (the review step) or the raw API payload (`g.employee.name`) —
-// neither exercises `guideToSnake`, the function that flattens the
-// TripTicketEmployee join onto its embedded employee for display. A
-// regression there (e.g. mapping the join row's own id/name instead of the
-// employee's) would leave every guide badge on every ticket rendering
-// nothing, with this suite still green. Finally, it approves the ticket and
-// confirms the admin-only Reassign guides control appears only once the
-// ticket reaches a status the server actually allows the reassign endpoint
-// to run from (transitions.ts's `loadInState(id, ['approved', 'in_progress'])`).
-
-// Employees have no hard-delete route — POST /employees/:id/archive and
-// /restore are all that exist — so cleanup archives what this spec created,
-// per-id, the way organization.spec.ts does. Tickets DO have a delete, but
-// only while still pending_admin_approval (service.remove) — and this spec
-// now approves the ticket it books (to prove Reassign guides appears once
-// approved), so by teardown time DELETE is refused. Cancel is the fallback:
-// legal from approved too, and a cancelled ticket is terminal history that
-// needs no further teardown, the same way organization.spec.ts's
-// archived-parent fixture is left cancelled rather than deleted. Either way
-// this runs BEFORE the employee archive so the employee is no longer held by
-// a live (non-terminal) ticket (409 IN_USE).
+// Guide accounts are active drivers or requesters from any branch. Verify the
+// picker, booking payload, persisted read and detail adapter together.
 const createdTicketIds: string[] = [];
-const createdEmployeeIds: string[] = [];
+const createdUserIds: string[] = [];
 
 test.afterAll(async ({ request }) => {
   const admin = await apiLogin(request, CREDENTIALS.admin);
@@ -77,24 +49,17 @@ test.afterAll(async ({ request }) => {
     }
   }
 
-  for (const id of createdEmployeeIds) {
-    try {
-      const r = await apiPost(
-        request,
-        `/api/employees/${id}/archive`,
-        admin.token,
-        {}
-      );
-      if (!r.ok) {
-        console.error(
-          `trip-guides cleanup: archiving employee ${id} failed (HTTP ${r.status})`
-        );
-      }
-    } catch (err) {
-      console.error(
-        `trip-guides cleanup: archiving employee ${id} threw:`,
-        err
-      );
+  for (const id of createdUserIds) {
+    const deleted = await apiDelete(request, `/api/users/${id}`, admin.token);
+    if (!deleted.ok) {
+      const response = await request.patch(`${API_URL}/api/users/${id}`, {
+        headers: { Authorization: `Bearer ${admin.token}` },
+        data: { status: 'inactive' }
+      });
+      expect(
+        response.ok(),
+        'referenced test guides can be deactivated'
+      ).toBeTruthy();
     }
   }
 });
@@ -148,24 +113,26 @@ test('a guide picked on the booking form rides along on the ticket', async ({
 }) => {
   const admin = await apiLogin(request, CREDENTIALS.admin);
 
-  // ---------- Stage an employee on the branch the trip is booked for ----------
   const branches = listData(
     await apiGet(request, '/api/branches', admin.token)
   );
   const branch = branches.find((b) => b.name === 'Main Branch') ?? branches[0];
-  expect(branch, 'a branch to book against').toBeTruthy();
-
+  expect(branch).toBeTruthy();
+  const roles = listData(
+    await apiGet(request, '/api/roles?all=true', admin.token)
+  );
+  const requesterRole = roles.find((r) => r.name === 'requester');
+  expect(requesterRole).toBeTruthy();
   const guideName = `E2E Guide ${Date.now()}`;
-  const employee = await apiPost(request, '/api/employees', admin.token, {
-    name: guideName,
-    position: 'Tour Guide',
-    phone: null,
-    branchId: branch.id as string
+  const guide = await apiPost(request, '/api/users', admin.token, {
+    email: `guide-${Date.now()}@e2e.local`,
+    password: 'Password123!',
+    fullName: guideName,
+    roleId: requesterRole!.id as string
   });
-  expect(employee.ok, 'admin creates a branch employee').toBeTruthy();
-  createdEmployeeIds.push((employee.body as { id: string }).id);
+  expect(guide.ok, 'admin creates a requester guide account').toBeTruthy();
+  createdUserIds.push((guide.body as { id: string }).id);
 
-  // ---------- Book a trip through the form, picking that employee ----------
   await login(page, 'admin');
   const dialog = await openBookingDialog(page);
 
@@ -185,7 +152,7 @@ test('a guide picked on the booking form rides along on the ticket', async ({
   );
   await pickFirstOption(
     page,
-    fieldGroup(dialog, 'Driver').getByRole('combobox')
+    dialog.getByRole('combobox').filter({ hasText: /^Select a driver$/ })
   );
 
   // Destination first, then the fields below it: the picker's suggestion
@@ -196,13 +163,10 @@ test('a guide picked on the booking form rides along on the ticket', async ({
   await dialog.locator('#purpose').fill('E2E guides');
   await dialog.getByPlaceholder('Participant 1').fill('E2E Passenger');
 
-  // The guide picker: this branch's unarchived employees, and an ordinary
-  // combobox — the e2e suite drives getByRole('combobox')/getByRole('option'),
-  // which is why components/ui/multi-select.tsx (bare <div onClick>, no roles)
-  // could not be used here (design §9.3).
+  // The guide picker offers active driver/requester accounts from all branches.
   await dialog.getByRole('combobox', { name: 'Guide 1' }).click();
   await page
-    .getByRole('option', { name: `${guideName} — Tour Guide`, exact: true })
+    .getByRole('option', { name: `${guideName} — Requester`, exact: true })
     .click();
 
   // The seat budget counts the guide, exactly as the server does
@@ -222,7 +186,7 @@ test('a guide picked on the booking form rides along on the ticket', async ({
     2,
     '0'
   )}-${String(day.getDate()).padStart(2, '0')}`;
-  await dialog.locator('input[type="date"]').first().fill(isoDay);
+  await pickDate(page, dialog.locator('button[id="dates.0.date"]'), isoDay);
   await dialog.getByRole('button', { name: 'Continue' }).click();
 
   // The review reads the guide back by name, not by id.
@@ -252,29 +216,23 @@ test('a guide picked on the booking form rides along on the ticket', async ({
     await apiGet(request, '/api/trip-tickets', admin.token)
   );
   const booked = tickets.find((t) => t.destination === destination) as
-    | { id: string; guides: { employee: { name: string } }[] }
+    | { id: string; guides: { user: { fullName: string } }[] }
     | undefined;
   // Queued for teardown the moment an id exists — before any assertion that
   // could throw and skip it. The browser already booked this ticket (the
   // dialog closed on the success path above); if the API lookup below fails
   // to resolve it, or the guides-content check after that fails, the row is
-  // still real and still has to be deleted, exactly as the employee id is
+  // still real and still has to be deleted, exactly as the user id is
   // captured immediately after creation above.
   if (booked) createdTicketIds.push(booked.id);
   expect(booked, 'the booked ticket resolves via the API').toBeTruthy();
   expect(
-    booked!.guides.map((g) => g.employee.name),
+    booked!.guides.map((g) => g.user.fullName),
     'the guide picked in the form reached the ticket'
   ).toEqual([guideName]);
 
   // ---------- The ticket detail page renders the guide BY NAME ----------
-  // Covers what the API-shape assertion above cannot: guideToSnake actually
-  // flattening the join row onto the employee (id/name/position), and
-  // TripTicket.guides reaching the Guides DetailItem (Step 13). A regression
-  // that mapped `id: g.id` instead of `g.employee.id` would leave the badge
-  // rendering the join row's own (non-existent) name — undefined — while
-  // every other assertion in this spec, which reads either the form's own
-  // state or the raw API payload, would stay green.
+  // This exercises the adapter that flattens the user join into guide labels.
   await page.goto(`/trip-tickets/${booked!.id}`);
   await expect(
     page.getByRole('heading', { name: destination, exact: true })
@@ -325,185 +283,113 @@ test('a guide picked on the booking form rides along on the ticket', async ({
   ).toBeVisible({ timeout: 15_000 });
 });
 
-// The other half of the story the first test doesn't reach: the employee is
-// not staged through the API at all here — it is created live on the
-// Organization page's Employees tab, the same flow organization.spec.ts's own
-// "admin adds a branch employee" test drives, and is picked from the booking
-// form's Guides field moments later, in a booking dialog opened for the first
-// time in this session (so a fresh useEmployees(branchId) fetch — staleTime 0
-// — sees the new row with or without useOrgInvalidation's employees branch;
-// that invalidation guards an already-mounted picker instead, which this
-// single-dialog flow does not exercise). What this test actually pins is the
-// picker's branch lock: this branch's own new hire is offered, and a sibling
-// branch's employee — created via the API as a negative control — is not,
-// proved positively rather than by an unopened popover trivially having zero
-// options.
-test('an admin adds a branch employee, books them as a guide, and the ticket names them; a sibling-branch employee is absent from the picker', async ({
+test('guides include active drivers and requesters from every branch and survive a branch change', async ({
   page,
   request
 }) => {
   const admin = await apiLogin(request, CREDENTIALS.admin);
-  const stamp = Date.now();
-  const employeeName = `E2E Added Guide ${stamp}`;
-  const northName = `E2E North Guide ${stamp}`;
-
-  // ---------- The negative control, staged through the API ----------
-  // An employee of a DIFFERENT branch. Nothing about creating it is under
-  // test; what matters is that it never appears in a Main Branch picker.
   const branches = listData(
     await apiGet(request, '/api/branches', admin.token)
   );
-  const mainBranch = branches.find((b) => b.name === 'Main Branch');
-  const northBranch = branches.find((b) => b.name === 'North Branch');
-  expect(mainBranch, 'the seeded Main Branch resolves').toBeTruthy();
-  expect(northBranch, 'the seeded North Branch resolves').toBeTruthy();
-
-  const north = await apiPost(request, '/api/employees', admin.token, {
-    name: northName,
-    branchId: northBranch!.id as string
-  });
-  expect(north.ok, "the picker's negative control is created").toBeTruthy();
-  createdEmployeeIds.push((north.body as { id: string }).id);
-
-  // ---------- 1: add an employee through Organization → Employees ----------
+  const main = branches.find((b) => b.name === 'Main Branch')!;
+  const north = branches.find((b) => b.name === 'North Branch')!;
+  const options = listData(
+    await apiGet(request, '/api/trip-tickets/guide-options', admin.token)
+  );
+  expect(options.some((g) => g.role === 'driver')).toBeTruthy();
+  expect(options.some((g) => g.role === 'requester')).toBeTruthy();
   await login(page, 'admin');
-  await page
-    .getByRole('link', { name: 'Organization', exact: true })
-    .first()
-    .click();
-  await page.waitForURL(/\/organization/, { timeout: 15_000 });
-  await page.getByRole('tab', { name: 'Employees', exact: true }).click();
-
-  await page.getByRole('button', { name: 'Add Employee' }).click();
-  const addDialog = page.getByRole('dialog');
-  await expect(addDialog.getByText('Create a new employee.')).toBeVisible({
-    timeout: 15_000
-  });
-  await addDialog.locator('#name').fill(employeeName);
-  await addDialog.locator('#position').fill('Tour Guide');
-  await fieldGroup(addDialog, 'Branch').getByRole('combobox').click();
-  await page.getByRole('option', { name: 'Main Branch', exact: true }).click();
-  // The dialog's submit shares its accessible name with the tab's own "Add
-  // Employee" button; scoping to the dialog is what disambiguates the click.
-  await addDialog.getByRole('button', { name: 'Add Employee' }).click();
-  await expect(addDialog).toBeHidden({ timeout: 15_000 });
-
-  const employeeRow = page.getByRole('row').filter({ hasText: employeeName });
-  await expect(employeeRow).toBeVisible({ timeout: 15_000 });
-  await expect(
-    employeeRow,
-    'the roster row resolves the branch and the position it was given'
-  ).toContainText('Main Branch');
-  await expect(employeeRow).toContainText('Tour Guide');
-  await shot(page, 'trip-guides-3-employee-added');
-
-  // The UI never shows the id, and teardown needs it.
-  const employeeId = listData(
-    await apiGet(request, '/api/employees?includeArchived=true', admin.token)
-  ).find((e) => e.name === employeeName)?.id as string | undefined;
-  expect(employeeId, 'the new employee resolves via the API').toBeTruthy();
-  createdEmployeeIds.push(employeeId!);
-
-  // ---------- 2: book a trip and pick them as the guide ----------
   const dialog = await openBookingDialog(page);
-
   await fieldGroup(dialog, 'Branch').getByRole('combobox').click();
-  await page.getByRole('option', { name: 'Main Branch', exact: true }).click();
+  await page
+    .getByRole('option', { name: main.name as string, exact: true })
+    .click();
   await pickFirstOption(
     page,
     fieldGroup(dialog, 'Department/Office/College').getByRole('combobox')
   );
   await dialog.getByRole('button', { name: 'Continue' }).click();
-
-  await pickFirstOption(
-    page,
-    fieldGroup(dialog, 'Vehicle').getByRole('combobox')
-  );
-  await pickFirstOption(
-    page,
-    fieldGroup(dialog, 'Driver').getByRole('combobox')
-  );
-
-  const destination = `TG-ADD-E2E ${stamp}`;
-  await dialog.locator('#destination').fill(destination);
-  await dialog.locator('#purpose').fill('E2E added guide');
-  await dialog.getByPlaceholder('Participant 1').fill('E2E Passenger');
-
-  // The branch lock, proved with a positive control in the same open
-  // listbox: asserting toHaveCount(0) against a popover that never opened
-  // would pass for entirely the wrong reason.
   await dialog.getByRole('combobox', { name: 'Guide 1' }).click();
-  await expect(
-    page.getByRole('option', { name: `${employeeName} — Tour Guide` }),
-    "this branch's own newly-added employee is offered"
-  ).toBeVisible({ timeout: 15_000 });
-  await expect(
-    page.getByRole('option', { name: northName }),
-    "another branch's employee is not"
-  ).toHaveCount(0);
+  for (const option of options) {
+    const role = option.role === 'driver' ? 'Driver' : 'Requester';
+    await expect(
+      page.getByRole('option', {
+        name: `${option.fullName} — ${role}`,
+        exact: true
+      })
+    ).toBeVisible();
+  }
+  const selected = options.find((g) => g.role === 'requester')!;
   await page
-    .getByRole('option', { name: `${employeeName} — Tour Guide` })
+    .getByRole('option', {
+      name: `${selected.fullName} — Requester`,
+      exact: true
+    })
     .click();
-  await shot(page, 'trip-guides-4-guide-selected');
-
-  await dialog.getByRole('button', { name: 'Continue' }).click();
-
-  // Far-future and distinct from every other spec's window, INCLUDING this
-  // file's own first test (+75 days): the same first-vehicle/first-driver
-  // pick could otherwise collide on the same day and fail with
-  // VEHICLE_DOUBLE_BOOKED — a fixture collision, not a bug.
-  const day = new Date(Date.now() + 205 * 86_400_000);
-  const isoDay = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(
-    2,
-    '0'
-  )}-${String(day.getDate()).padStart(2, '0')}`;
-  await dialog.locator('input[type="date"]').first().fill(isoDay);
-  await dialog.getByRole('button', { name: 'Continue' }).click();
-
-  await expect(detailValue(page, 'Guides')).toContainText(employeeName, {
-    timeout: 15_000
-  });
-
-  const posted = page.waitForResponse(
-    (res) =>
-      res.url().endsWith('/api/trip-tickets') &&
-      res.request().method() === 'POST'
+  await dialog.getByRole('button', { name: 'Back', exact: true }).click();
+  await fieldGroup(dialog, 'Branch').getByRole('combobox').click();
+  await page
+    .getByRole('option', { name: north.name as string, exact: true })
+    .click();
+  await pickFirstOption(
+    page,
+    fieldGroup(dialog, 'Department/Office/College').getByRole('combobox')
   );
-  await dialog.getByRole('button', { name: 'Submit Request' }).click();
-  const confirmDialog = page.getByRole('alertdialog');
-  await confirmDialog.getByRole('button', { name: 'Submit Request' }).click();
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+  await expect(dialog.getByRole('combobox', { name: 'Guide 1' })).toContainText(
+    selected.fullName as string
+  );
+});
 
-  const response = await posted;
-  expect(
-    response.status(),
-    'the booking carried a guide and was accepted'
-  ).toBe(201);
-  const tripId = ((await response.json()) as { id: string }).id;
-  // Queued for teardown the moment the id exists — before any assertion below
-  // that could throw. The browser already booked this ticket (the POST
-  // above succeeded); if a later assertion fails, the row is still real and
-  // still has to be torn down.
-  createdTicketIds.push(tripId);
-  await expect(confirmDialog).toBeHidden({ timeout: 20_000 });
-  await expect(dialog).toBeHidden({ timeout: 20_000 });
-
-  // ---------- 3: the ticket names its guide ----------
-  await page.goto(`/trip-tickets/${tripId}`);
+test('historical employee guides remain readable when reassignment opens', async ({
+  page,
+  request
+}) => {
+  const admin = await apiLogin(request, CREDENTIALS.admin);
+  const tickets = listData(
+    await apiGet(request, '/api/trip-tickets?all=true', admin.token)
+  );
+  type LegacyGuide = {
+    employeeId: string | null;
+    employee: { name: string } | null;
+  };
+  const ticket = tickets.find(
+    (item) =>
+      ['approved', 'in_progress', 'pending_fuel_allocation_approval'].includes(
+        item.status as string
+      ) && (item.guides as LegacyGuide[]).some((guide) => guide.employee)
+  );
+  test.skip(
+    !ticket,
+    'This database has no historical employee guide assignment'
+  );
+  const guides = ticket!.guides as LegacyGuide[];
+  const index = guides.findIndex((guide) => guide.employee);
+  const historicalName = guides[index].employee!.name;
+  await login(page, 'admin');
+  await page.goto(`/trip-tickets/${ticket!.id}`);
+  await expect(detailValue(page, 'Guides')).toContainText(historicalName);
+  await page.getByRole('button', { name: 'Reassign guides' }).click();
   await expect(
-    detailValue(page, 'Guides'),
-    'the ticket detail names the employee guiding it'
-  ).toContainText(employeeName, { timeout: 15_000 });
-  await shot(page, 'trip-guides-5-ticket-shows-guide');
-
-  // And the join really was written, rather than the page echoing something
-  // it still held from the form it was just submitted from.
-  const detail = (await apiGet(
+    page.getByRole('combobox', { name: `Guide ${index + 1}`, exact: true })
+  ).toContainText(historicalName);
+  await expect(
+    page.getByRole('button', { name: 'Save', exact: true })
+  ).toBeDisabled();
+  await expect(
+    page
+      .getByText(
+        'Choose an active driver or requester to replace this historical guide'
+      )
+      .first()
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  const after = (await apiGet(
     request,
-    `/api/trip-tickets/${tripId}`,
+    `/api/trip-tickets/${ticket!.id}`,
     admin.token
-  )) as { guides?: { employee: { name: string } }[] };
-  expect(
-    (detail.guides ?? []).map((g) => g.employee.name),
-    'the ticket carries exactly the one guide that was picked'
-  ).toEqual([employeeName]);
+  )) as { guides: LegacyGuide[] };
+  expect(after.guides.map((guide) => guide.employeeId)).toEqual(
+    guides.map((guide) => guide.employeeId)
+  );
 });

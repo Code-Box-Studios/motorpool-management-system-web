@@ -1,0 +1,42 @@
+{
+  "automated": {
+    "apiTests": 457,
+    "gatewayTests": 28,
+    "sharedTests": 7,
+    "browserTests": 22,
+    "unitIntegrationTotal": 492,
+    "totalExistingTests": 514,
+    "build": "passed",
+    "lint": "passed",
+    "typecheck": "passed; web checked by production build"
+  },
+  "commands": [
+    "pnpm test",
+    "E2E_WEB_URL=http://localhost:5175 E2E_API_URL=http://localhost:3002 pnpm --filter @mms/web test:e2e",
+    "pnpm typecheck",
+    "pnpm lint",
+    "pnpm build"
+  ],
+  "originalDatabaseAfterChecks": {
+    "users": 5,
+    "vehicles": 8,
+    "trackers": 0
+  },
+  "browserEvidence": {
+    "driverToolCreateHttpStatus": 403,
+    "driverToolFormAccessible": true,
+    "requesterMaintenanceTrailingSlashAccessible": true,
+    "requesterMaintenanceAddAccessible": true,
+    "missingToolDetailText": "Loading...",
+    "driverEmailEditedHttpStatus": 200,
+    "driverUserIdPreserved": true,
+    "driverDashboardAfterEmailEdit": "We couldn't find a driver record for your account. Ask an admin to link it.",
+    "freshGpsRenderLoopErrors": 91
+  },
+  "sourceChanges": false,
+  "testDatabase": "mms_audit_1791905517",
+  "liveApp": "http://localhost:5174",
+  "liveApi": "http://localhost:3001",
+  "gatewayPort": 5013,
+  "mobileCheckScope": "Selected screens at 390 x 844; full navigation batch hit a browser bridge timeout"
+}

@@ -4,7 +4,6 @@ import { useSpareParts } from '@/lib/query/spare-parts';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -85,84 +84,82 @@ const SpareParts = () => {
   );
 
   const table = (
-    <Card>
-      <CardContent className="pt-6">
-        {/* No fixed column widths: pinning them left every spare pixel to the
+    <>
+      {/* No fixed column widths: pinning them left every spare pixel to the
             last column, so the data bunched left behind a wide empty
             Description. Auto-layout spreads the slack in proportion to content. */}
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {/* sortKey values come from the API's SPARE_PART_SORT_COLUMNS
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {/* sortKey values come from the API's SPARE_PART_SORT_COLUMNS
                   allowlist. Stock is derived client-side from quantity, so it
                   stays a plain head. */}
-              <SortableTableHead
-                label="Part"
-                sortKey="name"
-                sort={sort}
-                onSort={handleSort}
-              />
-              <SortableTableHead
-                label="Brand"
-                sortKey="brand"
-                sort={sort}
-                onSort={handleSort}
-              />
-              <SortableTableHead
-                label="On hand"
-                sortKey="quantity"
-                sort={sort}
-                onSort={handleSort}
-                className="text-right"
-              />
-              <TableHead>Stock</TableHead>
-              <SortableTableHead
-                label="Description"
-                sortKey="description"
-                sort={sort}
-                onSort={handleSort}
-              />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {spareParts.map((sparePart) => {
-              const quantity = sparePart.quantity ?? 0;
-              return (
-                <TableRow
-                  key={sparePart.id}
-                  className="hover:bg-muted cursor-pointer"
-                  onClick={() =>
-                    navigate({
-                      to: '/spare-parts/$sparePartId',
-                      params: { sparePartId: sparePart.id }
-                    })
-                  }
-                >
-                  <TableCell>
-                    <span className="font-medium">{sparePart.name}</span>
-                  </TableCell>
-                  <TableCell className="text-sm whitespace-nowrap">
-                    {sparePart.brand || '—'}
-                  </TableCell>
-                  <TableCell className="text-right text-sm tabular-nums">
-                    {quantity}
-                  </TableCell>
-                  <TableCell>{stockBadge(quantity)}</TableCell>
-                  {/* TableCell is whitespace-nowrap, so an unconstrained
+            <SortableTableHead
+              label="Part"
+              sortKey="name"
+              sort={sort}
+              onSort={handleSort}
+            />
+            <SortableTableHead
+              label="Brand"
+              sortKey="brand"
+              sort={sort}
+              onSort={handleSort}
+            />
+            <SortableTableHead
+              label="On hand"
+              sortKey="quantity"
+              sort={sort}
+              onSort={handleSort}
+              className="text-right"
+            />
+            <TableHead>Stock</TableHead>
+            <SortableTableHead
+              label="Description"
+              sortKey="description"
+              sort={sort}
+              onSort={handleSort}
+            />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {spareParts.map((sparePart) => {
+            const quantity = sparePart.quantity ?? 0;
+            return (
+              <TableRow
+                key={sparePart.id}
+                className="hover:bg-muted cursor-pointer"
+                onClick={() =>
+                  navigate({
+                    to: '/spare-parts/$sparePartId',
+                    params: { sparePartId: sparePart.id }
+                  })
+                }
+              >
+                <TableCell>
+                  <span className="font-medium">{sparePart.name}</span>
+                </TableCell>
+                <TableCell className="text-sm whitespace-nowrap">
+                  {sparePart.brand || '—'}
+                </TableCell>
+                <TableCell className="text-right text-sm tabular-nums">
+                  {quantity}
+                </TableCell>
+                <TableCell>{stockBadge(quantity)}</TableCell>
+                {/* TableCell is whitespace-nowrap, so an unconstrained
                       description makes its own column as wide as the longest
                       string on the page and scrolls the table sideways at every
                       viewport. Cap it and ellipsize, like Purpose elsewhere. */}
-                  <TableCell className="text-muted-foreground max-w-xs truncate text-sm">
-                    {sparePart.description || '—'}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-        {pager}
-      </CardContent>
-    </Card>
+                <TableCell className="text-muted-foreground max-w-xs truncate text-sm">
+                  {sparePart.description || '—'}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+      {pager}
+    </>
   );
 
   return (
@@ -180,17 +177,16 @@ const SpareParts = () => {
         }
       />
 
-      <div className="mb-6">
-        <ListSearchInput
-          value={search}
-          onChange={setSearch}
-          label="Search spare parts"
-        />
-      </div>
-
       {/* Count, not the page slice: a mid page can come back empty while the
           shelf itself is not. */}
       <ViewTabs
+        searchControl={
+          <ListSearchInput
+            value={search}
+            onChange={setSearch}
+            label="Search spare parts"
+          />
+        }
         grid={grid}
         table={table}
         emptyState={

@@ -1,0 +1,9 @@
+{
+  "name": "Operational queues omit actionable records after 100",
+  "issueReproduced": true,
+  "targetVisibleBefore": true,
+  "targetVisibleAfter": false,
+  "targetStatus": "pending_fuel_allocation_approval",
+  "totalTickets": 121,
+  "returnedTickets": 100
+}

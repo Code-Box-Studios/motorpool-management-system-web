@@ -335,14 +335,6 @@ const TripTicketsPage = () => {
         }
       />
 
-      <div className="mb-6">
-        <ListSearchInput
-          value={search}
-          onChange={setSearch}
-          label="Search trip tickets"
-        />
-      </div>
-
       <Dialog
         open={createOpen}
         onOpenChange={(open) => {
@@ -374,19 +366,26 @@ const TripTicketsPage = () => {
         </DialogContent>
       </Dialog>
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
           {/* The table is the operational view — it answers "what needs doing".
               The calendar is the secondary, planning view. */}
-          <Tabs defaultValue="table" className="w-full">
-            <TabsList className="grid w-full max-w-[260px] grid-cols-2">
-              <TabsTrigger value="table" className={ACTIVE_TAB}>
-                Table
-              </TabsTrigger>
-              <TabsTrigger value="calendar" className={ACTIVE_TAB}>
-                Calendar
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="calendar" className="mt-6">
+          <Tabs defaultValue="table" className="w-full gap-0">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <TabsList className="grid w-full max-w-[260px] grid-cols-2">
+                <TabsTrigger value="table" className={ACTIVE_TAB}>
+                  Table
+                </TabsTrigger>
+                <TabsTrigger value="calendar" className={ACTIVE_TAB}>
+                  Calendar
+                </TabsTrigger>
+              </TabsList>
+              <ListSearchInput
+                value={search}
+                onChange={setSearch}
+                label="Search trip tickets"
+              />
+            </div>
+            <TabsContent value="calendar" className="mt-4">
               {isCalendarLoading ? (
                 <div className="text-muted-foreground py-12 text-center text-sm">
                   Loading calendar...
@@ -409,7 +408,7 @@ const TripTicketsPage = () => {
                 />
               )}
             </TabsContent>
-            <TabsContent value="table" className="mt-6">
+            <TabsContent value="table" className="mt-4">
               {isTableLoading ? (
                 <TableSkeleton
                   columns={[

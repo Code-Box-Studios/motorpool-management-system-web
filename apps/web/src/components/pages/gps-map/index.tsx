@@ -177,8 +177,13 @@ export default function GpsMapPage() {
             </CardContent>
           </Card>
 
-          <Card className="min-h-0 overflow-hidden">
-            <CardContent className="h-full p-0">
+          <Card className="min-h-0 overflow-hidden py-0">
+            <CardContent
+              className={cn(
+                'h-full min-h-0 p-0',
+                isFullscreen && '[&>div]:max-h-none'
+              )}
+            >
               {gpsLoading ? (
                 <div className="text-muted-foreground flex h-full min-h-96 items-center justify-center text-sm">
                   Loading GPS data…
@@ -189,7 +194,7 @@ export default function GpsMapPage() {
                   center={MAP_CENTER}
                   zoom={13}
                   height={
-                    isFullscreen ? 'calc(100vh - 7rem)' : 'calc(100vh - 18rem)'
+                    isFullscreen ? '100%' : 'calc(100vh - 18rem)'
                   }
                   selectedVehicleId={selectedVehicleId}
                   onSelectedVehicleIdChange={setSelectedVehicleId}

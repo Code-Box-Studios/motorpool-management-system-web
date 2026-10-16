@@ -1,0 +1,73 @@
+[
+  {
+    "name": "Vehicle released with another active repair",
+    "fixed": true,
+    "actual": {
+      "issueReproduced": false,
+      "vehicleStatus": "under_maintenance",
+      "otherRepairStatus": "assigned_mechanic"
+    }
+  },
+  {
+    "name": "Same driver departs on two vehicles before returning",
+    "fixed": true,
+    "actual": {
+      "issueReproduced": false,
+      "departureHttpStatuses": [
+        200,
+        409
+      ],
+      "ticketStatuses": [
+        "in_progress",
+        "approved"
+      ]
+    }
+  },
+  {
+    "name": "Cancelling final date removes settled fuel history",
+    "fixed": true,
+    "actual": {
+      "issueReproduced": false,
+      "historyIncludedBefore": true,
+      "historyIncludedAfter": true,
+      "fuelStatus": "approved",
+      "ticketStatus": "cancelled"
+    }
+  },
+  {
+    "name": "Changing requester role to driver leaves no driver identity",
+    "fixed": true,
+    "actual": {
+      "issueReproduced": false,
+      "loginRole": "driver",
+      "linkedDriverCount": 1
+    }
+  },
+  {
+    "name": "Scheduled preventive completion leaves mileage and service history stale",
+    "fixed": true,
+    "actual": {
+      "issueReproduced": false,
+      "completedMileage": 52000,
+      "vehicleMileage": 52000,
+      "maintenanceHistoryRows": 1
+    }
+  },
+  {
+    "name": "Concurrent overlapping reservations",
+    "fixed": true,
+    "actual": {
+      "issueReproduced": false,
+      "simultaneousAttempts": 6,
+      "acceptedOverlappingTickets": 1,
+      "httpStatuses": [
+        201,
+        409,
+        409,
+        409,
+        409,
+        409
+      ]
+    }
+  }
+]

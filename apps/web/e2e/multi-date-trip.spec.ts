@@ -90,21 +90,17 @@ test('an event on two non-consecutive dates: one approval, two gate cycles', asy
     await apiGet(request, '/api/vehicles', admin.token)
   );
   const drivers = listData(await apiGet(request, '/api/drivers', admin.token));
-  // A guide is required on every booking and counts against the van's seats.
-  // Taken from the SEEDED roster: this spec's teardown handles the tickets it
-  // creates, and an employee has no hard-delete route to tear down at all
-  // (only archive/restore), so it borrows one rather than leaving one behind.
-  const employees = listData(
-    await apiGet(request, '/api/employees', admin.token)
+  // A guide uses a seat and can be any active driver or requester.
+  const guides = listData(
+    await apiGet(request, '/api/trip-tickets/guide-options', admin.token)
   );
-  const guide =
-    employees.find((e) => e.branchId === branches[0].id) ?? employees[0];
+  const guide = guides[0];
 
   const vehicle = vehicles.find((v) => v.status === 'available');
   expect(vehicle, 'a free vehicle is available for the sim').toBeTruthy();
   expect(
     guide,
-    'a seeded employee is available to guide the trips'
+    'an active driver or requester is available to guide the trips'
   ).toBeTruthy();
   const linkedDriver =
     drivers.find((d) => d.userId === driver.user.id) ?? drivers[0];

@@ -10,6 +10,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  color-scheme: light;
   /* Canvas & surfaces */
   --background: #f3f0ee; /* canvas */
   --foreground: #141413; /* ink */
@@ -113,6 +114,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: #191816;
   --foreground: #f3f0ee;
   --card: #2a2724;

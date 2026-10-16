@@ -5,8 +5,7 @@ export interface OrgRefs {
   branchId?: string | null;
   officeId?: string | null;
   officeHeadId?: string | null;
-  // Plural, unlike the three above: employees are referenced as a LIST — a
-  // ticket's guides (§5.2) — never one at a time.
+  // Legacy employee references remain supported; new trip guides use user IDs.
   employeeIds?: string[] | null;
 }
 

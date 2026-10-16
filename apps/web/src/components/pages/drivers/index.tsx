@@ -59,14 +59,6 @@ const Drivers = () => {
         description="Who is on the roster, and who is free to take a trip."
       />
 
-      <div className="mb-6">
-        <ListSearchInput
-          value={search}
-          onChange={setSearch}
-          label="Search drivers"
-        />
-      </div>
-
       <MetricStrip
         className="mb-5"
         metrics={[
@@ -77,7 +69,14 @@ const Drivers = () => {
       />
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
+          <div className="mb-4">
+            <ListSearchInput
+              value={search}
+              onChange={setSearch}
+              label="Search drivers"
+            />
+          </div>
           {isLoading ? (
             <TableSkeleton columns={COLUMNS} />
           ) : (

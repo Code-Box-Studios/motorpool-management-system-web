@@ -6,7 +6,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   authHeader,
   createTestBranch,
-  createTestEmployee,
+  createTestGuide,
   createTestUser
 } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
@@ -50,9 +50,9 @@ async function scaffold() {
       branchId: branch.id
     }
   });
-  const guideA = await createTestEmployee(branch.id, 'Ana Guide');
-  const guideB = await createTestEmployee(branch.id, 'Ben Guide');
-  const guideC = await createTestEmployee(branch.id, 'Cara Guide');
+  const guideA = await createTestGuide(branch.id, 'Ana Guide');
+  const guideB = await createTestGuide(branch.id, 'Ben Guide');
+  const guideC = await createTestGuide(branch.id, 'Cara Guide');
   const { user: admin } = await createTestUser({
     email: 'ag@test.local',
     role: 'admin'
@@ -95,8 +95,8 @@ const post = (s: Scaffold, over: Record<string, unknown> = {}) =>
     .set('Authorization', s.header)
     .send(body(s, over));
 
-const guideIdsOf = (t: { guides: { employeeId: string }[] }) =>
-  t.guides.map((g) => g.employeeId).sort();
+const guideIdsOf = (t: { guides: { userId: string }[] }) =>
+  t.guides.map((g) => g.userId).sort();
 
 describe('trip-ticket guides: capacity', () => {
   beforeEach(truncateAll);
@@ -242,8 +242,8 @@ describe('trip-ticket guides: PATCH', () => {
 
   it('re-checks capacity when the guide list grows on an edit', async () => {
     const s = await scaffold(); // capacity 5
-    const guideD = await createTestEmployee(s.branch.id, 'Dee Guide');
-    const guideE = await createTestEmployee(s.branch.id, 'Eve Guide');
+    const guideD = await createTestGuide(s.branch.id, 'Dee Guide');
+    const guideE = await createTestGuide(s.branch.id, 'Eve Guide');
     const created = await post(s, {
       participants: ['A', 'B'],
       participantsCount: 2,
@@ -300,7 +300,7 @@ describe('trip-ticket guides: reads', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
 
-  it('returns the guides with their employee on BOTH the detail and the list read', async () => {
+  it('returns the guides with their user on BOTH the detail and the list read', async () => {
     const s = await scaffold();
     const created = await post(s, { guideIds: [s.guideA.id] });
     expect(created.status).toBe(201);
@@ -310,7 +310,7 @@ describe('trip-ticket guides: reads', () => {
       .set('Authorization', s.header);
     expect(detail.status).toBe(200);
     expect(detail.body.guides).toHaveLength(1);
-    expect(detail.body.guides[0].employee.name).toBe('Ana Guide');
+    expect(detail.body.guides[0].user.fullName).toBe('Ana Guide');
 
     // The list read shares ONE include with the detail read, and there is no
     // response contract anywhere that would catch a relation dropped from one
@@ -320,24 +320,24 @@ describe('trip-ticket guides: reads', () => {
       .set('Authorization', s.header);
     expect(list.status).toBe(200);
     expect(list.body.data[0].guides).toHaveLength(1);
-    expect(list.body.data[0].guides[0].employee.name).toBe('Ana Guide');
+    expect(list.body.data[0].guides[0].user.fullName).toBe('Ana Guide');
   });
 
-  it('keeps rendering an ARCHIVED employee’s name on a ticket they already guided', async () => {
+  it('keeps rendering an inactive user’s name on a ticket they already guided', async () => {
     const s = await scaffold();
     const created = await post(s, { guideIds: [s.guideA.id] });
-    await prisma.employee.update({
+    await prisma.user.update({
       where: { id: s.guideA.id },
-      data: { archivedAt: new Date() }
+      data: { status: 'inactive' }
     });
     const detail = await request(app)
       .get(`/api/trip-tickets/${created.body.id}`)
       .set('Authorization', s.header);
-    // Archiving stops someone being OFFERED for future bookings; it never
+    // Deactivation stops someone being offered for future bookings; it never
     // rewrites history (design §8).
     expect(detail.status).toBe(200);
-    expect(detail.body.guides[0].employee.name).toBe('Ana Guide');
-    expect(detail.body.guides[0].employee.archivedAt).not.toBeNull();
+    expect(detail.body.guides[0].user.fullName).toBe('Ana Guide');
+    expect(detail.body.guides[0].userId).toBe(s.guideA.id);
   });
 });
 
@@ -409,9 +409,9 @@ describe('POST /api/trip-tickets/:id/guides', () => {
     expect(
       await prisma.tripTicketEmployee.findMany({
         where: { tripTicketId: id },
-        select: { employeeId: true }
+        select: { userId: true }
       })
-    ).toEqual([{ employeeId: s.guideC.id }]);
+    ).toEqual([{ userId: s.guideC.id }]);
   });
 
   it('the allowed-from list is EXACTLY pending_fuel_allocation_approval + approved + in_progress', async () => {
@@ -440,10 +440,10 @@ describe('POST /api/trip-tickets/:id/guides', () => {
       expect(
         await prisma.tripTicketEmployee.findMany({
           where: { tripTicketId: id },
-          select: { employeeId: true }
+          select: { userId: true }
         }),
         status
-      ).toEqual([{ employeeId: s.guideA.id }]);
+      ).toEqual([{ userId: s.guideA.id }]);
     }
   });
 
@@ -478,8 +478,8 @@ describe('POST /api/trip-tickets/:id/guides', () => {
 
   it('re-runs the seat check — swapping one guide for five overflows the van', async () => {
     const s = await scaffold(); // capacity 5
-    const guideD = await createTestEmployee(s.branch.id, 'Dee Guide');
-    const guideE = await createTestEmployee(s.branch.id, 'Eve Guide');
+    const guideD = await createTestGuide(s.branch.id, 'Dee Guide');
+    const guideE = await createTestGuide(s.branch.id, 'Eve Guide');
     const created = await post(s, {
       participants: ['A', 'B', 'C'],
       participantsCount: 3,
@@ -520,8 +520,8 @@ describe('POST /api/trip-tickets/:id/guides', () => {
   // fire here (it needs BOTH terms present) so nothing else refuses it either.
   it('sizes the reassign against participantsCount when no names were typed', async () => {
     const s = await scaffold(); // capacity 5
-    const guideD = await createTestEmployee(s.branch.id, 'Dee Guide');
-    const guideE = await createTestEmployee(s.branch.id, 'Eve Guide');
+    const guideD = await createTestGuide(s.branch.id, 'Dee Guide');
+    const guideE = await createTestGuide(s.branch.id, 'Eve Guide');
     const created = await post(s, {
       participants: [],
       participantsCount: 3,

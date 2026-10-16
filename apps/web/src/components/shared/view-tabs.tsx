@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
 
 // The asset lists read two ways. A table is how you scan and compare a fleet —
 // plates, odometers and stock line up in a column and the eye runs down them —
@@ -19,6 +20,7 @@ export const ACTIVE_TAB =
 interface ViewTabsProps {
   grid: ReactNode;
   table: ReactNode;
+  searchControl?: ReactNode;
   /** Content shared by both views while loading or when no records match. */
   emptyState?: ReactNode;
   /** Which view a page opens on. */
@@ -28,23 +30,31 @@ interface ViewTabsProps {
 const ViewTabs = ({
   grid,
   table,
+  searchControl,
   emptyState,
   defaultView = 'table'
 }: ViewTabsProps) => (
   <Tabs defaultValue={defaultView} className="w-full">
     {/* Table first: the view a page opens on leads the control, as it does on
         the trip-ticket and job-order tables. */}
-    <TabsList className="grid w-full max-w-[220px] grid-cols-2">
-      <TabsTrigger value="table" className={ACTIVE_TAB}>
-        Table
-      </TabsTrigger>
-      <TabsTrigger value="grid" className={ACTIVE_TAB}>
-        Grid
-      </TabsTrigger>
-    </TabsList>
-    <TabsContent value="table" className="mt-6">
-      {emptyState ?? table}
-    </TabsContent>
+    <Card>
+      <CardContent>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className="grid w-full max-w-[220px] grid-cols-2">
+            <TabsTrigger value="table" className={ACTIVE_TAB}>
+              Table
+            </TabsTrigger>
+            <TabsTrigger value="grid" className={ACTIVE_TAB}>
+              Grid
+            </TabsTrigger>
+          </TabsList>
+          {searchControl}
+        </div>
+        <TabsContent value="table" className="mt-4">
+          {emptyState ?? table}
+        </TabsContent>
+      </CardContent>
+    </Card>
     <TabsContent value="grid" className="mt-6">
       {emptyState ?? grid}
     </TabsContent>

@@ -8,19 +8,17 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { TrashIcon, PlusIcon } from 'lucide-react';
-import type { EmployeeRow } from '@/lib/api/shared';
+import type { TripGuideRow } from '@/lib/api/trip-tickets';
 
 interface GuidePickerProps {
   /** One entry per row, '' for an unfilled row. */
   guideIds: string[];
-  /** This branch's roster — already filtered to the trip's branch by the
-   *  caller, the same way branchEmployees is on the booking form. */
-  employees: EmployeeRow[];
-  employeesLoading: boolean;
-  /** Drives the empty-state copy: "pick a branch first" vs. "no employees
-   *  left in this branch". */
-  tripBranchId: string | null | undefined;
-  onChangeRow: (index: number, employeeId: string) => void;
+  /** All active users with the driver or requester role, across branches. */
+  guides: TripGuideRow[];
+  guidesLoading: boolean;
+  /** Keeps historical or inactive selections readable until explicitly replaced. */
+  currentGuides?: TripGuideRow[];
+  onChangeRow: (index: number, userId: string) => void;
   onAddRow: () => void;
   onRemoveRow: (index: number) => void;
   /** Per-row validation message, if any — read from whatever form state the
@@ -29,32 +27,30 @@ interface GuidePickerProps {
   addDisabled?: boolean;
 }
 
-// The repeating-Select guide picker: ordinary Selects, not
-// components/ui/multi-select.tsx (a bare <div onClick> with no ARIA roles and
-// raw bg-white — design §9.3), so the e2e suite's
-// getByRole('combobox')/getByRole('option') can drive it. Shared by the
-// booking form (add-trip-ticket/form.tsx) and the ticket detail's reassign
-// control so there is exactly one place these rows are built — a second,
-// divergent copy is how the trip-ticket edit form became the dead code the
-// design's background documents.
 export function GuidePicker({
   guideIds,
-  employees,
-  employeesLoading,
-  tripBranchId,
+  guides,
+  guidesLoading,
+  currentGuides = [],
   onChangeRow,
   onAddRow,
   onRemoveRow,
   rowError,
   addDisabled
 }: GuidePickerProps) {
-  // Two rows must never name the same person: the join's composite primary key
-  // makes that unrepresentable in the database, so the picker never offers it.
-  // The row's OWN current pick stays in its list — Radix needs the selected
-  // item present to render its label.
+  const options = [
+    ...guides,
+    ...currentGuides.filter(
+      (guide) => !guides.some((option) => option.id === guide.id)
+    )
+  ];
+  // Keep the current value present so historical guide names remain readable.
   const optionsFor = (index: number) =>
-    employees.filter(
-      (e) => e.id === guideIds[index] || !guideIds.includes(e.id)
+    options.filter(
+      (guide) =>
+        guide.id === guideIds[index] ||
+        (!guideIds.includes(guide.id) &&
+          guides.some((option) => option.id === guide.id))
     );
 
   return (
@@ -67,7 +63,7 @@ export function GuidePicker({
               <Select
                 onValueChange={(value) => onChangeRow(index, value)}
                 value={guideId || ''}
-                disabled={employeesLoading}
+                disabled={guidesLoading}
               >
                 <SelectTrigger
                   aria-label={`Guide ${index + 1}`}
@@ -75,26 +71,32 @@ export function GuidePicker({
                 >
                   <SelectValue
                     placeholder={
-                      employeesLoading ? 'Loading...' : 'Select an employee'
+                      guidesLoading
+                        ? 'Loading...'
+                        : 'Select a driver or requester'
                     }
                   />
                 </SelectTrigger>
                 <SelectContent>
                   {optionsFor(index).length > 0 ? (
-                    optionsFor(index).map((employee) => (
-                      <SelectItem key={employee.id} value={employee.id}>
+                    optionsFor(index).map((guide) => (
+                      <SelectItem
+                        key={guide.id}
+                        value={guide.id}
+                        disabled={
+                          !guides.some((option) => option.id === guide.id)
+                        }
+                      >
                         {/* The position is what tells two people with the
                             same name apart. */}
-                        {employee.position
-                          ? `${employee.name} — ${employee.position}`
-                          : employee.name}
+                        {guide.position
+                          ? `${guide.name} — ${guide.position}`
+                          : guide.name}
                       </SelectItem>
                     ))
                   ) : (
                     <div className="text-muted-foreground p-2 text-sm">
-                      {tripBranchId
-                        ? 'No employees left in this branch'
-                        : 'Pick a branch first'}
+                      No active drivers or requesters left
                     </div>
                   )}
                 </SelectContent>
@@ -125,7 +127,11 @@ export function GuidePicker({
           size="sm"
           // The roster runs out too — a row nobody is left to fill is worse
           // than no row.
-          disabled={addDisabled || guideIds.length >= employees.length}
+          disabled={
+            addDisabled ||
+            guidesLoading ||
+            !guides.some((guide) => !guideIds.includes(guide.id))
+          }
           onClick={onAddRow}
         >
           <PlusIcon className="size-4" />

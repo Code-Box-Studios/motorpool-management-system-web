@@ -10,7 +10,8 @@ import {
 } from './actions';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useAllVehicles } from '@/lib/query/vehicles';
-import { useBranches, useEmployees } from '@/lib/query/shared';
+import { useBranches } from '@/lib/query/shared';
+import { useGuideOptions } from '@/lib/query/trip-tickets';
 import { useDepartmentOffices, useOfficeHeads } from '@/lib/query/offices';
 import {
   Select,
@@ -28,6 +29,8 @@ import { useUserRole } from '@/hooks/use-user-role';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import Stepper from '@/components/shared/stepper';
 import DestinationPicker from '@/components/shared/destination-picker';
+import { DatePicker } from '@/components/shared/date-picker';
+import { TimePicker } from '@/components/shared/time-picker';
 import { DetailGrid, DetailItem } from '@/components/shared/detail-view';
 import { GuidePicker } from '@/components/pages/trip-tickets/guide-picker';
 import { BorrowedBadge } from '@/components/shared/borrowed-badge';
@@ -146,7 +149,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // the same way (participants PLUS guides against vehicle.capacity, design
   // §5.1). Registered with react-hook-form directly and read back with watch:
   // guides carry ids; participants use their own rows and sync helper. Blank rows do not
-  // count — an unfilled row is '' until an employee is chosen.
+  // count — an unfilled row is '' until a user is chosen.
   const guideIds = form.watch('guide_ids');
   const guideCount = guideIds.filter(Boolean).length;
 
@@ -222,21 +225,9 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
     review.branch_id || userBranchId;
   const tripBranchName = branches?.find((b) => b.id === tripBranchId)?.name;
 
-  // The guide roster is branch-locked, so it is fetched for the TRIP's branch,
-  // not the whole company's. Called here rather than up with the other list
-  // hooks because it needs tripBranchId, which only exists once the watched
-  // values above have been read — still an unconditional top-level call, so
-  // hook order is stable.
-  //
-  // `enabled` for the same reason the reassign picker passes it
-  // (trip-tickets-inner/index.tsx): until a branch is known, `tripBranchId` is
-  // undefined and the fetch would go out unscoped — the whole company's roster,
-  // unpaginated — on the form's first render, before anything on screen can use
-  // the result. Two call sites of one hook should not have opposite conventions.
-  const { data: employees, isLoading: employeesLoading } = useEmployees(
-    tripBranchId ?? undefined,
-    { enabled: !!tripBranchId }
-  );
+  // Guides are active driver/requester accounts from every branch.
+  const { data: guideOptions = [], isLoading: guidesLoading } =
+    useGuideOptions();
 
   // Every branch runs its own vans and borrows another branch's when it needs to.
   // The vans it owns are the default and come first; another branch's are
@@ -280,14 +271,6 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
       : !tripBranchId || h.branch_id === tripBranchId
   );
 
-  // An EMPLOYEE cannot be borrowed either — a guide is one of this branch's own
-  // people. Filtered client-side as well as server-side (useEmployees passes
-  // branchId) for the same reason branchOffices above is: the guarantee should
-  // not depend on a query parameter surviving a cache hit.
-  const branchEmployees = (employees ?? []).filter(
-    (e) => !tripBranchId || e.branch_id === tripBranchId
-  );
-
   const addGuideRow = () =>
     form.setValue('guide_ids', [...guideIds, ''], {
       shouldValidate: form.formState.isSubmitted
@@ -321,25 +304,6 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
       form.setValue('office_head_id', '');
     }
   }, [review.office_head_id, officeHeadsForOffice, form]);
-
-  // A guide is stranded by a branch change the same way an office is: an
-  // employee belongs to exactly one branch, so somebody picked under the old
-  // one is not on the new one's roster. Blank the stranded rows rather than
-  // book a trip guided by another branch's staff — but keep the rows
-  // themselves, so the field never collapses to zero and the requester can see
-  // what there is to re-pick.
-  useEffect(() => {
-    // Unlike the two effects above, this one waits: mid-fetch the roster is
-    // empty and EVERY pick would look stranded. Guides are required, so
-    // silently wiping a valid one costs more than the extra guard.
-    if (employeesLoading) return;
-    const cleaned = guideIds.map((id) =>
-      id && !branchEmployees.some((e) => e.id === id) ? '' : id
-    );
-    if (cleaned.some((id, i) => id !== guideIds[i])) {
-      form.setValue('guide_ids', cleaned);
-    }
-  }, [guideIds, branchEmployees, employeesLoading, form]);
 
   useEffect(() => {
     if (user) {
@@ -386,8 +350,13 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // the whole submit from step one — validating fields nobody has been shown yet
   // — so up to the last step, Enter means "next" instead.
   const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
-    if (e.key !== 'Enter') return;
+    if (e.key !== 'Enter' || e.defaultPrevented) return;
     if (e.target instanceof HTMLTextAreaElement) return; // a newline is a newline
+    if (
+      e.target instanceof HTMLElement &&
+      e.target.closest('button, [role="combobox"], [role="listbox"]')
+    )
+      return;
     if (step < LAST) {
       e.preventDefault();
       void goNext();
@@ -767,7 +736,10 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                   name="destination"
                   control={form.control}
                   render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
+                    <Field
+                      className="sm:col-span-2"
+                      data-invalid={fieldState.invalid}
+                    >
                       <FieldLabel htmlFor="destination">
                         Destination *
                       </FieldLabel>
@@ -778,6 +750,28 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                         id="destination"
                         value={field.value ?? ''}
                         onChange={field.onChange}
+                        place={
+                          review.destination_latitude != null &&
+                          review.destination_longitude != null
+                            ? {
+                                label: field.value,
+                                lat: review.destination_latitude,
+                                lon: review.destination_longitude
+                              }
+                            : null
+                        }
+                        onPlace={(place) => {
+                          form.setValue(
+                            'destination_latitude',
+                            place?.lat ?? null,
+                            { shouldDirty: true }
+                          );
+                          form.setValue(
+                            'destination_longitude',
+                            place?.lon ?? null,
+                            { shouldDirty: true }
+                          );
+                        }}
                         invalid={fieldState.invalid}
                       />
                       {fieldState.invalid && (
@@ -808,14 +802,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                 )}
               />
 
-              {/* Guides ride along, so they sit directly above the people they
-                  accompany and spend the same seat budget. Unlike participants
-                  these are IDS chosen from this branch's roster — nothing is
-                  ever joined into or split out of a comma-separated string, so
-                  an employee named "Cruz, Juan" cannot become two people.
-                  Ordinary Selects, not components/ui/multi-select.tsx: that one
-                  renders bare <div onClick> with no role and paints raw
-                  bg-white (design §9.3). */}
+              {/* Guides share the passenger seat budget and use user identities. */}
               <Field data-invalid={!!form.formState.errors.guide_ids}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <FieldLabel htmlFor="guide_ids">Guides *</FieldLabel>
@@ -826,9 +813,8 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
 
                 <GuidePicker
                   guideIds={guideIds}
-                  employees={branchEmployees}
-                  employeesLoading={employeesLoading}
-                  tripBranchId={tripBranchId}
+                  guides={guideOptions}
+                  guidesLoading={guidesLoading}
                   onChangeRow={(index, value) =>
                     form.setValue(`guide_ids.${index}`, value, {
                       shouldValidate: form.formState.isSubmitted
@@ -843,7 +829,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                 />
 
                 {/* Only the array's own min(1) message ("A trip needs at least
-                    one guide") lands here — a row's own "Pick an employee for
+                    one guide") lands here — a row's own "Pick a driver or requester for
                     this row" is pinned to [i] and renders under that row. The
                     remove button is disabled at one row, so this is unreachable
                     from the UI today; kept as the same safety net the dates
@@ -989,10 +975,9 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                             <FieldLabel htmlFor={`dates.${index}.date`}>
                               Date *
                             </FieldLabel>
-                            <Input
+                            <DatePicker
                               {...field}
                               id={`dates.${index}.date`}
-                              type="date"
                               min={today}
                               aria-invalid={fieldState.invalid}
                             />
@@ -1012,10 +997,10 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                           <FieldLabel htmlFor={`dates.${index}.start`}>
                             Departure time *
                           </FieldLabel>
-                          <Input
+                          <TimePicker
                             {...field}
                             id={`dates.${index}.start`}
-                            type="time"
+                            label="Departure time"
                             aria-invalid={fieldState.invalid}
                           />
                           {fieldState.invalid && (
@@ -1032,18 +1017,18 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                         // Cross-reference this row's own departure time, same
                         // as the single-window version this replaced did with
                         // start_ts/end_ts. The superRefine below still catches
-                        // an inverted span either way — this is just the
-                        // native picker affordance.
+                        // an inverted span either way; the picker also keeps
+                        // unavailable return times out of the options.
                         const rowStart = form.watch(`dates.${index}.start`);
                         return (
                           <Field data-invalid={fieldState.invalid}>
                             <FieldLabel htmlFor={`dates.${index}.end`}>
                               Return time *
                             </FieldLabel>
-                            <Input
+                            <TimePicker
                               {...field}
                               id={`dates.${index}.end`}
-                              type="time"
+                              label="Return time"
                               min={rowStart || undefined}
                               aria-invalid={fieldState.invalid}
                             />
@@ -1149,7 +1134,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                     guideCount > 0
                       ? guideIds
                           .filter(Boolean)
-                          .map((id) => nameOf(branchEmployees, id) ?? '—')
+                          .map((id) => nameOf(guideOptions, id) ?? '—')
                           .join(', ')
                       : undefined
                   }

@@ -21,13 +21,15 @@ export type TripDateInput = z.infer<typeof tripDateInputSchema>;
 
 // Create: a new ticket is always born pending_admin_approval; the client cannot
 // choose a status. preparedBy is DB-required but the FE leaves it blank → default ''.
-export const createTripTicketBodySchema = z.object({
+const tripTicketBodyFieldsSchema = z.object({
   branchId: z.string().uuid(),
   driverId: z.string().uuid(),
   vehicleId: z.string().uuid(),
   officeId: z.string().uuid().nullable().optional(),
   officeHeadId: z.string().uuid().nullable().optional(),
   destination: z.string().min(1),
+  destinationLatitude: z.number().min(-90).max(90).nullable().optional(),
+  destinationLongitude: z.number().min(-180).max(180).nullable().optional(),
   purpose: z.string().min(1),
   dateRequested: z.coerce.date(),
   participants: z.array(z.string()).default([]),
@@ -38,26 +40,42 @@ export const createTripTicketBodySchema = z.object({
   startTs: z.coerce.date().nullable().optional(),
   endTs: z.coerce.date().nullable().optional(),
   dates: z.array(tripDateInputSchema).default([]),
-  // The employees who go along to guide the participants. At least one, always
-  // — in practice every trip has one, and until now their name was either
-  // missing or typed into `participants`, indistinguishable from a passenger.
-  // Ids, not names: guides are real rows, so they never pass through a
-  // comma-joined string the way participants do.
-  //
-  // NOTE the interaction with `.partial()` below: it wraps this in ZodOptional
-  // but does not strip the `.min(1)`, which gives PATCH exactly the semantics
-  // we want — ABSENT means "leave the guides alone", PRESENT-BUT-EMPTY is a
-  // 400, never a silent no-op. That is the same OUTCOME the `dates` field gets
-  // from the NO_TRIP_DATES gate in service.ts, by a different mechanism:
-  // `dates` is `.default([])` with no `.min(1)`, so its empty case reaches the
-  // service; this one is answered by zod before the controller runs.
+  // New guides are active users with the driver or requester role.
+  // An absent guideIds on PATCH preserves historical assignments; an empty
+  // list is rejected because each trip needs at least one guide.
   guideIds: z.array(z.string().uuid()).min(1)
 });
+function validateDestinationCoordinates(
+  body: {
+    destinationLatitude?: number | null;
+    destinationLongitude?: number | null;
+  },
+  ctx: z.RefinementCtx
+) {
+  const latitude = body.destinationLatitude;
+  const longitude = body.destinationLongitude;
+  const bothAbsent = latitude === undefined && longitude === undefined;
+  const bothCleared = latitude === null && longitude === null;
+  const bothNumbers =
+    typeof latitude === 'number' && typeof longitude === 'number';
+  if (!bothAbsent && !bothCleared && !bothNumbers) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['destinationLatitude'],
+      message: 'Provide both destination coordinates, or clear both'
+    });
+  }
+}
+
+export const createTripTicketBodySchema =
+  tripTicketBodyFieldsSchema.superRefine(validateDestinationCoordinates);
 export type CreateTripTicketBody = z.infer<typeof createTripTicketBodySchema>;
 
 // PATCH is only legal while pending_admin_approval (service-enforced); status is
 // never editable here — transitions own it.
-export const updateTripTicketBodySchema = createTripTicketBodySchema.partial();
+export const updateTripTicketBodySchema = tripTicketBodyFieldsSchema
+  .partial()
+  .superRefine(validateDestinationCoordinates);
 export type UpdateTripTicketBody = z.infer<typeof updateTripTicketBodySchema>;
 
 /**

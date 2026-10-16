@@ -62,15 +62,7 @@ async function main() {
   });
   await prisma.departmentOffice.update({ where: { id: northOffice.id }, data: { headId: northHead.id } });
 
-  // Branch employees — the roster a ticket picks its guides from. BOTH branches
-  // get one: the guide picker is locked to the ticket's own branch, so a North
-  // Branch trip against an empty North roster could not be booked at all, and
-  // the picker would just be blank with nothing on screen to say why.
-  //
-  // Explicit element type for the same reason `drivers` has one below: the array
-  // is read back inside the ticket loop, and an evolving `[]` falls to an
-  // implicit any[] under this project's strict settings.
-  const mainEmployees: { id: string }[] = [];
+  // Organization employees are kept for historical trip records.
   const employeeSpecs = [
     { id: '00000000-0000-4000-8000-000000000031', name: 'Ana Bautista', position: 'Tour Guide', phone: '+63 917 555 0131', branchId: mainBranch.id },
     { id: '00000000-0000-4000-8000-000000000032', name: 'Rico Mendoza', position: 'Safety Officer', phone: '+63 917 555 0132', branchId: mainBranch.id },
@@ -79,8 +71,7 @@ async function main() {
     { id: '00000000-0000-4000-8000-000000000035', name: 'Grace Lim', position: 'Safety Officer', phone: '+63 917 555 0135', branchId: northBranch.id }
   ];
   for (const e of employeeSpecs) {
-    const employee = await prisma.employee.upsert({ where: { id: e.id }, update: {}, create: e });
-    if (e.branchId === mainBranch.id) mainEmployees.push(employee);
+    await prisma.employee.upsert({ where: { id: e.id }, update: {}, create: e });
   }
 
   // One user per role (+ linked driver row for the driver-role user)
@@ -368,15 +359,9 @@ async function main() {
       const startTs = new Date(Math.min(...spanRows.map((d) => d.startTs.getTime())));
       const endTs = new Date(Math.max(...spanRows.map((d) => d.endTs.getTime())));
 
-      // Every ticket needs at least one guide (spec §5.3), and the picker is
-      // locked to the ticket's own branch — so these come from Main Branch's
-      // roster, which is the branch every seeded ticket is raised for. The
-      // approved ticket takes TWO: a multi-guide ticket is the case the capacity
-      // arithmetic can get wrong, and nothing else in the demo data exercises it.
-      // Seeded vehicles seat 4-9 against 2 participants, so 1 guide (2 on the
-      // approved ticket, whose van seats 6) stays inside capacity — a seeded
-      // ticket over capacity would be un-editable in the UI from day one.
-      const guides = status === 'approved' ? mainEmployees.slice(0, 2) : [mainEmployees[i % mainEmployees.length]!];
+      // New demo bookings use driver/requester users, independent of branch.
+      // Two guides on the approved ticket exercise the shared seat budget.
+      const guides = status === 'approved' ? [users.requester, users.driver] : [users.requester];
 
       await prisma.tripTicket.create({
         data: {
@@ -394,7 +379,7 @@ async function main() {
           // are per-outing and live on the rows created below.
           startTs, endTs,
           dates: { create: dates },
-          guides: { create: guides.map((e) => ({ employeeId: e.id })) },
+          guides: { create: guides.map((user) => ({ userId: user.id })) },
           fuelAllocation: hasAllocation.has(status)
             ? {
                 create: {

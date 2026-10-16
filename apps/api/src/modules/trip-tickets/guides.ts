@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
+import { prisma } from '../../lib/prisma.js';
 
 /**
  * How many seats the PARTICIPANTS take.
@@ -52,31 +53,53 @@ export function assertSeatsFit(
   }
 }
 
-/**
- * Replace a ticket's guide rows wholesale.
- *
- * Delete-all-then-recreate, never a diff — the house pattern for child rows,
- * the same one `replaceTripDates` above and `job-orders/transitions.ts:95-105`
- * use. The composite primary key on (trip_ticket_id, employee_id) makes a
- * duplicate assignment unrepresentable, so a caller that names the same
- * employee twice fails loudly on the createMany rather than quietly seating
- * them twice.
- *
- * An EMPTY list is refused rather than obeyed, for the reason `replaceTripDates`
- * refuses one: obeying it would delete every guide and return 200, leaving a
- * ticket that violates the at-least-one-guide rule with no error anywhere.
- * `guideIds` is `.min(1)` on the create body and `.partial()` keeps that
- * refinement, so create and PATCH never reach this throw — zod answers them
- * first. POST /:id/guides does reach it: its body schema is deliberately not
- * `.min(1)`, so the empty case on that endpoint gets its own name instead of a
- * generic VALIDATION_ERROR.
- */
+/** Active driver/requester accounts from every branch, with public fields only. */
+export async function listGuideOptions() {
+  const users = await prisma.user.findMany({
+    where: {
+      status: 'active',
+      userRole: { role: { name: { in: ['driver', 'requester'] } } }
+    },
+    select: {
+      id: true,
+      fullName: true,
+      userRole: { select: { role: { select: { name: true } } } }
+    },
+    orderBy: [{ fullName: 'asc' }, { id: 'asc' }]
+  });
+  return users.map((user) => ({
+    id: user.id,
+    fullName: user.fullName,
+    role: user.userRole!.role.name
+  }));
+}
+
+/** New assignments must refer to distinct, active driver/requester users. */
+export async function assertGuideUsersActive(userIds: string[]): Promise<void> {
+  if (userIds.length === 0) return; // The caller supplies the route-specific empty-list error.
+  const count = await prisma.user.count({
+    where: {
+      id: { in: userIds },
+      status: 'active',
+      userRole: { role: { name: { in: ['driver', 'requester'] } } }
+    }
+  });
+  if (count !== userIds.length) {
+    throw new AppError(
+      400,
+      'INVALID_GUIDES',
+      'Select distinct active drivers or requesters as guides'
+    );
+  }
+}
+
+/** Replace guide assignments atomically; historical employee rows remain until explicitly replaced. */
 export async function replaceTripTicketGuides(
   tx: Prisma.TransactionClient,
   tripTicketId: string,
-  employeeIds: string[]
+  userIds: string[]
 ): Promise<void> {
-  if (employeeIds.length === 0) {
+  if (userIds.length === 0) {
     throw new AppError(
       400,
       'NO_GUIDES',
@@ -85,6 +108,6 @@ export async function replaceTripTicketGuides(
   }
   await tx.tripTicketEmployee.deleteMany({ where: { tripTicketId } });
   await tx.tripTicketEmployee.createMany({
-    data: employeeIds.map((employeeId) => ({ tripTicketId, employeeId }))
+    data: userIds.map((userId) => ({ tripTicketId, userId }))
   });
 }

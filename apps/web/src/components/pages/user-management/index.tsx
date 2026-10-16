@@ -71,120 +71,119 @@ const UserManagement = () => {
         }
       />
 
-      <div className="mb-6">
-        <ListSearchInput
-          value={search}
-          onChange={setSearch}
-          label="Search users"
-        />
-      </div>
-
-      {error ? (
-        <Card>
-          <CardContent className="text-destructive pt-6 text-sm">
-            Error loading users: {error.message}
-          </CardContent>
-        </Card>
-      ) : !isLoading && totalCount === 0 ? (
-        <EmptyState
-          message="No users yet."
-          search={search}
-          onClearSearch={() => setSearch('')}
-        />
-      ) : (
-        <Card>
-          <CardContent className="pt-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {COLUMNS.map((column) => (
-                    <SortableTableHead
-                      key={column.label}
-                      label={column.label}
-                      sortKey={column.sortKey}
-                      sort={sort}
-                      onSort={handleSort}
-                    />
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading
-                  ? Array.from({ length: 5 }).map((_, row) => (
-                      <TableRow key={row}>
-                        {COLUMNS.map((column) => (
-                          <TableCell key={column.label}>
-                            <Skeleton className="h-5 w-full" />
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  : users?.map((user: UserProfileData) => (
-                      <TableRow
-                        key={user.id}
-                        className="hover:bg-muted cursor-pointer"
-                        onClick={() =>
-                          navigate({
-                            to: '/user-management/$userId',
-                            params: { userId: user.id }
-                          })
-                        }
-                      >
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage
-                                src={user.avatar_url || undefined}
-                                alt=""
-                                className="object-cover"
-                              />
-                              {/* AvatarFallback paints bg-primary, so the initials
+      <Card>
+        <CardContent>
+          <div className="mb-4">
+            <ListSearchInput
+              value={search}
+              onChange={setSearch}
+              label="Search users"
+            />
+          </div>
+          {error ? (
+            <p className="text-destructive text-sm">
+              Error loading users: {error.message}
+            </p>
+          ) : !isLoading && totalCount === 0 ? (
+            <EmptyState
+              message="No users yet."
+              search={search}
+              onClearSearch={() => setSearch('')}
+            />
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {COLUMNS.map((column) => (
+                      <SortableTableHead
+                        key={column.label}
+                        label={column.label}
+                        sortKey={column.sortKey}
+                        sort={sort}
+                        onSort={handleSort}
+                      />
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading
+                    ? Array.from({ length: 5 }).map((_, row) => (
+                        <TableRow key={row}>
+                          {COLUMNS.map((column) => (
+                            <TableCell key={column.label}>
+                              <Skeleton className="h-5 w-full" />
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    : users?.map((user: UserProfileData) => (
+                        <TableRow
+                          key={user.id}
+                          className="hover:bg-muted cursor-pointer"
+                          onClick={() =>
+                            navigate({
+                              to: '/user-management/$userId',
+                              params: { userId: user.id }
+                            })
+                          }
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage
+                                  src={user.avatar_url || undefined}
+                                  alt=""
+                                  className="object-cover"
+                                />
+                                {/* AvatarFallback paints bg-primary, so the initials
                                   need the matching foreground or they vanish into it. */}
-                              <AvatarFallback>
-                                <span className="text-primary-foreground text-xs font-semibold">
-                                  {getInitials(user)}
-                                </span>
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                              <div className="truncate font-medium">
-                                {user.full_name || '—'}
-                              </div>
-                              <div className="text-muted-foreground truncate text-sm">
-                                {user.email || '—'}
+                                <AvatarFallback>
+                                  <span className="text-primary-foreground text-xs font-semibold">
+                                    {getInitials(user)}
+                                  </span>
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <div className="truncate font-medium">
+                                  {user.full_name || '—'}
+                                </div>
+                                <div className="text-muted-foreground truncate text-sm">
+                                  {user.email || '—'}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{roleLabel(user.role) ?? '—'}</TableCell>
-                        <TableCell>
-                          {present(user.branch_name) ?? '—'}
-                        </TableCell>
-                        <TableCell>
-                          {user.status ? (
-                            <StatusBadge status={user.status} />
-                          ) : (
-                            '—'
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {user.created_at
-                            ? new Date(user.created_at).toLocaleDateString()
-                            : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-              </TableBody>
-            </Table>
+                          </TableCell>
+                          <TableCell>{roleLabel(user.role) ?? '—'}</TableCell>
+                          <TableCell>
+                            {present(user.branch_name) ?? '—'}
+                          </TableCell>
+                          <TableCell>
+                            {user.status ? (
+                              <StatusBadge status={user.status} />
+                            ) : (
+                              '—'
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {user.created_at
+                              ? new Date(user.created_at).toLocaleDateString()
+                              : '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                </TableBody>
+              </Table>
 
-            <TablePagination
-              page={page}
-              totalPages={totalPages}
-              onPageChange={setPage}
-            />
-          </CardContent>
-        </Card>
-      )}
+              <TablePagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

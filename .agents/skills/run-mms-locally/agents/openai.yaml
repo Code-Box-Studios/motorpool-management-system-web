@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run MMS Locally"
+  short_description: "Start and verify the complete local motorpool stack"
+  default_prompt: "Use $run-mms-locally to start and verify the full motorpool system locally."

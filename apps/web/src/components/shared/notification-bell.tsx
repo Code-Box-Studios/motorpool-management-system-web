@@ -14,6 +14,7 @@ import {
 } from '@/lib/query/notifications';
 import type { NotificationRow } from '@/lib/api/notifications';
 import { relativeTime } from '@/lib/utils/relative-time';
+import { resolveStatus } from '@/lib/status';
 
 /**
  * The bell. Lives in BOTH shells — the sidebar header and the focus header —
@@ -26,14 +27,17 @@ import { relativeTime } from '@/lib/utils/relative-time';
  */
 const NotificationBell = () => {
   const [open, setOpen] = useState(false);
-  const { data } = useNotifications();
+  const { data, refetch } = useNotifications();
   const markRead = useMarkNotificationsRead();
   const markAllRead = useMarkAllNotificationsRead();
 
   const items = data?.data ?? [];
   const unread = data?.unread ?? 0;
 
-  const handleOpen = (nextOpen: boolean) => setOpen(nextOpen);
+  const handleOpen = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (nextOpen) void refetch();
+  };
 
   // Reading one and going to it are the same gesture, so the click does both.
   const handleItemClick = (item: NotificationRow) => {
@@ -117,6 +121,12 @@ const NotificationBell = () => {
                       {item.body && (
                         <div className="text-slate mt-0.5 line-clamp-2 text-xs">
                           {item.body}
+                        </div>
+                      )}
+                      {item.currentStatus && (
+                        <div className="text-muted-foreground mt-1 text-xs">
+                          Current status:{' '}
+                          {resolveStatus(item.currentStatus).label}
                         </div>
                       )}
                       <div className="text-muted-foreground mt-1 text-xs">

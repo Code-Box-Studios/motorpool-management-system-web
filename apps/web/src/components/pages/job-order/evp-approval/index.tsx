@@ -29,7 +29,7 @@ export default function EvpApprovalPage() {
   const [pending, setPending] = useState(0);
 
   return (
-    <div className="mx-auto w-full max-w-7xl md:py-6">
+    <div className="md:py-6">
       <SectionLabel>Awaiting your sign-off</SectionLabel>
 
       <h1 className="text-3xl font-medium tracking-tight md:text-4xl">

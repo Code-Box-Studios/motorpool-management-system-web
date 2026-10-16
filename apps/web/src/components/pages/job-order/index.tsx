@@ -190,14 +190,6 @@ const JobOrdersPage = () => {
         }
       />
 
-      <div className="mb-6">
-        <ListSearchInput
-          value={search}
-          onChange={setSearch}
-          label="Search job orders"
-        />
-      </div>
-
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
@@ -215,18 +207,25 @@ const JobOrdersPage = () => {
         </DialogContent>
       </Dialog>
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
           {/* Table first: it answers "what needs doing". The calendar is for planning. */}
-          <Tabs defaultValue="table" className="w-full">
-            <TabsList className="grid w-full max-w-[260px] grid-cols-2">
-              <TabsTrigger value="table" className={ACTIVE_TAB}>
-                Table
-              </TabsTrigger>
-              <TabsTrigger value="calendar" className={ACTIVE_TAB}>
-                Calendar
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="calendar" className="mt-6">
+          <Tabs defaultValue="table" className="w-full gap-0">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <TabsList className="grid w-full max-w-[260px] grid-cols-2">
+                <TabsTrigger value="table" className={ACTIVE_TAB}>
+                  Table
+                </TabsTrigger>
+                <TabsTrigger value="calendar" className={ACTIVE_TAB}>
+                  Calendar
+                </TabsTrigger>
+              </TabsList>
+              <ListSearchInput
+                value={search}
+                onChange={setSearch}
+                label="Search job orders"
+              />
+            </div>
+            <TabsContent value="calendar" className="mt-4">
               {isCalendarLoading ? (
                 <div className="text-muted-foreground py-12 text-center text-sm">
                   Loading calendar...
@@ -249,7 +248,7 @@ const JobOrdersPage = () => {
                 />
               )}
             </TabsContent>
-            <TabsContent value="table" className="mt-6">
+            <TabsContent value="table" className="mt-4">
               {isLoading ? (
                 <TableSkeleton
                   columns={[
@@ -274,11 +273,10 @@ const JobOrdersPage = () => {
                 />
               ) : (
                 <>
-                  {/* Table already renders its own overflow-x-auto container; the
-                      min-width is what actually makes it scroll rather than letting
-                      the browser squeeze the row actions — "Note Job Order",
-                      "Approve", "Mark as Repaired" — until they clip. */}
-                  <Table className="min-w-[1180px]">
+                  {/* Size columns from their content so desktop widths can fit
+                      every field. Non-wrapping cells retain readable minimums and
+                      the table's own container handles scrolling on small screens. */}
+                  <Table>
                     <TableHeader>
                       <TableRow>
                         {/* sortKey values come from the API's
@@ -288,49 +286,42 @@ const JobOrdersPage = () => {
                           sortKey="orderNo"
                           sort={sort}
                           onSort={handleSort}
-                          className="w-[80px]"
                         />
                         <SortableTableHead
                           label="Status"
                           sortKey="status"
                           sort={sort}
                           onSort={handleSort}
-                          className="w-[150px]"
                         />
                         <SortableTableHead
                           label="Vehicle"
                           sortKey="vehicle"
                           sort={sort}
                           onSort={handleSort}
-                          className="min-w-[200px]"
                         />
                         <SortableTableHead
                           label="Incident Date"
                           sortKey="incidentDate"
                           sort={sort}
                           onSort={handleSort}
-                          className="w-[130px]"
                         />
                         <SortableTableHead
                           label="Assigned Mechanic"
                           sortKey="assignedMechanic"
                           sort={sort}
                           onSort={handleSort}
-                          className="w-[160px]"
                         />
                         <SortableTableHead
                           label="Target Date"
                           sortKey="targetDate"
                           sort={sort}
                           onSort={handleSort}
-                          className="w-[130px]"
                         />
                         <SortableTableHead
                           label="Repair Type"
                           sortKey="repairDone"
                           sort={sort}
                           onSort={handleSort}
-                          className="w-[110px]"
                         />
                         {/* Pinned: the row's transition ("Note Job Order",
                             "Mark as Repaired") is the point of the row, and it sat
@@ -339,7 +330,7 @@ const JobOrdersPage = () => {
                             is ~280px, so pinning 180px of it would leave a slit to
                             read the other seven columns through. Below md the
                             column just scrolls into view with the rest of the row. */}
-                        <TableHead className="md:bg-card md:border-border w-[180px] text-right md:sticky md:right-0 md:z-10 md:border-l">
+                        <TableHead className="md:bg-card md:border-border text-right md:sticky md:right-0 md:z-10 md:border-l">
                           Actions
                         </TableHead>
                       </TableRow>

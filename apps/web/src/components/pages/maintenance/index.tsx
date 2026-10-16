@@ -159,16 +159,6 @@ const MaintenancePage = () => {
         }
       />
 
-      {activeTab === 'schedule' && (
-        <div className="mb-6">
-          <ListSearchInput
-            value={search}
-            onChange={setSearch}
-            label="Search maintenance"
-          />
-        </div>
-      )}
-
       <Tabs
         value={activeTab}
         onValueChange={handleTabChange}
@@ -187,7 +177,7 @@ const MaintenancePage = () => {
         </TabsList>
         <TabsContent value="schedule" className="mt-6">
           <Card>
-            <CardContent className="pt-6">
+            <CardContent>
               {/* Calendar vs table is a way of *looking* at the same records,
                   not a separate section — so it is a small control, not a
                   second full-width tab bar competing with the one above. */}
@@ -196,9 +186,9 @@ const MaintenancePage = () => {
                 onValueChange={(value) =>
                   setScheduleView(value as 'calendar' | 'table')
                 }
-                className="w-full"
+                className="w-full gap-0"
               >
-                <div className="flex justify-end">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <TabsList>
                     <TabsTrigger value="calendar" className={ACTIVE_TAB}>
                       Calendar
@@ -207,8 +197,13 @@ const MaintenancePage = () => {
                       Table
                     </TabsTrigger>
                   </TabsList>
+                  <ListSearchInput
+                    value={search}
+                    onChange={setSearch}
+                    label="Search maintenance"
+                  />
                 </div>
-                <TabsContent value="calendar" className="mt-6">
+                <TabsContent value="calendar" className="mt-4">
                   {isCalendarLoading ? (
                     <div className="text-muted-foreground py-12 text-center text-sm">
                       Loading calendar...
@@ -235,7 +230,7 @@ const MaintenancePage = () => {
                     />
                   )}
                 </TabsContent>
-                <TabsContent value="table" className="mt-6">
+                <TabsContent value="table" className="mt-4">
                   {isTableLoading ? (
                     <TableSkeleton
                       columns={[

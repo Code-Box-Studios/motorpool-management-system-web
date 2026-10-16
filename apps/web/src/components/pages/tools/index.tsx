@@ -7,7 +7,6 @@ import { useAllDrivers } from '@/lib/query/drivers';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useListControls } from '@/hooks/use-list-controls';
 import { buttonVariants } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -112,66 +111,64 @@ const Tools = () => {
   );
 
   const table = (
-    <Card>
-      <CardContent className="pt-6">
-        {/* No fixed column widths: pinning them left every spare pixel to the
+    <>
+      {/* No fixed column widths: pinning them left every spare pixel to the
             last column, so the data bunched left behind a wide empty
             Description. Auto-layout spreads the slack in proportion to content. */}
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {COLUMNS.map((column) => (
-                <SortableTableHead
-                  key={column.label}
-                  label={column.label}
-                  sortKey={column.sortKey}
-                  sort={sort}
-                  onSort={handleSort}
-                />
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tools.map((tool) => (
-              <TableRow
-                key={tool.id}
-                className="hover:bg-muted cursor-pointer"
-                onClick={() =>
-                  navigate({
-                    to: '/tools/$toolsId',
-                    params: { toolsId: tool.id }
-                  })
-                }
-              >
-                <TableCell className="font-medium">{tool.name}</TableCell>
-                <TableCell>
-                  <StatusBadge status={tool.status || 'available'} />
-                </TableCell>
-                <TableCell className="text-sm whitespace-nowrap">
-                  {borrowerName(tool.borrowed_by) ?? '—'}
-                </TableCell>
-                <TableCell className="text-sm whitespace-nowrap">
-                  {formatDate(tool.estimated_return_date) ?? '—'}
-                </TableCell>
-                {/* TableCell is whitespace-nowrap, so an unconstrained
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {COLUMNS.map((column) => (
+              <SortableTableHead
+                key={column.label}
+                label={column.label}
+                sortKey={column.sortKey}
+                sort={sort}
+                onSort={handleSort}
+              />
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {tools.map((tool) => (
+            <TableRow
+              key={tool.id}
+              className="hover:bg-muted cursor-pointer"
+              onClick={() =>
+                navigate({
+                  to: '/tools/$toolsId',
+                  params: { toolsId: tool.id }
+                })
+              }
+            >
+              <TableCell className="font-medium">{tool.name}</TableCell>
+              <TableCell>
+                <StatusBadge status={tool.status || 'available'} />
+              </TableCell>
+              <TableCell className="text-sm whitespace-nowrap">
+                {borrowerName(tool.borrowed_by) ?? '—'}
+              </TableCell>
+              <TableCell className="text-sm whitespace-nowrap">
+                {formatDate(tool.estimated_return_date) ?? '—'}
+              </TableCell>
+              {/* TableCell is whitespace-nowrap, so an unconstrained
                     description makes its own column as wide as the longest
                     string on the page and scrolls the table sideways at every
                     viewport. Cap it and ellipsize, like Purpose elsewhere. */}
-                <TableCell className="text-muted-foreground max-w-xs truncate text-sm">
-                  {tool.description || '—'}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+              <TableCell className="text-muted-foreground max-w-xs truncate text-sm">
+                {tool.description || '—'}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
 
-        <TablePagination
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
-      </CardContent>
-    </Card>
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
+    </>
   );
 
   return (
@@ -188,14 +185,6 @@ const Tools = () => {
         }
       />
 
-      <div className="mb-6">
-        <ListSearchInput
-          value={search}
-          onChange={setSearch}
-          label="Search tools"
-        />
-      </div>
-
       <MetricStrip metrics={metrics} className="mb-5" />
       <div className="mb-6">
         <BorrowLeaderboard
@@ -207,6 +196,13 @@ const Tools = () => {
       {/* Keyed to the dataset count, not the page slice, so a mid page that
           happens to be empty never reads as "no tools". */}
       <ViewTabs
+        searchControl={
+          <ListSearchInput
+            value={search}
+            onChange={setSearch}
+            label="Search tools"
+          />
+        }
         grid={grid}
         table={table}
         emptyState={

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { prisma } from '../lib/prisma.js';
 import { hashPassword } from '../lib/password.js';
 import { signAccessToken } from '../lib/jwt.js';
@@ -107,6 +108,20 @@ export async function createTestEmployee(
   name = 'Ana Bautista'
 ) {
   return prisma.employee.create({ data: { name, branchId } });
+}
+
+// A real login identity eligible for new guide assignments.
+export async function createTestGuide(
+  branchId: string,
+  fullName = 'Ana Guide'
+) {
+  const { user } = await createTestUser({
+    email: `guide-${randomUUID()}@test.local`,
+    fullName,
+    role: 'requester',
+    branchId
+  });
+  return user;
 }
 
 // `preparedBy` is required with no default in schema.prisma — omitting it

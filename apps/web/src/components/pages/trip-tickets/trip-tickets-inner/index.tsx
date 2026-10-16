@@ -44,7 +44,7 @@ import {
 } from './actions';
 import { FuelAllocationDialog, ReasonDialog } from '../transition-dialogs';
 import { TripDatesSection } from './dates-section';
-import { useTripTicket } from '@/lib/query/trip-tickets';
+import { useGuideOptions, useTripTicket } from '@/lib/query/trip-tickets';
 import {
   useApproveTripTicket,
   useCancelTripTicket,
@@ -54,11 +54,7 @@ import {
 } from '@/lib/mutation/trip-tickets';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useAllVehicles } from '@/lib/query/vehicles';
-import {
-  useBranches,
-  useBranchesForDisplay,
-  useEmployees
-} from '@/lib/query/shared';
+import { useBranches, useBranchesForDisplay } from '@/lib/query/shared';
 import { useDepartmentOfficesForDisplay } from '@/lib/query/offices';
 import { useAdmins, useAllUsers } from '@/lib/query/user-management';
 import { useAuth } from '@/hooks/use-auth';
@@ -137,16 +133,8 @@ const TripTicketsInner = () => {
   const { data: offices } = useDepartmentOfficesForDisplay();
   const { data: admins } = useAdmins();
   const { data: allUsers } = useAllUsers();
-  // The reassign picker's roster — this ticket's own branch, since a guide
-  // belongs to the branch the trip was booked under and that never changes
-  // after booking (design §5.2). Disabled until the ticket itself has
-  // loaded: otherwise this fires with `branchId: undefined` on every mount
-  // — the whole company's roster, unpaginated — before there is a branch id
-  // to scope it to, or anything on screen that reads the result.
-  const { data: reassignEmployees, isLoading: reassignEmployeesLoading } =
-    useEmployees(tripTicket?.branch_id, {
-      enabled: !!tripTicket?.branch_id
-    });
+  const { data: guideOptions = [], isLoading: guidesLoading } =
+    useGuideOptions();
   const { user } = useAuth();
   const { data: userRole } = useUserRole();
   const updateTripTicket = useUpdateTripTicket();
@@ -409,15 +397,6 @@ const TripTicketsInner = () => {
     (status === TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL ||
       status === TRIP_TICKET_STATUS.APPROVED ||
       status === TRIP_TICKET_STATUS.IN_PROGRESS);
-  // Branch membership is deliberately NOT re-checked server-side on the
-  // reassign endpoint (transitions.ts: "the picker is branch-locked in the
-  // UI only") — an archived employee is still refused there, but a guide
-  // from another branch is not. This filter is the entire guarantee, the
-  // same one the booking form's branchEmployees applies, kept here rather
-  // than trusting the `branchId` query param alone to survive a cache hit.
-  const reassignBranchEmployees = (reassignEmployees ?? []).filter(
-    (e) => e.branch_id === tripTicket.branch_id
-  );
   const transitionPending =
     approveTripTicket.isPending ||
     disapproveTripTicket.isPending ||
@@ -1100,9 +1079,17 @@ const TripTicketsInner = () => {
                       <div className="flex flex-col gap-3">
                         <GuidePicker
                           guideIds={reassignGuideIds}
-                          employees={reassignBranchEmployees}
-                          employeesLoading={reassignEmployeesLoading}
-                          tripBranchId={tripTicket.branch_id}
+                          guides={guideOptions}
+                          guidesLoading={guidesLoading}
+                          currentGuides={tripTicket.guides}
+                          rowError={(index) =>
+                            reassignGuideIds[index] &&
+                            !guideOptions.some(
+                              (guide) => guide.id === reassignGuideIds[index]
+                            )
+                              ? 'Choose an active driver or requester to replace this historical guide'
+                              : undefined
+                          }
                           onChangeRow={(index, value) =>
                             setReassignGuideIds((prev) =>
                               prev.map((id, i) => (i === index ? value : id))
@@ -1122,7 +1109,15 @@ const TripTicketsInner = () => {
                             type="button"
                             size="sm"
                             disabled={
-                              reassignGuideIds.filter(Boolean).length === 0
+                              reassignGuideIds.filter(Boolean).length === 0 ||
+                              reassignGuideIds
+                                .filter(Boolean)
+                                .some(
+                                  (id) =>
+                                    !guideOptions.some(
+                                      (guide) => guide.id === id
+                                    )
+                                )
                             }
                             onClick={() => setShowReassignConfirm(true)}
                           >

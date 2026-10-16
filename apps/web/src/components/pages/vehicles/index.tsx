@@ -3,7 +3,6 @@ import ListSearchInput from '@/components/shared/list-search-input';
 import { useVehicles } from '@/lib/query/vehicles';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { buttonVariants } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -93,117 +92,115 @@ const Vehicles = () => {
   );
 
   const table = (
-    <Card>
-      <CardContent className="pt-6">
-        {/* No fixed column widths. Pinning them summed to less than the table
+    <>
+      {/* No fixed column widths. Pinning them summed to less than the table
             and auto-layout dumped every spare pixel into the LAST column, so the
             data bunched left behind a wide empty Branch. Left free, the browser
             spreads the slack across the columns in proportion to what is in
             them. Numbers are right-aligned so they line up to scan down. */}
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {/* sortKey values come from the API's VEHICLE_SORT_COLUMNS
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {/* sortKey values come from the API's VEHICLE_SORT_COLUMNS
                   allowlist: `make` orders the composite Vehicle title,
                   `branch` orders by the related branch's name. */}
-              <SortableTableHead
-                label="Vehicle"
-                sortKey="make"
-                sort={sort}
-                onSort={handleSort}
-              />
-              <SortableTableHead
-                label="Plate"
-                sortKey="licensePlate"
-                sort={sort}
-                onSort={handleSort}
-              />
-              <SortableTableHead
-                label="Status"
-                sortKey="status"
-                sort={sort}
-                onSort={handleSort}
-              />
-              <SortableTableHead
-                label="Odometer"
-                sortKey="mileage"
-                sort={sort}
-                onSort={handleSort}
-                className="text-right"
-              />
-              <SortableTableHead
-                label="Fuel"
-                sortKey="fuelType"
-                sort={sort}
-                onSort={handleSort}
-              />
-              <SortableTableHead
-                label="Seats"
-                sortKey="capacity"
-                sort={sort}
-                onSort={handleSort}
-                className="text-right"
-              />
-              <SortableTableHead
-                label="Branch"
-                sortKey="branch"
-                sort={sort}
-                onSort={handleSort}
-              />
+            <SortableTableHead
+              label="Vehicle"
+              sortKey="make"
+              sort={sort}
+              onSort={handleSort}
+            />
+            <SortableTableHead
+              label="Plate"
+              sortKey="licensePlate"
+              sort={sort}
+              onSort={handleSort}
+            />
+            <SortableTableHead
+              label="Status"
+              sortKey="status"
+              sort={sort}
+              onSort={handleSort}
+            />
+            <SortableTableHead
+              label="Odometer"
+              sortKey="mileage"
+              sort={sort}
+              onSort={handleSort}
+              className="text-right"
+            />
+            <SortableTableHead
+              label="Fuel"
+              sortKey="fuelType"
+              sort={sort}
+              onSort={handleSort}
+            />
+            <SortableTableHead
+              label="Seats"
+              sortKey="capacity"
+              sort={sort}
+              onSort={handleSort}
+              className="text-right"
+            />
+            <SortableTableHead
+              label="Branch"
+              sortKey="branch"
+              sort={sort}
+              onSort={handleSort}
+            />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {vehicles.map((vehicle) => (
+            <TableRow
+              key={vehicle.id}
+              className="hover:bg-muted cursor-pointer"
+              onClick={() =>
+                navigate({
+                  to: '/vehicles/$vehicleId',
+                  params: { vehicleId: vehicle.id }
+                })
+              }
+            >
+              <TableCell>
+                <div className="flex items-center gap-3">
+                  <EntityImage
+                    src={vehicle.images?.[0]}
+                    alt=""
+                    className="border-border h-10 w-14 shrink-0 rounded-md border"
+                  />
+                  <span className="font-medium">{vehicleTitle(vehicle)}</span>
+                </div>
+              </TableCell>
+              <TableCell className="font-mono text-sm whitespace-nowrap">
+                {vehicle.license_plate}
+              </TableCell>
+              <TableCell>
+                <StatusBadge status={vehicle.status ?? ''} />
+              </TableCell>
+              <TableCell className="text-right text-sm whitespace-nowrap tabular-nums">
+                {odometer(vehicle.mileage) ?? '—'}
+              </TableCell>
+              <TableCell className="text-sm whitespace-nowrap">
+                {vehicle.fuel_type ? titleCase(vehicle.fuel_type) : '—'}
+              </TableCell>
+              <TableCell className="text-right text-sm tabular-nums">
+                {vehicle.capacity ?? '—'}
+              </TableCell>
+              <TableCell className="text-sm">
+                {branchLabel(vehicle) ?? '—'}
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {vehicles.map((vehicle) => (
-              <TableRow
-                key={vehicle.id}
-                className="hover:bg-muted cursor-pointer"
-                onClick={() =>
-                  navigate({
-                    to: '/vehicles/$vehicleId',
-                    params: { vehicleId: vehicle.id }
-                  })
-                }
-              >
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <EntityImage
-                      src={vehicle.images?.[0]}
-                      alt=""
-                      className="border-border h-10 w-14 shrink-0 rounded-md border"
-                    />
-                    <span className="font-medium">{vehicleTitle(vehicle)}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="font-mono text-sm whitespace-nowrap">
-                  {vehicle.license_plate}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={vehicle.status ?? ''} />
-                </TableCell>
-                <TableCell className="text-right text-sm whitespace-nowrap tabular-nums">
-                  {odometer(vehicle.mileage) ?? '—'}
-                </TableCell>
-                <TableCell className="text-sm whitespace-nowrap">
-                  {vehicle.fuel_type ? titleCase(vehicle.fuel_type) : '—'}
-                </TableCell>
-                <TableCell className="text-right text-sm tabular-nums">
-                  {vehicle.capacity ?? '—'}
-                </TableCell>
-                <TableCell className="text-sm">
-                  {branchLabel(vehicle) ?? '—'}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+          ))}
+        </TableBody>
+      </Table>
 
-        <TablePagination
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
-      </CardContent>
-    </Card>
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
+    </>
   );
 
   return (
@@ -218,17 +215,16 @@ const Vehicles = () => {
         }
       />
 
-      <div className="mb-6">
-        <ListSearchInput
-          value={search}
-          onChange={setSearch}
-          label="Search vehicles"
-        />
-      </div>
-
       {/* The server count drives the empty state, so a page past the end of
           the list never reads as an empty fleet. */}
       <ViewTabs
+        searchControl={
+          <ListSearchInput
+            value={search}
+            onChange={setSearch}
+            label="Search vehicles"
+          />
+        }
         grid={grid}
         table={table}
         emptyState={

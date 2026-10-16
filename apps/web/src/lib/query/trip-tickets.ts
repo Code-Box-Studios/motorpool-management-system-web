@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import {
   getTripTickets,
   getTripTicketById,
-  getAllTripTickets
+  getAllTripTickets,
+  getTripGuideOptions
 } from '@/lib/api/trip-tickets';
 
 export const useTripTickets = (
@@ -50,3 +51,10 @@ export const useTripTicket = (id: string) => {
     enabled: !!id
   });
 };
+
+// Complete public roster across branches; the API applies role and status rules.
+export const useGuideOptions = () =>
+  useQuery({
+    queryKey: ['trip_guide_options'],
+    queryFn: getTripGuideOptions
+  });

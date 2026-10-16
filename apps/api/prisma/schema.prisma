@@ -132,6 +132,7 @@ model User {
   userRole      UserRole?
   refreshTokens RefreshToken[]
   driver        Driver?
+  guideAssignments TripTicketEmployee[]
 
   requestedTripTickets     TripTicket[]               @relation("TicketRequestedBy")
   adminApprovedTickets     TripTicket[]               @relation("TicketApprovedByAdmin")
@@ -369,6 +370,8 @@ model TripTicket {
   officeId            String?          @map("office_id") @db.Uuid
   officeHeadId        String?          @map("office_head_id") @db.Uuid
   destination         String
+  destinationLatitude Float? @map("destination_latitude")
+  destinationLongitude Float? @map("destination_longitude")
   purpose             String
   dateRequested       DateTime         @map("date_requested") @db.Date
   participants        String[]         @default([])
@@ -425,16 +428,21 @@ model TripTicket {
 }
 
 model TripTicketEmployee {
+  id           String   @id @default(uuid()) @db.Uuid
   tripTicketId String   @map("trip_ticket_id") @db.Uuid
-  employeeId   String   @map("employee_id") @db.Uuid
+  employeeId   String?  @map("employee_id") @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
   tripTicket TripTicket @relation(fields: [tripTicketId], references: [id], onDelete: Cascade)
-  employee   Employee   @relation(fields: [employeeId], references: [id])
+  employee   Employee?  @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  user       User?      @relation(fields: [userId], references: [id], onDelete: Restrict)
 
-  @@id([tripTicketId, employeeId])
+  @@unique([tripTicketId, employeeId])
+  @@unique([tripTicketId, userId])
   @@index([employeeId])
+  @@index([userId])
   @@map("trip_ticket_employees")
 }
 

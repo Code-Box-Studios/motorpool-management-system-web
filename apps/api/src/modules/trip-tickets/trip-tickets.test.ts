@@ -5,7 +5,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   authHeader,
   createTestBranch,
-  createTestEmployee,
+  createTestGuide,
   createTestUser
 } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
@@ -38,7 +38,7 @@ async function scaffold() {
       branchId: branch.id
     }
   });
-  const employee = await createTestEmployee(branch.id, 'Ana Guide');
+  const employee = await createTestGuide(branch.id, 'Ana Guide');
   return { branch, vehicle, driver, employee };
 }
 

@@ -1,4 +1,9 @@
-import { expect, type Page, type APIRequestContext } from '@playwright/test';
+import {
+  expect,
+  type Page,
+  type APIRequestContext,
+  type Locator
+} from '@playwright/test';
 
 // The five seeded demo accounts (all share one password).
 export const CREDENTIALS = {
@@ -25,6 +30,58 @@ export async function login(page: Page, role: Role): Promise<void> {
   await page.locator('#login-password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign In' }).click();
   await page.waitForURL(/\/dashboard/, { timeout: 20_000 });
+}
+
+// Drive the booking calendar through its public controls, including dates in
+// a later month. The selected value remains a local calendar day.
+export async function pickDate(
+  page: Page,
+  trigger: Locator,
+  value: string
+): Promise<void> {
+  const target = new Date(`${value}T12:00:00`);
+  const targetMonth = target.getFullYear() * 12 + target.getMonth();
+  await trigger.click();
+  const calendar = page.getByRole('dialog', {
+    name: 'Choose date',
+    exact: true
+  });
+  for (let attempt = 0; attempt < 120; attempt++) {
+    const heading = await calendar
+      .getByRole('heading', { level: 3 })
+      .innerText();
+    const visible = new Date(`1 ${heading}`);
+    const visibleMonth = visible.getFullYear() * 12 + visible.getMonth();
+    if (visibleMonth === targetMonth) break;
+    if (Math.abs(targetMonth - visibleMonth) >= 12) {
+      await calendar
+        .getByRole('grid')
+        .locator('button[tabindex="0"]')
+        .press(targetMonth > visibleMonth ? 'Shift+PageDown' : 'Shift+PageUp');
+      await expect(calendar.getByRole('heading', { level: 3 })).not.toHaveText(
+        heading
+      );
+      continue;
+    }
+    await calendar
+      .getByRole('button', {
+        name: visibleMonth < targetMonth ? 'Next month' : 'Previous month',
+        exact: true
+      })
+      .click();
+  }
+  await calendar
+    .getByRole('button', {
+      name: new Intl.DateTimeFormat('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      }).format(target),
+      exact: true
+    })
+    .click();
+  await expect(calendar).toBeHidden();
 }
 
 // Saves a full-page screenshot under e2e/screenshots for visual inspection.

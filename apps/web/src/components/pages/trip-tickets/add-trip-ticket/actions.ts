@@ -79,12 +79,12 @@ const tripTicketSchema = z.object({
 
   // Trip purpose and participants
   purpose: z.string().min(1, 'Purpose is required'),
-  // Employees are ids, one per row. Participant names also remain separate
+  // Guides are user ids, one per row. Participant names also remain separate
   // array entries so a name containing a comma stays one person. An unfilled row is '' and fails .uuid(),
   // which is what the per-row message is for. At least one is required
   // (design §5.3); the server refuses an empty list with 400 VALIDATION_ERROR.
   guide_ids: z
-    .array(z.string().uuid('Pick an employee for this row'))
+    .array(z.string().uuid('Select a driver or requester'))
     .min(1, 'A trip needs at least one guide'),
   participants: z
     .array(z.string().trim().min(1))
@@ -97,6 +97,8 @@ const tripTicketSchema = z.object({
   vehicle_id: z.string().uuid('Please select a vehicle'),
   driver_id: z.string().uuid('Please select a driver'),
   destination: z.string().min(1, 'Destination is required'),
+  destination_latitude: z.number().min(-90).max(90).nullable(),
+  destination_longitude: z.number().min(-180).max(180).nullable(),
 
   // One or more non-consecutive outings (an event on the 17th AND the 21st is
   // one ticket, two dates) — mirrors the server's own checks (dates.ts) so a
@@ -135,6 +137,8 @@ export const useTripTicketForm = () => {
       vehicle_id: '',
       driver_id: '',
       destination: '',
+      destination_latitude: null,
+      destination_longitude: null,
       // 08:00-17:00: a working default window, matching what "Add another
       // date" seeds a new row with — so the first row, an appended row, and
       // (via form.tsx's initialDate effect, which only fills in the date)

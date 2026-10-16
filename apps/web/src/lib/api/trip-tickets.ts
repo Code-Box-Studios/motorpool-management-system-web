@@ -63,37 +63,53 @@ function dateToSnake(d: TripDateApiResponse): TripDateRow {
   };
 }
 
-// One employee guiding a trip, flattened out of the TripTicketEmployee join the
-// API embeds. The join row itself carries nothing worth rendering (a composite
-// key and two timestamps), so this is the EMPLOYEE — which is what a ticket has
-// to show, including after that employee has been archived (design §8).
+// Guides normalize both current user assignments and historical employee rows.
 export interface TripGuideRow {
   id: string;
   name: string;
   position: string | null;
 }
 
-// Shape of a TripTicketEmployee row as embedded on a ticket response, with its
-// `employee` included (repository.ts's tripTicketInclude).
 interface TripGuideApiResponse {
-  tripTicketId: string;
-  employeeId: string;
-  employee: {
+  employee: { id: string; name: string; position: string | null } | null;
+  user: {
     id: string;
-    name: string;
-    position: string | null;
-    phone: string | null;
-    branchId: string;
-    archivedAt: string | null;
-  };
+    fullName: string;
+    userRole: { role: { name: string } } | null;
+  } | null;
+}
+
+function guideRoleLabel(role: string | undefined): string | null {
+  if (!role) return null;
+  return role
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function guideToSnake(g: TripGuideApiResponse): TripGuideRow {
+  if (g.user) {
+    return {
+      id: g.user.id,
+      name: g.user.fullName,
+      position: guideRoleLabel(g.user.userRole?.role.name)
+    };
+  }
   return {
-    id: g.employee.id,
-    name: g.employee.name,
-    position: g.employee.position ?? null
+    id: g.employee!.id,
+    name: g.employee!.name,
+    position: g.employee!.position ?? null
   };
+}
+
+export async function getTripGuideOptions(): Promise<TripGuideRow[]> {
+  const users = await api.get<{ id: string; fullName: string; role: string }[]>(
+    '/trip-tickets/guide-options'
+  );
+  return users.map((user) => ({
+    id: user.id,
+    name: user.fullName,
+    position: guideRoleLabel(user.role)
+  }));
 }
 
 // Shape of the `fuelAllocation` embed (Prisma `FuelAllocation` model, camelCase).
@@ -126,6 +142,8 @@ interface TripTicketApiResponse {
   officeId: string | null;
   officeHeadId: string | null;
   destination: string;
+  destinationLatitude: number | null;
+  destinationLongitude: number | null;
   purpose: string;
   dateRequested: string;
   participants: string[];
@@ -164,6 +182,8 @@ function toSnake(t: TripTicketApiResponse): TripTicket {
     office_id: t.officeId ?? null,
     office_head_id: t.officeHeadId ?? null,
     destination: t.destination,
+    destination_latitude: t.destinationLatitude ?? null,
+    destination_longitude: t.destinationLongitude ?? null,
     purpose: t.purpose,
     date_requested: t.dateRequested.slice(0, 10), // @db.Date -> YYYY-MM-DD for <input type="date">/display
     participants: t.participants ?? [],
@@ -225,6 +245,8 @@ interface TripTicketRequestBody {
   officeId?: string;
   officeHeadId?: string;
   destination?: string;
+  destinationLatitude?: number | null;
+  destinationLongitude?: number | null;
   purpose?: string;
   dateRequested?: string;
   participants?: string[];
@@ -250,6 +272,8 @@ function mapCreateBody(t: NewTripTicket): TripTicketRequestBody {
     officeId: t.office_id || undefined,
     officeHeadId: t.office_head_id || undefined,
     destination: t.destination,
+    destinationLatitude: t.destination_latitude,
+    destinationLongitude: t.destination_longitude,
     purpose: t.purpose,
     dateRequested: t.date_requested,
     participants: t.participants ?? undefined,
@@ -283,6 +307,10 @@ function mapUpdateBody(u: Record<string, unknown>): TripTicketRequestBody {
   if (u.office_head_id !== undefined)
     body.officeHeadId = (u.office_head_id as string) || undefined;
   if (u.destination !== undefined) body.destination = u.destination as string;
+  if (u.destination_latitude !== undefined)
+    body.destinationLatitude = u.destination_latitude as number | null;
+  if (u.destination_longitude !== undefined)
+    body.destinationLongitude = u.destination_longitude as number | null;
   if (u.purpose !== undefined) body.purpose = u.purpose as string;
   if (u.date_requested !== undefined)
     body.dateRequested = u.date_requested as string;

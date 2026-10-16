@@ -19,6 +19,7 @@ export const tripTicketsRouter = Router();
 
 tripTicketsRouter.use(requireAuth);
 tripTicketsRouter.get('/', controller.list); // any authenticated role, service-scoped
+tripTicketsRouter.get('/guide-options', controller.guideOptions);
 tripTicketsRouter.get('/:id', controller.getById);
 tripTicketsRouter.post(
   '/',

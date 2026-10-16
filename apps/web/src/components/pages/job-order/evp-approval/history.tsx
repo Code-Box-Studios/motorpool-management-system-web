@@ -36,38 +36,38 @@ export default function ApprovalHistory() {
   const count = data?.count ?? 0;
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <ListSearchInput
-          value={search}
-          onChange={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          label="Search approval history"
-        />
-        <p className="text-muted-foreground text-sm" aria-live="polite">
-          {count} decision{count === 1 ? '' : 's'} · Newest first
-        </p>
-      </div>
-      {isLoading ? (
-        <Skeleton className="h-56 w-full rounded-[20px]" />
-      ) : error ? (
-        <p role="alert" className="text-destructive">
-          Unable to load approval history. {error.message}
-        </p>
-      ) : records.length === 0 ? (
-        <EmptyState
-          message="No decisions recorded yet."
-          search={search}
-          onClearSearch={() => {
-            setSearch('');
-            setPage(1);
-          }}
-        />
-      ) : (
-        <Card>
-          <CardContent className="pt-4">
+    <Card>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <ListSearchInput
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            label="Search approval history"
+          />
+          <p className="text-muted-foreground text-sm" aria-live="polite">
+            {count} decision{count === 1 ? '' : 's'} · Newest first
+          </p>
+        </div>
+        {isLoading ? (
+          <Skeleton className="h-56 w-full rounded-[20px]" />
+        ) : error ? (
+          <p role="alert" className="text-destructive">
+            Unable to load approval history. {error.message}
+          </p>
+        ) : records.length === 0 ? (
+          <EmptyState
+            message="No decisions recorded yet."
+            search={search}
+            onClearSearch={() => {
+              setSearch('');
+              setPage(1);
+            }}
+          />
+        ) : (
+          <>
             <Table className="min-w-[1000px]">
               <TableHeader>
                 <TableRow>
@@ -165,9 +165,9 @@ export default function ApprovalHistory() {
               totalPages={Math.ceil(count / LIMIT)}
               onPageChange={setPage}
             />
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

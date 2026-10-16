@@ -2,6 +2,7 @@ import type { NotificationType, Prisma } from '@prisma/client';
 import { USER_ROLES } from '@mms/shared';
 import { prisma } from '../../lib/prisma.js';
 import * as repository from './repository.js';
+import { historicalNotificationText } from './history.js';
 
 // ---------- Reading (the bell) ----------
 
@@ -13,7 +14,10 @@ export async function list(
     repository.listForUser(userId, opts),
     repository.countUnread(userId)
   ]);
-  return { data, unread };
+  return {
+    data: data.map((row) => ({ ...row, ...historicalNotificationText(row) })),
+    unread
+  };
 }
 
 export async function markRead(userId: string, ids: string[]) {
@@ -92,11 +96,12 @@ export async function notify(
   ];
   if (recipients.length === 0) return 0;
 
+  const copy = historicalNotificationText(input);
   const rows = recipients.map((userId) => ({
     userId,
     type: input.type,
-    title: input.title,
-    body: input.body ?? null,
+    title: copy.title,
+    body: copy.body,
     linkTo: input.linkTo ?? null
   }));
 
