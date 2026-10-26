@@ -34,6 +34,7 @@ import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import TablePagination from '@/components/shared/table-pagination';
 import SortableTableHead from '@/components/shared/sortable-table-head';
 import { useListControls } from '@/hooks/use-list-controls';
+import { useListView } from '@/hooks/use-list-view';
 import EmptyState from '@/components/shared/empty-state';
 import { NoteJobOrderModal } from './job-order-inner/note-job-order-modal';
 import { ApproveJobOrderModal } from './job-order-inner/approve-job-order-modal';
@@ -126,6 +127,7 @@ const JobOrdersPage = () => {
     clearFilters,
     hasFilters
   } = useListControls(FILTER_KEYS);
+  const { view, setView } = useListView(['table', 'calendar'], 'table');
   const limit = 10;
 
   const isAdmin = userRole?.roles?.name === 'admin';
@@ -248,7 +250,7 @@ const JobOrdersPage = () => {
       <Card>
         <CardContent>
           {/* Table first: it answers "what needs doing". The calendar is for planning. */}
-          <Tabs defaultValue="table" className="w-full gap-0">
+          <Tabs value={view} onValueChange={setView} className="w-full gap-0">
             <ListToolbar
               viewControl={
                 <TabsList className="grid w-[220px] max-w-full grid-cols-2">

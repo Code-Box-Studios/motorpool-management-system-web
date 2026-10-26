@@ -284,8 +284,38 @@ test('maintenance filters match priority badges and confidence without changing 
 });
 
 test('approval request and outcome filters preserve the pending action count', async ({
-  page
+  page,
+  request
 }) => {
+  // Demo approvals change during manual testing. Supply pending read fixtures
+  // without changing real trips or job orders in the shared local database.
+  const actor = await apiLogin(request, CREDENTIALS.admin);
+  const [trips, jobs] = await Promise.all([
+    apiGet(request, '/api/trip-tickets', actor.token).then(listData),
+    apiGet(request, '/api/job-orders', actor.token).then(listData)
+  ]);
+  expect(trips.length).toBeGreaterThan(0);
+  expect(jobs.length).toBeGreaterThan(0);
+  await page.route(
+    (url) => url.pathname === '/api/trip-tickets',
+    (route) =>
+      route.fulfill({
+        json: {
+          data: [{ ...trips[0], status: 'pending_fuel_allocation_approval' }],
+          count: 1
+        }
+      })
+  );
+  await page.route(
+    (url) => url.pathname === '/api/job-orders',
+    (route) =>
+      route.fulfill({
+        json: {
+          data: [{ ...jobs[0], status: 'assigned_mechanic' }],
+          count: 1
+        }
+      })
+  );
   await login(page, 'evp');
   await expect(page.getByText(/Fuel sign-off · Trip tickets/)).toBeVisible();
   const headline = await page.getByRole('heading', { level: 1 }).innerText();

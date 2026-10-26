@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useListView } from '@/hooks/use-list-view';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import ListToolbar from '@/components/shared/list-toolbar';
@@ -36,35 +37,38 @@ const ViewTabs = ({
   filterControl,
   emptyState,
   defaultView = 'table'
-}: ViewTabsProps) => (
-  <Tabs defaultValue={defaultView} className="w-full">
-    {/* Table first: the view a page opens on leads the control, as it does on
+}: ViewTabsProps) => {
+  const { view, setView } = useListView(['table', 'grid'], defaultView);
+  return (
+    <Tabs value={view} onValueChange={setView} className="w-full">
+      {/* Table first: the view a page opens on leads the control, as it does on
         the trip-ticket and job-order tables. */}
-    <Card>
-      <CardContent>
-        <ListToolbar
-          viewControl={
-            <TabsList className="grid w-[220px] max-w-full grid-cols-2">
-              <TabsTrigger value="table" className={ACTIVE_TAB}>
-                Table
-              </TabsTrigger>
-              <TabsTrigger value="grid" className={ACTIVE_TAB}>
-                Grid
-              </TabsTrigger>
-            </TabsList>
-          }
-          searchControl={searchControl}
-          filterControl={filterControl}
-        />
-        <TabsContent value="table" className="mt-0">
-          {emptyState ?? table}
-        </TabsContent>
-      </CardContent>
-    </Card>
-    <TabsContent value="grid" className="mt-6">
-      {emptyState ?? grid}
-    </TabsContent>
-  </Tabs>
-);
+      <Card>
+        <CardContent>
+          <ListToolbar
+            viewControl={
+              <TabsList className="grid w-[220px] max-w-full grid-cols-2">
+                <TabsTrigger value="table" className={ACTIVE_TAB}>
+                  Table
+                </TabsTrigger>
+                <TabsTrigger value="grid" className={ACTIVE_TAB}>
+                  Grid
+                </TabsTrigger>
+              </TabsList>
+            }
+            searchControl={searchControl}
+            filterControl={filterControl}
+          />
+          <TabsContent value="table" className="mt-0">
+            {emptyState ?? table}
+          </TabsContent>
+        </CardContent>
+      </Card>
+      <TabsContent value="grid" className="mt-6">
+        {emptyState ?? grid}
+      </TabsContent>
+    </Tabs>
+  );
+};
 
 export default ViewTabs;

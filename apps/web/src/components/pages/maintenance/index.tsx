@@ -38,13 +38,14 @@ import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import TablePagination from '@/components/shared/table-pagination';
 import SortableTableHead from '@/components/shared/sortable-table-head';
 import { useListControls } from '@/hooks/use-list-controls';
+import { useListView } from '@/hooks/use-list-view';
 import EmptyState from '@/components/shared/empty-state';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import PreventiveMaintenance from '../dashboard/preventive-maintenance';
 import PredictiveMaintenance from '../dashboard/predictive-maintenance';
 
@@ -109,7 +110,8 @@ const MaintenancePage = () => {
   const deleteMaintenance = useDeleteMaintenance();
   const searchParams = useSearch({ strict: false }) as { tab?: string };
   const activeTab = searchParams.tab || 'schedule';
-  const [scheduleView, setScheduleView] = useState<'calendar' | 'table'>(
+  const { view: scheduleView, setView: setScheduleView } = useListView(
+    ['calendar', 'table'],
     'calendar'
   );
   const maintenances = tableData?.data ?? [];
@@ -222,9 +224,7 @@ const MaintenancePage = () => {
                   second full-width tab bar competing with the one above. */}
               <Tabs
                 value={scheduleView}
-                onValueChange={(value) =>
-                  setScheduleView(value as 'calendar' | 'table')
-                }
+                onValueChange={setScheduleView}
                 className="w-full gap-0"
               >
                 <ListToolbar

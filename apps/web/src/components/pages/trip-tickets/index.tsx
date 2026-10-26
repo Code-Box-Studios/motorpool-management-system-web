@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/table';
 import SortableTableHead from '@/components/shared/sortable-table-head';
 import { useListControls } from '@/hooks/use-list-controls';
+import { useListView } from '@/hooks/use-list-view';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TableSkeleton } from '@/components/shared/skeleton/table-skeleton';
 import EmptyState from '@/components/shared/empty-state';
@@ -185,6 +186,7 @@ const TripTicketsPage = () => {
     clearFilters,
     hasFilters
   } = useListControls(FILTER_KEYS);
+  const { view, setView } = useListView(['table', 'calendar'], 'table');
   const limit = 10;
   const { data: tableData, isLoading: isTableLoading } = useTripTickets(
     page,
@@ -409,7 +411,7 @@ const TripTicketsPage = () => {
         <CardContent>
           {/* The table is the operational view — it answers "what needs doing".
               The calendar is the secondary, planning view. */}
-          <Tabs defaultValue="table" className="w-full gap-0">
+          <Tabs value={view} onValueChange={setView} className="w-full gap-0">
             <ListToolbar
               viewControl={
                 <TabsList className="grid w-[220px] max-w-full grid-cols-2">
