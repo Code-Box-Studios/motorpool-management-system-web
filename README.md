@@ -363,7 +363,7 @@ On top of the day-to-day records, the system offers three kinds of insight (avai
 
 - **Predictive maintenance.** A per-vehicle **risk assessment** that ranks vehicles by how likely they are to need attention soon, based on mileage and maintenance patterns. Each vehicle gets a **risk score** and a **priority**, highest-risk first. If the predictive model can't produce a score for a vehicle, the system falls back to a straightforward rule-based estimate so there's always a ranking.
 
-- **Spare-parts association rules.** Learned from past repairs — which spare parts tend to be replaced **together**. This helps anticipate what else a repair might need. It can be focused on a particular vehicle make.
+- **Spare-parts association rules.** **Apriori is the default** and finds parts commonly replaced together using live job-order history. FP-Growth and Eclat are available as saved-model alternatives. Choose another model and select **Run Model** to apply it. Results identify the selected model and the history behind its recommendations.
 
 ---
 

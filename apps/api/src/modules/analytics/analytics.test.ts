@@ -322,13 +322,18 @@ describe('analytics module', () => {
     }
   );
 
-  it('defaults to FP-Growth and rejects an unknown association algorithm', async () => {
+  it('defaults to live Apriori and rejects an unknown association algorithm', async () => {
     const header = await adminHeader();
     const defaultResult = await request(app)
       .get('/api/analytics/association-models')
       .set('Authorization', header);
     expect(defaultResult.status).toBe(200);
-    expect(defaultResult.body.algorithm).toBe('fp_growth');
+    expect(defaultResult.body).toMatchObject({
+      algorithm: 'apriori',
+      source: 'live_job_orders',
+      transactionCount: 0,
+      data: []
+    });
     const invalid = await request(app)
       .get('/api/analytics/association-models?algorithm=random_forest')
       .set('Authorization', header);

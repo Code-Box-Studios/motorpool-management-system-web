@@ -5,6 +5,9 @@ import {
 } from './analytics.js';
 
 describe('analytics algorithm selection', () => {
+  it('defaults parts recommendations to Apriori when no algorithm is supplied', () => {
+    expect(sparePartsModelQuerySchema.parse({}).algorithm).toBe('apriori');
+  });
   it.each(['random_forest', 'decision_tree', 'logistic_regression'])(
     'accepts predictive choice %s',
     (algorithm) => {

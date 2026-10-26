@@ -229,15 +229,17 @@ test('maintenance filters match priority badges and confidence without changing 
     })
   );
   await page.route(
-    '**/api/analytics/association-models?algorithm=fp_growth',
+    '**/api/analytics/association-models?algorithm=apriori',
     (route) =>
       route.fulfill({
         json: {
-          algorithm: 'fp_growth',
-          modelName: 'FP-Growth',
-          sourceFile: 'mms_fpgrowth_model.pkl',
-          sourceSha256: '0'.repeat(64),
-          trainingTransactions: 21,
+          algorithm: 'apriori',
+          modelName: 'Apriori',
+          source: 'live_job_orders',
+          sourceFile: null,
+          sourceSha256: null,
+          trainingTransactions: null,
+          transactionCount: 21,
           minSupport: 2 / 21,
           data: [
             {

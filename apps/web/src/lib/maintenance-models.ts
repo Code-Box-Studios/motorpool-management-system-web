@@ -1,6 +1,7 @@
-import type {
-  PredictiveMaintenanceAlgorithm,
-  SparePartsModelAlgorithm
+import {
+  DEFAULT_SPARE_PARTS_MODEL,
+  type PredictiveMaintenanceAlgorithm,
+  type SparePartsModelAlgorithm
 } from '@mms/shared';
 
 export interface MaintenanceModels {
@@ -10,7 +11,7 @@ export interface MaintenanceModels {
 
 export const DEFAULT_MAINTENANCE_MODELS: MaintenanceModels = {
   risk: 'random_forest',
-  parts: 'fp_growth'
+  parts: DEFAULT_SPARE_PARTS_MODEL
 };
 
 export const RISK_MODEL_NAMES = {

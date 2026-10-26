@@ -105,9 +105,9 @@ export default function MaintenanceModelControls({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="fp_growth">FP-Growth (Default)</SelectItem>
+                <SelectItem value="apriori">Apriori (Default)</SelectItem>
+                <SelectItem value="fp_growth">FP-Growth</SelectItem>
                 <SelectItem value="eclat">Eclat</SelectItem>
-                <SelectItem value="apriori">Apriori</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-muted-foreground text-xs">

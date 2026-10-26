@@ -68,8 +68,10 @@ export type SparePartsModelAlgorithm = z.infer<
   typeof sparePartsModelAlgorithmSchema
 >;
 
+export const DEFAULT_SPARE_PARTS_MODEL = 'apriori' as const;
+
 export const sparePartsModelQuerySchema = z.object({
-  algorithm: sparePartsModelAlgorithmSchema.default('fp_growth')
+  algorithm: sparePartsModelAlgorithmSchema.default(DEFAULT_SPARE_PARTS_MODEL)
 });
 
 const sparePartsModelBaseSchema = z.object({

@@ -12,11 +12,11 @@ currently contain the same rules; selecting another algorithm need not change
 the results. They describe spare-part co-replacement, not vehicle failure risk.
 
 Maintenance → Predictive starts with separate vehicle-risk and parts model
-controls. FP-Growth is the default parts model; subsequent selections
-apply only when Run Model is clicked. Results show the model, training sample,
-confidence, support, and lift. Run Model loads saved rules; it does not retrain
-or incorporate new job orders. The existing `/api/analytics/association-rules`
-endpoint still mines live job-order data independently.
+controls. Apriori is the default parts model in both the UI and the API. It mines
+live job-order transactions; FP-Growth and Eclat load their supplied rule bundles.
+Subsequent selections apply only when Run Model is clicked. Results show the
+selected model, live transaction or training sample count, confidence, support,
+and lift. Running a saved model reloads its rules without retraining it.
 
 The API serves `/api/analytics/association-models?algorithm=fp_growth` or `eclat`
 to administrators and EVP Operations. It loads committed, validated JSON assets,

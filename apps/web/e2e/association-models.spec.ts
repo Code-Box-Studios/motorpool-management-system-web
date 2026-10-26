@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { chooseFilter } from './filter-controls';
 import { login } from './helpers';
 
-test('shows unavailable Logistic Regression and applies live Apriori only after Run Model', async ({
+test('defaults to live Apriori and shows unavailable Logistic Regression', async ({
   page
 }) => {
   await login(page, 'admin');
@@ -38,9 +38,8 @@ test('shows unavailable Logistic Regression and applies live Apriori only after 
     name: 'Parts algorithm',
     exact: true
   });
-  await parts.click();
-  await page.getByRole('option', { name: 'Apriori', exact: true }).click();
-  await expect(results).toContainText('FP-Growth results');
+  await expect(parts).toContainText('Apriori (Default)');
+  await expect(results).toContainText('Apriori results');
   const [response] = await Promise.all([
     page.waitForResponse((response) =>
       response.url().includes('/analytics/association-models?algorithm=apriori')
@@ -80,12 +79,9 @@ test('runs the selected saved model and keeps draft choices separate from result
     exact: true
   });
   await expect(
-    results.getByText('FP-Growth results', { exact: true })
+    results.getByText('Apriori results', { exact: true })
   ).toBeVisible();
-  await expect(
-    results.getByText('21 training transactions · 4 rules', { exact: true })
-  ).toBeVisible();
-  await expect(results.getByRole('row')).toHaveCount(5);
+  await expect(results).toContainText('eligible live job-order transactions');
   await controls
     .getByRole('combobox', { name: 'Parts algorithm', exact: true })
     .click();
@@ -97,7 +93,7 @@ test('runs the selected saved model and keeps draft choices separate from result
   ).toBeVisible();
   expect(requests.some((url) => url.includes('algorithm=eclat'))).toBe(false);
   await expect(
-    results.getByText('FP-Growth results', { exact: true })
+    results.getByText('Apriori results', { exact: true })
   ).toBeVisible();
   const [response] = await Promise.all([
     page.waitForResponse((response) =>
@@ -132,9 +128,7 @@ test('runs the selected saved model and keeps draft choices separate from result
   await controls
     .getByRole('combobox', { name: 'Parts algorithm', exact: true })
     .click();
-  await page
-    .getByRole('option', { name: 'FP-Growth (Default)', exact: true })
-    .click();
+  await page.getByRole('option', { name: 'FP-Growth', exact: true }).click();
   const [rerun] = await Promise.all([
     page.waitForResponse((response) =>
       response
@@ -177,7 +171,7 @@ test('reports the selected model failure and can retry without showing stale res
     exact: true
   });
   await expect(
-    results.getByText('FP-Growth results', { exact: true })
+    results.getByText('Apriori results', { exact: true })
   ).toBeVisible();
   await controls
     .getByRole('combobox', { name: 'Parts algorithm', exact: true })
