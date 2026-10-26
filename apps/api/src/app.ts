@@ -22,6 +22,7 @@ import { toolsRouter } from './modules/tools/router.js';
 import { trackerDevicesRouter } from './modules/tracker-devices/router.js';
 import { tripTicketsRouter } from './modules/trip-tickets/router.js';
 import { usersRouter } from './modules/users/router.js';
+import { reportsRouter } from './modules/reports/router.js';
 import { vehiclesRouter } from './modules/vehicles/router.js';
 
 // Vite takes the next free port when 5173 is busy (a leftover dev server, a
@@ -53,7 +54,7 @@ export function createApp(): express.Express {
       credentials: true
     })
   );
-  app.use(express.json());
+  app.use(express.json({ limit: '4mb' }));
   app.use(cookieParser());
   if (process.env.NODE_ENV !== 'test' && process.env.VITEST === undefined) {
     app.use(pinoHttp());
@@ -92,6 +93,7 @@ export function createApp(): express.Express {
   app.use('/api/gps', gpsRouter);
   app.use('/api/analytics', analyticsRouter);
   app.use('/api/approvals', approvalsRouter);
+  app.use('/api/reports', reportsRouter);
 
   // Domain routers mount here in later plans.
 

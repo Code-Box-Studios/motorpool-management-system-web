@@ -44,6 +44,7 @@ import {
 } from './actions';
 import { FuelAllocationDialog, ReasonDialog } from '../transition-dialogs';
 import { TripDatesSection } from './dates-section';
+import { ParticipantsList } from './participants-list';
 import { useGuideOptions, useTripTicket } from '@/lib/query/trip-tickets';
 import {
   useApproveTripTicket,
@@ -1039,9 +1040,12 @@ const TripTicketsInner = () => {
         </form>
       ) : (
         <div className="flex flex-col gap-5">
-          <DetailSection title="Trip">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-              <DetailGrid className="min-w-0 flex-1">
+          <div className="grid min-w-0 gap-5 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_18rem]">
+            <DetailSection
+              title="Trip details"
+              className="min-w-0 sm:col-span-2 xl:col-span-1 xl:col-start-1 xl:row-start-1"
+            >
+              <DetailGrid>
                 <DetailItem
                   label="Vehicle"
                   value={
@@ -1055,25 +1059,42 @@ const TripTicketsInner = () => {
                 />
                 <DetailItem label="Plate" value={vehicle?.license_plate} mono />
                 <DetailItem label="Driver" value={driverName} />
-                <DetailItem label="Branch" value={branchName} />
-                <DetailItem label="Office" value={officeName} />
-                <DetailItem label="Requested By" value={requestedByName} />
-                <DetailItem
-                  label="Destination"
-                  value={tripTicket.destination}
-                />
-                <DetailItem
-                  label="Date Requested"
-                  value={dateOf(tripTicket.date_requested)}
-                />
+              </DetailGrid>
+              <dl className="border-border bg-muted/30 mt-5 grid gap-4 rounded-xl border p-4 sm:grid-cols-2">
                 <DetailItem
                   label="Start"
                   value={dateTimeOf(tripTicket.start_ts)}
                 />
                 <DetailItem label="End" value={dateTimeOf(tripTicket.end_ts)} />
+              </dl>
+              <dl className="mt-5 grid gap-5 sm:grid-cols-2">
+                <DetailItem
+                  label="Destination"
+                  value={tripTicket.destination}
+                />
+                <DetailItem label="Purpose" value={tripTicket.purpose} />
+                <DetailItem label="Remarks" value={tripTicket.remarks} />
+                {tripTicket.status === TRIP_TICKET_STATUS.CANCELLED && (
+                  <DetailItem
+                    label="Cancellation Reason"
+                    value={tripTicket.cancellation_reason}
+                  />
+                )}
+                {tripTicket.status === TRIP_TICKET_STATUS.DISAPPROVED && (
+                  <DetailItem
+                    label="Disapproval Reason"
+                    value={tripTicket.disapproved_reason}
+                  />
+                )}
+              </dl>
+            </DetailSection>
+            <DetailSection
+              title="People"
+              className="min-w-0 sm:col-span-2 xl:col-span-1 xl:col-start-1 xl:row-start-2"
+            >
+              <dl className="grid min-w-0 gap-5 sm:grid-cols-2">
                 <DetailItem
                   label="Guides"
-                  wide
                   value={
                     reassignOpen ? (
                       <div className="flex flex-col gap-3">
@@ -1169,47 +1190,51 @@ const TripTicketsInner = () => {
                 />
                 <DetailItem
                   label="Participants"
-                  wide
                   value={
                     participantNames.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {participantNames.map((name) => (
-                          <Badge key={name} variant="outline">
-                            {name}
-                          </Badge>
-                        ))}
-                      </div>
+                      <ParticipantsList names={participantNames} />
                     ) : undefined
                   }
                 />
-                <DetailItem label="Purpose" value={tripTicket.purpose} wide />
-                <DetailItem label="Remarks" value={tripTicket.remarks} wide />
-                {tripTicket.status === TRIP_TICKET_STATUS.CANCELLED && (
-                  <DetailItem
-                    label="Cancellation Reason"
-                    value={tripTicket.cancellation_reason}
-                    wide
+              </dl>
+            </DetailSection>
+            <DetailSection
+              title="Gate pass"
+              className="min-w-0 xl:col-start-2 xl:row-start-1"
+            >
+              <div className="flex flex-col items-center gap-4">
+                <div
+                  className="rounded-xl border border-black/10 bg-white p-4"
+                  role="img"
+                  aria-label={`QR gate pass for ${formatRef('TT', tripTicket.ticket_no)}`}
+                >
+                  <QRCode
+                    value={tripTicket.id}
+                    size={160}
+                    bgColor="#ffffff"
+                    fgColor="#000000"
                   />
-                )}
-                {tripTicket.status === TRIP_TICKET_STATUS.DISAPPROVED && (
-                  <DetailItem
-                    label="Disapproval Reason"
-                    value={tripTicket.disapproved_reason}
-                    wide
-                  />
-                )}
-              </DetailGrid>
-
-              <aside className="border-border flex shrink-0 flex-col items-center gap-3 rounded-xl border p-4 lg:w-52">
-                <div className="bg-background rounded-md p-2">
-                  <QRCode value={tripTicket.id} size={128} />
                 </div>
-                <p className="text-muted-foreground text-center text-xs">
-                  Gate pass — the guard scans this at check-out and check-in.
+                <p className="text-muted-foreground max-w-52 text-center text-xs leading-relaxed">
+                  Present this QR code to the guard for check-out and check-in.
                 </p>
-              </aside>
-            </div>
-          </DetailSection>
+              </div>
+            </DetailSection>
+            <DetailSection
+              title="Request details"
+              className="min-w-0 xl:col-start-2 xl:row-start-2"
+            >
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
+                <DetailItem label="Branch" value={branchName} />
+                <DetailItem label="Office" value={officeName} />
+                <DetailItem label="Requested By" value={requestedByName} />
+                <DetailItem
+                  label="Date Requested"
+                  value={dateOf(tripTicket.date_requested)}
+                />
+              </dl>
+            </DetailSection>
+          </div>
 
           <TripDatesSection
             ticketId={tripTicket.id}

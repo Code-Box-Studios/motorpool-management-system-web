@@ -16,13 +16,12 @@ import { useDepartmentOffices, useOfficeHeads } from '@/lib/query/offices';
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { TripResourcePicker } from './resource-picker';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
@@ -78,31 +77,37 @@ const nameOf = (
   id: string | undefined
 ) => (id ? list?.find((item) => item.id === id)?.name : undefined);
 
-// The review reads back the exact times typed — parsed browser-local, the
-// same way the submit mapping builds the request — so what the requester
-// sees here is what actually gets sent, not a reinterpretation of it.
-const formatDateRow = (row: { date: string; start: string; end: string }) => {
+// The review and payload use the same fleet timezone, including overnight returns.
+const formatDateRow = (row: {
+  date: string;
+  returnDate: string;
+  start: string;
+  end: string;
+}) => {
   if (!row.date || !row.start) return undefined;
-  const start = new Date(`${row.date}T${row.start}`);
+  const start = new Date(`${row.date}T${row.start}+08:00`);
   if (Number.isNaN(start.getTime())) return undefined;
   const dateLabel = start.toLocaleDateString(undefined, {
+    timeZone: 'Asia/Manila',
     day: 'numeric',
     month: 'short',
     year: 'numeric'
   });
   const startLabel = start.toLocaleTimeString(undefined, {
+    timeZone: 'Asia/Manila',
     hour: 'numeric',
     minute: '2-digit'
   });
-  const end = row.end ? new Date(`${row.date}T${row.end}`) : null;
+  const end = row.end ? new Date(`${row.returnDate}T${row.end}+08:00`) : null;
   const endLabel =
     end && !Number.isNaN(end.getTime())
       ? end.toLocaleTimeString(undefined, {
+          timeZone: 'Asia/Manila',
           hour: 'numeric',
           minute: '2-digit'
         })
       : '—';
-  return `${dateLabel} · ${startLabel} – ${endLabel}`;
+  return `${dateLabel} · ${startLabel} – ${row.returnDate !== row.date && end ? end.toLocaleDateString(undefined, { timeZone: 'Asia/Manila', day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' : ''}${endLabel}`;
 };
 
 interface TripTicketFormProps {
@@ -223,7 +228,6 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // picked.
   const tripBranchId: string | null | undefined =
     review.branch_id || userBranchId;
-  const tripBranchName = branches?.find((b) => b.id === tripBranchId)?.name;
 
   // Guides are active driver/requester accounts from every branch.
   const { data: guideOptions = [], isLoading: guidesLoading } =
@@ -316,6 +320,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
     // same as a freshly appended row, so only the date itself needs filling in.
     if (initialDate) {
       form.setValue('dates.0.date', initialDate);
+      form.setValue('dates.0.returnDate', initialDate);
     }
   }, [user, form, initialDate]);
 
@@ -551,8 +556,8 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                   render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
                       <FieldLabel htmlFor="vehicle_id">Vehicle *</FieldLabel>
-                      <Select
-                        onValueChange={(vehicleId) => {
+                      <TripResourcePicker
+                        onChange={(vehicleId) => {
                           field.onChange(vehicleId);
                           // Changing the van changes how many people fit. Without
                           // this, picking a 9-seater, entering 9, then switching
@@ -574,82 +579,30 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                         }}
                         value={field.value}
                         disabled={vehiclesLoading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              vehiclesLoading
-                                ? 'Loading...'
-                                : 'Select a vehicle'
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ownVehicles.length === 0 &&
-                          borrowableVehicles.length === 0 ? (
-                            <div className="text-muted-foreground p-2 text-sm">
-                              No vehicles are free
-                            </div>
-                          ) : (
-                            <>
-                              {ownVehicles.length > 0 && (
-                                <SelectGroup>
-                                  <SelectLabel>
-                                    {tripBranchName
-                                      ? `${tripBranchName} vehicles`
-                                      : 'Vehicles'}
-                                  </SelectLabel>
-                                  {ownVehicles.map((vehicle) => (
-                                    <SelectItem
-                                      key={vehicle.id}
-                                      value={vehicle.id}
-                                    >
-                                      {/* The seat count decides how many people
-                                          can come, so it belongs on the choice
-                                          itself. */}
-                                      {vehicle.make} {vehicle.model} —{' '}
-                                      {vehicle.license_plate} ·{' '}
-                                      {vehicle.capacity}{' '}
-                                      {vehicle.capacity === 1
-                                        ? 'seat'
-                                        : 'seats'}
-                                    </SelectItem>
-                                  ))}
-                                </SelectGroup>
-                              )}
-                              {borrowableVehicles.length > 0 && (
-                                <SelectGroup>
-                                  <SelectLabel>
-                                    Borrow from another branch
-                                  </SelectLabel>
-                                  {borrowableVehicles.map((vehicle) => (
-                                    <SelectItem
-                                      key={vehicle.id}
-                                      value={vehicle.id}
-                                    >
-                                      <span className="flex w-full items-center gap-2">
-                                        <span>
-                                          {vehicle.make} {vehicle.model} —{' '}
-                                          {vehicle.license_plate} ·{' '}
-                                          {vehicle.capacity}{' '}
-                                          {vehicle.capacity === 1
-                                            ? 'seat'
-                                            : 'seats'}
-                                        </span>
-                                        {vehicle.branch_name && (
-                                          <span className="text-muted-foreground text-xs">
-                                            ({vehicle.branch_name})
-                                          </span>
-                                        )}
-                                      </span>
-                                    </SelectItem>
-                                  ))}
-                                </SelectGroup>
-                              )}
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
+                        invalid={fieldState.invalid}
+                        id="vehicle_id"
+                        kind="vehicle"
+                        triggerRef={field.ref}
+                        onBlur={field.onBlur}
+                        options={[...ownVehicles, ...borrowableVehicles].map(
+                          (vehicle) => ({
+                            id: vehicle.id,
+                            name: `${vehicle.make} ${vehicle.model}`,
+                            detail: `${vehicle.license_plate} · ${vehicle.capacity} ${vehicle.capacity === 1 ? 'seat' : 'seats'}`,
+                            branchName:
+                              branches?.find(
+                                (branch) => branch.id === vehicle.branch
+                              )?.name ??
+                              vehicle.branch_name ??
+                              'Branch unavailable',
+                            otherBranch: isBorrowed(
+                              tripBranchId,
+                              vehicle.branch
+                            )
+                          })
+                        )}
+                      />
+
                       {borrowedFrom && (
                         <p className="text-muted-foreground text-xs">
                           This borrows {borrowedFrom}&rsquo;s vehicle. Whoever
@@ -669,60 +622,30 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                   render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
                       <FieldLabel htmlFor="driver_id">Driver *</FieldLabel>
-                      <Select
-                        onValueChange={field.onChange}
+                      <TripResourcePicker
+                        id="driver_id"
+                        kind="driver"
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        triggerRef={field.ref}
                         value={field.value}
                         disabled={driversLoading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              driversLoading ? 'Loading...' : 'Select a driver'
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ownDrivers.length === 0 &&
-                          otherDrivers.length === 0 ? (
-                            <div className="text-muted-foreground p-2 text-sm">
-                              No active drivers
-                            </div>
-                          ) : (
-                            <>
-                              {ownDrivers.length > 0 && (
-                                <SelectGroup>
-                                  <SelectLabel>
-                                    {tripBranchName
-                                      ? `${tripBranchName} drivers`
-                                      : 'Drivers'}
-                                  </SelectLabel>
-                                  {ownDrivers.map((driver) => (
-                                    <SelectItem
-                                      key={driver.id}
-                                      value={driver.id}
-                                    >
-                                      {driver.full_name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectGroup>
-                              )}
-                              {otherDrivers.length > 0 && (
-                                <SelectGroup>
-                                  <SelectLabel>Other branches</SelectLabel>
-                                  {otherDrivers.map((driver) => (
-                                    <SelectItem
-                                      key={driver.id}
-                                      value={driver.id}
-                                    >
-                                      {driver.full_name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectGroup>
-                              )}
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
+                        invalid={fieldState.invalid}
+                        options={[...ownDrivers, ...otherDrivers].map(
+                          (driver) => ({
+                            id: driver.id,
+                            name: driver.full_name,
+                            branchName:
+                              branches?.find(
+                                (branch) => branch.id === driver.branch_id
+                              )?.name ?? 'Branch unavailable',
+                            otherBranch: isBorrowed(
+                              tripBranchId,
+                              driver.branch_id
+                            )
+                          })
+                        )}
+                      />
                       {fieldState.invalid && (
                         <FieldError errors={[fieldState.error]} />
                       )}
@@ -973,11 +896,28 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                         return (
                           <Field data-invalid={fieldState.invalid}>
                             <FieldLabel htmlFor={`dates.${index}.date`}>
-                              Date *
+                              Departure date *
                             </FieldLabel>
                             <DatePicker
                               {...field}
                               id={`dates.${index}.date`}
+                              onChange={(value) => {
+                                const previous = field.value;
+                                field.onChange(value);
+                                const currentReturn = form.getValues(
+                                  `dates.${index}.returnDate`
+                                );
+                                if (
+                                  !currentReturn ||
+                                  currentReturn === previous ||
+                                  currentReturn < value
+                                ) {
+                                  form.setValue(
+                                    `dates.${index}.returnDate`,
+                                    value
+                                  );
+                                }
+                              }}
                               min={today}
                               aria-invalid={fieldState.invalid}
                             />
@@ -1011,6 +951,27 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                     />
 
                     <Controller
+                      name={`dates.${index}.returnDate`}
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldLabel htmlFor={`dates.${index}.returnDate`}>
+                            Return date *
+                          </FieldLabel>
+                          <DatePicker
+                            {...field}
+                            id={`dates.${index}.returnDate`}
+                            min={form.watch(`dates.${index}.date`) || undefined}
+                            aria-invalid={fieldState.invalid}
+                          />
+                          {fieldState.invalid && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
+                        </Field>
+                      )}
+                    />
+
+                    <Controller
                       name={`dates.${index}.end`}
                       control={form.control}
                       render={({ field, fieldState }) => {
@@ -1029,7 +990,12 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                               {...field}
                               id={`dates.${index}.end`}
                               label="Return time"
-                              min={rowStart || undefined}
+                              min={
+                                form.watch(`dates.${index}.date`) ===
+                                form.watch(`dates.${index}.returnDate`)
+                                  ? rowStart || undefined
+                                  : undefined
+                              }
                               aria-invalid={fieldState.invalid}
                             />
                             {fieldState.invalid && (
@@ -1049,7 +1015,12 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                   variant="outline"
                   size="sm"
                   onClick={() =>
-                    appendDate({ date: '', start: '08:00', end: '17:00' })
+                    appendDate({
+                      date: '',
+                      returnDate: '',
+                      start: '08:00',
+                      end: '17:00'
+                    })
                   }
                 >
                   <PlusIcon className="size-4" />
@@ -1181,14 +1152,11 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
             />
           </FormSection>
 
-          {/* Cancel sits away on the left; the way FORWARD is on the right, where
-              the eye ends up and the thumb already is. */}
           <FormActions>
-            <Button type="button" variant="ghost" onClick={onDone}>
-              Cancel
-            </Button>
-
-            <div className="ml-auto flex flex-wrap items-center gap-3">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
+              <Button type="button" variant="ghost" onClick={onDone}>
+                Cancel
+              </Button>
               {step > 0 && (
                 <Button type="button" variant="outline" onClick={goBack}>
                   Back

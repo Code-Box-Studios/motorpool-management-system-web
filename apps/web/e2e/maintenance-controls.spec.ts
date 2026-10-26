@@ -180,20 +180,20 @@ test('top model controls change actual vehicle risk results after Run Model', as
     .getByRole('combobox', { name: 'Vehicle risk algorithm', exact: true })
     .click();
   await page
-    .getByRole('option', { name: 'Usage-based estimate', exact: true })
+    .getByRole('option', { name: 'Decision Tree', exact: true })
     .click();
   const [response] = await Promise.all([
     page.waitForResponse((response) =>
       response
         .url()
-        .includes('/analytics/predictive-maintenance?algorithm=usage_rules')
+        .includes('/analytics/predictive-maintenance?algorithm=decision_tree')
     ),
     controls.getByRole('button', { name: 'Run Model', exact: true }).click()
   ]);
   const scored = (await response.json()).data.find(
     (row: { vehicleId: string }) => row.vehicleId === vehicle.vehicleId
   );
-  expect(scored.scoringMethod).toBe('usage_rules');
+  expect(scored.scoringMethod).toBe('decision_tree');
   expect(scored.riskScore).not.toBe(vehicle.riskScore);
   const card = fleet
     .locator('[data-slot="card"]')
@@ -207,9 +207,7 @@ test('top model controls change actual vehicle risk results after Run Model', as
   await expect(
     card.getByText(String(scored.riskScore), { exact: true })
   ).toBeVisible();
-  await expect(
-    fleet.getByText('Usage-based estimate', { exact: true })
-  ).toBeVisible();
+  await expect(fleet.getByText('Decision Tree', { exact: true })).toBeVisible();
   await card
     .getByRole('link', {
       name: `${vehicle.make} ${vehicle.model}`,
@@ -225,7 +223,7 @@ test('a failed vehicle-risk run hides old scores and can be retried independentl
   await login(page, 'admin');
   let fail = true;
   await page.route(
-    '**/api/analytics/predictive-maintenance?algorithm=usage_rules',
+    '**/api/analytics/predictive-maintenance?algorithm=decision_tree',
     (route) =>
       fail
         ? route.fulfill({
@@ -250,7 +248,7 @@ test('a failed vehicle-risk run hides old scores and can be retried independentl
     .getByRole('combobox', { name: 'Vehicle risk algorithm', exact: true })
     .click();
   await page
-    .getByRole('option', { name: 'Usage-based estimate', exact: true })
+    .getByRole('option', { name: 'Decision Tree', exact: true })
     .click();
   await controls
     .getByRole('button', { name: 'Run Model', exact: true })

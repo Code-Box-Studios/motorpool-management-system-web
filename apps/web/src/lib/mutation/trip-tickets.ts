@@ -201,8 +201,7 @@ export const useReassignGuides = () => {
 export const useCheckOutTripTicket = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, startMileage }: { id: string; startMileage: number }) =>
-      checkOutTripTicket(id, startMileage),
+    mutationFn: ({ id }: { id: string }) => checkOutTripTicket(id),
     onSuccess: (_data, variables) => {
       invalidateTripTicket(queryClient, variables.id);
       // The odometer moved, so the vehicle and every maintenance figure derived
@@ -220,8 +219,7 @@ export const useCheckOutTripTicket = () => {
 export const useCheckInTripTicket = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, endMileage }: { id: string; endMileage: number }) =>
-      checkInTripTicket(id, endMileage),
+    mutationFn: ({ id }: { id: string }) => checkInTripTicket(id),
     onSuccess: (_data, variables) => {
       invalidateTripTicket(queryClient, variables.id);
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });

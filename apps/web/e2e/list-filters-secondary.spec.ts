@@ -145,7 +145,7 @@ test('requester status options include later pages and filter before pagination'
       }
     })
   );
-  await page.goto('/dashboard');
+  await page.goto('/dashboard?requestTab=history');
   await expect(
     page.getByText('Approved destination 0', { exact: true })
   ).toBeVisible();

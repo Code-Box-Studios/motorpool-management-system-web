@@ -25,11 +25,9 @@ import TableFilters from '@/components/shared/table-filters';
 import { useListControls } from '@/hooks/use-list-controls';
 import ListSearchInput from '@/components/shared/list-search-input';
 import ListToolbar from '@/components/shared/list-toolbar';
+import { PARTS_MODEL_NAMES } from '@/lib/maintenance-models';
 
-const MODEL_NAMES: Record<SparePartsModelAlgorithm, string> = {
-  fp_growth: 'FP-Growth',
-  eclat: 'Eclat'
-};
+const MODEL_NAMES = PARTS_MODEL_NAMES;
 const percentage = (value: number) => `${Number((value * 100).toFixed(1))}%`;
 
 export default function SparePartsModels({
@@ -78,8 +76,10 @@ export default function SparePartsModels({
             </span>
             {!isFetching && !isError && result && (
               <span>
-                {result.trainingTransactions} training transactions ·{' '}
-                {result.count} rules
+                {result.source === 'live_job_orders'
+                  ? `${result.transactionCount} eligible live job-order transactions`
+                  : `${result.trainingTransactions} training transactions`}{' '}
+                · {result.count} rules
               </span>
             )}
           </CardDescription>
@@ -129,7 +129,9 @@ export default function SparePartsModels({
             message={
               hasFilters
                 ? 'No rules match your confidence filter.'
-                : 'This model has no saved association rules.'
+                : algorithm === 'apriori'
+                  ? 'Current job-order transactions do not yield qualifying associations.'
+                  : 'This model has no saved association rules.'
             }
             search={search}
             onClearSearch={clearSearch}
@@ -171,9 +173,19 @@ export default function SparePartsModels({
         <p className="text-muted-foreground mt-4 text-xs leading-relaxed">
           Confidence shows how often the suggested part appeared when the first
           part was replaced. Support shows how often both appeared across the
-          training data; lift compares that link with chance. These are saved
-          training patterns, so FP-Growth and Eclat may return the same rules.
+          source transactions; lift compares that link with chance.{' '}
+          {algorithm === 'apriori'
+            ? 'Apriori uses current job orders with at least two distinct parts; at least two eligible transactions are required.'
+            : 'FP-Growth and Eclat contain identical supplied training rules.'}
         </p>
+        {!isFetching && !isError && result && (
+          <p className="text-muted-foreground mt-2 text-xs break-all">
+            Source:{' '}
+            {result.source === 'live_job_orders'
+              ? 'current job-order parts records'
+              : `supplied trained artifact (${result.sourceFile})`}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

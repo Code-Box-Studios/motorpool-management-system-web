@@ -54,3 +54,23 @@ export async function getCurrentUser(): Promise<AppUser | null> {
     return null;
   }
 }
+
+export interface TestAccount {
+  role: string;
+  email: string;
+  label: string;
+}
+export type TestAccountsResponse =
+  | { enabled: false }
+  | { enabled: true; accounts: TestAccount[]; expiresAt: string };
+
+export function getTestAccounts(): Promise<TestAccountsResponse> {
+  return api.get<TestAccountsResponse>('/auth/test-accounts');
+}
+
+export async function switchTestAccount(role: string): Promise<void> {
+  const result = await api.post<LoginResponse>('/auth/test-accounts/switch', {
+    role
+  });
+  setAccessToken(result.accessToken);
+}

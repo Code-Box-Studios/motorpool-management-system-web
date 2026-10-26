@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   USER_ROLES,
+  organizationCsvBodySchema,
   createBranchBodySchema,
   createEmployeeBodySchema,
   createOfficeBodySchema,
@@ -154,3 +155,28 @@ organizationRouter.post(
   requireRole(USER_ROLES.admin),
   controller.restoreEmployee
 );
+
+// CSV endpoints remain per-route guarded because device-key routes share /api.
+for (const [resource, preview, confirm] of [
+  ['employees', controller.previewEmployeesCsv, controller.importEmployeesCsv],
+  [
+    'office-heads',
+    controller.previewOfficeHeadsCsv,
+    controller.importOfficeHeadsCsv
+  ]
+] as const) {
+  organizationRouter.post(
+    `/${resource}/import/preview`,
+    requireAuth,
+    requireRole(USER_ROLES.admin),
+    validateBody(organizationCsvBodySchema),
+    preview
+  );
+  organizationRouter.post(
+    `/${resource}/import`,
+    requireAuth,
+    requireRole(USER_ROLES.admin),
+    validateBody(organizationCsvBodySchema),
+    confirm
+  );
+}

@@ -41,9 +41,19 @@ export type FuelAllocation = Tables<'fuel_allocations'>;
 export type NewFuelAllocation = TablesInsert<'fuel_allocations'>;
 export type UpdateFuelAllocation = TablesUpdate<'fuel_allocations'>;
 
-export type JobOrder = Tables<'job_orders'>;
-export type NewJobOrder = TablesInsert<'job_orders'>;
-export type UpdateJobOrder = TablesUpdate<'job_orders'>;
+export interface JobOrderMetadata {
+  maintenance_type?:
+    | 'preventive'
+    | 'corrective'
+    | 'inspection'
+    | 'repair'
+    | 'service'
+    | null;
+  service_location?: 'motorpool' | 'outside' | null;
+}
+export type JobOrder = Tables<'job_orders'> & JobOrderMetadata;
+export type NewJobOrder = TablesInsert<'job_orders'> & JobOrderMetadata;
+export type UpdateJobOrder = TablesUpdate<'job_orders'> & JobOrderMetadata;
 
 export type JobOrderWithRelations = JobOrder & {
   vehicles?: {

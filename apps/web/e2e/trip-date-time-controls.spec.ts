@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { login } from './helpers';
+import { login, pickDate } from './helpers';
 
 test.use({ timezoneId: 'Asia/Manila' });
 
@@ -161,4 +161,49 @@ test('booking calendar stays inside a narrow mobile viewport', async ({
     path: testInfo.outputPath('mobile-time-dark.png'),
     animations: 'disabled'
   });
+});
+
+test('separate return calendar supports an overnight outing and review shows the actual return date', async ({
+  page
+}) => {
+  const booking = await openTripDates(page);
+  const departure = new Date(Date.now() + 10 * 86400000);
+  const returning = new Date(departure.getTime() + 86400000);
+  const day = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  await pickDate(
+    page,
+    booking.locator('button[id="dates.0.date"]'),
+    day(departure)
+  );
+  await expect(booking.locator('button[id="dates.0.returnDate"]')).toHaveText(
+    await booking.locator('button[id="dates.0.date"]').innerText()
+  );
+  await pickDate(
+    page,
+    booking.locator('button[id="dates.0.returnDate"]'),
+    day(returning)
+  );
+  await booking
+    .getByRole('combobox', { name: 'Departure time hour', exact: true })
+    .click();
+  await page.getByRole('option', { name: '10', exact: true }).click();
+  await booking
+    .getByRole('combobox', { name: 'Departure time period', exact: true })
+    .click();
+  await page.getByRole('option', { name: 'PM', exact: true }).click();
+  await booking
+    .getByRole('combobox', { name: 'Return time hour', exact: true })
+    .click();
+  await page.getByRole('option', { name: '06', exact: true }).click();
+  await booking
+    .getByRole('combobox', { name: 'Return time period', exact: true })
+    .click();
+  await expect(
+    page.getByRole('option', { name: 'AM', exact: true })
+  ).not.toHaveAttribute('data-disabled');
+  await page.getByRole('option', { name: 'AM', exact: true }).click();
+  await booking.getByRole('button', { name: 'Continue' }).click();
+  await expect(booking.getByText(/10:00 PM/)).toBeVisible();
+  await expect(booking.getByText(/6:00 AM/)).toBeVisible();
 });

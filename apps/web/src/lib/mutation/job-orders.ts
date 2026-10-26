@@ -137,18 +137,24 @@ export const useCompleteRepair = () => {
       id,
       repairDone,
       completedMileage,
+      maintenanceType,
+      serviceLocation,
       remarks,
       actualDateOfRelease
     }: {
       id: string;
       repairDone: string;
       completedMileage: number;
+      maintenanceType?: string | null;
+      serviceLocation?: string | null;
       remarks?: string;
       actualDateOfRelease?: string;
     }) =>
       completeRepairJobOrder(id, {
         repairDone,
         completedMileage,
+        maintenanceType,
+        serviceLocation,
         remarks,
         actualDateOfRelease
       }),

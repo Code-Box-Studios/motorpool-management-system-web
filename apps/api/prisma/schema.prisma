@@ -69,6 +69,11 @@ enum RepairType {
   compound
 }
 
+enum ServiceLocation {
+  motorpool
+  outside
+}
+
 enum MaintenanceType {
   preventive
   corrective
@@ -496,6 +501,8 @@ model JobOrder {
   targetDate          DateTime?      @map("target_date") @db.Date
   actualDateOfRelease DateTime?      @map("actual_date_of_release") @db.Date
   repairDone          RepairType?    @map("repair_done")
+  maintenanceType     MaintenanceType? @map("maintenance_type")
+  serviceLocation     ServiceLocation? @map("service_location")
   remarks             String?
   createdAt           DateTime       @default(now()) @map("created_at")
   updatedAt           DateTime       @updatedAt @map("updated_at")
@@ -827,6 +834,10 @@ model TripDate {
   status              TripDateStatus @default(scheduled)
   startMileage        Int?           @map("start_mileage")
   endMileage          Int?           @map("end_mileage")
+  startMileageRecordedById String? @map("start_mileage_recorded_by_id") @db.Uuid
+  startMileageRecordedAt DateTime? @map("start_mileage_recorded_at")
+  endMileageRecordedById String? @map("end_mileage_recorded_by_id") @db.Uuid
+  endMileageRecordedAt DateTime? @map("end_mileage_recorded_at")
   preTripGuardId      String?        @map("pre_trip_guard") @db.Uuid
   preTripCheckedById  String?        @map("pre_trip_checked_by") @db.Uuid
   preTripCheckedAt    DateTime?      @map("pre_trip_checked_at")

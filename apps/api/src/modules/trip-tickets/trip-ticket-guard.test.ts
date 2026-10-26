@@ -87,8 +87,9 @@ describe('trip-ticket guard transitions', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
 
-  it('check-out: approved → in_progress, records the guard and the odometer, flips vehicle to on_trip', async () => {
+  it('check-out: consumes a recorded driver odometer and stamps the guard, flips vehicle to on_trip', async () => {
     const { vehicle, ticket } = await approvedTicket('available');
+    await prisma.tripDate.updateMany({ where: { tripTicketId: ticket.id }, data: { startMileage: START_KM } });
     const { guard, header } = await guardHeader();
     const res = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-out`)
@@ -158,6 +159,7 @@ describe('trip-ticket guard transitions', () => {
 
   it('check-in: in_progress → completed, records post-trip guard, and ADVANCES the odometer', async () => {
     const { vehicle, ticket } = await approvedTicket('available');
+    await prisma.tripDate.updateMany({ where: { tripTicketId: ticket.id }, data: { startMileage: START_KM, endMileage: START_KM + 250 } });
     const { guard, header } = await guardHeader();
     await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-out`)
@@ -187,29 +189,29 @@ describe('trip-ticket guard transitions', () => {
     expect(after.mileage).toBe(START_KM + 250);
   });
 
-  it('rejects an odometer reading that runs backwards', async () => {
+  it('ignores legacy guard mileage fields and preserves missing driver readings', async () => {
     const { vehicle, ticket } = await approvedTicket('available');
     const { header } = await guardHeader();
     const res = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-out`)
       .set('Authorization', header)
       .send({ startMileage: START_KM - 1 });
-    expect(res.status).toBe(409);
-    expect(res.body.error.code).toBe('ODOMETER_BACKWARDS');
+    expect(res.status).toBe(200);
+    expect((await prisma.tripDate.findFirstOrThrow({ where: { tripTicketId: ticket.id } })).startMileage).toBeNull();
     expect(
       (await prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } }))
         .mileage
     ).toBe(START_KM);
   });
 
-  it('requires an odometer reading at the gate', async () => {
+  it('allows departure without a driver odometer reading', async () => {
     const { ticket } = await approvedTicket('available');
     const { header } = await guardHeader();
     const res = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-out`)
       .set('Authorization', header)
       .send({});
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
   });
 
   // Was: admin → 403. The admin is the superuser and now stands in at the gate,
@@ -240,6 +242,7 @@ describe('trip-ticket guard transitions', () => {
   // never advanced.
   it('admin may work the gate when no guard is on duty', async () => {
     const { vehicle, ticket } = await approvedTicket('available');
+    await prisma.tripDate.updateMany({ where: { tripTicketId: ticket.id }, data: { startMileage: START_KM, endMileage: START_KM + 120 } });
     const { user: admin } = await createTestUser({
       email: 'a@test.local',
       role: 'admin'
@@ -438,6 +441,8 @@ describe('trip-ticket guard transitions', () => {
   // form asserts success so a broken fixture fails loudly at the call site
   // rather than surfacing as a confusing downstream assertion failure.
   async function checkOutRaw(s: { ticketId: string }, startMileage: number) {
+    const date = await prisma.tripDate.findFirst({ where: { tripTicketId: s.ticketId, status: 'scheduled' }, orderBy: { startTs: 'asc' } });
+    if (date) await prisma.tripDate.update({ where: { id: date.id }, data: { startMileage } });
     const { header } = await guardHeader();
     return request(app)
       .post(`/api/trip-tickets/${s.ticketId}/check-out`)
@@ -456,6 +461,7 @@ describe('trip-ticket guard transitions', () => {
   }
 
   async function checkInRaw(s: { ticketId: string }, endMileage: number) {
+    await prisma.tripDate.updateMany({ where: { tripTicketId: s.ticketId, status: 'in_progress' }, data: { endMileage } });
     const { header } = await guardHeader();
     return request(app)
       .post(`/api/trip-tickets/${s.ticketId}/check-in`)

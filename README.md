@@ -73,6 +73,10 @@ The **Admin** does most of the day-to-day setup and coordination. The **EVP Oper
 | `security_guard@mms.local` | Security Guard |
 | `driver@mms.local` | Driver |
 
+**Switching test accounts.** The seeded `admin@mms.local` account has a **Test account** menu at the bottom of the sidebar. It switches between the five demo accounts above using their actual permissions. Requester, EVP, and Guard screens put the same menu in the header, including **Return to Admin**. Other admins and directly signed-in demo roles do not receive this control.
+
+The API authorizes every switch; passwords are never included in the switcher. A testing grant lasts up to one hour while switching roles and ends when you sign out or sign in normally. The same restriction applies locally and in a deployed build. Both the API and web app must include the switcher changes for it to appear on a hosted installation.
+
 **Staying signed in.** Once you log in, the system keeps your session alive quietly in the background, so you won't be asked to sign in again every few minutes. A session can last up to about a week of ongoing use before it needs a fresh login.
 
 **Signing out** ends your session immediately.

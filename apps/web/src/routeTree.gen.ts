@@ -13,6 +13,7 @@ import { Route as PublicRouteImport } from './routes/_public'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedOrganizationRouteImport } from './routes/_authenticated/organization'
 import { Route as AuthenticatedGpsMapRouteImport } from './routes/_authenticated/gps-map'
@@ -59,6 +60,11 @@ const PublicLoginRoute = PublicLoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => PublicRoute,
+} as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
@@ -229,6 +235,7 @@ export interface FileRoutesByFullPath {
   '/gps-map': typeof AuthenticatedGpsMapRoute
   '/organization': typeof AuthenticatedOrganizationRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/job-order/$id': typeof AuthenticatedJobOrderIdRoute
@@ -261,6 +268,7 @@ export interface FileRoutesByTo {
   '/gps-map': typeof AuthenticatedGpsMapRoute
   '/organization': typeof AuthenticatedOrganizationRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/job-order/$id': typeof AuthenticatedJobOrderIdRoute
@@ -296,6 +304,7 @@ export interface FileRoutesById {
   '/_authenticated/gps-map': typeof AuthenticatedGpsMapRoute
   '/_authenticated/organization': typeof AuthenticatedOrganizationRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_public/login': typeof PublicLoginRoute
   '/_authenticated/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/_authenticated/job-order/$id': typeof AuthenticatedJobOrderIdRoute
@@ -330,6 +339,7 @@ export interface FileRouteTypes {
     | '/gps-map'
     | '/organization'
     | '/profile'
+    | '/reports'
     | '/login'
     | '/drivers/$id'
     | '/job-order/$id'
@@ -362,6 +372,7 @@ export interface FileRouteTypes {
     | '/gps-map'
     | '/organization'
     | '/profile'
+    | '/reports'
     | '/login'
     | '/drivers/$id'
     | '/job-order/$id'
@@ -396,6 +407,7 @@ export interface FileRouteTypes {
     | '/_authenticated/gps-map'
     | '/_authenticated/organization'
     | '/_authenticated/profile'
+    | '/_authenticated/reports'
     | '/_public/login'
     | '/_authenticated/drivers/$id'
     | '/_authenticated/job-order/$id'
@@ -458,6 +470,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof PublicLoginRouteImport
       parentRoute: typeof PublicRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
@@ -663,6 +682,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedGpsMapRoute: typeof AuthenticatedGpsMapRoute
   AuthenticatedOrganizationRoute: typeof AuthenticatedOrganizationRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedDriversIdRoute: typeof AuthenticatedDriversIdRoute
   AuthenticatedJobOrderIdRoute: typeof AuthenticatedJobOrderIdRoute
   AuthenticatedMaintenanceIdRoute: typeof AuthenticatedMaintenanceIdRoute
@@ -694,6 +714,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedGpsMapRoute: AuthenticatedGpsMapRoute,
   AuthenticatedOrganizationRoute: AuthenticatedOrganizationRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedDriversIdRoute: AuthenticatedDriversIdRoute,
   AuthenticatedJobOrderIdRoute: AuthenticatedJobOrderIdRoute,
   AuthenticatedMaintenanceIdRoute: AuthenticatedMaintenanceIdRoute,

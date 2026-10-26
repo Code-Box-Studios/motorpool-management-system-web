@@ -82,17 +82,27 @@ test('grouped booking and guide choices and mobile time selectors are searchable
     .getByRole('combobox')
     .filter({ hasText: /^Select a vehicle$/ });
   await vehicle.click();
-  const vehicleLabel = (
-    await page.getByRole('option').first().innerText()
-  ).trim();
-  await search(page).fill(vehicleLabel.toLowerCase());
-  await expect(page.getByRole('option')).toHaveCount(1);
-  await expect(
-    page.getByRole('dialog', { name: 'Choose an option' }).getByRole('group')
-  ).toHaveCount(1);
-  await search(page).press('Enter');
+  const vehiclePicker = page.getByRole('dialog', {
+    name: 'Choose a vehicle',
+    exact: true
+  });
+  const labels = (await vehiclePicker.getByRole('option').first().innerText())
+    .trim()
+    .split('\n');
+  const vehicleName = labels[0];
+  const vehiclePlate = labels[1].split(' · ')[0];
+  const vehicleSearch = vehiclePicker.getByRole('searchbox', {
+    name: 'Search vehicles'
+  });
+  await vehicleSearch.fill(vehiclePlate.toLowerCase());
+  await expect(vehiclePicker.getByRole('option')).toHaveCount(1);
+  await vehicleSearch.press('ArrowDown');
+  await page.keyboard.press('Enter');
   await expect(group('Vehicle').getByRole('combobox')).toContainText(
-    vehicleLabel
+    vehicleName
+  );
+  await expect(group('Vehicle').getByRole('combobox')).toContainText(
+    vehiclePlate
   );
   await firstOption(
     page,

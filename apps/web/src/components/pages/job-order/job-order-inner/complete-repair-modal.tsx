@@ -1,3 +1,4 @@
+import { ServiceMetadataFields } from '../service-metadata-fields';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -27,6 +28,8 @@ interface CompleteRepairModalProps {
   isLoading: boolean;
   /** The odometer already on record — the reading can never be below it. */
   currentMileage: number;
+  currentMaintenanceType?: string | null;
+  currentServiceLocation?: string | null;
 }
 
 // Body shape for `useCompleteRepair` (POST /job-orders/:id/complete-repair) —
@@ -40,18 +43,24 @@ export interface CompleteRepairData {
   // vehicle look MORE overdue, not less.
   completedMileage: string;
   remarks: string;
+  maintenanceType: string;
+  serviceLocation: string;
 }
 
 export function CompleteRepairModal({
   onSubmit,
   isLoading,
-  currentMileage
+  currentMileage,
+  currentMaintenanceType,
+  currentServiceLocation
 }: CompleteRepairModalProps) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState<CompleteRepairData>({
     actualDateOfRelease: '',
     repairDone: '',
     completedMileage: '',
+    maintenanceType: currentMaintenanceType ?? '',
+    serviceLocation: currentServiceLocation ?? '',
     remarks: ''
   });
   const [errors, setErrors] = useState<
@@ -69,10 +78,12 @@ export function CompleteRepairModal({
         .slice(0, 16);
       setFormData((prev) => ({
         ...prev,
-        actualDateOfRelease: localDateTime
+        actualDateOfRelease: localDateTime,
+        maintenanceType: currentMaintenanceType ?? '',
+        serviceLocation: currentServiceLocation ?? ''
       }));
     }
-  }, [open]);
+  }, [open, currentMaintenanceType, currentServiceLocation]);
 
   const validateForm = () => {
     const newErrors: Partial<Record<keyof CompleteRepairData, string>> = {};
@@ -110,6 +121,8 @@ export function CompleteRepairModal({
         actualDateOfRelease: '',
         repairDone: '',
         completedMileage: '',
+        maintenanceType: currentMaintenanceType ?? '',
+        serviceLocation: currentServiceLocation ?? '',
         remarks: ''
       });
       setErrors({});
@@ -207,6 +220,18 @@ export function CompleteRepairModal({
               <FieldError errors={[{ message: errors.completedMileage }]} />
             )}
           </Field>
+
+          <ServiceMetadataFields
+            idPrefix="complete-service"
+            maintenanceType={formData.maintenanceType}
+            serviceLocation={formData.serviceLocation}
+            onMaintenanceTypeChange={(value) =>
+              setFormData({ ...formData, maintenanceType: value })
+            }
+            onServiceLocationChange={(value) =>
+              setFormData({ ...formData, serviceLocation: value })
+            }
+          />
 
           {/* Remarks */}
           <Field>

@@ -43,7 +43,7 @@ export default function ListSearchInput({
       </label>
       <Search
         aria-hidden="true"
-        className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+        className="text-foreground/70 pointer-events-none absolute top-1/2 left-4 size-4.5 -translate-y-1/2"
       />
       <Input
         id={id}
@@ -51,7 +51,7 @@ export default function ListSearchInput({
         placeholder={`${label}…`}
         value={input.value}
         onChange={(event) => update(event.target.value)}
-        className="pr-11 pl-10"
+        className="border-foreground/25 bg-card placeholder:text-foreground/65 hover:border-foreground/40 h-12 pr-12 pl-11 shadow-xs"
         onKeyDown={(event) => {
           if (event.key === 'Escape') update('', true);
           if (event.key === 'Enter') update(input.value.trim(), true);
@@ -63,7 +63,7 @@ export default function ListSearchInput({
           variant="ghost"
           size="icon"
           aria-label="Clear search"
-          className="absolute top-1/2 right-1 size-8 -translate-y-1/2"
+          className="absolute top-1/2 right-0.5 size-11 -translate-y-1/2"
           onClick={() => update('', true)}
         >
           <X className="size-4" />

@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 import NotificationBell from '@/components/shared/notification-bell';
 import ThemeSwitcher from './theme-switcher';
 import UserAvatar from './user-avatar';
+import { TestAccountSwitcher } from '@/components/shared/test-account-switcher';
 
 interface FocusHeaderProps {
   title: string;
@@ -34,6 +35,7 @@ const FocusHeader = ({ title }: FocusHeaderProps) => (
       </span>
     </Link>
     <div className="flex flex-none items-center gap-2">
+      <TestAccountSwitcher compact />
       <NotificationBell />
       <ThemeSwitcher />
       <UserAvatar />

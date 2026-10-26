@@ -12,7 +12,8 @@ export type DashboardMetrics = z.infer<typeof dashboardMetricsSchema>;
 
 export const predictiveMaintenanceAlgorithmSchema = z.enum([
   'random_forest',
-  'usage_rules'
+  'decision_tree',
+  'logistic_regression'
 ]);
 export type PredictiveMaintenanceAlgorithm = z.infer<
   typeof predictiveMaintenanceAlgorithmSchema
@@ -34,10 +35,7 @@ export const riskAssessmentSchema = z.object({
   priority: z.enum(['high', 'medium', 'low']),
   usedFallback: z.boolean(),
   scoringMethod: predictiveMaintenanceAlgorithmSchema.optional(),
-  // The client's own decision-tree model, run ALONGSIDE the incumbent RF
-  // above as an informational cross-check only — it never changes riskScore,
-  // priority, or usedFallback. null when the client model failed to load or
-  // could not be scored (see apps/api's client-dt-brief.md).
+  // Informational Decision Tree probability; main score uses scoringMethod.
   crossCheckScore: z.number().nullable(),
   crossCheckModel: z.string()
 });
@@ -61,7 +59,11 @@ export const associationRulesQuerySchema = z.object({
 });
 export type AssociationRulesQuery = z.infer<typeof associationRulesQuerySchema>;
 
-export const sparePartsModelAlgorithmSchema = z.enum(['fp_growth', 'eclat']);
+export const sparePartsModelAlgorithmSchema = z.enum([
+  'fp_growth',
+  'eclat',
+  'apriori'
+]);
 export type SparePartsModelAlgorithm = z.infer<
   typeof sparePartsModelAlgorithmSchema
 >;
@@ -70,12 +72,9 @@ export const sparePartsModelQuerySchema = z.object({
   algorithm: sparePartsModelAlgorithmSchema.default('fp_growth')
 });
 
-export const sparePartsModelResultSchema = z.object({
-  algorithm: sparePartsModelAlgorithmSchema,
+const sparePartsModelBaseSchema = z.object({
   modelName: z.string().min(1),
-  sourceFile: z.string().min(1),
-  sourceSha256: z.string().regex(/^[a-f0-9]{64}$/),
-  trainingTransactions: z.number().int().positive(),
+  transactionCount: z.number().int().nonnegative(),
   minSupport: z.number().finite().gt(0).max(1),
   count: z.number().int().nonnegative(),
   data: z.array(
@@ -89,4 +88,20 @@ export const sparePartsModelResultSchema = z.object({
     })
   )
 });
+export const sparePartsModelResultSchema = z.discriminatedUnion('source', [
+  sparePartsModelBaseSchema.extend({
+    algorithm: z.enum(['fp_growth', 'eclat']),
+    source: z.literal('trained_artifact'),
+    sourceFile: z.string().min(1),
+    sourceSha256: z.string().regex(/^[a-f0-9]{64}$/),
+    trainingTransactions: z.number().int().positive()
+  }),
+  sparePartsModelBaseSchema.extend({
+    algorithm: z.literal('apriori'),
+    source: z.literal('live_job_orders'),
+    sourceFile: z.null(),
+    sourceSha256: z.null(),
+    trainingTransactions: z.null()
+  })
+]);
 export type SparePartsModelResult = z.infer<typeof sparePartsModelResultSchema>;

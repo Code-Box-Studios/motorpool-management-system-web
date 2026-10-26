@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useState, type RefObject } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +34,7 @@ import { useAllVehicles } from '@/lib/query/vehicles';
 // reason typed against one ticket can never be submitted against the next.
 
 interface ReasonDialogProps {
+  returnFocusRef?: RefObject<HTMLElement | null>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -51,6 +52,7 @@ interface ReasonDialogProps {
 // Confirm stays disabled until there is one, because that sentence is the only
 // explanation the requester will ever get.
 export function ReasonDialog({
+  returnFocusRef,
   open,
   onOpenChange,
   title,
@@ -74,7 +76,16 @@ export function ReasonDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent
+        onCloseAutoFocus={
+          returnFocusRef
+            ? (event) => {
+                event.preventDefault();
+                returnFocusRef.current?.focus();
+              }
+            : undefined
+        }
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>

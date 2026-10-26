@@ -15,6 +15,9 @@ Correctness contract (must match random-forest.ts exactly, or predictions silent
      because predictTree returns `node.probs[1]` (random-forest.ts:37). Requires classes == [0, 1].
   4. The forest score is the arithmetic MEAN of per-tree P(fail) (soft voting,
      random-forest.ts:44-47) — identical to sklearn's RandomForest.predict_proba.
+  5. sklearn casts prediction inputs to float32. Mirror that conversion while
+     preserving learned thresholds and leaf probabilities at full precision.
+     Rounding a threshold can change many trees' branches for attainable inputs.
 
 The `roundtrip_check` below re-implements the TS traversal in Python and asserts it
 equals rf.predict_proba within 1e-9 on real rows. If it passes, the JSON is correct
@@ -95,7 +98,8 @@ def _js_predict_tree(node: dict, feats: dict[str, float]) -> float:
 def _js_predict_forest(model: dict, feats: dict[str, float]) -> float:
     """Mirror of predictRandomForest (random-forest.ts:44-47): mean P(fail)."""
     trees = model["trees"]
-    return sum(_js_predict_tree(t, feats) for t in trees) / len(trees)
+    inputs = {name: float(np.float32(value)) for name, value in feats.items()}
+    return sum(_js_predict_tree(t, inputs) for t in trees) / len(trees)
 
 
 def roundtrip_check(rf: RandomForestClassifier, model: dict, X, feature_names: list[str], tol: float = 1e-9) -> float:

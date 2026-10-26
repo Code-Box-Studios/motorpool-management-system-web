@@ -75,8 +75,9 @@ export default function MaintenanceModelControls({
                 <SelectItem value="random_forest">
                   Random Forest (Default)
                 </SelectItem>
-                <SelectItem value="usage_rules">
-                  Usage-based estimate
+                <SelectItem value="decision_tree">Decision Tree</SelectItem>
+                <SelectItem value="logistic_regression" disabled>
+                  Logistic Regression (Unavailable)
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -106,6 +107,7 @@ export default function MaintenanceModelControls({
               <SelectContent>
                 <SelectItem value="fp_growth">FP-Growth (Default)</SelectItem>
                 <SelectItem value="eclat">Eclat</SelectItem>
+                <SelectItem value="apriori">Apriori</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-muted-foreground text-xs">
@@ -129,10 +131,14 @@ export default function MaintenanceModelControls({
             {busy ? 'Running…' : 'Run Model'}
           </Button>
         </div>
+        <p className="text-muted-foreground text-xs">
+          Logistic Regression unavailable: Missing fitted pipeline, scaler, and
+          feature order.
+        </p>
         <p className="text-muted-foreground text-xs" aria-live="polite">
           {changed
             ? 'Run the model to apply your selections.'
-            : `Selected: ${RISK_MODEL_NAMES[applied.risk]} · ${PARTS_MODEL_NAMES[applied.parts]}`}
+            : `Applied: ${RISK_MODEL_NAMES[applied.risk]} · ${PARTS_MODEL_NAMES[applied.parts]}`}
         </p>
       </CardContent>
     </Card>

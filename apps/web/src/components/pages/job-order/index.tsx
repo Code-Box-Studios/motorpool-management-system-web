@@ -209,6 +209,8 @@ const JobOrdersPage = () => {
         id: orderId,
         repairDone: data.repairDone,
         completedMileage: Number(data.completedMileage),
+        maintenanceType: data.maintenanceType || null,
+        serviceLocation: data.serviceLocation || null,
         remarks: data.remarks || undefined,
         actualDateOfRelease: data.actualDateOfRelease || undefined
       })
@@ -390,7 +392,7 @@ const JobOrdersPage = () => {
                       {data.data.map((order) => (
                         <TableRow
                           key={order.id}
-                          className="cursor-pointer"
+                          className="group cursor-pointer"
                           onClick={() => openOrder(order.id)}
                         >
                           <TableCell className="text-ink-soft font-mono text-sm whitespace-nowrap">
@@ -435,7 +437,7 @@ const JobOrdersPage = () => {
                               Same md gate as the Actions header, so the pin turns on
                               and off for both at once and the column stays aligned. */}
                           <TableCell
-                            className="md:bg-card md:border-border md:sticky md:right-0 md:z-10 md:border-l"
+                            className="md:bg-card md:border-border md:sticky md:right-0 md:z-10 md:border-l md:group-hover:bg-[color-mix(in_srgb,var(--muted)_50%,var(--card))] dark:md:group-hover:bg-[color-mix(in_srgb,var(--foreground)_10%,var(--card))]"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="flex items-center justify-end gap-2">
@@ -464,6 +466,12 @@ const JobOrdersPage = () => {
                                 )}
                               {isAdmin && order.status === 'ongoing_repair' && (
                                 <CompleteRepairModal
+                                  currentMaintenanceType={
+                                    order.maintenance_type
+                                  }
+                                  currentServiceLocation={
+                                    order.service_location
+                                  }
                                   onSubmit={(data) =>
                                     handleCompleteRepair(order.id, data)
                                   }

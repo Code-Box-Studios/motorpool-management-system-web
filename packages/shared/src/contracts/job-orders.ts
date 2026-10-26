@@ -1,12 +1,22 @@
 import { z } from 'zod';
-import { JOB_ORDER_STATUS, REPAIR_DONE_TYPE } from '../enums.js';
+import {
+  JOB_ORDER_STATUS,
+  REPAIR_DONE_TYPE,
+  MAINTENANCE_TYPE
+} from '../enums.js';
 import {
   paginationQuerySchema,
   searchQuerySchema,
   sortQuerySchema
 } from './common.js';
 
+const serviceMetadata = {
+  maintenanceType: z.nativeEnum(MAINTENANCE_TYPE).nullable().optional(),
+  serviceLocation: z.enum(['motorpool', 'outside']).nullable().optional()
+};
+
 export const createJobOrderBodySchema = z.object({
+  ...serviceMetadata,
   vehicleId: z.string().uuid(),
   branchId: z.string().uuid(),
   // A repair request that does not say what happened is a repair request nobody
@@ -45,6 +55,7 @@ export type NoteJobOrderBody = z.infer<typeof noteJobOrderBodySchema>;
 // odometer on it reads as "never serviced" — so a completed repair used to make
 // a vehicle look MORE overdue, not less.
 export const completeRepairBodySchema = z.object({
+  ...serviceMetadata,
   repairDone: z.nativeEnum(REPAIR_DONE_TYPE),
   completedMileage: z.coerce.number().int().nonnegative(),
   remarks: z.string().nullable().optional(),

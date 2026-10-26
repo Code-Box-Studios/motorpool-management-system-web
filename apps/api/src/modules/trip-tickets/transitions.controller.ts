@@ -3,6 +3,7 @@ import type {
   ApproveTripTicketBody,
   CheckInBody,
   CheckOutBody,
+  DriverOdometerBody,
   ReasonBody,
   ReassignGuidesBody
 } from '@mms/shared';
@@ -84,6 +85,20 @@ export async function reassignGuides(
     await transitions.reassignGuides(
       requireIdParam(req),
       (req.body as ReassignGuidesBody).guideIds
+    )
+  );
+}
+
+export async function recordOdometer(
+  req: Request,
+  res: Response
+): Promise<void> {
+  res.json(
+    await transitions.recordOdometer(
+      requireIdParam(req),
+      requireParam(req, 'dateId'),
+      requireUser(req),
+      req.body as DriverOdometerBody
     )
   );
 }

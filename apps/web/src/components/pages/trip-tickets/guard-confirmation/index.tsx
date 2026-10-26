@@ -1,3 +1,8 @@
+import { gateOuting } from './outings';
+import { useRef, useState } from 'react';
+import { Scanner } from '@yudiel/react-qr-scanner';
+import { CheckCircle2, QrCode } from 'lucide-react';
+import { matchesSearch } from '@mms/shared';
 import { useAllTripTickets } from '@/lib/query/trip-tickets';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import { useAllDrivers } from '@/lib/query/drivers';
@@ -5,434 +10,478 @@ import {
   useCheckOutTripTicket,
   useCheckInTripTicket
 } from '@/lib/mutation/trip-tickets';
+import { useListControls } from '@/hooks/use-list-controls';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
-import { useState } from 'react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import StatusBadge from '@/components/shared/status-badge';
-import { TRIP_TICKET_STATUS } from '@/lib/enums';
-import { QrCode, ChevronRight, ArrowRight } from 'lucide-react';
-import { Scanner } from '@yudiel/react-qr-scanner';
-import { toast } from 'sonner';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell
+} from '@/components/ui/table';
+import ListToolbar from '@/components/shared/list-toolbar';
+import ListSearchInput from '@/components/shared/list-search-input';
+import TableFilters from '@/components/shared/table-filters';
+import TablePagination from '@/components/shared/table-pagination';
 import { formatRef } from '@/lib/utils/reference';
+import type { TripTicket } from '@/lib/types';
 
-// Initials for the avatar chip — a name, never an id.
-const initials = (name: string) =>
-  name
-    .split(' ')
-    .map((part) => part[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+const when = (value: string) =>
+  new Date(value).toLocaleString('en-PH', {
+    timeZone: 'Asia/Manila',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
 
-/**
- * The gate screen. The guard is standing outside with a vehicle idling in front
- * of them, on a phone — so this is one decision at a time: the vehicle that is
- * AT THE GATE NOW gets the whole screen and one very large button. Everything
- * else is a short "next at gate" list underneath.
- */
+/** The guard verifies ticket identity; the server resolves and stamps its eligible outing. */
 export default function GuardConfirmationPage() {
   const { user } = useAuth();
-  const { data: userRole } = useUserRole();
-  const checkOutTripTicket = useCheckOutTripTicket();
-  const checkInTripTicket = useCheckInTripTicket();
-  const [confirmAction, setConfirmAction] = useState<{
-    type: 'check-out' | 'check-in';
-    ticketId: string;
-    vehicleId: string;
-  } | null>(null);
-  const [isQrVerified, setIsQrVerified] = useState(false);
-  const [cameraError, setCameraError] = useState('');
+  const { data: role } = useUserRole();
+  const branchId =
+    role?.branch_id || user?.user_metadata?.branch_id || undefined;
+  const {
+    data: tickets = [],
+    isLoading,
+    error
+  } = useAllTripTickets(undefined, branchId);
+  const { data: vehicles = [] } = useAllVehicles();
+  const { data: drivers = [] } = useAllDrivers();
+  const checkOut = useCheckOutTripTicket();
+  const checkIn = useCheckInTripTicket();
+  const { search, setSearch, filters, setFilter, clearFilters, page, setPage } =
+    useListControls(['gateStatus']);
+  const [ticket, setTicket] = useState<TripTicket | null>(null);
+  const [verified, setVerified] = useState(false);
   const [scanError, setScanError] = useState('');
-  // The odometer as the guard reads it off the dash. This is the only thing in
-  // the whole system that advances the vehicle's mileage, and every preventive
-  // and predictive maintenance figure is computed from that number.
-  const [odometer, setOdometer] = useState('');
-  const [odometerError, setOdometerError] = useState('');
-
-  const extractUuid = (value: string) => {
-    const match = value
-      .toLowerCase()
-      .match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);
-    return match?.[0] || null;
-  };
-
-  const rawBranchId = userRole?.branch_id || user?.user_metadata?.branch_id;
-  const isValidUUID = (str: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-  const guardBranchId =
-    rawBranchId && isValidUUID(rawBranchId) ? rawBranchId : undefined;
-
-  const { data: tripTicketsData, isLoading } = useAllTripTickets(
-    undefined,
-    guardBranchId
+  const [scannerKey, setScannerKey] = useState(0);
+  const actionButton = useRef<HTMLButtonElement | null>(null);
+  const submitting = useRef(false);
+  const pending = checkIn.isPending || checkOut.isPending;
+  const vehicleOf = (id: string) =>
+    vehicles.find((vehicle) => vehicle.id === id);
+  const driverOf = (id: string) =>
+    drivers.find((driver) => driver.id === id)?.full_name ?? 'Unknown driver';
+  const outingOf = (item: TripTicket) =>
+    gateOuting(item.status ?? '', item.dates);
+  const atGate = tickets.filter((item) =>
+    ['approved', 'in_progress'].includes(item.status ?? '')
   );
-  const { data: vehicles } = useAllVehicles();
-  const { data: drivers } = useAllDrivers();
-
-  const getVehicle = (vehicleId: string) =>
-    vehicles?.find((v) => v.id === vehicleId);
-  const getDriverName = (driverId: string) =>
-    drivers?.find((d) => d.id === driverId)?.full_name ?? 'Unknown driver';
-
-  const resetDialog = () => {
-    setIsQrVerified(false);
-    setCameraError('');
+  const filtered = atGate.filter(
+    (item) =>
+      (!filters.gateStatus || item.status === filters.gateStatus) &&
+      matchesSearch(search, [
+        formatRef('TT', item.ticket_no),
+        item.destination,
+        driverOf(item.driver_id),
+        vehicleOf(item.vehicle_id)?.license_plate
+      ])
+  );
+  const pages = Math.max(1, Math.ceil(filtered.length / 10));
+  const currentPage = Math.min(page, pages);
+  const visibleTickets = filtered.slice(
+    (currentPage - 1) * 10,
+    currentPage * 10
+  );
+  const gateLabel = (item: TripTicket) =>
+    item.status === 'in_progress' ? 'Out on trip' : 'Ready to depart';
+  const openScan = (item: TripTicket, trigger: HTMLButtonElement) => {
+    actionButton.current = trigger;
+    setTicket(item);
+    setVerified(false);
     setScanError('');
-    setOdometer('');
-    setOdometerError('');
+    submitting.current = false;
   };
-
-  const openCheckOut = (ticketId: string, vehicleId: string) => {
-    resetDialog();
-    setConfirmAction({ type: 'check-out', ticketId, vehicleId });
-  };
-
-  const openCheckIn = (ticketId: string, vehicleId: string) => {
-    resetDialog();
-    setConfirmAction({ type: 'check-in', ticketId, vehicleId });
-  };
-
-  const closeQrDialog = () => {
-    setConfirmAction(null);
-    resetDialog();
-  };
-
-  // The reading already on record — the guard's number can never be below it.
-  const pendingVehicle = confirmAction
-    ? getVehicle(confirmAction.vehicleId)
-    : undefined;
-  const currentOdometer = pendingVehicle?.mileage ?? 0;
-
-  const handleScanResult = (detectedCodes: Array<{ rawValue?: string }>) => {
-    if (!confirmAction || isQrVerified || !detectedCodes.length) return;
-
-    const rawScannedValue = (detectedCodes[0]?.rawValue || '').trim();
-    if (!rawScannedValue) return;
-
-    const scannedId = extractUuid(rawScannedValue);
-    const expectedId =
-      extractUuid(confirmAction.ticketId) ||
-      confirmAction.ticketId.trim().toLowerCase();
-
-    if (!scannedId) {
-      setScanError(
-        'That QR code is not a trip ticket. Scan the code on the driver’s ticket.'
-      );
-      return;
-    }
-    if (scannedId !== expectedId) {
-      setScanError('That QR code belongs to a different trip ticket.');
-      return;
-    }
-
-    setScanError('');
-    setCameraError('');
-    setIsQrVerified(true);
-    toast.success('QR verified. You can proceed.');
-  };
-
-  const handleConfirmAction = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    if (!confirmAction) return;
-
-    if (!isQrVerified) {
-      setScanError('Scan the driver’s QR code before continuing.');
-      return;
-    }
-    setScanError('');
-
-    const reading = Number(odometer);
-    if (!odometer.trim() || !Number.isFinite(reading)) {
-      setOdometerError('Read the odometer off the dash and enter it.');
-      return;
-    }
-    if (reading < currentOdometer) {
-      setOdometerError(
-        `Cannot be below the last reading (${currentOdometer.toLocaleString()} km).`
-      );
-      return;
-    }
-    setOdometerError('');
-
-    if (confirmAction.type === 'check-out') {
-      checkOutTripTicket.mutate(
-        { id: confirmAction.ticketId, startMileage: reading },
-        { onSettled: closeQrDialog }
-      );
-    } else {
-      checkInTripTicket.mutate(
-        { id: confirmAction.ticketId, endMileage: reading },
-        { onSettled: closeQrDialog }
-      );
-    }
-  };
-
-  // Anything the guard can act on: cleared to leave, or out and due back.
-  const atGate =
-    tripTicketsData?.filter(
-      (t) =>
-        t.status === TRIP_TICKET_STATUS.APPROVED ||
-        t.status === TRIP_TICKET_STATUS.IN_PROGRESS
-    ) ?? [];
-
-  const [current, ...queue] = atGate;
-
-  if (isLoading) {
-    return (
-      <div className="mx-auto w-full max-w-md">
-        <Skeleton className="h-[420px] w-full rounded-[28px]" />
-      </div>
+  const confirm = () => {
+    if (!ticket || !verified || pending || submitting.current) return;
+    submitting.current = true;
+    const mutation = ticket.status === 'in_progress' ? checkIn : checkOut;
+    mutation.mutate(
+      { id: ticket.id },
+      {
+        onSuccess: () => setTicket(null),
+        onSettled: () => {
+          submitting.current = false;
+        }
+      }
     );
-  }
-
-  if (!current) {
-    return (
-      <div className="mx-auto w-full max-w-md py-10 text-center">
-        <div className="border-border text-muted-foreground rounded-[28px] border border-dashed px-6 py-20">
-          Nothing at the gate. Approved trips will appear here.
-        </div>
-      </div>
-    );
-  }
-
-  const vehicle = getVehicle(current.vehicle_id);
-  const driverName = getDriverName(current.driver_id);
-  const isReturning = current.status === TRIP_TICKET_STATUS.IN_PROGRESS;
-
+  };
   return (
-    <div className="mx-auto w-full max-w-md">
-      {/* ---------- The vehicle in front of you ---------- */}
-      <div className="mb-3 flex items-center gap-2">
-        <span className="bg-signal size-2 rounded-full" />
-        <span className="text-muted-foreground text-xs font-bold tracking-[0.11em] uppercase">
-          At the gate now
-        </span>
+    <div className="mx-auto w-full max-w-7xl min-w-0 space-y-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Next at gate</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Scan the driver's ticket QR to record departure or return. Drivers
+            record odometers separately.
+          </p>
+        </div>
+        <dl className="grid grid-cols-2 gap-3 lg:min-w-72">
+          {[
+            [
+              'Ready to depart',
+              atGate.filter((item) => item.status === 'approved').length
+            ],
+            [
+              'Out on trip',
+              atGate.filter((item) => item.status === 'in_progress').length
+            ]
+          ].map(([label, count]) => (
+            <div
+              key={label}
+              className="bg-card border-border rounded-2xl border px-4 py-3"
+            >
+              <dt className="text-muted-foreground text-xs">{label}</dt>
+              <dd className="mt-1 text-2xl font-semibold tabular-nums">
+                {isLoading ? '—' : count}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
-
-      <section className="bg-card border-border rounded-[28px] border p-6 shadow-lg">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <StatusBadge status={current.status ?? ''} />
-          <span className="text-muted-foreground font-mono text-xs">
-            {formatRef('TT', current.ticket_no)}
-          </span>
-        </div>
-
-        <h1 className="text-3xl font-semibold tracking-tight">
-          {vehicle ? `${vehicle.make} ${vehicle.model}` : 'Vehicle'}
-        </h1>
-        {vehicle?.license_plate && (
-          <div className="bg-primary text-primary-foreground mt-2.5 inline-block rounded-xl px-4 py-1.5 font-mono text-xl font-bold tracking-wider">
-            {vehicle.license_plate}
-          </div>
-        )}
-
-        <div className="bg-border my-5 h-px" />
-
-        <div className="flex items-center gap-3">
-          <span className="bg-muted text-muted-foreground flex size-11 flex-none items-center justify-center rounded-full text-sm font-bold">
-            {initials(driverName)}
-          </span>
-          <div className="min-w-0">
-            <div className="font-semibold">{driverName}</div>
-            <div className="text-slate text-sm">Driver</div>
-          </div>
-        </div>
-
-        <div className="text-ink-soft mt-3.5 text-sm">
-          {current.destination}
-        </div>
-
-        {/* Verify — the person must match the ticket. */}
-        <button
-          type="button"
-          onClick={() =>
-            isReturning
-              ? openCheckIn(current.id, current.vehicle_id)
-              : openCheckOut(current.id, current.vehicle_id)
-          }
-          className="border-line-strong hover:bg-accent mt-5 flex w-full items-center gap-3.5 rounded-[20px] border-[1.5px] border-dashed p-3.5 text-left transition-colors"
-        >
-          <span className="border-foreground flex size-12 flex-none items-center justify-center rounded-xl border-2">
-            <QrCode className="size-6" />
-          </span>
-          <span className="flex-1">
-            <span className="block font-semibold">
-              Scan driver QR to verify
-            </span>
-            <span className="text-slate block text-xs">
-              Confirms the person matches {formatRef('TT', current.ticket_no)}
-            </span>
-          </span>
-          <ChevronRight className="text-muted-foreground size-5 flex-none" />
-        </button>
-
-        {/* The whole job, one button. */}
-        <Button
-          onClick={() =>
-            isReturning
-              ? openCheckIn(current.id, current.vehicle_id)
-              : openCheckOut(current.id, current.vehicle_id)
-          }
-          disabled={checkOutTripTicket.isPending || checkInTripTicket.isPending}
-          className="mt-4 h-16 w-full rounded-[22px] text-lg font-semibold"
-        >
-          {isReturning ? 'Time in Vehicle' : 'Time out Vehicle'}
-          <ArrowRight className="size-5" />
-        </Button>
-        <p className="text-slate mt-2.5 text-center text-xs">
-          {isReturning
-            ? 'Records the return and frees the vehicle.'
-            : 'Releases the vehicle and starts the trip.'}
-        </p>
-      </section>
-
-      {/* ---------- Next at gate ---------- */}
-      {queue.length > 0 && (
-        <section className="mt-7">
-          <div className="text-muted-foreground mb-2.5 px-1 text-xs font-bold tracking-[0.11em] uppercase">
-            Next at gate
-          </div>
-          <ul className="flex flex-col gap-2.5">
-            {queue.map((ticket) => {
-              const v = getVehicle(ticket.vehicle_id);
-              return (
-                <li
-                  key={ticket.id}
-                  className="bg-card border-border flex items-center gap-3.5 rounded-[18px] border p-3.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-semibold">
-                      {v ? `${v.make} ${v.model}` : 'Vehicle'}
-                      {v?.license_plate && (
-                        <span className="ml-1.5 font-mono text-xs">
-                          {v.license_plate}
+      <Card className="min-w-0">
+        <CardContent className="min-w-0 space-y-4 px-4 sm:px-6 [&_[data-slot=list-toolbar]_button]:min-h-11 [&_[data-slot=list-toolbar]_input]:min-h-11 [&_[data-slot=table-container]]:max-w-full [&>div:last-child_button]:min-h-11">
+          <ListToolbar
+            searchControl={
+              <ListSearchInput
+                value={search}
+                onChange={setSearch}
+                label="Search trips"
+              />
+            }
+            filterControl={
+              <TableFilters
+                filters={[
+                  {
+                    key: 'gateStatus',
+                    label: 'Gate status',
+                    options: [
+                      { value: 'approved', label: 'Ready to depart' },
+                      { value: 'in_progress', label: 'Out on trip' }
+                    ]
+                  }
+                ]}
+                values={filters}
+                onChange={setFilter}
+                onClear={clearFilters}
+              />
+            }
+          />
+          {isLoading ? (
+            <Skeleton className="h-56 w-full" />
+          ) : error ? (
+            <p role="alert">Unable to load gate trips. {error.message}</p>
+          ) : (
+            <>
+              <ul
+                aria-label="Gate trips"
+                className="grid min-w-0 gap-3 sm:grid-cols-2 lg:hidden"
+              >
+                {visibleTickets.map((item) => {
+                  const outing = outingOf(item);
+                  const vehicle = vehicleOf(item.vehicle_id);
+                  return (
+                    <li
+                      key={item.id}
+                      className="border-border bg-background flex min-w-0 flex-col gap-4 rounded-2xl border p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h2 className="font-mono text-sm font-semibold">
+                          {formatRef('TT', item.ticket_no)}
+                        </h2>
+                        <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium">
+                          {gateLabel(item)}
                         </span>
-                      )}
-                    </div>
-                    <div className="text-slate truncate text-xs">
-                      {getDriverName(ticket.driver_id)} → {ticket.destination}
-                    </div>
-                  </div>
-                  <StatusBadge status={ticket.status ?? ''} />
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-
-      {/* ---------- QR verification ---------- */}
-      <AlertDialog
-        open={!!confirmAction}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold break-words">
+                          {vehicle?.license_plate ?? 'Vehicle not assigned'}
+                        </p>
+                        <p className="text-muted-foreground mt-1 text-sm break-words">
+                          {driverOf(item.driver_id)}
+                        </p>
+                      </div>
+                      <dl className="grid min-w-0 gap-3 text-sm">
+                        <div>
+                          <dt className="text-muted-foreground text-xs">
+                            Destination
+                          </dt>
+                          <dd className="mt-1 break-words">
+                            {item.destination}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground text-xs">
+                            Outing window
+                          </dt>
+                          <dd className="mt-1">
+                            {outing ? (
+                              <>
+                                {when(outing.start_ts)}
+                                <span className="text-muted-foreground mt-1 block">
+                                  Return {when(outing.end_ts)}
+                                </span>
+                              </>
+                            ) : (
+                              'No eligible outing today'
+                            )}
+                          </dd>
+                        </div>
+                      </dl>
+                      <Button
+                        className="mt-auto min-h-11 w-full"
+                        onClick={(event) => openScan(item, event.currentTarget)}
+                      >
+                        <QrCode aria-hidden="true" className="size-4" />
+                        {item.status === 'in_progress'
+                          ? 'Scan QR to time in'
+                          : 'Scan QR to time out'}
+                      </Button>
+                    </li>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <li className="text-muted-foreground col-span-full py-8 text-center text-sm">
+                    {atGate.length === 0
+                      ? 'No trips waiting at the gate.'
+                      : 'No matching trips at the gate.'}
+                  </li>
+                )}
+              </ul>
+              <div className="hidden min-w-0 lg:block">
+                <Table className="min-w-[1000px]">
+                  <TableHeader>
+                    <TableRow>
+                      {[
+                        'Trip ticket',
+                        'Outing window',
+                        'Driver',
+                        'Plate',
+                        'Destination',
+                        'Gate status',
+                        'QR action'
+                      ].map((heading) => (
+                        <TableHead key={heading}>{heading}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleTickets.map((item) => {
+                      const outing = outingOf(item);
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-mono text-xs">
+                            {formatRef('TT', item.ticket_no)}
+                          </TableCell>
+                          <TableCell>
+                            {outing ? (
+                              <>
+                                <div>{when(outing.start_ts)}</div>
+                                <div className="text-muted-foreground text-xs">
+                                  Return {when(outing.end_ts)}
+                                </div>
+                              </>
+                            ) : (
+                              'No eligible outing today'
+                            )}
+                          </TableCell>
+                          <TableCell>{driverOf(item.driver_id)}</TableCell>
+                          <TableCell>
+                            {vehicleOf(item.vehicle_id)?.license_plate ??
+                              'Not assigned'}
+                          </TableCell>
+                          <TableCell className="max-w-64 truncate">
+                            {item.destination}
+                          </TableCell>
+                          <TableCell>
+                            <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium">
+                              {gateLabel(item)}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              className="min-h-11"
+                              onClick={(event) =>
+                                openScan(item, event.currentTarget)
+                              }
+                            >
+                              <QrCode className="size-4" />
+                              {item.status === 'in_progress'
+                                ? 'Scan QR to time in'
+                                : 'Scan QR to time out'}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {filtered.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className="text-muted-foreground py-10 text-center"
+                        >
+                          No matching trips at the gate.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              <TablePagination
+                page={currentPage}
+                totalPages={pages}
+                onPageChange={setPage}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
+      <Dialog
+        open={ticket !== null}
         onOpenChange={(open) => {
-          if (!open) closeQrDialog();
+          if (!open && !pending) setTicket(null);
         }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmAction?.type === 'check-out'
-                ? 'Scan to time out'
-                : 'Scan to time in'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Point the camera at the QR code on the driver’s trip ticket.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <div className="space-y-2">
-            <div className="overflow-hidden rounded-[20px] border">
-              <Scanner
-                constraints={{ facingMode: 'environment' }}
-                onScan={handleScanResult}
-                onError={() =>
-                  setCameraError(
-                    'Cannot reach the camera. Allow camera access and try again.'
-                  )
-                }
-                styles={{ container: { width: '100%' } }}
-              />
-            </div>
-            {isQrVerified && (
-              <p className="text-status-done-fg text-sm font-medium">
-                QR verified — you can proceed.
-              </p>
+        <DialogContent
+          className="p-4 sm:max-w-md sm:p-6 [&>[data-slot=dialog-close]]:top-2 [&>[data-slot=dialog-close]]:right-2 [&>[data-slot=dialog-close]]:flex [&>[data-slot=dialog-close]]:size-11 [&>[data-slot=dialog-close]]:items-center [&>[data-slot=dialog-close]]:justify-center"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            actionButton.current?.focus();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {ticket?.status === 'in_progress'
+                ? 'Scan to time in'
+                : 'Scan to time out'}
+            </DialogTitle>
+            <DialogDescription>
+              Scan the QR on{' '}
+              {ticket ? formatRef('TT', ticket.ticket_no) : 'the trip ticket'}.
+              Odometer readings are optional and recorded by the assigned
+              driver.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody className="space-y-4">
+            {ticket && (
+              <div className="bg-card border-border space-y-1 rounded-xl border p-3 text-sm">
+                <p className="font-semibold break-words">
+                  {vehicleOf(ticket.vehicle_id)?.license_plate ??
+                    'Vehicle not assigned'}{' '}
+                  · {driverOf(ticket.driver_id)}
+                </p>
+                <p className="text-muted-foreground break-words">
+                  {ticket.destination}
+                </p>
+              </div>
             )}
-            {cameraError && (
-              <p className="text-destructive text-sm">{cameraError}</p>
+            {!verified && (
+              <div className="mx-auto aspect-square w-full max-w-[min(18rem,35dvh)] overflow-hidden rounded-xl border bg-black [&_svg]:size-11">
+                <Scanner
+                  key={scannerKey}
+                  constraints={{ facingMode: 'environment' }}
+                  onScan={(codes) => {
+                    const scanned = codes[0]?.rawValue
+                      ?.trim()
+                      .toLowerCase()
+                      .match(
+                        /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
+                      )?.[0];
+                    if (scanned === ticket?.id.toLowerCase()) {
+                      setVerified(true);
+                      setScanError('');
+                    } else
+                      setScanError(
+                        'That QR code does not match the selected trip ticket.'
+                      );
+                  }}
+                  onError={() =>
+                    setScanError(
+                      'Cannot reach the camera. Allow camera access and try again.'
+                    )
+                  }
+                  styles={{
+                    container: { width: '100%', height: '100%' },
+                    video: { width: '100%', height: '100%', objectFit: 'cover' }
+                  }}
+                />
+              </div>
+            )}
+            {verified && (
+              <div
+                role="status"
+                className="bg-primary/10 text-primary flex items-start gap-3 rounded-xl p-4 text-sm font-medium"
+              >
+                <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
+                <p>
+                  QR verified. Confirm{' '}
+                  {ticket?.status === 'in_progress'
+                    ? 'time in to record the return.'
+                    : 'time out to record the departure.'}
+                </p>
+              </div>
             )}
             {scanError && (
-              <p className="text-destructive text-sm">{scanError}</p>
-            )}
-
-            {/* The odometer. Nothing else in the system moves this number, and
-                the whole maintenance schedule is computed from it. */}
-            <div className="border-border space-y-1.5 border-t pt-3">
-              <Label htmlFor="odometer" className="text-sm font-medium">
-                Odometer now
-              </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="odometer"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder={currentOdometer.toLocaleString()}
-                  value={odometer}
-                  onChange={(e) => {
-                    setOdometer(e.target.value.replace(/[^0-9]/g, ''));
-                    setOdometerError('');
+              <div className="space-y-3">
+                <p role="alert" className="text-destructive text-sm">
+                  {scanError}
+                </p>
+                <Button
+                  variant="outline"
+                  className="min-h-11 w-full"
+                  onClick={() => {
+                    setScanError('');
+                    setScannerKey((key) => key + 1);
                   }}
-                  aria-invalid={Boolean(odometerError)}
-                  className="h-12 text-lg"
-                />
-                <span className="text-muted-foreground text-sm">km</span>
+                >
+                  Retry camera
+                </Button>
               </div>
-              <p className="text-muted-foreground text-xs">
-                Last recorded: {currentOdometer.toLocaleString()} km
+            )}
+            {(checkIn.error || checkOut.error) && (
+              <p role="alert" className="text-destructive text-sm">
+                {(checkIn.error || checkOut.error)?.message}
               </p>
-              {odometerError && (
-                <p className="text-destructive text-sm">{odometerError}</p>
-              )}
-            </div>
-          </div>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              disabled={
-                checkOutTripTicket.isPending || checkInTripTicket.isPending
-              }
-              onClick={closeQrDialog}
+            )}
+          </DialogBody>
+          <DialogFooter className="grid flex-none grid-cols-2 gap-3">
+            <Button
+              variant="outline"
+              className="min-h-11"
+              disabled={pending}
+              onClick={() => setTicket(null)}
             >
               Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={
-                checkOutTripTicket.isPending ||
-                checkInTripTicket.isPending ||
-                !isQrVerified
-              }
-              onClick={handleConfirmAction}
+            </Button>
+            <Button
+              className="min-h-11"
+              disabled={!verified || pending}
+              onClick={confirm}
             >
-              {confirmAction?.type === 'check-out' ? 'Time out' : 'Time in'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              {pending
+                ? 'Recording…'
+                : ticket?.status === 'in_progress'
+                  ? 'Time in'
+                  : 'Time out'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -164,6 +164,8 @@ async function checkOut(
   s: { ticketId: string },
   startMileage: number
 ): Promise<void> {
+  const date = await prisma.tripDate.findFirstOrThrow({ where: { tripTicketId: s.ticketId, status: 'scheduled' }, orderBy: { startTs: 'asc' } });
+  await prisma.tripDate.update({ where: { id: date.id }, data: { startMileage } });
   const header = await guardHeaderForCancelTests();
   const res = await request(app)
     .post(`/api/trip-tickets/${s.ticketId}/check-out`)
@@ -182,6 +184,7 @@ async function checkIn(
   s: { ticketId: string },
   endMileage: number
 ): Promise<void> {
+  await prisma.tripDate.updateMany({ where: { tripTicketId: s.ticketId, status: 'in_progress' }, data: { endMileage } });
   const header = await guardHeaderForCancelTests();
   const res = await request(app)
     .post(`/api/trip-tickets/${s.ticketId}/check-in`)

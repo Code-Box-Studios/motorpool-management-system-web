@@ -4,24 +4,62 @@ import type {
   DashboardMetrics,
   PredictiveMaintenanceAlgorithm,
   RiskAssessment,
-  SparePartsModelAlgorithm
+  SparePartsModelAlgorithm,
+  SparePartsModelResult
 } from '@mms/shared';
 import { computeAssociationRules } from '../../lib/ml/apriori.js';
 import { loadAssociationModel } from '../../lib/ml/association-models.js';
-import { clientCrossCheckScore } from '../../lib/ml/client-dt.js';
+import {
+  clientCrossCheckScore,
+  loadClientModel
+} from '../../lib/ml/client-dt.js';
 import { extractFeatures } from '../../lib/ml/features.js';
-import { loadModel } from '../../lib/ml/random-forest.js';
+import { assertValidModel, loadModel } from '../../lib/ml/random-forest.js';
 import { computeVehicleRisk } from '../../lib/ml/risk.js';
+import { AppError } from '../../lib/errors.js';
 import * as repo from './repository.js';
 
-// Identifies which model produced `crossCheckScore`, so nobody has to guess.
-// See client-dt-brief.md — this is the client's own decision tree
-// (motorpool_dt_model.pkl), wired in ALONGSIDE the incumbent RF purely as an
-// informational cross-check. It drives no user-facing number.
+// The optional cross-check retains its identity when another model is selected.
 const CLIENT_CROSS_CHECK_MODEL = 'client_decision_tree_v1';
 
-export function associationModel(algorithm: SparePartsModelAlgorithm) {
-  return loadAssociationModel(algorithm);
+export async function associationModel(
+  algorithm: SparePartsModelAlgorithm
+): Promise<SparePartsModelResult> {
+  if (algorithm !== 'apriori') return loadAssociationModel(algorithm);
+  const [jobOrders, parts] = await Promise.all([
+    repo.jobOrdersWithSpareParts(),
+    repo.allSpareParts()
+  ]);
+  const transactions = jobOrders.map((jo) => ({
+    parts: [...new Set(jo.spareParts.map((part) => part.sparePartId))]
+  }));
+  // Match the existing pairs-only Apriori computation's eligible population.
+  const transactionCount = transactions.filter(
+    (row) => row.parts.length >= 2
+  ).length;
+  const rules = computeAssociationRules(
+    transactions,
+    new Map(parts.map((p) => [p.id, p.name]))
+  );
+  return {
+    algorithm,
+    modelName: 'Apriori',
+    source: 'live_job_orders',
+    sourceFile: null,
+    sourceSha256: null,
+    trainingTransactions: null,
+    transactionCount,
+    minSupport: 0.1,
+    count: rules.length,
+    data: rules.map((rule) => ({
+      antecedent: rule.partA,
+      consequent: rule.partB,
+      support: rule.support / 100,
+      confidence: rule.confidence / 100,
+      lift: rule.lift,
+      coOccurrences: rule.coOccurrences
+    }))
+  };
 }
 
 export async function dashboard(): Promise<DashboardMetrics> {
@@ -45,12 +83,31 @@ export async function predictiveMaintenance(
   now: Date,
   algorithm: PredictiveMaintenanceAlgorithm = 'random_forest'
 ): Promise<{ data: RiskAssessment[]; count: number }> {
-  const model = algorithm === 'usage_rules' ? null : loadModel();
-  // On the current seeded database, zero vehicle_status_audit rows exist, so
-  // downtimeHoursByVehicle returns an empty map and every vehicle falls back
-  // to `?? 0` below — crossCheckScore will be the SAME constant for every
-  // vehicle until real repair history accrues. That is correct behaviour,
-  // not a bug (client-dt-brief.md, "Expectations").
+  if (algorithm === 'logistic_regression') {
+    throw new AppError(
+      503,
+      'MODEL_UNAVAILABLE',
+      'Logistic Regression is unavailable: its fitted pipeline, matching scaler, and exact feature order have not been supplied.'
+    );
+  }
+  const model = algorithm === 'decision_tree' ? loadClientModel() : loadModel();
+  if (!model)
+    throw new AppError(
+      503,
+      'MODEL_UNAVAILABLE',
+      'The selected vehicle risk model is unavailable. No substitute score was generated.'
+    );
+  try {
+    assertValidModel(model);
+  } catch {
+    throw new AppError(
+      503,
+      'MODEL_UNAVAILABLE',
+      'The selected vehicle risk model is invalid. No substitute score was generated.'
+    );
+  }
+  // Downtime uses existing status-audit hours; its match with the model author's
+  // training definition remains unconfirmed. Vehicles without audits use zero.
   const [vehicles, downtimeHoursByVehicle] = await Promise.all([
     repo.vehiclesWithMaintenance(),
     repo.downtimeHoursByVehicle(now)
@@ -63,10 +120,22 @@ export async function predictiveMaintenance(
       now,
       downtimeHours
     );
-    const risk = computeVehicleRisk(model, features);
-    // Cross-check ONLY: does not feed riskScore/priority/usedFallback above,
-    // and any failure here (model absent, a feature missing) surfaces as
-    // `null` rather than a wrong number. client-dt-brief.md §4.
+    let risk;
+    try {
+      risk = computeVehicleRisk(model, features);
+      if (
+        !Number.isFinite(risk.rawScore) ||
+        risk.rawScore < 0 ||
+        risk.rawScore > 1
+      )
+        throw new Error('Invalid model probability');
+    } catch {
+      throw new AppError(
+        503,
+        'MODEL_UNAVAILABLE',
+        'The selected vehicle risk model could not be scored. No substitute score was generated.'
+      );
+    }
     const crossCheckScore = clientCrossCheckScore({
       KM_SINCE_LAST_MAINT: features.kmSinceLastMaint,
       MAINT_FREQ_12M: features.maintFreq12m,
@@ -84,9 +153,7 @@ export async function predictiveMaintenance(
       riskScore: risk.riskScore,
       priority: risk.priority,
       usedFallback: risk.usedFallback,
-      scoringMethod: risk.usedFallback
-        ? ('usage_rules' as const)
-        : ('random_forest' as const),
+      scoringMethod: algorithm,
       crossCheckScore,
       crossCheckModel: CLIENT_CROSS_CHECK_MODEL
     };

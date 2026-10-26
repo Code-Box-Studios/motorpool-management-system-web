@@ -120,6 +120,7 @@ test('all Organization resource tabs support search and clear', async ({
 
 test('requester can search and clear their trip history', async ({ page }) => {
   await login(page, 'requester');
+  await page.getByRole('tab', { name: 'History', exact: true }).click();
   const input = page.getByRole('searchbox', { name: 'Search request history' });
   await input.fill('no-match-request-history-audit');
   await expect(page.getByText('No records match your search.')).toBeVisible();

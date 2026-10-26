@@ -15,10 +15,12 @@ export const DEFAULT_MAINTENANCE_MODELS: MaintenanceModels = {
 
 export const RISK_MODEL_NAMES = {
   random_forest: 'Random Forest',
-  usage_rules: 'Usage-based estimate'
+  decision_tree: 'Decision Tree',
+  logistic_regression: 'Logistic Regression'
 } as const;
 
 export const PARTS_MODEL_NAMES = {
   fp_growth: 'FP-Growth',
-  eclat: 'Eclat'
+  eclat: 'Eclat',
+  apriori: 'Apriori'
 } as const;

@@ -16,6 +16,7 @@ import {
 import { AppError } from '../../lib/errors.js';
 import { requireUser } from '../../lib/http.js';
 import * as service from './service.js';
+import * as csvService from './csv-service.js';
 
 // Express 5: req.query is read-only — parse here, never in middleware.
 function listQuery(req: Request) {
@@ -187,4 +188,29 @@ export async function restoreEmployee(
   res: Response
 ): Promise<void> {
   res.json(await service.restoreEmployee(requireIdParam(req)));
+}
+
+export async function previewEmployeesCsv(
+  req: Request,
+  res: Response
+): Promise<void> {
+  res.json(await csvService.organizationCsv('employees', req.body, false));
+}
+export async function importEmployeesCsv(
+  req: Request,
+  res: Response
+): Promise<void> {
+  res.json(await csvService.organizationCsv('employees', req.body, true));
+}
+export async function previewOfficeHeadsCsv(
+  req: Request,
+  res: Response
+): Promise<void> {
+  res.json(await csvService.organizationCsv('office-heads', req.body, false));
+}
+export async function importOfficeHeadsCsv(
+  req: Request,
+  res: Response
+): Promise<void> {
+  res.json(await csvService.organizationCsv('office-heads', req.body, true));
 }

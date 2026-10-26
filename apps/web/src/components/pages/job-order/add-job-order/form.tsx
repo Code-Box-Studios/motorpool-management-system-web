@@ -1,3 +1,4 @@
+import { ServiceMetadataFields } from '../service-metadata-fields';
 import { useEffect, useState } from 'react';
 import { Controller, type FieldErrors } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -240,6 +241,16 @@ export function AddJobOrder({ onDone }: JobOrderFormProps) {
             className={step === 1 ? undefined : 'hidden'}
           >
             <div className="flex flex-col gap-5">
+              <ServiceMetadataFields
+                maintenanceType={review.maintenance_type || ''}
+                serviceLocation={review.service_location || ''}
+                onMaintenanceTypeChange={(value) =>
+                  form.setValue('maintenance_type', value)
+                }
+                onServiceLocationChange={(value) =>
+                  form.setValue('service_location', value)
+                }
+              />
               <FormRow>
                 <Controller
                   name="incident_date"
@@ -325,6 +336,14 @@ export function AddJobOrder({ onDone }: JobOrderFormProps) {
                 <DetailItem
                   label="Incident"
                   value={formatWhen(review.incident_date)}
+                />
+                <DetailItem
+                  label="Maintenance type"
+                  value={review.maintenance_type}
+                />
+                <DetailItem
+                  label="Service location"
+                  value={review.service_location}
                 />
                 <DetailItem
                   label="What is wrong"

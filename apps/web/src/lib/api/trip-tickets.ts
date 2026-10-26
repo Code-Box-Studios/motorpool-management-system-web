@@ -15,6 +15,10 @@ export interface TripDateRow {
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   start_mileage: number | null;
   end_mileage: number | null;
+  start_mileage_recorded_by_id?: string | null;
+  start_mileage_recorded_at?: string | null;
+  end_mileage_recorded_by_id?: string | null;
+  end_mileage_recorded_at?: string | null;
   pre_trip_guard: string | null;
   pre_trip_checked_by: string | null;
   pre_trip_checked_at: string | null;
@@ -34,6 +38,10 @@ interface TripDateApiResponse {
   status: string;
   startMileage: number | null;
   endMileage: number | null;
+  startMileageRecordedById: string | null;
+  startMileageRecordedAt: string | null;
+  endMileageRecordedById: string | null;
+  endMileageRecordedAt: string | null;
   preTripGuardId: string | null;
   preTripCheckedById: string | null;
   preTripCheckedAt: string | null;
@@ -53,6 +61,10 @@ function dateToSnake(d: TripDateApiResponse): TripDateRow {
     status: d.status as TripDateRow['status'],
     start_mileage: d.startMileage ?? null,
     end_mileage: d.endMileage ?? null,
+    start_mileage_recorded_by_id: d.startMileageRecordedById ?? null,
+    start_mileage_recorded_at: d.startMileageRecordedAt ?? null,
+    end_mileage_recorded_by_id: d.endMileageRecordedById ?? null,
+    end_mileage_recorded_at: d.endMileageRecordedAt ?? null,
     pre_trip_guard: d.preTripGuardId ?? null,
     pre_trip_checked_by: d.preTripCheckedById ?? null,
     pre_trip_checked_at: d.preTripCheckedAt ?? null,
@@ -511,27 +523,29 @@ export async function reassignTripTicketGuides(
   );
 }
 
-// The guard reads the odometer at the gate, out and back. It is the only thing
-// that advances the vehicle's mileage — which every preventive and predictive
-// maintenance number is computed from.
-export async function checkOutTripTicket(
-  id: string,
-  startMileage: number
-): Promise<TripTicket> {
+// Guard scans only stamp departure/return; readings belong to the assigned driver.
+export async function checkOutTripTicket(id: string): Promise<TripTicket> {
   return toSnake(
-    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-out`, {
-      startMileage
-    })
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-out`, {})
   );
 }
 
-export async function checkInTripTicket(
+export async function checkInTripTicket(id: string): Promise<TripTicket> {
+  return toSnake(
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-in`, {})
+  );
+}
+
+export async function recordTripOdometer(
   id: string,
-  endMileage: number
+  dateId: string,
+  phase: 'before' | 'after',
+  mileage: number
 ): Promise<TripTicket> {
   return toSnake(
-    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-in`, {
-      endMileage
-    })
+    await api.post<TripTicketApiResponse>(
+      `/trip-tickets/${id}/dates/${dateId}/odometer`,
+      { phase, mileage }
+    )
   );
 }

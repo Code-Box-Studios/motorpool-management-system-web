@@ -38,6 +38,8 @@ interface JobOrderApiResponse {
   targetDate: string | null;
   actualDateOfRelease: string | null;
   repairDone: string | null;
+  maintenanceType: JobOrderWithRelations['maintenance_type'];
+  serviceLocation: JobOrderWithRelations['service_location'];
   remarks: string | null;
   createdAt: string;
   updatedAt: string;
@@ -71,6 +73,8 @@ function toSnake(o: JobOrderApiResponse): JobOrderWithRelations {
     target_date: o.targetDate,
     actual_date_of_release: o.actualDateOfRelease,
     repair_done: o.repairDone,
+    maintenance_type: o.maintenanceType,
+    service_location: o.serviceLocation,
     remarks: o.remarks,
     created_at: o.createdAt,
     updated_at: o.updatedAt,
@@ -92,6 +96,8 @@ function toSnake(o: JobOrderApiResponse): JobOrderWithRelations {
 // createJobOrderBodySchema/updateJobOrderBodySchema). incidentDetails/remarks
 // are `.nullable().optional()` on the API, so PATCH can send `null` to clear.
 interface JobOrderRequestBody {
+  maintenanceType?: string | null;
+  serviceLocation?: string | null;
   vehicleId?: string;
   branchId?: string;
   incidentDate?: string;
@@ -107,6 +113,8 @@ interface JobOrderRequestBody {
 // a new job order is always born `pending` and those go through transitions).
 function mapCreateBody(o: NewJobOrder): JobOrderRequestBody {
   return {
+    maintenanceType: o.maintenance_type || undefined,
+    serviceLocation: o.service_location || undefined,
     vehicleId: o.vehicle_id || undefined,
     branchId: o.branch_id || undefined,
     incidentDate: o.incident_date || undefined,
@@ -123,6 +131,10 @@ function mapCreateBody(o: NewJobOrder): JobOrderRequestBody {
 // edit stays partial.
 function mapUpdateBody(u: Record<string, unknown>): JobOrderRequestBody {
   const body: JobOrderRequestBody = {};
+  if (u.maintenance_type !== undefined)
+    body.maintenanceType = (u.maintenance_type as string) || null;
+  if (u.service_location !== undefined)
+    body.serviceLocation = (u.service_location as string) || null;
   if (u.vehicle_id !== undefined)
     body.vehicleId = (u.vehicle_id as string) || undefined;
   if (u.branch_id !== undefined)
@@ -242,6 +254,8 @@ export async function completeRepairJobOrder(
     // is what "last service" means to the risk model, and a row with no odometer
     // reads as a service at 0 km — which made a repaired van look overdue.
     completedMileage: number;
+    maintenanceType?: string | null;
+    serviceLocation?: string | null;
     remarks?: string;
     actualDateOfRelease?: string;
   }

@@ -4,6 +4,7 @@ import {
   approveTripTicketBodySchema,
   checkInBodySchema,
   checkOutBodySchema,
+  driverOdometerBodySchema,
   createTripTicketBodySchema,
   reasonBodySchema,
   reassignGuidesBodySchema,
@@ -97,4 +98,11 @@ tripTicketsRouter.post(
   requireRole(USER_ROLES.admin, USER_ROLES.security_guard),
   validateBody(checkInBodySchema),
   transitionsController.checkIn
+);
+
+tripTicketsRouter.post(
+  '/:id/dates/:dateId/odometer',
+  requireRole(USER_ROLES.driver),
+  validateBody(driverOdometerBodySchema),
+  transitionsController.recordOdometer
 );

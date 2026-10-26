@@ -3,6 +3,12 @@ import type { LoginBody } from '@mms/shared';
 import { config } from '../../config.js';
 import { AppError } from '../../lib/errors.js';
 import * as authService from './service.js';
+import {
+  clearTestAccountGrant,
+  rotateTestAccountGrant,
+  validatedTestAccountGrant,
+  TEST_ACCOUNTS_COOKIE
+} from './test-accounts.js';
 
 export const REFRESH_COOKIE = 'mms_refresh';
 const REFRESH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -25,6 +31,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     password
   );
   res.cookie(REFRESH_COOKIE, refreshToken, refreshCookieOptions());
+  clearTestAccountGrant(res);
   res.json({ accessToken, user });
 }
 
@@ -40,9 +47,14 @@ export async function refresh(req: Request, res: Response): Promise<void> {
   ];
   if (!presented)
     throw new AppError(401, 'UNAUTHORIZED', 'Missing refresh token');
+  const grant = await validatedTestAccountGrant(
+    presented,
+    (req.cookies as Record<string, string | undefined>)[TEST_ACCOUNTS_COOKIE]
+  );
   const { accessToken, refreshToken, user } =
     await authService.refresh(presented);
   res.cookie(REFRESH_COOKIE, refreshToken, refreshCookieOptions());
+  rotateTestAccountGrant(res, grant, user.id, refreshToken);
   res.json({ accessToken, user });
 }
 
@@ -55,5 +67,6 @@ export async function logout(req: Request, res: Response): Promise<void> {
   // SameSite=None cookie can only be deleted by a matching SameSite=None header.
   const { maxAge: _maxAge, ...clearOptions } = refreshCookieOptions();
   res.clearCookie(REFRESH_COOKIE, clearOptions);
+  clearTestAccountGrant(res);
   res.status(204).end();
 }

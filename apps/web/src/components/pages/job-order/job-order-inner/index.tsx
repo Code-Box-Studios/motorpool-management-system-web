@@ -1,4 +1,6 @@
 import { useParams } from '@tanstack/react-router';
+import { Check, Wrench } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useJobOrder } from '@/lib/query/job-orders';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useAllVehicles } from '@/lib/query/vehicles';
@@ -28,16 +30,111 @@ import {
 import { useUserRole } from '@/hooks/use-user-role';
 
 // Dates arrive as ISO strings (some columns are `@db.Date`). A missing or
-// unparseable one resolves to undefined so DetailItem prints an em dash
-// rather than "Invalid Date".
+// unparseable one resolves to undefined so the view can show its missing-value
+// text rather than "Invalid Date".
 const formatDateTime = (value: string | null | undefined) => {
   if (!value) return undefined;
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date.toLocaleString();
+  return Number.isNaN(date.getTime())
+    ? undefined
+    : date.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
 };
 
 const titleCase = (value: string | null | undefined) =>
   value ? value.charAt(0).toUpperCase() + value.slice(1) : undefined;
+
+const repairStages = [
+  {
+    status: 'pending',
+    label: 'Requested',
+    nextStep: 'Next: assign a mechanic and set the repair plan.'
+  },
+  {
+    status: 'assigned_mechanic',
+    label: 'Mechanic assigned',
+    nextStep: 'Next: approve the job order to begin repair.'
+  },
+  {
+    status: 'ongoing_repair',
+    label: 'In repair',
+    nextStep: 'Next: record the completed repair and vehicle release.'
+  },
+  {
+    status: 'repaired',
+    label: 'Completed',
+    nextStep: 'Repair completed. Review the repair outcome below.'
+  }
+];
+
+const RepairProgress = ({ status }: { status: string | null }) => {
+  const currentStage = repairStages.findIndex(
+    (stage) => stage.status === status
+  );
+  if (currentStage < 0) return null;
+
+  return (
+    <section
+      aria-label="Repair progress"
+      className="bg-card border-border rounded-[20px] border p-5"
+    >
+      <ol className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {repairStages.map((stage, index) => (
+          <li
+            key={stage.status}
+            aria-current={index === currentStage ? 'step' : undefined}
+            className="flex min-w-0 items-center gap-2.5"
+          >
+            <span
+              aria-hidden="true"
+              className={cn(
+                'flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold',
+                index <= currentStage
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-border text-muted-foreground bg-muted/40',
+                index === currentStage && 'ring-primary/15 ring-4'
+              )}
+            >
+              {index < currentStage ? (
+                <Check className="size-3.5" />
+              ) : (
+                index + 1
+              )}
+            </span>
+            <span
+              className={cn(
+                'text-xs leading-snug sm:text-sm',
+                index === currentStage
+                  ? 'text-foreground font-semibold'
+                  : 'text-muted-foreground'
+              )}
+            >
+              {stage.label}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="text-muted-foreground border-border mt-4 border-t pt-3 text-sm">
+        {repairStages[currentStage].nextStep}
+      </p>
+    </section>
+  );
+};
+
+const notRecorded = (
+  <span className="text-muted-foreground font-normal">Not recorded</span>
+);
+const notAssigned = (
+  <span className="text-muted-foreground font-normal">Not assigned</span>
+);
+const notSet = (
+  <span className="text-muted-foreground font-normal">Not set</span>
+);
 
 const DetailSkeleton = () => (
   <div>
@@ -131,6 +228,8 @@ export const JobOrderInner = () => {
         id: jobOrderId,
         repairDone: data.repairDone,
         completedMileage: Number(data.completedMileage),
+        maintenanceType: data.maintenanceType || null,
+        serviceLocation: data.serviceLocation || null,
         remarks: data.remarks || undefined,
         actualDateOfRelease: data.actualDateOfRelease || undefined
       })
@@ -178,6 +277,9 @@ export const JobOrderInner = () => {
   });
 
   const incident = jobOrder.incident_details?.trim();
+  const hasRepairOutcome = Boolean(
+    jobOrder.repair_done?.trim() || jobOrder.actual_date_of_release
+  );
 
   return (
     <div>
@@ -228,6 +330,8 @@ export const JobOrderInner = () => {
             )}
             {isAdmin && jobOrder.status === 'ongoing_repair' && (
               <CompleteRepairModal
+                currentMaintenanceType={jobOrder.maintenance_type}
+                currentServiceLocation={jobOrder.service_location}
                 onSubmit={handleCompleteRepair}
                 isLoading={completeRepair.isPending}
                 currentMileage={fleetVehicle?.mileage ?? 0}
@@ -237,71 +341,131 @@ export const JobOrderInner = () => {
         }
       />
 
-      <div className="space-y-6">
-        <DetailSection title="Vehicle & request">
-          <DetailGrid>
-            <DetailItem label="Vehicle" value={vehicleName} />
-            <DetailItem label="Plate" value={plate} mono />
-            <DetailItem label="Branch" value={branchName} />
+      <div className="grid items-stretch gap-5 xl:grid-cols-2">
+        {repairStages.some((stage) => stage.status === jobOrder.status) && (
+          <div className="xl:col-span-2">
+            <RepairProgress status={jobOrder.status} />
+          </div>
+        )}
+
+        <DetailSection
+          title="Vehicle & incident"
+          className="min-w-0 p-5 sm:p-6"
+        >
+          <DetailGrid className="lg:grid-cols-2">
+            <DetailItem label="Vehicle" value={vehicleName || notRecorded} />
+            <DetailItem label="Plate" value={plate || notRecorded} mono />
+            <DetailItem label="Branch" value={branchName || notRecorded} />
             <DetailItem
-              label="Incident Date"
-              value={formatDateTime(jobOrder.incident_date)}
+              label="Incident date"
+              value={formatDateTime(jobOrder.incident_date) || notRecorded}
             />
             <DetailItem
-              label="Requested By"
-              value={personName(jobOrder.requested_by)}
+              label="Incident details"
+              value={incident || notRecorded}
+              className="sm:col-span-2"
             />
-            <DetailItem
-              label="Date of Request"
-              value={formatDateTime(jobOrder.created_at)}
-            />
-            <DetailItem label="Incident Details" value={incident} wide />
           </DetailGrid>
         </DetailSection>
 
-        <DetailSection title="Repair">
-          <DetailGrid>
+        <DetailSection title="Repair plan" className="min-w-0 p-5 sm:p-6">
+          <DetailGrid className="lg:grid-cols-2">
             <DetailItem
-              label="Assigned Mechanic"
-              value={personName(jobOrder.assigned_mechanic)}
+              label="Assigned mechanic"
+              value={personName(jobOrder.assigned_mechanic) || notAssigned}
             />
-            {/* `date_of_request` is what the note flow calls "Vehicle Date
-                Accepted" — the day the shop took the vehicle in. */}
+            {/* `date_of_request` is the date the shop accepted the vehicle. */}
             <DetailItem
-              label="Vehicle Date Accepted"
-              value={formatDateTime(jobOrder.date_of_request)}
-            />
-            <DetailItem
-              label="Target Date"
-              value={formatDateTime(jobOrder.target_date)}
+              label="Vehicle date accepted"
+              value={formatDateTime(jobOrder.date_of_request) || notRecorded}
             />
             <DetailItem
-              label="Actual Date of Release"
-              value={formatDateTime(jobOrder.actual_date_of_release)}
+              label="Target date"
+              value={formatDateTime(jobOrder.target_date) || notSet}
             />
             <DetailItem
-              label="Repair Done"
-              value={titleCase(jobOrder.repair_done)}
+              label="Maintenance type"
+              value={titleCase(jobOrder.maintenance_type) || notSet}
             />
             <DetailItem
-              label="Noted By"
-              value={personName(jobOrder.noted_by)}
+              label="Service location"
+              value={titleCase(jobOrder.service_location) || notSet}
+            />
+          </DetailGrid>
+        </DetailSection>
+
+        <DetailSection
+          title="Request & approval"
+          className="min-w-0 p-5 sm:p-6"
+        >
+          <DetailGrid className="lg:grid-cols-2">
+            <DetailItem
+              label="Requested by"
+              value={personName(jobOrder.requested_by) || notRecorded}
             />
             <DetailItem
-              label="Approved By"
-              value={personName(jobOrder.approved_by)}
+              label="Date of request"
+              value={formatDateTime(jobOrder.created_at) || notRecorded}
             />
             <DetailItem
-              label="Date Approved"
-              value={formatDateTime(jobOrder.date_approved)}
+              label="Noted by"
+              value={personName(jobOrder.noted_by) || notRecorded}
             />
-            <DetailItem label="Remarks" value={jobOrder.remarks} wide />
+            <DetailItem
+              label="Approved by"
+              value={personName(jobOrder.approved_by) || notRecorded}
+            />
+            <DetailItem
+              label="Date approved"
+              value={formatDateTime(jobOrder.date_approved) || notRecorded}
+            />
+          </DetailGrid>
+        </DetailSection>
+
+        <DetailSection title="Repair outcome" className="min-w-0 p-5 sm:p-6">
+          {hasRepairOutcome ? (
+            <DetailGrid className="lg:grid-cols-2">
+              <DetailItem
+                label="Repair done"
+                value={titleCase(jobOrder.repair_done) || notRecorded}
+              />
+              <DetailItem
+                label="Actual date of release"
+                value={
+                  formatDateTime(jobOrder.actual_date_of_release) || notRecorded
+                }
+              />
+            </DetailGrid>
+          ) : (
+            <div className="bg-muted/40 flex items-start gap-3 rounded-xl p-4">
+              <Wrench
+                className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                aria-hidden="true"
+              />
+              <div>
+                <p className="text-sm font-medium">
+                  No repair outcome recorded
+                </p>
+                <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+                  Repair details and the actual release date will appear here
+                  once recorded.
+                </p>
+              </div>
+            </div>
+          )}
+          <DetailGrid className="border-border mt-5 border-t pt-5 lg:grid-cols-2">
+            <DetailItem
+              label="Remarks"
+              value={jobOrder.remarks || notRecorded}
+              className="sm:col-span-2"
+            />
           </DetailGrid>
         </DetailSection>
 
         <DetailSection
           title="Spare parts"
           description="Parts noted against this repair."
+          className="min-w-0 p-5 sm:p-6 xl:col-span-2"
         >
           {partsUsed.length > 0 ? (
             <ul className="divide-border divide-y">

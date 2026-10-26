@@ -27,7 +27,10 @@ export async function associationRules(
   );
 }
 
-export function associationModel(req: Request, res: Response): void {
+export async function associationModel(
+  req: Request,
+  res: Response
+): Promise<void> {
   const { algorithm } = sparePartsModelQuerySchema.parse(req.query);
-  res.json(service.associationModel(algorithm));
+  res.json(await service.associationModel(algorithm));
 }

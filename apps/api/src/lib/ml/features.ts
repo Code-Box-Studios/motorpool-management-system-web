@@ -24,10 +24,10 @@ export function extractFeatures(
   maintFreq12m: number;
   downtimeHours: number;
 } {
-  // Newest first.
-  const rows = [...maintenances].sort(
-    (a, b) => b.date.getTime() - a.date.getTime()
-  );
+  // Future services have not happened yet and cannot reduce today's risk.
+  const rows = maintenances
+    .filter((row) => row.date <= now)
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
   const lastMaint = rows[0];
 
   // The baseline is the newest service whose ODOMETER we actually know — not
@@ -61,12 +61,14 @@ export function extractFeatures(
     );
     const kmBetween = Math.abs(newest.mileage! - oldest.mileage!);
     avgDailyKm = kmBetween / daysBetween;
-  } else if (lastMaint) {
-    const daysSinceLast = Math.max(
+  } else if (baseline) {
+    // Match the elapsed time to the odometer used for the distance. A newer
+    // service with no odometer must not shorten that measurement interval.
+    const daysSinceBaseline = Math.max(
       1,
-      (now.getTime() - lastMaint.date.getTime()) / DAY_MS
+      (now.getTime() - baseline.date.getTime()) / DAY_MS
     );
-    avgDailyKm = kmSinceLastMaint / daysSinceLast;
+    avgDailyKm = kmSinceLastMaint / daysSinceBaseline;
   }
 
   const oneYearAgo = new Date(now);

@@ -41,11 +41,11 @@ const timeOf = (value: string) =>
   });
 
 const windowOf = (start: string, end: string) =>
-  `${timeOf(start)} – ${timeOf(end)}`;
+  `${timeOf(start)} – ${new Date(start).toDateString() !== new Date(end).toDateString() ? dayOf(end) + ', ' : ''}${timeOf(end)}`;
 
 const odometerOf = (value: number | null) =>
   value === null ? (
-    <span className="text-muted-foreground">—</span>
+    <span className="text-muted-foreground">Not recorded</span>
   ) : (
     `${value.toLocaleString()} km`
   );
@@ -181,12 +181,12 @@ export function TripDatesSection({
                 <TableCell>{odometerOf(d.end_mileage)}</TableCell>
                 <TableCell>
                   {personName(d.pre_trip_guard) ?? (
-                    <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground">Not recorded</span>
                   )}
                 </TableCell>
                 <TableCell>
                   {personName(d.post_trip_guard) ?? (
-                    <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground">Not recorded</span>
                   )}
                 </TableCell>
                 {showActionsColumn && (

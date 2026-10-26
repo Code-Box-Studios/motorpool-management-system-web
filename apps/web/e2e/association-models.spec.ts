@@ -2,6 +2,65 @@ import { expect, test } from '@playwright/test';
 import { chooseFilter } from './filter-controls';
 import { login } from './helpers';
 
+test('shows unavailable Logistic Regression and applies live Apriori only after Run Model', async ({
+  page
+}) => {
+  await login(page, 'admin');
+  await page.goto('/maintenance?tab=predictive');
+  const controls = page.getByRole('region', {
+    name: 'Maintenance model selection',
+    exact: true
+  });
+  const results = page.getByRole('region', {
+    name: 'Spare parts model results',
+    exact: true
+  });
+  await expect(
+    controls.getByRole('button', { name: 'Run Model', exact: true })
+  ).toBeEnabled();
+  const risk = controls.getByRole('combobox', {
+    name: 'Vehicle risk algorithm',
+    exact: true
+  });
+  await risk.click();
+  await expect(
+    page.getByRole('option', {
+      name: 'Logistic Regression (Unavailable)',
+      exact: true
+    })
+  ).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(risk).toBeFocused();
+  await expect(controls).toContainText(
+    'Missing fitted pipeline, scaler, and feature order.'
+  );
+  const parts = controls.getByRole('combobox', {
+    name: 'Parts algorithm',
+    exact: true
+  });
+  await parts.click();
+  await page.getByRole('option', { name: 'Apriori', exact: true }).click();
+  await expect(results).toContainText('FP-Growth results');
+  const [response] = await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().includes('/analytics/association-models?algorithm=apriori')
+    ),
+    controls.getByRole('button', { name: 'Run Model', exact: true }).click()
+  ]);
+  const body = await response.json();
+  expect(body).toMatchObject({
+    algorithm: 'apriori',
+    source: 'live_job_orders',
+    sourceSha256: null
+  });
+  await expect(results).toContainText('Apriori results');
+  await expect(results).toContainText('eligible live job-order transactions');
+  if (body.count === 0)
+    await expect(results).toContainText(
+      'Current job-order transactions do not yield qualifying associations.'
+    );
+});
+
 test('runs the selected saved model and keeps draft choices separate from results', async ({
   page
 }) => {

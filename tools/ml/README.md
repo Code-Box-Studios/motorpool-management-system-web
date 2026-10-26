@@ -11,8 +11,8 @@ each containing four directional rules from 21 training transactions. Both
 currently contain the same rules; selecting another algorithm need not change
 the results. They describe spare-part co-replacement, not vehicle failure risk.
 
-Maintenance → Predictive includes a model selector and Run Model button beside
-the co-replaced parts results. FP-Growth loads by default; subsequent selections
+Maintenance → Predictive starts with separate vehicle-risk and parts model
+controls. FP-Growth is the default parts model; subsequent selections
 apply only when Run Model is clicked. Results show the model, training sample,
 confidence, support, and lift. Run Model loads saved rules; it does not retrain
 or incorporate new job orders. The existing `/api/analytics/association-rules`
@@ -111,6 +111,23 @@ does not fix anything.
 ```bash
 python export_rf_json.py            # reads motorpool_rf_model.pkl, writes the app JSON
 ```
+
+Keep all exported threshold and leaf-probability precision. A former rounded
+JSON export returned 34/low where the original model returns 91/high for the
+attainable input `(0 km since service, 139.131 km/day, 0 services in 12 months)`.
+The TypeScript predictor and Python parity checker both convert inputs to
+float32, matching sklearn, while retaining full-precision model parameters.
+
+To check the committed RF asset against its original pickle and run association
+export checks (use sklearn 1.8.0 to match the saved RF artifact):
+
+```sh
+python -m unittest tools/ml/test_export_rf_json.py tools/ml/test_export_association_json.py
+```
+
+These tests establish inference/export fidelity, not real-world predictive
+accuracy. The training/serving distribution mismatch above still needs aligned
+training data and held-out failure outcomes.
 
 ## Reading the output
 

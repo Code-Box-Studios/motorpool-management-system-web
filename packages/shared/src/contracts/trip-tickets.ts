@@ -132,19 +132,17 @@ export const reassignGuidesBodySchema = z.object({
 });
 export type ReassignGuidesBody = z.infer<typeof reassignGuidesBodySchema>;
 
-// The guard reads the odometer at the gate, out and back. Required, not
-// optional: an optional reading is a reading nobody takes, and this is the only
-// thing in the system that advances vehicles.mileage — which every preventive
-// and predictive maintenance number is computed from.
-export const checkOutBodySchema = z.object({
-  startMileage: z.coerce.number().int().nonnegative()
-});
+// Gate scans record guard stamps only; odometer entry belongs to the assigned driver.
+export const checkOutBodySchema = z.object({});
 export type CheckOutBody = z.infer<typeof checkOutBodySchema>;
-
-export const checkInBodySchema = z.object({
-  endMileage: z.coerce.number().int().nonnegative()
-});
+export const checkInBodySchema = z.object({});
 export type CheckInBody = z.infer<typeof checkInBodySchema>;
+
+export const driverOdometerBodySchema = z.object({
+  phase: z.enum(['before', 'after']),
+  mileage: z.number().int().nonnegative()
+});
+export type DriverOdometerBody = z.infer<typeof driverOdometerBodySchema>;
 
 // The list's sortable columns — the table's visible columns, nothing more.
 export const TRIP_TICKET_SORT_COLUMNS = [

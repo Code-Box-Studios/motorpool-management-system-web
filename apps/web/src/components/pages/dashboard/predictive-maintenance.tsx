@@ -90,10 +90,6 @@ const PredictiveMaintenance = ({
     });
   };
 
-  // `usedFallback` is per-request, so all rows agree; show one honest indicator
-  // when the scores are the rule-based estimate rather than the ML model.
-  const usedFallback = (predictions ?? []).some((v) => v.usedFallback);
-
   const predictedVehicles = (predictions ?? []).map((v) => ({
     id: v.vehicleId,
     plateNumber: v.licensePlate,
@@ -163,23 +159,16 @@ const PredictiveMaintenance = ({
                           Predictive Maintenance
                         </p>
                         <p className="text-xs">
-                          {usedFallback
-                            ? 'Usage-based estimate from mileage, daily usage, and service frequency.'
-                            : 'Uses historical data and usage patterns to predict when vehicle components are likely to fail, allowing proactive maintenance scheduling.'}
+                          Uses the selected model's learned probabilities to
+                          assess maintenance risk.
                         </p>
                       </div>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                {(!showViewAll || usedFallback) && (
-                  <Badge variant="outline" className="font-normal">
-                    {usedFallback
-                      ? appliedModels.risk === 'usage_rules'
-                        ? 'Usage-based estimate'
-                        : 'Rule-based estimate'
-                      : RISK_MODEL_NAMES[appliedModels.risk]}
-                  </Badge>
-                )}
+                <Badge variant="outline" className="font-normal">
+                  {RISK_MODEL_NAMES[appliedModels.risk]}
+                </Badge>
               </div>
               <Typography
                 variant={'p-sm'}
@@ -238,6 +227,9 @@ const PredictiveMaintenance = ({
                 Could not load vehicle risk results. Try running the model
                 again.
               </p>
+              <p className="text-muted-foreground">
+                {predictionsQuery.error?.message}
+              </p>
               <Button
                 variant="outline"
                 onClick={() => void predictionsQuery.refetch()}
@@ -270,6 +262,14 @@ const PredictiveMaintenance = ({
                 />
               ))}
             </div>
+          )}
+          {appliedModels.risk === 'decision_tree' && (
+            <p className="text-muted-foreground mt-4 text-xs">
+              Decision Tree uses mileage since service, service frequency, and
+              hours recorded under maintenance. The model author's downtime
+              definition remains unconfirmed; vehicles without audit history use
+              zero hours.
+            </p>
           )}
         </CardContent>
       </Card>

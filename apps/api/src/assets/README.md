@@ -2,19 +2,35 @@
 
 ## `rf_maintenance_model.json`
 
-The incumbent predictive-maintenance model. Random forest, 200 trees, trained
-on this app's own `KM_SINCE_LAST_MAINT` / `AVG_DAILY_KM` / `MAINT_FREQ_12M`
-features (see `lib/ml/features.ts`). Drives `riskScore` / `priority` /
-`usedFallback` in `GET /analytics/predictive-maintenance`. Do not touch
-without re-reading `lib/ml/random-forest.ts` and `lib/ml/risk.ts` — it has a
-separately-tracked, out-of-scope issue (784 of 3830 `KM_SINCE_LAST_MAINT`
-thresholds are negative and unreachable behind `Math.max(0, …)`).
+The vehicle failure-risk model: a 200-tree Random Forest with
+`KM_SINCE_LAST_MAINT` / `AVG_DAILY_KM` / `MAINT_FREQ_12M` inputs
+(see `lib/ml/features.ts`). Drives `riskScore` / `priority` / `usedFallback`
+in `GET /analytics/predictive-maintenance`.
 
-The endpoint accepts `algorithm=random_forest` (default) or `usage_rules`.
-The latter explicitly selects the existing mileage/usage/service-frequency
-estimate. Each row identifies its actual `scoringMethod`; rule-based results
-retain `usedFallback=true` for existing clients and are labelled as estimates
-in the model controls. Association algorithms are rejected by this endpoint.
+The JSON is exported at full precision from `tools/ml/motorpool_rf_model.pkl`
+(sklearn 1.8.0). Runtime inputs use sklearn's float32 precision; learned
+thresholds and leaf probabilities must not be rounded. The former four-decimal
+export changed an attainable 139.131 km/day input from the saved model's
+91/high to 34/low. Python parity tests and the TypeScript regression now guard
+that boundary. Future-dated services are excluded from current feature values.
+When recent services have no odometer, usage pairs distance and elapsed time
+with the same older known-odometer baseline.
+
+Numerical parity does not establish predictive accuracy. The original training
+distribution mismatch remains: 784 of 3830 `KM_SINCE_LAST_MAINT` thresholds
+are negative and unreachable behind `Math.max(0, …)`. Several live usage
+values also fall below every daily-usage split. Retraining and held-out
+validation require the training dataset and reliable failure labels; this
+re-export does not retrain or recalibrate the model.
+
+The endpoint accepts `algorithm=random_forest` (default), `decision_tree`, or
+`logistic_regression`. The selected available model drives the main `riskScore`
+and `priority`; `scoringMethod` records that selection and `usedFallback` is
+always false. Missing or invalid selected models return `503 MODEL_UNAVAILABLE`
+without substituting rules or another model. Logistic Regression returns that
+state until its complete fitted pipeline is supplied. Usage-based selection
+and association algorithms are rejected by this endpoint. Preventive mileage
+and time schedules remain independent of predictive inference.
 
 ## `client_dt_model.json`
 
@@ -31,11 +47,10 @@ bundles as described below.
   `downtime_hours` — the other three are inert (never referenced by any
   node), and only those three appear in this file's own `features` array.
 - `max_depth=3`, 11 nodes, 6 leaves, trained on 250 rows. **This is a weak
-  model** — five of its six leaves predict class 1. It was wired in anyway at
-  the client's explicit request, as an optional, informational
-  `crossCheckScore` alongside the incumbent RF's `riskScore`
-  (`modules/analytics/service.ts`). It drives no user-facing number and
-  cannot change `riskScore`, `priority`, or `usedFallback`.
+  model** — five of its six leaves predict class 1. Selecting Decision Tree
+  uses its actual leaf probabilities for the main `riskScore` and `priority`.
+  The legacy informational `crossCheckScore` remains available alongside
+  Random Forest results (`modules/analytics/service.ts`).
 - `downtime_hours` is computed in `modules/analytics/repository.ts` from
   `vehicle_status_audit` as "hours spent in `under_maintenance`". The
   client's own definition of `downtime_hours` is unknown; if theirs differs,
@@ -55,8 +70,14 @@ files and restricted offline exporter live in `tools/ml`.
 
 These models drive related-parts recommendations only; their confidence,
 support, and lift are not vehicle failure-risk scores. The existing live
-Apriori endpoint remains available separately. See `tools/ml/README.md`
-for regeneration and provenance checks.
+Apriori endpoint remains available and also participates in the common model
+selector. Apriori mines current job orders, reports `source=live_job_orders`,
+and carries null artifact/training fields. Its transaction count includes the
+eligible job orders with at least two distinct parts; at least two such
+transactions are required. Support/confidence are normalized from the existing
+live computation's integer percentages. Saved results retain their original
+rules and hashes with `source=trained_artifact`. See `tools/ml/README.md` for
+regeneration and provenance checks.
 
 ## Not here
 

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  checkOutBodySchema,
+  checkInBodySchema,
   createTripTicketBodySchema,
   normaliseTripDates,
   tripDateInputSchema,
@@ -101,5 +103,16 @@ describe('guideIds on the trip-ticket bodies', () => {
         guideIds: ['44444444-4444-4444-8444-444444444444']
       }).success
     ).toBe(true);
+  });
+});
+
+describe('QR-only gate contracts', () => {
+  it('accepts both gate scans without odometer fields', () => {
+    expect(checkOutBodySchema.safeParse({}).success).toBe(true);
+    expect(checkInBodySchema.safeParse({}).success).toBe(true);
+  });
+  it('does not accept guard mileage as a driver reading', () => {
+    expect(checkOutBodySchema.parse({ startMileage: 1234 })).toEqual({});
+    expect(checkInBodySchema.parse({ endMileage: 1250 })).toEqual({});
   });
 });

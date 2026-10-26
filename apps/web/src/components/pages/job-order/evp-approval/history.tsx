@@ -1,7 +1,5 @@
 import ListToolbar from '@/components/shared/list-toolbar';
-import { Link } from '@tanstack/react-router';
-import { Eye } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -26,6 +24,7 @@ const formatWhen = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString() : '—';
 
 export default function ApprovalHistory() {
+  const navigate = useNavigate();
   const {
     page,
     setPage,
@@ -105,7 +104,7 @@ export default function ApprovalHistory() {
           />
         ) : (
           <>
-            <Table className="min-w-[1000px]">
+            <Table className="min-w-[880px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Reference</TableHead>
@@ -115,14 +114,33 @@ export default function ApprovalHistory() {
                   <TableHead>Decided by</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Details</TableHead>
-                  <TableHead>
-                    <span className="sr-only">View</span>
-                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {records.map((record) => (
-                  <TableRow key={`${record.kind}-${record.id}`}>
+                  <TableRow
+                    key={`${record.kind}-${record.id}`}
+                    className="focus-within:bg-muted/50 dark:focus-within:bg-foreground/10 cursor-pointer"
+                    onClick={(event) => {
+                      // The request title remains a native link for keyboard,
+                      // context-menu and browser navigation. Other cells open
+                      // the same destination without hijacking text selection.
+                      if (
+                        (event.target as HTMLElement).closest('a') ||
+                        window.getSelection()?.toString()
+                      )
+                        return;
+                      if (event.ctrlKey || event.metaKey || event.shiftKey) {
+                        window.open(
+                          record.linkTo,
+                          '_blank',
+                          'noopener,noreferrer'
+                        );
+                      } else {
+                        void navigate({ to: record.linkTo });
+                      }
+                    }}
+                  >
                     <TableCell>
                       <div className="font-mono text-xs">{record.ref}</div>
                       <div className="text-muted-foreground mt-1 text-xs">
@@ -184,14 +202,6 @@ export default function ApprovalHistory() {
                         </p>
                       )}
                       {record.liters === null && !record.reason && '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" asChild>
-                        <Link to={record.linkTo}>
-                          <Eye />
-                          <span className="sr-only">View {record.ref}</span>
-                        </Link>
-                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

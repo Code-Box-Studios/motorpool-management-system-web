@@ -152,6 +152,14 @@ export async function completeRepair(
     );
   }
   const releaseDate = body.actualDateOfRelease ?? new Date();
+  const maintenanceType =
+    body.maintenanceType === undefined
+      ? order.maintenanceType
+      : body.maintenanceType;
+  const serviceLocation =
+    body.serviceLocation === undefined
+      ? order.serviceLocation
+      : body.serviceLocation;
   await prisma.$transaction(async (tx) => {
     await lockVehicles(tx, [order.vehicleId]);
     // Conditional write: only flips rows still in ongoing_repair. Under a
@@ -163,6 +171,8 @@ export async function completeRepair(
       data: {
         status: 'repaired',
         repairDone: body.repairDone,
+        maintenanceType,
+        serviceLocation,
         remarks: body.remarks ?? null,
         actualDateOfRelease: releaseDate
       }
@@ -192,7 +202,7 @@ export async function completeRepair(
     await tx.maintenance.create({
       data: {
         vehicleId: order.vehicleId,
-        type: 'repair',
+        type: maintenanceType ?? 'repair',
         date: releaseDate,
         mileage: body.completedMileage,
         description: body.remarks ?? null

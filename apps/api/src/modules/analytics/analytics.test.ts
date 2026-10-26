@@ -262,15 +262,15 @@ describe('analytics module', () => {
     const header = await adminHeader();
     const v = await vehicle('available', 0);
     const estimate = await request(app)
-      .get('/api/analytics/predictive-maintenance?algorithm=usage_rules')
+      .get('/api/analytics/predictive-maintenance?algorithm=decision_tree')
       .set('Authorization', header);
     expect(estimate.status).toBe(200);
     expect(estimate.body.data[0]).toMatchObject({
       vehicleId: v.id,
-      riskScore: 25,
+      riskScore: 0,
       priority: 'low',
-      usedFallback: true,
-      scoringMethod: 'usage_rules'
+      usedFallback: false,
+      scoringMethod: 'decision_tree'
     });
     const forest = await request(app)
       .get('/api/analytics/predictive-maintenance?algorithm=random_forest')
@@ -281,7 +281,7 @@ describe('analytics module', () => {
     expect(forest.body.data[0].riskScore).not.toBe(
       estimate.body.data[0].riskScore
     );
-    for (const algorithm of ['eclat', 'fp_growth', 'unknown']) {
+    for (const algorithm of ['usage_rules', 'eclat', 'fp_growth', 'unknown']) {
       expect(
         (
           await request(app)

@@ -248,7 +248,7 @@ export default function ApprovalQueue({
                         )}
                       </div>
 
-                      <div className="flex flex-none gap-2.5">
+                      <div className="flex w-full flex-wrap items-center justify-end gap-2.5 sm:w-auto">
                         <Button
                           onClick={() => handleApprove(ticket.id)}
                           disabled={approveEvpTripTicket.isPending}
@@ -263,13 +263,14 @@ export default function ApprovalQueue({
                         >
                           Decline
                         </Button>
-                        <Button variant="ghost" size="icon" asChild>
+                        <Button variant="outline" asChild>
                           <Link
                             to="/trip-tickets/$id"
                             params={{ id: ticket.id }}
+                            aria-label="View trip ticket details"
                           >
-                            <Eye />
-                            <span className="sr-only">View trip ticket</span>
+                            <Eye aria-hidden="true" />
+                            View details
                           </Link>
                         </Button>
                       </div>
@@ -323,15 +324,19 @@ export default function ApprovalQueue({
                       </p>
                     </div>
 
-                    <div className="flex flex-none gap-2.5">
+                    <div className="flex w-full flex-wrap items-center justify-end gap-2.5 sm:w-auto [&>button]:h-10">
                       <ApproveJobOrderModal
                         onSubmit={() => handleApproveJobOrder(order.id)}
                         isLoading={approveJobOrder.isPending}
                       />
-                      <Button variant="ghost" size="icon" asChild>
-                        <Link to="/job-order/$id" params={{ id: order.id }}>
-                          <Eye />
-                          <span className="sr-only">View job order</span>
+                      <Button variant="outline" asChild>
+                        <Link
+                          to="/job-order/$id"
+                          params={{ id: order.id }}
+                          aria-label="View job order details"
+                        >
+                          <Eye aria-hidden="true" />
+                          View details
                         </Link>
                       </Button>
                     </div>

@@ -217,6 +217,8 @@ const TripTicketsPage = () => {
   const cancelTripTicket = useCancelTripTicket();
   const [createOpen, setCreateOpen] = useState(false);
   const [createDate, setCreateDate] = useState<string | undefined>(undefined);
+  const createButtonRef = useRef<HTMLButtonElement>(null);
+  const createReturnFocusRef = useRef<HTMLElement | null>(null);
   // Which ticket each dialog is open against. The dialogs collect their own
   // fields — the reason, the fuel type and the liters — and hand them back on
   // confirm, so the row is all the page itself has to remember.
@@ -327,9 +329,18 @@ const TripTicketsPage = () => {
 
   // Creating a trip is a dialog, not a page: it is a form you fill and dismiss,
   // not a place you navigate to and have to find your way back from.
-  const handleDateClick = (arg: { dateStr: string }) => {
-    setCreateDate(arg.dateStr);
+  const openCreate = (date?: string) => {
+    const opener = document.activeElement;
+    createReturnFocusRef.current =
+      opener instanceof HTMLElement && opener !== document.body
+        ? opener
+        : null;
+    setCreateDate(date);
     setCreateOpen(true);
+  };
+
+  const handleDateClick = (arg: { dateStr: string }) => {
+    openCreate(arg.dateStr);
   };
 
   // Non-admins land on the detail page read-only. Shared by the row click and
@@ -351,12 +362,7 @@ const TripTicketsPage = () => {
         title="Trip Tickets"
         description="Every requested trip and where it is in the approval chain."
         action={
-          <Button
-            onClick={() => {
-              setCreateDate(undefined);
-              setCreateOpen(true);
-            }}
-          >
+          <Button ref={createButtonRef} onClick={() => openCreate()}>
             Create Trip Ticket
           </Button>
         }
@@ -369,7 +375,14 @@ const TripTicketsPage = () => {
           if (!open) setCreateDate(undefined);
         }}
       >
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent
+          className="sm:max-w-3xl"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            const opener = createReturnFocusRef.current;
+            (opener?.isConnected ? opener : createButtonRef.current)?.focus();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Request Trip Ticket</DialogTitle>
             <DialogDescription>

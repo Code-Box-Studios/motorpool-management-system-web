@@ -107,3 +107,16 @@ export const restoreOrgRecord = (
   resource: OrgResource,
   id: string
 ): Promise<OrgRecord> => api.post<OrgRecord>(`/${resource}/${id}/restore`);
+
+export const previewOrgCsv = (
+  resource: import('@mms/shared').OrganizationCsvResource,
+  csv: string
+): Promise<import('@mms/shared').OrganizationCsvPreview> =>
+  api.post(`/${resource}/import/preview`, { csv });
+
+export const importOrgCsv = (
+  resource: import('@mms/shared').OrganizationCsvResource,
+  csv: string,
+  previewToken: string
+): Promise<import('@mms/shared').OrganizationCsvPreview> =>
+  api.post(`/${resource}/import`, { csv, previewToken });

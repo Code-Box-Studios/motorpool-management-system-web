@@ -68,3 +68,42 @@ export const employeesListQuerySchema = organizationListQuerySchema.extend({
   branchId: z.string().uuid().optional()
 });
 export type EmployeesListQuery = z.infer<typeof employeesListQuerySchema>;
+
+export const ORGANIZATION_CSV_MAX_BYTES = 512 * 1024;
+export const ORGANIZATION_CSV_MAX_ROWS = 1000;
+export const ORGANIZATION_CSV_HEADERS = {
+  employees: [
+    'id',
+    'name',
+    'position',
+    'phone',
+    'branch_id',
+    'branch_name',
+    'archived_at'
+  ],
+  'office-heads': [
+    'id',
+    'name',
+    'branch_id',
+    'branch_name',
+    'office_id',
+    'office_name',
+    'archived_at'
+  ]
+} as const;
+export type OrganizationCsvResource = keyof typeof ORGANIZATION_CSV_HEADERS;
+export const organizationCsvBodySchema = z
+  .object({
+    csv: z.string().min(1).max(ORGANIZATION_CSV_MAX_BYTES),
+    previewToken: z.string().optional()
+  })
+  .strict();
+export type OrganizationCsvBody = z.infer<typeof organizationCsvBodySchema>;
+export interface OrganizationCsvPreview {
+  created: number;
+  updated: number;
+  total: number;
+  errors: { row: number; message: string }[];
+  previewToken: string;
+  records: { row: number; action: 'create' | 'update'; name: string }[];
+}

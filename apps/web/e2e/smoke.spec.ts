@@ -86,7 +86,7 @@ test.describe('per-role sign-in and landing screens', () => {
   test('security guard lands on the gate screen', async ({ page }) => {
     await login(page, 'guard');
     // The gate screen leads with the vehicle in front of them.
-    await expectText(page, /At the gate now|Nothing at the gate/i);
+    await expectText(page, /Next at gate/i);
     await shot(page, 'guard-confirmation');
   });
 

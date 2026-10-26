@@ -29,6 +29,8 @@ const jobOrderSchema = z.object({
   // repair request that says nothing is one nobody can work.
   incident_details: z.string().min(1, 'Describe what is wrong'),
   remarks: z.string().optional(),
+  maintenance_type: z.string().optional(),
+  service_location: z.string().optional(),
   requested_by: z.string().optional()
 });
 
@@ -43,6 +45,8 @@ export const useJobOrderForm = () => {
       incident_date: '',
       incident_details: '',
       remarks: '',
+      maintenance_type: '',
+      service_location: '',
       requested_by: ''
     }
   });

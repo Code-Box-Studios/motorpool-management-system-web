@@ -30,6 +30,7 @@ import {
 } from '@/lib/query/organization';
 import { useRestoreOrgRecord } from '@/lib/mutation/organization';
 import { ArchiveDialog } from './archive-dialog';
+import { CsvControls } from './csv-controls';
 import { RecordDialog, type RecordDialogState } from './record-dialog';
 
 const isArchived = (r: OrgRecord) => r.archivedAt !== null;
@@ -180,7 +181,7 @@ export function ResourceTab({ resource }: ResourceTabProps) {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-lg font-semibold tracking-tight">{meta.title}</h2>
         <Button onClick={() => setDialogState({ mode: 'create' })}>
           <Plus className="size-4" />
@@ -188,6 +189,24 @@ export function ResourceTab({ resource }: ResourceTabProps) {
         </Button>
       </div>
 
+      {(resource === 'employees' || resource === 'office-heads') && (
+        <div className="mb-4">
+          <CsvControls
+            resource={resource}
+            records={records}
+            branches={branchesQuery.data ?? []}
+            offices={officesQuery.data ?? []}
+            disabled={
+              query.isLoading ||
+              !!query.error ||
+              branchesQuery.isLoading ||
+              !!branchesQuery.error ||
+              officesQuery.isLoading ||
+              !!officesQuery.error
+            }
+          />
+        </div>
+      )}
       <Card>
         <CardContent>
           <ListToolbar

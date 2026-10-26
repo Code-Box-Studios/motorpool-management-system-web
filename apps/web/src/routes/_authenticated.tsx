@@ -79,16 +79,9 @@ function AuthenticatedLayout() {
     return (
       <div className="bg-background min-h-dvh">
         <FocusHeader title={focusTitle} />
-        {/* Keep gutters in the shell so shared detail pages have consistent
-            margins. EVP records use the same width as the approvals queue. */}
+        {/* Keep role dashboards and their detail pages on the same canvas. */}
         <main className="px-4 py-6 md:px-6">
-          <div
-            className={
-              role === USER_ROLES.evp_operations
-                ? 'mx-auto w-full max-w-7xl'
-                : undefined
-            }
-          >
+          <div className="mx-auto w-full max-w-7xl min-w-0">
             <Outlet />
           </div>
         </main>

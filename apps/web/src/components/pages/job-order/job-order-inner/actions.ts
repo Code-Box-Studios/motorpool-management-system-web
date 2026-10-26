@@ -84,7 +84,7 @@ export const useUpdateJobOrderAction = (id: string) => {
   const updateJobOrderAction = async (data: JobOrderFormData) => {
     await updateJobOrder.mutateAsync({
       id,
-      updates: data as UpdateJobOrder
+      updates: { ...data } as UpdateJobOrder & Record<string, unknown>
     });
   };
 

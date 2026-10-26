@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { extractFeatures } from './features.js';
-import { loadModel, predictRandomForest } from './random-forest.js';
-import { computeVehicleRisk, fallbackScore } from './risk.js';
+import {
+  loadModel,
+  predictRandomForest,
+  type RFModel
+} from './random-forest.js';
+import { computeVehicleRisk } from './risk.js';
 
 const model = loadModel();
 
@@ -24,6 +28,52 @@ describe('random forest (golden values from the committed model)', () => {
   ];
   it.each(cases)('scores %o → %f', (features, expected) => {
     expect(predictRandomForest(model!, features)).toBeCloseTo(expected, 5);
+  });
+
+  it('preserves the saved model prediction at an attainable daily-usage split', () => {
+    const features = extractFeatures(
+      { mileage: 200000 },
+      [
+        { date: new Date('2025-10-01T00:00:00Z'), mileage: 200000 },
+        { date: new Date('2023-01-05T00:00:00Z'), mileage: 60869 }
+      ],
+      new Date('2026-10-18T00:00:00Z'),
+      0
+    );
+    expect(features.avgDailyKm).toBe(139.131);
+    // Independently scored with motorpool_rf_model.pkl under sklearn 1.8.0.
+    expect(
+      predictRandomForest(model!, {
+        KM_SINCE_LAST_MAINT: features.kmSinceLastMaint,
+        AVG_DAILY_KM: features.avgDailyKm,
+        MAINT_FREQ_12M: features.maintFreq12m
+      })
+    ).toBeCloseTo(0.9058333333333333, 12);
+    expect(computeVehicleRisk(model, features)).toMatchObject({
+      riskScore: 91,
+      priority: 'high',
+      usedFallback: false
+    });
+  });
+
+  it('uses sklearn float32 input precision when traversing a split', () => {
+    // A sklearn tree fitted to x=[0,2], y=[0,1] splits at 1. Its predict
+    // input is float32, so 1+1e-8 belongs to the left leaf, like exactly 1.
+    const singleSplit: RFModel = {
+      features: ['x'],
+      n_estimators: 1,
+      classes: [0, 1],
+      trees: [
+        {
+          feature: 'x',
+          threshold: 1,
+          left: { probs: [1, 0] },
+          right: { probs: [0, 1] }
+        }
+      ]
+    };
+    expect(predictRandomForest(singleSplit, { x: 1 + 1e-8 })).toBe(0);
+    expect(predictRandomForest(singleSplit, { x: 1 + 1e-6 })).toBe(1);
   });
 
   // client-dt-brief.md §3: the missing-feature guard must never fire for the
@@ -55,32 +105,6 @@ describe('random forest (golden values from the committed model)', () => {
   });
 });
 
-describe('fallback scoring (golden values)', () => {
-  const cases: [
-    { kmSinceLastMaint: number; avgDailyKm: number; maintFreq12m: number },
-    number
-  ][] = [
-    [{ kmSinceLastMaint: 0, avgDailyKm: 0, maintFreq12m: 0 }, 0.25],
-    [{ kmSinceLastMaint: 5000, avgDailyKm: 50, maintFreq12m: 1 }, 0.58333],
-    [{ kmSinceLastMaint: 15000, avgDailyKm: 80, maintFreq12m: 2 }, 0.85667],
-    [{ kmSinceLastMaint: 100000, avgDailyKm: 200, maintFreq12m: 0 }, 1.0]
-  ];
-  it.each(cases)('fallbackScore %o ≈ %f', (f, expected) => {
-    expect(fallbackScore(f)).toBeCloseTo(expected, 4);
-  });
-
-  it('computeVehicleRisk(null model, …) uses the fallback and reports usedFallback', () => {
-    const r = computeVehicleRisk(null, {
-      kmSinceLastMaint: 5000,
-      avgDailyKm: 50,
-      maintFreq12m: 1
-    });
-    expect(r.usedFallback).toBe(true);
-    expect(r.riskScore).toBe(58); // round(0.58333*100)
-    expect(r.priority).toBe('medium'); // 0.583 >= 0.45
-  });
-});
-
 describe('feature extraction (frozen clock for determinism)', () => {
   const now = new Date('2026-07-01T00:00:00.000Z');
 
@@ -91,6 +115,41 @@ describe('feature extraction (frozen clock for determinism)', () => {
       maintFreq12m: 0,
       downtimeHours: 0
     });
+  });
+
+  it.each([12000, null])(
+    'does not credit a future service with mileage %s before it happens',
+    (mileage) => {
+      const features = extractFeatures(
+        { mileage: 12000 },
+        [{ date: new Date('2026-08-01T00:00:00Z'), mileage }],
+        now,
+        0
+      );
+      expect(features).toEqual({
+        kmSinceLastMaint: 12000,
+        avgDailyKm: 0,
+        maintFreq12m: 0,
+        downtimeHours: 0
+      });
+      expect(() => computeVehicleRisk(null, features)).toThrow(/unavailable/);
+    }
+  );
+
+  it('derives usage from completed history when a newer service is in the future', () => {
+    const features = extractFeatures(
+      { mileage: 12000 },
+      [
+        { date: new Date('2026-08-01T00:00:00Z'), mileage: 12000 },
+        { date: new Date('2026-06-01T00:00:00Z'), mileage: 11000 },
+        { date: new Date('2026-05-02T00:00:00Z'), mileage: 10000 }
+      ],
+      now,
+      0
+    );
+    expect(features.kmSinceLastMaint).toBe(1000);
+    expect(features.avgDailyKm).toBeCloseTo(33.333333333333336, 12);
+    expect(features.maintFreq12m).toBe(2);
   });
 
   // downtimeHours is a pure pass-through (computed elsewhere, in
@@ -141,6 +200,8 @@ describe('feature extraction (frozen clock for determinism)', () => {
     ];
     const f = extractFeatures({ mileage: 33000 }, maints, now, 0);
     expect(f.kmSinceLastMaint).toBe(3000); // 33000 - 30000, not 33000 - 0
+    // That distance spans May 2 to July 1 (60 days), not June 1 to July 1.
+    expect(f.avgDailyKm).toBe(50);
   });
 
   it('never serviced still means every kilometre is distance since service', () => {

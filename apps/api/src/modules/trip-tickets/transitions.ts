@@ -2,8 +2,13 @@ import type { TripDate } from '@prisma/client';
 import type {
   ApproveTripTicketBody,
   CheckInBody,
-  CheckOutBody
+  CheckOutBody,
+  DriverOdometerBody
 } from '@mms/shared';
+import {
+  gateStartingMileage,
+  validateDriverReading
+} from './odometer-policy.js';
 import { AppError } from '../../lib/errors.js';
 import { lockDrivers, lockVehicles } from '../../lib/resource-locks.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
@@ -313,7 +318,7 @@ export async function cancelDate(
 }
 
 // security_guard (or admin, standing in) check-out → in_progress; records the
-// pre-trip guard and the odometer, and flips the vehicle available→on_trip.
+// pre-trip guard and consumes any driver reading, then flips available→on_trip.
 //
 // The vehicle MUST be available. This used to be a soft `expectedFrom` that
 // skipped the flip and let the check-out succeed anyway, which meant a guard
@@ -322,7 +327,7 @@ export async function cancelDate(
 export async function checkOut(
   id: string,
   actor: AuthenticatedUser,
-  body: CheckOutBody
+  _body: CheckOutBody
 ) {
   // Fix round 1: a two-date ticket IS `approved` again between outings
   // (syncTicketStatus drops it back once the first date's check-in leaves a
@@ -340,12 +345,22 @@ export async function checkOut(
   // refuses with INVALID_TRANSITION ("check the van back in first") exactly
   // when a date is already out.
   const ticket = await loadInState(id, ['approved']);
+  assertGateBranch(ticket.branchId, actor);
   // Assigned inside the transaction, read after — the event only needs to name
   // which date, not the transaction's own client.
   let outing!: TripDate;
   await prisma.$transaction(async (tx) => {
     await lockDrivers(tx, [ticket.driverId]);
     await lockVehicles(tx, [ticket.vehicleId]);
+    const lockedTicket = await tx.tripTicket.findUniqueOrThrow({
+      where: { id }
+    });
+    if (lockedTicket.status !== 'approved')
+      throw new AppError(
+        409,
+        'INVALID_TRANSITION',
+        'Trip is no longer ready for departure'
+      );
     const driver = await tx.driver.findUnique({
       where: { id: ticket.driverId }
     });
@@ -374,6 +389,40 @@ export async function checkOut(
       );
     }
     outing = await resolveOutingForCheckOut(tx, id);
+    const gateAt = new Date();
+    // A future outing's reading may have been entered before another trip
+    // returned. Revalidate actual gate chronology before freezing that value.
+    const [previousStarts, previousEnds] = await Promise.all([
+      tx.tripDate.aggregate({
+        where: {
+          id: { not: outing.id },
+          tripTicket: { vehicleId: ticket.vehicleId },
+          preTripCheckedAt: { lte: gateAt }
+        },
+        _max: { startMileage: true }
+      }),
+      tx.tripDate.aggregate({
+        where: {
+          id: { not: outing.id },
+          tripTicket: { vehicleId: ticket.vehicleId },
+          postTripCheckedAt: { lte: gateAt }
+        },
+        _max: { endMileage: true }
+      })
+    ]);
+    const priorReadings = [
+      previousStarts._max.startMileage,
+      previousEnds._max.endMileage
+    ].filter((value): value is number => value !== null);
+    const precedingGateMileage = priorReadings.length
+      ? Math.max(...priorReadings)
+      : null;
+    const startingMileage = gateStartingMileage(
+      outing.startMileage,
+      precedingGateMileage
+    );
+    const invalidatedStart =
+      outing.startMileage !== null && startingMileage === null;
     // Claim only an available vehicle after checking the locked driver.
     const { mileage } = await claimVehicleStatus(
       tx,
@@ -383,12 +432,29 @@ export async function checkOut(
       {
         changedBy: actor.id,
         source: 'trip_check_out',
+        reason: invalidatedStart
+          ? JSON.stringify({
+              action: 'invalidate_stale_driver_start',
+              tripDateId: outing.id,
+              mileage: outing.startMileage,
+              recordedById: outing.startMileageRecordedById,
+              recordedAt: outing.startMileageRecordedAt,
+              precedingGateMileage
+            })
+          : undefined,
         code: 'VEHICLE_NOT_AVAILABLE',
         message: (current) =>
           `Vehicle is ${current}, so it cannot leave the gate`
       }
     );
-    await advanceOdometer(tx, ticket.vehicleId, body.startMileage, mileage);
+    if (startingMileage !== null) {
+      await advanceOdometer(
+        tx,
+        ticket.vehicleId,
+        Math.max(startingMileage, mileage),
+        mileage
+      );
+    }
     // The per-outing facts (odometer, guard stamps, status) now live on the
     // TripDate row, not the ticket — the ticket's own status/mileage/guard
     // columns are deprecated and no longer written (see dates.ts).
@@ -396,10 +462,16 @@ export async function checkOut(
       where: { id: outing.id },
       data: {
         status: 'in_progress',
-        startMileage: body.startMileage,
+        ...(invalidatedStart
+          ? {
+              startMileage: null,
+              startMileageRecordedById: null,
+              startMileageRecordedAt: null
+            }
+          : {}),
         preTripGuardId: actor.id,
         preTripCheckedById: actor.id,
-        preTripCheckedAt: new Date()
+        preTripCheckedAt: gateAt
       }
     });
     await syncTicketStatus(tx, id);
@@ -409,7 +481,7 @@ export async function checkOut(
 }
 
 // security_guard (or admin, standing in) check-in → completed; records the
-// post-trip guard and the closing odometer, and flips on_trip→available.
+// post-trip guard and consumes any driver reading, then flips on_trip→available.
 //
 // The status flip stays SOFT here, deliberately: the van is physically back
 // whatever the row says, and if a job order took it into the workshop mid-trip
@@ -418,9 +490,10 @@ export async function checkOut(
 export async function checkIn(
   id: string,
   actor: AuthenticatedUser,
-  body: CheckInBody
+  _body: CheckInBody
 ) {
   const ticket = await loadInState(id, ['in_progress']);
+  assertGateBranch(ticket.branchId, actor);
   let outing!: TripDate;
   // Whether THIS check-in settled the whole event, or just this outing — read
   // back from syncTicketStatus's own derivation rather than re-implementing
@@ -429,21 +502,31 @@ export async function checkIn(
   await prisma.$transaction(async (tx) => {
     await lockDrivers(tx, [ticket.driverId]);
     await lockVehicles(tx, [ticket.vehicleId]);
+    const lockedTicket = await tx.tripTicket.findUniqueOrThrow({
+      where: { id }
+    });
+    if (lockedTicket.status !== 'in_progress')
+      throw new AppError(409, 'INVALID_TRANSITION', 'Trip is no longer out');
     outing = await resolveOutingForCheckIn(tx, id);
     const vehicle = await tx.vehicle.findUniqueOrThrow({
       where: { id: ticket.vehicleId },
       select: { mileage: true }
     });
-    // Floor at whatever the guard read on the way out, so a trip can never
-    // record a negative distance.
+    // Preserve the vehicle maximum when consuming a recorded driver reading.
     const floor = Math.max(vehicle.mileage, outing.startMileage ?? 0);
-    await advanceOdometer(tx, ticket.vehicleId, body.endMileage, floor);
+    if (outing.endMileage !== null) {
+      await advanceOdometer(
+        tx,
+        ticket.vehicleId,
+        Math.max(outing.endMileage, floor),
+        vehicle.mileage
+      );
+    }
     // Per-outing facts land on the TripDate row — see the note in checkOut.
     await tx.tripDate.update({
       where: { id: outing.id },
       data: {
         status: 'completed',
-        endMileage: body.endMileage,
         postTripGuardId: actor.id,
         postTripCheckedById: actor.id,
         postTripCheckedAt: new Date()
@@ -524,6 +607,146 @@ export async function reassignGuides(id: string, guideIds: string[]) {
     // deleteMany + createMany must not half-apply — a failure between them
     // would leave an approved trip with no guides at all.
     await replaceTripTicketGuides(tx, id, guideIds);
+  });
+  return findTripTicketById(id);
+}
+
+function assertGateBranch(branchId: string, actor: AuthenticatedUser): void {
+  if (
+    actor.role === 'security_guard' &&
+    actor.branchId &&
+    actor.branchId !== branchId
+  ) {
+    throw new AppError(
+      403,
+      'BRANCH_FORBIDDEN',
+      'This trip belongs to another branch'
+    );
+  }
+}
+
+/** Driver readings and gate transitions share resource locks to preserve chronology. */
+export async function recordOdometer(
+  id: string,
+  dateId: string,
+  actor: AuthenticatedUser,
+  body: DriverOdometerBody
+) {
+  const initial = await prisma.tripTicket.findUnique({ where: { id } });
+  if (!initial) throw new AppError(404, 'NOT_FOUND', 'Trip ticket not found');
+  await prisma.$transaction(async (tx) => {
+    await lockDrivers(tx, [initial.driverId]);
+    await lockVehicles(tx, [initial.vehicleId]);
+    const ticket = await tx.tripTicket.findUniqueOrThrow({ where: { id } });
+    if (
+      ticket.driverId !== initial.driverId ||
+      ticket.vehicleId !== initial.vehicleId
+    ) {
+      throw new AppError(
+        409,
+        'ASSIGNMENT_CHANGED',
+        'Trip assignment changed; reload before entering mileage'
+      );
+    }
+    const driver = await tx.driver.findUniqueOrThrow({
+      where: { id: ticket.driverId }
+    });
+    if (actor.role !== 'driver' || driver.userId !== actor.id) {
+      throw new AppError(
+        403,
+        'NOT_ASSIGNED_DRIVER',
+        'Only the assigned driver can enter odometer readings'
+      );
+    }
+    if (
+      driver.status !== 'active' ||
+      !['approved', 'in_progress', 'completed'].includes(ticket.status)
+    ) {
+      throw new AppError(
+        409,
+        'INVALID_TRANSITION',
+        'An active, approved assignment is required'
+      );
+    }
+    const outing = await tx.tripDate.findFirst({
+      where: { id: dateId, tripTicketId: id }
+    });
+    if (!outing) throw new AppError(404, 'NOT_FOUND', 'Trip date not found');
+    const vehicle = await tx.vehicle.findUniqueOrThrow({
+      where: { id: ticket.vehicleId }
+    });
+    // For a pending departure, this is its future gate event. For late entry,
+    // actual gate stamps, rather than the planned dates, define its neighbors.
+    const eventAt =
+      body.phase === 'before'
+        ? (outing.preTripCheckedAt ?? new Date())
+        : (outing.postTripCheckedAt ?? new Date());
+    const neighbors = await tx.tripDate.findMany({
+      where: {
+        id: { not: dateId },
+        tripTicket: { vehicleId: ticket.vehicleId },
+        preTripCheckedAt: { not: null }
+      },
+      select: {
+        preTripCheckedAt: true,
+        postTripCheckedAt: true,
+        startMileage: true,
+        endMileage: true
+      }
+    });
+    let preceding: number | null = null;
+    let following: number | null = null;
+    let laterDeparture = false;
+    for (const other of neighbors) {
+      if (
+        outing.preTripCheckedAt &&
+        other.preTripCheckedAt! > outing.preTripCheckedAt
+      )
+        laterDeparture = true;
+      for (const [stamp, reading] of [
+        [other.preTripCheckedAt, other.startMileage],
+        [other.postTripCheckedAt, other.endMileage]
+      ] as const) {
+        if (!stamp || reading === null) continue;
+        if (stamp <= eventAt)
+          preceding =
+            preceding === null ? reading : Math.max(preceding, reading);
+        else
+          following =
+            following === null ? reading : Math.min(following, reading);
+      }
+    }
+    validateDriverReading(
+      outing,
+      body.phase,
+      body.mileage,
+      vehicle.mileage,
+      preceding,
+      following,
+      laterDeparture
+    );
+    const recordedAt = new Date();
+    await tx.tripDate.update({
+      where: { id: dateId },
+      data:
+        body.phase === 'before'
+          ? {
+              startMileage: body.mileage,
+              startMileageRecordedById: actor.id,
+              startMileageRecordedAt: recordedAt
+            }
+          : {
+              endMileage: body.mileage,
+              endMileageRecordedById: actor.id,
+              endMileageRecordedAt: recordedAt
+            }
+    });
+    await advanceOdometer(
+      tx,
+      ticket.vehicleId,
+      Math.max(vehicle.mileage, body.mileage),
+      vehicle.mileage
+    );
   });
   return findTripTicketById(id);
 }
