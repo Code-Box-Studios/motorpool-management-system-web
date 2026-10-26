@@ -1,6 +1,6 @@
 import { useParams } from '@tanstack/react-router';
-import { Check, Wrench } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Wrench } from 'lucide-react';
+import { WorkflowProgress } from '@/components/shared/workflow-progress';
 import { useJobOrder } from '@/lib/query/job-orders';
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useAllVehicles } from '@/lib/query/vehicles';
@@ -79,50 +79,21 @@ const RepairProgress = ({ status }: { status: string | null }) => {
   if (currentStage < 0) return null;
 
   return (
-    <section
-      aria-label="Repair progress"
-      className="bg-card border-border rounded-[20px] border p-5"
-    >
-      <ol className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {repairStages.map((stage, index) => (
-          <li
-            key={stage.status}
-            aria-current={index === currentStage ? 'step' : undefined}
-            className="flex min-w-0 items-center gap-2.5"
-          >
-            <span
-              aria-hidden="true"
-              className={cn(
-                'flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold',
-                index <= currentStage
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border text-muted-foreground bg-muted/40',
-                index === currentStage && 'ring-primary/15 ring-4'
-              )}
-            >
-              {index < currentStage ? (
-                <Check className="size-3.5" />
-              ) : (
-                index + 1
-              )}
-            </span>
-            <span
-              className={cn(
-                'text-xs leading-snug sm:text-sm',
-                index === currentStage
-                  ? 'text-foreground font-semibold'
-                  : 'text-muted-foreground'
-              )}
-            >
-              {stage.label}
-            </span>
-          </li>
-        ))}
-      </ol>
-      <p className="text-muted-foreground border-border mt-4 border-t pt-3 text-sm">
-        {repairStages[currentStage].nextStep}
-      </p>
-    </section>
+    <WorkflowProgress
+      label="Repair progress"
+      steps={repairStages.map((stage, index) => ({
+        id: stage.status,
+        title: stage.label,
+        state:
+          status === 'repaired' || index < currentStage
+            ? 'complete'
+            : index === currentStage
+              ? 'current'
+              : 'upcoming'
+      }))}
+      summary={repairStages[currentStage].nextStep}
+      outcome={status === 'repaired' ? 'Completed' : undefined}
+    />
   );
 };
 

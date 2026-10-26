@@ -45,6 +45,7 @@ import {
 import { FuelAllocationDialog, ReasonDialog } from '../transition-dialogs';
 import { TripDatesSection } from './dates-section';
 import { ParticipantsList } from './participants-list';
+import { TripProgress } from './trip-progress';
 import { useGuideOptions, useTripTicket } from '@/lib/query/trip-tickets';
 import {
   useApproveTripTicket,
@@ -1040,6 +1041,7 @@ const TripTicketsInner = () => {
         </form>
       ) : (
         <div className="flex flex-col gap-5">
+          <TripProgress ticket={tripTicket} />
           <div className="grid min-w-0 gap-5 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_18rem]">
             <DetailSection
               title="Trip details"
