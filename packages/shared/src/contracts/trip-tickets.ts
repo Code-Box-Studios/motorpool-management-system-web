@@ -40,7 +40,7 @@ const tripTicketBodyFieldsSchema = z.object({
   startTs: z.coerce.date().nullable().optional(),
   endTs: z.coerce.date().nullable().optional(),
   dates: z.array(tripDateInputSchema).default([]),
-  // New guides are active users with the driver or requester role.
+  // New guides are unarchived employees.
   // An absent guideIds on PATCH preserves historical assignments; an empty
   // list is rejected because each trip needs at least one guide.
   guideIds: z.array(z.string().uuid()).min(1)

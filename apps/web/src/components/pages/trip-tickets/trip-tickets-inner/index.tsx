@@ -1110,22 +1110,10 @@ const TripTicketsInner = () => {
                             !guideOptions.some(
                               (guide) => guide.id === reassignGuideIds[index]
                             )
-                              ? 'Choose an active driver or requester to replace this historical guide'
+                              ? 'Choose an active employee to replace this historical guide'
                               : undefined
                           }
-                          onChangeRow={(index, value) =>
-                            setReassignGuideIds((prev) =>
-                              prev.map((id, i) => (i === index ? value : id))
-                            )
-                          }
-                          onAddRow={() =>
-                            setReassignGuideIds((prev) => [...prev, ''])
-                          }
-                          onRemoveRow={(index) =>
-                            setReassignGuideIds((prev) =>
-                              prev.filter((_, i) => i !== index)
-                            )
-                          }
+                          onChange={setReassignGuideIds}
                         />
                         <div className="flex gap-2">
                           <Button

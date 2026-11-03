@@ -75,7 +75,7 @@ function dateToSnake(d: TripDateApiResponse): TripDateRow {
   };
 }
 
-// Guides normalize both current user assignments and historical employee rows.
+// Guides normalize employee assignments and historical user rows.
 export interface TripGuideRow {
   id: string;
   name: string;
@@ -114,14 +114,7 @@ function guideToSnake(g: TripGuideApiResponse): TripGuideRow {
 }
 
 export async function getTripGuideOptions(): Promise<TripGuideRow[]> {
-  const users = await api.get<{ id: string; fullName: string; role: string }[]>(
-    '/trip-tickets/guide-options'
-  );
-  return users.map((user) => ({
-    id: user.id,
-    name: user.fullName,
-    position: guideRoleLabel(user.role)
-  }));
+  return api.get<TripGuideRow[]>('/trip-tickets/guide-options');
 }
 
 // Shape of the `fuelAllocation` embed (Prisma `FuelAllocation` model, camelCase).

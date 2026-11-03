@@ -154,7 +154,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // the same way (participants PLUS guides against vehicle.capacity, design
   // §5.1). Registered with react-hook-form directly and read back with watch:
   // guides carry ids; participants use their own rows and sync helper. Blank rows do not
-  // count — an unfilled row is '' until a user is chosen.
+  // count — an unfilled row is '' until an employee is chosen.
   const guideIds = form.watch('guide_ids');
   const guideCount = guideIds.filter(Boolean).length;
 
@@ -229,7 +229,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   const tripBranchId: string | null | undefined =
     review.branch_id || userBranchId;
 
-  // Guides are active driver/requester accounts from every branch.
+  // Guides are unarchived employees from every branch.
   const { data: guideOptions = [], isLoading: guidesLoading } =
     useGuideOptions();
 
@@ -274,18 +274,6 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
       ? h.office_id === review.office_id
       : !tripBranchId || h.branch_id === tripBranchId
   );
-
-  const addGuideRow = () =>
-    form.setValue('guide_ids', [...guideIds, ''], {
-      shouldValidate: form.formState.isSubmitted
-    });
-
-  const removeGuideRow = (index: number) =>
-    form.setValue(
-      'guide_ids',
-      guideIds.filter((_, i) => i !== index),
-      { shouldValidate: form.formState.isSubmitted }
-    );
 
   // Changing the branch can strand an office (and a head) that belongs to the
   // branch you just left. Drop them rather than submit a trip whose office is
@@ -725,7 +713,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                 )}
               />
 
-              {/* Guides share the passenger seat budget and use user identities. */}
+              {/* Guides share the passenger seat budget and use employee identities. */}
               <Field data-invalid={!!form.formState.errors.guide_ids}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <FieldLabel htmlFor="guide_ids">Guides *</FieldLabel>
@@ -738,25 +726,18 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                   guideIds={guideIds}
                   guides={guideOptions}
                   guidesLoading={guidesLoading}
-                  onChangeRow={(index, value) =>
-                    form.setValue(`guide_ids.${index}`, value, {
+                  onChange={(ids) =>
+                    form.setValue('guide_ids', ids.length ? ids : [''], {
                       shouldValidate: form.formState.isSubmitted
                     })
                   }
-                  onAddRow={addGuideRow}
-                  onRemoveRow={removeGuideRow}
                   rowError={(index) =>
                     form.formState.errors.guide_ids?.[index]?.message
                   }
                   addDisabled={full}
                 />
 
-                {/* Only the array's own min(1) message ("A trip needs at least
-                    one guide") lands here — a row's own "Pick a driver or requester for
-                    this row" is pinned to [i] and renders under that row. The
-                    remove button is disabled at one row, so this is unreachable
-                    from the UI today; kept as the same safety net the dates
-                    field keeps. */}
+                {/* Per-selection errors are shown by GuidePicker above. */}
                 {form.formState.errors.guide_ids?.root?.message && (
                   <p className="text-destructive text-sm">
                     {form.formState.errors.guide_ids.root.message}

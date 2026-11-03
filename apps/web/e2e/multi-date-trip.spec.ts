@@ -90,7 +90,7 @@ test('an event on two non-consecutive dates: one approval, two gate cycles', asy
     await apiGet(request, '/api/vehicles', admin.token)
   );
   const drivers = listData(await apiGet(request, '/api/drivers', admin.token));
-  // A guide uses a seat and can be any active driver or requester.
+  // A guide uses a seat and can be any unarchived employee.
   const guides = listData(
     await apiGet(request, '/api/trip-tickets/guide-options', admin.token)
   );
@@ -100,7 +100,7 @@ test('an event on two non-consecutive dates: one approval, two gate cycles', asy
   expect(vehicle, 'a free vehicle is available for the sim').toBeTruthy();
   expect(
     guide,
-    'an active driver or requester is available to guide the trips'
+    'an active employee is available to guide the trips'
   ).toBeTruthy();
   const linkedDriver =
     drivers.find((d) => d.userId === driver.user.id) ?? drivers[0];

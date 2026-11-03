@@ -29,7 +29,15 @@ async function openTripDates(page: Page) {
   await dialog.locator('#destination').fill('Calendar control verification');
   await dialog.locator('#purpose').fill('Check the booking date controls');
   await dialog.getByPlaceholder('Participant 1').fill('Test passenger');
-  await firstOption(page, dialog.locator('[aria-label="Guide 1"]'));
+  await dialog
+    .getByRole('button', { name: 'Select guides', exact: true })
+    .click();
+  const guides = page.getByRole('dialog', {
+    name: 'Choose guides',
+    exact: true
+  });
+  await guides.getByRole('checkbox').first().check();
+  await guides.getByRole('button', { name: 'Done', exact: true }).click();
   await dialog.getByRole('button', { name: 'Continue' }).click();
   return dialog;
 }

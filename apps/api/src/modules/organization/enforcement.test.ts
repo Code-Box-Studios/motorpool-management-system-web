@@ -387,7 +387,7 @@ describe('archived branches are rejected on write, not just hidden', () => {
     expect(res.body.error.code).toBe('PARENT_ARCHIVED');
   });
 
-  // Employee identities, archived or active, are not eligible for new guides.
+  // Archived employees are not eligible for new guide assignments.
   it('POST /api/trip-tickets rejects an ARCHIVED employee in guideIds', async () => {
     const header = await adminHeader();
     const live = await createTestBranch('Live');
@@ -472,9 +472,9 @@ describe('archived branches are rejected on write, not just hidden', () => {
     expect(
       await prisma.tripTicketEmployee.findMany({
         where: { tripTicketId: ticketId },
-        select: { userId: true }
+        select: { employeeId: true }
       })
-    ).toEqual([{ userId: guide.id }]);
+    ).toEqual([{ employeeId: guide.id }]);
   });
 
   it('POST /api/employees rejects an archived branchId', async () => {

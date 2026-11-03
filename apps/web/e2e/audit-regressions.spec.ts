@@ -236,8 +236,8 @@ test.describe('audit regressions', () => {
         requesterSession.token
       )
     );
-    const guide = guides.find((user) => user.role === 'requester') ?? guides[0];
-    expect(guide, 'an eligible user exists to guide the trip').toBeTruthy();
+    const guide = guides[0];
+    expect(guide, 'an active employee exists to guide the trip').toBeTruthy();
     await login(page, 'requester');
     await page.getByRole('button', { name: /Request a trip/i }).click();
     const dialog = page.getByRole('dialog');
@@ -259,13 +259,20 @@ test.describe('audit regressions', () => {
     await dialog
       .getByPlaceholder('Participant 1', { exact: true })
       .fill('Dela Cruz, Juan');
-    await dialog.getByRole('combobox', { name: 'Guide 1' }).click();
-    const roleLabel = guide.role === 'driver' ? 'Driver' : 'Requester';
+    await dialog
+      .getByRole('button', { name: 'Select guides', exact: true })
+      .click();
     await page
-      .getByRole('option', {
-        name: `${guide.fullName} — ${roleLabel}`,
+      .getByRole('checkbox', {
+        name: guide.position
+          ? `${guide.name} — ${guide.position}`
+          : (guide.name as string),
         exact: true
       })
+      .check();
+    await page
+      .getByRole('dialog', { name: 'Choose guides', exact: true })
+      .getByRole('button', { name: 'Done', exact: true })
       .click();
     await dialog.getByRole('button', { name: 'Continue' }).click();
     await pickDate(

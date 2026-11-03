@@ -73,9 +73,10 @@ export const useTripTicket = (id: string) => {
   });
 };
 
-// Complete public roster across branches; the API applies role and status rules.
+// Complete employee roster across branches. Organization edits invalidate the
+// employees prefix, including this picker and the employee list.
 export const useGuideOptions = () =>
   useQuery({
-    queryKey: ['trip_guide_options'],
+    queryKey: ['employees', 'guide-options'],
     queryFn: getTripGuideOptions
   });

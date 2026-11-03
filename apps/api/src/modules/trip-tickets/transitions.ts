@@ -28,7 +28,7 @@ import {
   syncTicketStatus
 } from './dates.js';
 import {
-  assertGuideUsersActive,
+  assertGuideEmployeesActive,
   assertSeatsFit,
   participantHeadcount,
   replaceTripTicketGuides
@@ -587,7 +587,7 @@ export async function reassignGuides(id: string, guideIds: string[]) {
     'approved',
     'in_progress'
   ]);
-  await assertGuideUsersActive(guideIds);
+  await assertGuideEmployeesActive(guideIds);
 
   const vehicle = await prisma.vehicle.findUnique({
     where: { id: ticket.vehicleId },

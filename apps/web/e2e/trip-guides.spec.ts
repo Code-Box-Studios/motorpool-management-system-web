@@ -8,14 +8,13 @@ import {
   apiPost,
   apiDelete,
   listData,
-  API_URL,
   pickDate
 } from './helpers';
 
-// Guide accounts are active drivers or requesters from any branch. Verify the
+// Guides are unarchived organization employees from any branch. Verify the
 // picker, booking payload, persisted read and detail adapter together.
 const createdTicketIds: string[] = [];
-const createdUserIds: string[] = [];
+const createdEmployeeIds: string[] = [];
 
 test.afterAll(async ({ request }) => {
   const admin = await apiLogin(request, CREDENTIALS.admin);
@@ -49,18 +48,17 @@ test.afterAll(async ({ request }) => {
     }
   }
 
-  for (const id of createdUserIds) {
-    const deleted = await apiDelete(request, `/api/users/${id}`, admin.token);
-    if (!deleted.ok) {
-      const response = await request.patch(`${API_URL}/api/users/${id}`, {
-        headers: { Authorization: `Bearer ${admin.token}` },
-        data: { status: 'inactive' }
-      });
-      expect(
-        response.ok(),
-        'referenced test guides can be deactivated'
-      ).toBeTruthy();
-    }
+  for (const id of createdEmployeeIds) {
+    const archived = await apiPost(
+      request,
+      `/api/employees/${id}/archive`,
+      admin.token,
+      {}
+    );
+    expect(
+      archived.ok,
+      'test employee can be archived after its trip is cancelled'
+    ).toBeTruthy();
   }
 });
 
@@ -118,20 +116,17 @@ test('a guide picked on the booking form rides along on the ticket', async ({
   );
   const branch = branches.find((b) => b.name === 'Main Branch') ?? branches[0];
   expect(branch).toBeTruthy();
-  const roles = listData(
-    await apiGet(request, '/api/roles?all=true', admin.token)
-  );
-  const requesterRole = roles.find((r) => r.name === 'requester');
-  expect(requesterRole).toBeTruthy();
   const guideName = `E2E Guide ${Date.now()}`;
-  const guide = await apiPost(request, '/api/users', admin.token, {
-    email: `guide-${Date.now()}@e2e.local`,
-    password: 'Password123!',
-    fullName: guideName,
-    roleId: requesterRole!.id as string
+  const guide = await apiPost(request, '/api/employees', admin.token, {
+    name: guideName,
+    position: 'Tour Guide',
+    branchId: branch.id
   });
-  expect(guide.ok, 'admin creates a requester guide account').toBeTruthy();
-  createdUserIds.push((guide.body as { id: string }).id);
+  expect(
+    guide.ok,
+    'admin creates an employee without a login account'
+  ).toBeTruthy();
+  createdEmployeeIds.push((guide.body as { id: string }).id);
 
   await login(page, 'admin');
   const dialog = await openBookingDialog(page);
@@ -163,10 +158,16 @@ test('a guide picked on the booking form rides along on the ticket', async ({
   await dialog.locator('#purpose').fill('E2E guides');
   await dialog.getByPlaceholder('Participant 1').fill('E2E Passenger');
 
-  // The guide picker offers active driver/requester accounts from all branches.
-  await dialog.getByRole('combobox', { name: 'Guide 1' }).click();
+  // The guide picker offers unarchived employees from all branches.
+  await dialog
+    .getByRole('button', { name: 'Select guides', exact: true })
+    .click();
   await page
-    .getByRole('option', { name: `${guideName} — Requester`, exact: true })
+    .getByRole('checkbox', { name: `${guideName} — Tour Guide`, exact: true })
+    .check();
+  await page
+    .getByRole('dialog', { name: 'Choose guides', exact: true })
+    .getByRole('button', { name: 'Done', exact: true })
     .click();
 
   // The seat budget counts the guide, exactly as the server does
@@ -216,23 +217,23 @@ test('a guide picked on the booking form rides along on the ticket', async ({
     await apiGet(request, '/api/trip-tickets', admin.token)
   );
   const booked = tickets.find((t) => t.destination === destination) as
-    | { id: string; guides: { user: { fullName: string } }[] }
+    | { id: string; guides: { employee: { name: string } }[] }
     | undefined;
   // Queued for teardown the moment an id exists — before any assertion that
   // could throw and skip it. The browser already booked this ticket (the
   // dialog closed on the success path above); if the API lookup below fails
   // to resolve it, or the guides-content check after that fails, the row is
-  // still real and still has to be deleted, exactly as the user id is
+  // still real and still has to be deleted, exactly as the employee id is
   // captured immediately after creation above.
   if (booked) createdTicketIds.push(booked.id);
   expect(booked, 'the booked ticket resolves via the API').toBeTruthy();
   expect(
-    booked!.guides.map((g) => g.user.fullName),
+    booked!.guides.map((g) => g.employee.name),
     'the guide picked in the form reached the ticket'
   ).toEqual([guideName]);
 
   // ---------- The ticket detail page renders the guide BY NAME ----------
-  // This exercises the adapter that flattens the user join into guide labels.
+  // This exercises the adapter that flattens the employee join into guide labels.
   await page.goto(`/trip-tickets/${booked!.id}`);
   await expect(
     page.getByRole('heading', { name: destination, exact: true })
@@ -281,9 +282,31 @@ test('a guide picked on the booking form rides along on the ticket', async ({
   await expect(
     page.getByRole('button', { name: 'Reassign guides' })
   ).toBeVisible({ timeout: 15_000 });
+
+  // Opening and cancelling reassignment keeps the selected employee intact.
+  await page.getByRole('button', { name: 'Reassign guides' }).click();
+  await expect(
+    page.getByRole('list', { name: 'Selected guides' })
+  ).toContainText(guideName);
+  await expect(
+    page.getByRole('button', { name: 'Save', exact: true })
+  ).toBeEnabled();
+  await detailValue(page, 'Guides')
+    .getByRole('button', { name: 'Cancel', exact: true })
+    .click();
+  const after = (await apiGet(
+    request,
+    `/api/trip-tickets/${booked!.id}`,
+    admin.token
+  )) as {
+    guides: { employeeId: string }[];
+  };
+  expect(after.guides.map((guide) => guide.employeeId)).toEqual([
+    (guide.body as { id: string }).id
+  ]);
 });
 
-test('guides include active drivers and requesters from every branch and survive a branch change', async ({
+test('guides match the employee roster across branches and survive a branch change', async ({
   page,
   request
 }) => {
@@ -296,8 +319,13 @@ test('guides include active drivers and requesters from every branch and survive
   const options = listData(
     await apiGet(request, '/api/trip-tickets/guide-options', admin.token)
   );
-  expect(options.some((g) => g.role === 'driver')).toBeTruthy();
-  expect(options.some((g) => g.role === 'requester')).toBeTruthy();
+  const employees = listData(
+    await apiGet(request, '/api/employees?all=true', admin.token)
+  );
+  expect(options.map((g) => g.id).sort()).toEqual(
+    employees.map((e) => e.id).sort()
+  );
+  expect(options.length).toBeGreaterThan(0);
   await login(page, 'admin');
   const dialog = await openBookingDialog(page);
   await fieldGroup(dialog, 'Branch').getByRole('combobox').click();
@@ -309,22 +337,31 @@ test('guides include active drivers and requesters from every branch and survive
     fieldGroup(dialog, 'Department/Office/College').getByRole('combobox')
   );
   await dialog.getByRole('button', { name: 'Continue' }).click();
-  await dialog.getByRole('combobox', { name: 'Guide 1' }).click();
+  await dialog
+    .getByRole('button', { name: 'Select guides', exact: true })
+    .click();
   for (const option of options) {
-    const role = option.role === 'driver' ? 'Driver' : 'Requester';
     await expect(
-      page.getByRole('option', {
-        name: `${option.fullName} — ${role}`,
+      page.getByRole('checkbox', {
+        name: option.position
+          ? `${option.name} — ${option.position}`
+          : (option.name as string),
         exact: true
       })
     ).toBeVisible();
   }
-  const selected = options.find((g) => g.role === 'requester')!;
+  const selected = options[0];
   await page
-    .getByRole('option', {
-      name: `${selected.fullName} — Requester`,
+    .getByRole('checkbox', {
+      name: selected.position
+        ? `${selected.name} — ${selected.position}`
+        : (selected.name as string),
       exact: true
     })
+    .check();
+  await page
+    .getByRole('dialog', { name: 'Choose guides', exact: true })
+    .getByRole('button', { name: 'Done', exact: true })
     .click();
   await dialog.getByRole('button', { name: 'Back', exact: true }).click();
   await fieldGroup(dialog, 'Branch').getByRole('combobox').click();
@@ -336,60 +373,121 @@ test('guides include active drivers and requesters from every branch and survive
     fieldGroup(dialog, 'Department/Office/College').getByRole('combobox')
   );
   await dialog.getByRole('button', { name: 'Continue' }).click();
-  await expect(dialog.getByRole('combobox', { name: 'Guide 1' })).toContainText(
-    selected.fullName as string
-  );
+  await expect(
+    dialog.getByRole('list', { name: 'Selected guides' })
+  ).toContainText(selected.name as string);
 });
 
-test('historical employee guides remain readable when reassignment opens', async ({
-  page,
-  request
-}) => {
-  const admin = await apiLogin(request, CREDENTIALS.admin);
-  const tickets = listData(
-    await apiGet(request, '/api/trip-tickets?all=true', admin.token)
-  );
-  type LegacyGuide = {
-    employeeId: string | null;
-    employee: { name: string } | null;
-  };
-  const ticket = tickets.find(
-    (item) =>
-      ['approved', 'in_progress', 'pending_fuel_allocation_approval'].includes(
-        item.status as string
-      ) && (item.guides as LegacyGuide[]).some((guide) => guide.employee)
-  );
-  test.skip(
-    !ticket,
-    'This database has no historical employee guide assignment'
-  );
-  const guides = ticket!.guides as LegacyGuide[];
-  const index = guides.findIndex((guide) => guide.employee);
-  const historicalName = guides[index].employee!.name;
+test('guide checklist searches employees, keeps multiple selections, and restores keyboard focus', async ({
+  page
+}, testInfo) => {
   await login(page, 'admin');
-  await page.goto(`/trip-tickets/${ticket!.id}`);
-  await expect(detailValue(page, 'Guides')).toContainText(historicalName);
-  await page.getByRole('button', { name: 'Reassign guides' }).click();
-  await expect(
-    page.getByRole('combobox', { name: `Guide ${index + 1}`, exact: true })
-  ).toContainText(historicalName);
-  await expect(
-    page.getByRole('button', { name: 'Save', exact: true })
-  ).toBeDisabled();
-  await expect(
-    page
-      .getByText(
-        'Choose an active driver or requester to replace this historical guide'
-      )
-      .first()
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  const after = (await apiGet(
-    request,
-    `/api/trip-tickets/${ticket!.id}`,
-    admin.token
-  )) as { guides: LegacyGuide[] };
-  expect(after.guides.map((guide) => guide.employeeId)).toEqual(
-    guides.map((guide) => guide.employeeId)
+  const dialog = await openBookingDialog(page);
+  await fieldGroup(dialog, 'Branch').getByRole('combobox').click();
+  await page.getByRole('option', { name: 'Main Branch', exact: true }).click();
+  await pickFirstOption(
+    page,
+    fieldGroup(dialog, 'Department/Office/College').getByRole('combobox')
   );
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+  await fieldGroup(dialog, 'Vehicle').getByRole('combobox').click();
+  await page.getByRole('option', { name: /MMS-0008/ }).click();
+  const trigger = dialog.getByRole('button', {
+    name: 'Select guides',
+    exact: true
+  });
+  await trigger.click();
+  const picker = page.getByRole('dialog', {
+    name: 'Choose guides',
+    exact: true
+  });
+  const search = picker.getByRole('textbox', { name: 'Search employees' });
+  await expect(search).toBeFocused();
+  await search.fill('safety');
+  const grace = picker.getByRole('checkbox', {
+    name: 'Grace Lim — Safety Officer',
+    exact: true
+  });
+  await expect(grace).toBeVisible();
+  await expect(picker.getByRole('checkbox')).toHaveCount(2);
+  await grace.check();
+  await expect(picker).toBeVisible();
+  await search.fill('Paolo');
+  await picker
+    .getByRole('checkbox', { name: 'Paolo Cruz — Tour Guide', exact: true })
+    .check();
+  await expect(picker.getByText('2 selected', { exact: true })).toBeVisible();
+  await search.fill('');
+  await expect(
+    picker.getByText('All passenger seats are filled.')
+  ).toBeVisible();
+  for (const checkbox of await picker.getByRole('checkbox').all()) {
+    if (!(await checkbox.isChecked())) await expect(checkbox).toBeDisabled();
+  }
+  await grace.uncheck();
+  await expect(
+    picker.getByRole('checkbox', {
+      name: 'Ana Bautista — Tour Guide',
+      exact: true
+    })
+  ).toBeEnabled();
+  await grace.check();
+  await search.fill('no such employee');
+  await expect(picker.getByText('No employees found.')).toBeVisible();
+  await expect(picker.getByRole('checkbox')).toHaveCount(0);
+  await search.press('Escape');
+  await expect(picker).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await expect(
+    dialog.getByRole('button', { name: 'Remove Grace Lim', exact: true })
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole('button', { name: 'Remove Paolo Cruz', exact: true })
+  ).toBeVisible();
+  await dialog
+    .getByRole('button', { name: 'Remove Grace Lim', exact: true })
+    .click();
+  await expect(
+    dialog.getByRole('button', { name: 'Remove Grace Lim', exact: true })
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByRole('button', { name: 'Remove Paolo Cruz', exact: true })
+  ).toBeVisible();
+  await trigger.click();
+  await expect(search).toHaveValue('');
+  await expect(
+    picker.getByRole('checkbox', {
+      name: 'Paolo Cruz — Tour Guide',
+      exact: true
+    })
+  ).toBeChecked();
+  await picker.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(picker).toBeHidden();
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await trigger.click();
+    const bounds = await picker.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
+    await expect(
+      picker.getByRole('button', { name: 'Done', exact: true })
+    ).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath(`guide-picker-${width}.png`),
+      animations: 'disabled'
+    });
+    await page.evaluate(() => document.documentElement.classList.add('dark'));
+    await page.screenshot({
+      path: testInfo.outputPath(`guide-picker-dark-${width}.png`),
+      animations: 'disabled'
+    });
+    await search.press('Escape');
+    await expect(trigger).toBeFocused();
+    await page.evaluate(() =>
+      document.documentElement.classList.remove('dark')
+    );
+  }
 });

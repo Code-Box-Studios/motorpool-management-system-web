@@ -42,14 +42,14 @@ test('trip lifecycle: requester → admin → EVP (UI) → guard → completed',
   const linkedDriver =
     drivers.find((d) => d.userId === driver.user.id) ?? drivers[0];
 
-  // Reuse an eligible user without creating another fixture account.
+  // Reuse an employee without creating another fixture.
   const guides = listData(
     await apiGet(request, '/api/trip-tickets/guide-options', admin.token)
   );
   const guide = guides[0];
   expect(
     guide,
-    'an active driver or requester can guide the trip'
+    'an active employee can guide the trip'
   ).toBeTruthy();
 
   const destination = `UI-E2E ${Date.now()}`;

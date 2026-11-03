@@ -5,7 +5,7 @@ export interface OrgRefs {
   branchId?: string | null;
   officeId?: string | null;
   officeHeadId?: string | null;
-  // Legacy employee references remain supported; new trip guides use user IDs.
+  // Employee references must remain unarchived for new assignments.
   employeeIds?: string[] | null;
 }
 

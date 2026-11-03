@@ -20,11 +20,12 @@ async function scaffold() {
   const branch = await createTestBranch();
   const otherBranch = await createTestBranch('Other Branch');
   const { user: admin } = await createTestUser();
-  const { user: guide } = await createTestUser({
-    email: 'guide@test.local',
-    fullName: 'Other Branch Requester',
-    role: 'requester',
-    branchId: otherBranch.id
+  const guide = await prisma.employee.create({
+    data: {
+      name: 'Other Branch Guide',
+      position: 'Tour Guide',
+      branchId: otherBranch.id
+    }
   });
   const vehicle = await createTestVehicle(branch.id);
   const driver = await createTestDriver(branch.id);
@@ -47,60 +48,51 @@ async function scaffold() {
   return { branch, vehicle, driver, guide, legacy, admin, header, body };
 }
 
-describe('trip guides use active driver and requester accounts', () => {
+describe('trip guides use the employee roster', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
 
-  it('offers every eligible account across branches without exposing private fields', async () => {
+  it('offers unarchived employees across branches with their positions, excluding login accounts', async () => {
     const s = await scaffold();
-    const { user: driver } = await createTestUser({
-      email: 'driver-account@test.local',
-      fullName: 'Driver Account',
-      role: 'driver'
+    await createTestUser({ email: 'requester@test.local', role: 'requester' });
+    await createTestUser({ email: 'driver@test.local', role: 'driver' });
+    await prisma.employee.create({
+      data: {
+        name: 'Archived Guide',
+        branchId: s.branch.id,
+        archivedAt: new Date()
+      }
     });
-    await createTestUser({
-      email: 'inactive@test.local',
-      role: 'requester',
-      status: 'inactive'
-    });
-    await createTestUser({ email: 'guard@test.local', role: 'security_guard' });
     const res = await request(app)
       .get('/api/trip-tickets/guide-options')
       .set('Authorization', s.header);
     expect(res.status).toBe(200);
     expect(res.body).toEqual([
-      { id: driver.id, fullName: 'Driver Account', role: 'driver' },
-      { id: s.guide.id, fullName: 'Other Branch Requester', role: 'requester' }
+      { id: s.legacy.id, name: 'Historical Guide', position: null },
+      { id: s.guide.id, name: 'Other Branch Guide', position: 'Tour Guide' }
     ]);
     expect(
       (await request(app).get('/api/trip-tickets/guide-options')).status
     ).toBe(401);
   });
 
-  it('returns eligible users beyond normal user-list page boundaries', async () => {
+  it('returns employees beyond normal list page boundaries', async () => {
     const s = await scaffold();
-    const role = await prisma.role.findUniqueOrThrow({
-      where: { name: 'requester' }
-    });
     const ids = Array.from({ length: 105 }, () => randomUUID());
-    await prisma.user.createMany({
+    await prisma.employee.createMany({
       data: ids.map((id, index) => ({
         id,
-        email: `roster-${index}@test.local`,
-        fullName: `Roster ${index}`,
-        passwordHash: 'unused-test-password-hash'
+        name: `Roster ${index}`,
+        branchId: s.branch.id
       }))
-    });
-    await prisma.userRole.createMany({
-      data: ids.map((userId) => ({ userId, roleId: role.id }))
     });
     const res = await request(app)
       .get('/api/trip-tickets/guide-options')
       .set('Authorization', s.header);
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(106);
+    expect(res.body).toHaveLength(107);
     expect(res.body.map((guide: { id: string }) => guide.id)).toEqual(
-      expect.arrayContaining([...ids, s.guide.id])
+      expect.arrayContaining([...ids, s.guide.id, s.legacy.id])
     );
   });
 
@@ -118,13 +110,13 @@ describe('trip guides use active driver and requester accounts', () => {
       prisma.tripTicketEmployee.create({
         data: {
           tripTicketId: ticket.id,
-          userId: s.guide.id,
+          userId: s.admin.id,
           employeeId: s.legacy.id
         }
       })
     ).rejects.toThrow();
     await prisma.tripTicketEmployee.create({
-      data: { tripTicketId: ticket.id, userId: s.guide.id }
+      data: { tripTicketId: ticket.id, userId: s.admin.id }
     });
     await prisma.tripTicketEmployee.create({
       data: { tripTicketId: ticket.id, employeeId: s.legacy.id }
@@ -136,34 +128,29 @@ describe('trip guides use active driver and requester accounts', () => {
     ).toBe(2);
   });
 
-  it('creates, edits and reassigns cross-branch users with only public guide fields on detail and list', async () => {
+  it('creates, edits and reassigns employees, returning them on detail and list', async () => {
     const s = await scaffold();
-    const { user: driverGuide } = await createTestUser({
-      email: 'driver-guide@test.local',
-      role: 'driver'
-    });
     const created = await request(app)
       .post('/api/trip-tickets')
       .set('Authorization', s.header)
       .send(s.body);
     expect(created.status).toBe(201);
     expect(created.body.guides[0]).toMatchObject({
-      userId: s.guide.id,
-      employeeId: null,
-      user: { id: s.guide.id, fullName: 'Other Branch Requester' }
+      employeeId: s.guide.id,
+      userId: null,
+      employee: {
+        id: s.guide.id,
+        name: 'Other Branch Guide',
+        position: 'Tour Guide'
+      }
     });
-    expect(Object.keys(created.body.guides[0].user).sort()).toEqual([
-      'fullName',
-      'id',
-      'userRole'
-    ]);
     const id = created.body.id;
     const patched = await request(app)
       .patch(`/api/trip-tickets/${id}`)
       .set('Authorization', s.header)
-      .send({ guideIds: [driverGuide.id] });
+      .send({ guideIds: [s.legacy.id] });
     expect(patched.status).toBe(200);
-    expect(patched.body.guides[0].userId).toBe(driverGuide.id);
+    expect(patched.body.guides[0].employeeId).toBe(s.legacy.id);
     await prisma.tripTicket.update({
       where: { id },
       data: { status: 'approved' }
@@ -179,19 +166,29 @@ describe('trip guides use active driver and requester accounts', () => {
     const list = await request(app)
       .get('/api/trip-tickets')
       .set('Authorization', s.header);
+    expect(detail.status).toBe(200);
+    expect(list.status).toBe(200);
     for (const ticket of [reassigned.body, detail.body, list.body.data[0]]) {
-      expect(ticket.guides[0].userId).toBe(s.guide.id);
-      expect(ticket.guides[0].user.passwordHash).toBeUndefined();
-      expect(ticket.guides[0].user.refreshTokens).toBeUndefined();
+      expect(ticket.guides[0]).toMatchObject({
+        employeeId: s.guide.id,
+        userId: null
+      });
+      expect(ticket.guides[0].employee.name).toBe('Other Branch Guide');
     }
   });
 
-  it('rejects inactive accounts, other roles, employee IDs, missing IDs and duplicates through every write route', async () => {
+  it('rejects archived employees, user IDs, missing IDs and duplicates through every write route', async () => {
     const s = await scaffold();
-    const { user: inactive } = await createTestUser({
-      email: 'inactive@test.local',
-      role: 'requester',
-      status: 'inactive'
+    const { user: account } = await createTestUser({
+      email: 'requester@test.local',
+      role: 'requester'
+    });
+    const archived = await prisma.employee.create({
+      data: {
+        name: 'Archived Guide',
+        branchId: s.branch.id,
+        archivedAt: new Date()
+      }
     });
     const ticket = await createTestTicket({
       branchId: s.branch.id,
@@ -202,13 +199,14 @@ describe('trip guides use active driver and requester accounts', () => {
     await prisma.tripTicketEmployee.create({
       data: { tripTicketId: ticket.id, employeeId: s.legacy.id }
     });
-    for (const guideIds of [
+    const invalid = [
       [s.admin.id],
-      [inactive.id],
-      [s.legacy.id],
+      [account.id],
+      [archived.id],
       [randomUUID()],
       [s.guide.id, s.guide.id]
-    ]) {
+    ];
+    for (const guideIds of invalid) {
       const created = await request(app)
         .post('/api/trip-tickets')
         .set('Authorization', s.header)
@@ -226,13 +224,7 @@ describe('trip guides use active driver and requester accounts', () => {
       where: { id: ticket.id },
       data: { status: 'approved' }
     });
-    for (const guideIds of [
-      [s.admin.id],
-      [inactive.id],
-      [s.legacy.id],
-      [randomUUID()],
-      [s.guide.id, s.guide.id]
-    ]) {
+    for (const guideIds of invalid) {
       const res = await request(app)
         .post(`/api/trip-tickets/${ticket.id}/guides`)
         .set('Authorization', s.header)
@@ -247,42 +239,64 @@ describe('trip guides use active driver and requester accounts', () => {
     ).toBe(1);
   });
 
-  it('keeps historical employee names and rows when unrelated ticket fields change', async () => {
-    const s = await scaffold();
-    const ticket = await createTestTicket({
-      branchId: s.branch.id,
-      driverId: s.driver.id,
-      vehicleId: s.vehicle.id,
-      status: 'pending_admin_approval'
-    });
-    await prisma.tripTicketEmployee.create({
-      data: { tripTicketId: ticket.id, employeeId: s.legacy.id }
-    });
-    await prisma.employee.update({
-      where: { id: s.legacy.id },
-      data: { archivedAt: new Date() }
-    });
-    const dates = s.body.dates.map((date) => ({
-      startTs: new Date(date.startTs),
-      endTs: new Date(date.endTs),
-      tripTicketId: ticket.id
-    }));
-    await prisma.tripDate.createMany({ data: dates });
-    const before = await prisma.tripTicketEmployee.findMany({
-      where: { tripTicketId: ticket.id }
-    });
-    const patched = await request(app)
-      .patch(`/api/trip-tickets/${ticket.id}`)
-      .set('Authorization', s.header)
-      .send({ destination: 'Updated name' });
-    expect(patched.status).toBe(200);
-    expect(patched.body.guides[0].employee.name).toBe('Historical Guide');
-    expect(
-      await prisma.tripTicketEmployee.findMany({
+  it.each(['employee', 'user'] as const)(
+    'preserves historical %s assignments on unrelated edits',
+    async (identity) => {
+      const s = await scaffold();
+      const { user: account } = await createTestUser({
+        email: 'old-guide@test.local',
+        role: 'requester'
+      });
+      const ticket = await createTestTicket({
+        branchId: s.branch.id,
+        driverId: s.driver.id,
+        vehicleId: s.vehicle.id,
+        status: 'pending_admin_approval'
+      });
+      await prisma.tripTicketEmployee.create({
+        data: {
+          tripTicketId: ticket.id,
+          ...(identity === 'employee'
+            ? { employeeId: s.legacy.id }
+            : { userId: account.id })
+        }
+      });
+      await prisma.employee.update({
+        where: { id: s.legacy.id },
+        data: { archivedAt: new Date() }
+      });
+      await prisma.user.update({
+        where: { id: account.id },
+        data: { status: 'inactive' }
+      });
+      await prisma.tripDate.createMany({
+        data: s.body.dates.map((date) => ({
+          startTs: new Date(date.startTs),
+          endTs: new Date(date.endTs),
+          tripTicketId: ticket.id
+        }))
+      });
+      const before = await prisma.tripTicketEmployee.findMany({
         where: { tripTicketId: ticket.id }
-      })
-    ).toEqual(before);
-  });
+      });
+      const patched = await request(app)
+        .patch(`/api/trip-tickets/${ticket.id}`)
+        .set('Authorization', s.header)
+        .send({ destination: 'Updated name' });
+      expect(patched.status).toBe(200);
+      if (identity === 'employee')
+        expect(patched.body.guides[0].employee.name).toBe('Historical Guide');
+      else {
+        expect(patched.body.guides[0].user.id).toBe(account.id);
+        expect(patched.body.guides[0].user.passwordHash).toBeUndefined();
+      }
+      expect(
+        await prisma.tripTicketEmployee.findMany({
+          where: { tripTicketId: ticket.id }
+        })
+      ).toEqual(before);
+    }
+  );
 });
 
 describe('trip destination coordinates', () => {

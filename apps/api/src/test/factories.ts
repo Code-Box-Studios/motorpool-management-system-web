@@ -110,18 +110,9 @@ export async function createTestEmployee(
   return prisma.employee.create({ data: { name, branchId } });
 }
 
-// A real login identity eligible for new guide assignments.
-export async function createTestGuide(
-  branchId: string,
-  fullName = 'Ana Guide'
-) {
-  const { user } = await createTestUser({
-    email: `guide-${randomUUID()}@test.local`,
-    fullName,
-    role: 'requester',
-    branchId
-  });
-  return user;
+// An organization employee eligible for new guide assignments.
+export async function createTestGuide(branchId: string, name = 'Ana Guide') {
+  return createTestEmployee(branchId, name);
 }
 
 // `preparedBy` is required with no default in schema.prisma — omitting it

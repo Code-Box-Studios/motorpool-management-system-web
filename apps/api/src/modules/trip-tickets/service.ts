@@ -22,7 +22,7 @@ import {
 } from './repository.js';
 import { replaceTripDates } from './dates.js';
 import {
-  assertGuideUsersActive,
+  assertGuideEmployeesActive,
   assertSeatsFit,
   participantHeadcount,
   replaceTripTicketGuides
@@ -285,7 +285,7 @@ export async function create(
     officeId: body.officeId,
     officeHeadId: body.officeHeadId
   });
-  await assertGuideUsersActive(body.guideIds);
+  await assertGuideEmployeesActive(body.guideIds);
   // WHO ASKED is the authenticated caller — not a field the client fills in. It
   // used to be spread straight out of the body, so a requester could book a trip
   // in the admin's name, or with `requestedById: null` and no owner at all — and
@@ -352,7 +352,7 @@ export async function update(
     officeId: body.officeId,
     officeHeadId: body.officeHeadId
   });
-  if (body.guideIds !== undefined) await assertGuideUsersActive(body.guideIds);
+  if (body.guideIds !== undefined) await assertGuideEmployeesActive(body.guideIds);
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM trip_tickets WHERE id = ${id}::uuid FOR UPDATE`;
     const existing = await tx.tripTicket.findUnique({

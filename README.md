@@ -145,6 +145,8 @@ Before the workflows make sense, here are the records the system keeps. Admins s
 
 A **trip ticket** is a single request to use a vehicle for a journey. It carries everything about the trip: the destination and purpose, the requested vehicle and driver, the office and office head it's for, the list of participants and how many, the requested dates, and — once approved — a **fuel allocation** (the litres of fuel budgeted for the trip).
 
+**Guides** come from the employee list under **Organization → Employees**, across branches. Select at least one employee; a login account is not required. Archived employees are unavailable for new assignments, but their names remain visible on existing tickets. Guides count toward the vehicle’s passenger capacity.
+
 The trip ticket moves through a strict sequence of stages. Each stage is owned by a specific role, and the system will not let anyone skip a step, go backwards, or act out of turn.
 
 ### The lifecycle

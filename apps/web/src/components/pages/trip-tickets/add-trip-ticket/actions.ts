@@ -28,7 +28,7 @@ const tripTicketSchema = z.object({
   // which is what the per-row message is for. At least one is required
   // (design §5.3); the server refuses an empty list with 400 VALIDATION_ERROR.
   guide_ids: z
-    .array(z.string().uuid('Select a driver or requester'))
+    .array(z.string().uuid('Select an employee'))
     .min(1, 'A trip needs at least one guide'),
   participants: z
     .array(z.string().trim().min(1))

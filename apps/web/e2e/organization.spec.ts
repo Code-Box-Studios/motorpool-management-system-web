@@ -492,8 +492,8 @@ test('a trip ticket filed under a branch and office that have since closed still
   const officeId = (office.body as { id: string }).id;
   createdOfficeIds.push(officeId);
 
-  // The new branch borrows a seeded vehicle and driver. Guide users are
-  // independent of branch, so creating extra organization employees is unnecessary.
+  // The new branch borrows a seeded vehicle and driver. Guides can come from
+  // another branch, so reuse a seeded employee.
   const vehicles = listData(
     await apiGet(request, '/api/vehicles', admin.token)
   );
@@ -504,7 +504,7 @@ test('a trip ticket filed under a branch and office that have since closed still
   const vehicle = vehicles.find((v) => v.status === 'available') ?? vehicles[0];
   expect(vehicle, 'a vehicle exists to file the ticket against').toBeTruthy();
   expect(drivers[0], 'a driver exists to file the ticket against').toBeTruthy();
-  expect(guides[0], 'an active user exists to guide the trip').toBeTruthy();
+  expect(guides[0], 'an active employee exists to guide the trip').toBeTruthy();
 
   // Far-future and distinct from every other spec's window — an overlap fails
   // with VEHICLE_DOUBLE_BOOKED, which would be a fixture collision rather than

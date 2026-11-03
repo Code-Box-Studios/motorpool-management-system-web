@@ -110,7 +110,7 @@ export type NewTripTicket = TablesInsert<'trip_tickets'> & {
    *  to the request body (see mapCreateBody/mapUpdateBody). Optional — the
    *  legacy start_ts/end_ts pair below still works on its own. */
   dates?: { startTs: string; endTs: string }[];
-  /** The active drivers or requesters guiding the trip, as user ids — same convention as
+  /** The unarchived employees guiding the trip, as employee ids — same convention as
    *  `dates`: already camelCase, passed straight through. REQUIRED by
    *  createTripTicketBodySchema (.min(1)). Not optional like `dates` —
    *  there is no legacy fallback path for guides. */

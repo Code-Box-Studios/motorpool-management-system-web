@@ -108,13 +108,24 @@ test('grouped booking and guide choices and mobile time selectors are searchable
     page,
     form.getByRole('combobox').filter({ hasText: /^Select a driver$/ })
   );
-  const guide = form.locator('[aria-label="Guide 1"]');
-  await guide.click();
-  await search(page).fill('REQUESTER');
-  await expect(page.getByRole('option').first()).toContainText(/requester/i);
-  await search(page).press('ArrowDown');
-  await page.keyboard.press('Enter');
-  await expect(guide).toContainText(/requester/i);
+  await form
+    .getByRole('button', { name: 'Select guides', exact: true })
+    .click();
+  const guides = page.getByRole('dialog', {
+    name: 'Choose guides',
+    exact: true
+  });
+  const guideSearch = guides.getByRole('textbox', { name: 'Search employees' });
+  await guideSearch.fill('TOUR');
+  await expect(guides.getByRole('checkbox').first()).toHaveAccessibleName(
+    /Tour Guide/
+  );
+  await guideSearch.press('ArrowDown');
+  await page.keyboard.press('Space');
+  await guides.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(
+    form.getByRole('list', { name: 'Selected guides' })
+  ).toContainText('Tour Guide');
   await form.locator('#destination').fill('Searchable controls verification');
   await form.locator('#purpose').fill('Check shared selection controls');
   await form.getByPlaceholder('Participant 1').fill('Test passenger');
