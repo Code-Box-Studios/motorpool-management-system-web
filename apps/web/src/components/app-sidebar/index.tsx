@@ -52,7 +52,7 @@ const navigationGroups = [
     title: 'Fleet & inventory',
     items: ['Vehicles', 'Drivers', 'Trackers', 'Spare Parts', 'Tools']
   },
-  { title: 'Administration', items: ['Organization', 'User Management'] }
+  { title: 'Administration', items: ['Organization', 'User Management', 'Docs'] }
 ];
 
 export function AppSidebar() {

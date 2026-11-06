@@ -17,6 +17,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedOrganizationRouteImport } from './routes/_authenticated/organization'
 import { Route as AuthenticatedGpsMapRouteImport } from './routes/_authenticated/gps-map'
+import { Route as AuthenticatedDocsRouteImport } from './routes/_authenticated/docs'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedVehiclesIndexRouteImport } from './routes/_authenticated/vehicles.index'
 import { Route as AuthenticatedUserManagementIndexRouteImport } from './routes/_authenticated/user-management.index'
@@ -80,6 +81,11 @@ const AuthenticatedOrganizationRoute =
 const AuthenticatedGpsMapRoute = AuthenticatedGpsMapRouteImport.update({
   id: '/gps-map',
   path: '/gps-map',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDocsRoute = AuthenticatedDocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -232,6 +238,7 @@ const AuthenticatedDriversIdRoute = AuthenticatedDriversIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/docs': typeof AuthenticatedDocsRoute
   '/gps-map': typeof AuthenticatedGpsMapRoute
   '/organization': typeof AuthenticatedOrganizationRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -265,6 +272,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/docs': typeof AuthenticatedDocsRoute
   '/gps-map': typeof AuthenticatedGpsMapRoute
   '/organization': typeof AuthenticatedOrganizationRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -301,6 +309,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/docs': typeof AuthenticatedDocsRoute
   '/_authenticated/gps-map': typeof AuthenticatedGpsMapRoute
   '/_authenticated/organization': typeof AuthenticatedOrganizationRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
@@ -336,6 +345,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/docs'
     | '/gps-map'
     | '/organization'
     | '/profile'
@@ -369,6 +379,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/docs'
     | '/gps-map'
     | '/organization'
     | '/profile'
@@ -404,6 +415,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/_public'
     | '/_authenticated/dashboard'
+    | '/_authenticated/docs'
     | '/_authenticated/gps-map'
     | '/_authenticated/organization'
     | '/_authenticated/profile'
@@ -497,6 +509,13 @@ declare module '@tanstack/react-router' {
       path: '/gps-map'
       fullPath: '/gps-map'
       preLoaderRoute: typeof AuthenticatedGpsMapRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/docs': {
+      id: '/_authenticated/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof AuthenticatedDocsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -679,6 +698,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDocsRoute: typeof AuthenticatedDocsRoute
   AuthenticatedGpsMapRoute: typeof AuthenticatedGpsMapRoute
   AuthenticatedOrganizationRoute: typeof AuthenticatedOrganizationRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
@@ -711,6 +731,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDocsRoute: AuthenticatedDocsRoute,
   AuthenticatedGpsMapRoute: AuthenticatedGpsMapRoute,
   AuthenticatedOrganizationRoute: AuthenticatedOrganizationRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,

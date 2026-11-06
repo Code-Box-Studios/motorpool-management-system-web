@@ -7,10 +7,14 @@ import { DeviceOnlineIndicator } from '@/components/shared/device-online-indicat
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { ApiError } from '@/lib/api/client';
 import { useLatestGpsData } from '@/lib/query/gps';
 import { useTrackerDevices } from '@/lib/query/tracker-devices';
 import { useAllVehicles } from '@/lib/query/vehicles';
-import { assignedVehicleLabel } from '@/lib/utils/tracker-devices';
+import {
+  assignedVehicleLabel,
+  isDeviceOnline
+} from '@/lib/utils/tracker-devices';
 
 export default function GpsMapPage() {
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -19,11 +23,42 @@ export default function GpsMapPage() {
     null
   );
   const { data: gpsData = [], isLoading: gpsLoading } = useLatestGpsData();
-  const { data: trackerData, isLoading: trackersLoading } = useTrackerDevices({
-    page: 1,
-    limit: 100
-  });
+  const trackerQuery = useTrackerDevices(
+    {},
+    { sortBy: 'imei', sortOrder: 'asc' }
+  );
+  const {
+    data: trackerData,
+    isLoading: trackersLoading,
+    refetch: refreshTrackers
+  } = trackerQuery;
+  const trackerStatusUnavailable =
+    trackerQuery.isError ||
+    trackerQuery.errorUpdatedAt > trackerQuery.dataUpdatedAt;
+  const trackerReadForbidden =
+    trackerQuery.error instanceof ApiError && trackerQuery.error.status === 403;
+  const [, setNow] = useState(Date.now);
   const { data: vehicles, isLoading: vehiclesLoading } = useAllVehicles();
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(Date.now());
+      if (!trackerReadForbidden) void refreshTrackers();
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [refreshTrackers, trackerReadForbidden]);
+
+  const trackerConnections: Record<string, 'online' | 'offline' | 'unknown'> =
+    {};
+  for (const tracker of trackerData?.data ?? []) {
+    if (tracker.vehicleId && tracker.status === 'active') {
+      trackerConnections[tracker.vehicleId] = trackerStatusUnavailable
+        ? 'unknown'
+        : isDeviceOnline(tracker.lastSeenAt)
+          ? 'online'
+          : 'offline';
+    }
+  }
 
   const vehiclesById = useMemo(
     () => new Map((vehicles ?? []).map((vehicle) => [vehicle.id, vehicle])),
@@ -61,7 +96,7 @@ export default function GpsMapPage() {
       {!isFullscreen && (
         <PageHeader
           title="GPS Map"
-          description="Select a registered tracker to focus the live map on its vehicle."
+          description="View reported positions. Tracker connection, reported ignition, and booking availability are separate indicators."
         />
       )}
 
@@ -113,6 +148,17 @@ export default function GpsMapPage() {
                 <p className="text-muted-foreground mt-1 text-xs">
                   Select a tracker with a location to focus the map.
                 </p>
+                <p className="text-muted-foreground mt-2 text-xs leading-5">
+                  Online means the tracker reported recently. Booking
+                  availability describes whether the vehicle can be assigned to
+                  a trip.
+                </p>
+                {trackerStatusUnavailable && (
+                  <p role="alert" className="text-status-wait-fg mt-2 text-xs">
+                    Tracker connection is unavailable. Any saved contact time is
+                    historical.
+                  </p>
+                )}
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-2">
                 {trackersLoading || vehiclesLoading ? (
@@ -150,25 +196,51 @@ export default function GpsMapPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-sm font-semibold">{label}</span>
-                          <StatusBadge status={tracker.status} />
+                          <span className="flex flex-col items-end gap-1">
+                            <span className="text-muted-foreground text-[10px]">
+                              Registration
+                            </span>
+                            <StatusBadge status={tracker.status} />
+                          </span>
                         </div>
                         <p className="text-muted-foreground mt-1 truncate font-mono text-xs">
                           {tracker.label || tracker.imei}
                         </p>
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <DeviceOnlineIndicator
-                            lastSeenAt={tracker.lastSeenAt}
-                          />
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="text-muted-foreground text-xs">
+                              Tracker:
+                            </span>
+                            {trackerStatusUnavailable ? (
+                              <span className="text-muted-foreground text-sm">
+                                Unknown
+                              </span>
+                            ) : (
+                              <DeviceOnlineIndicator
+                                lastSeenAt={tracker.lastSeenAt}
+                              />
+                            )}
+                          </span>
                           <span className="text-muted-foreground text-xs">
-                            {hasLocation ? 'Locate on map' : 'No location yet'}
+                            {hasLocation
+                              ? 'View reported position'
+                              : 'No location yet'}
                           </span>
                         </div>
+                        <p className="text-muted-foreground mt-2 text-[11px]">
+                          Last contact:{' '}
+                          {tracker.lastSeenAt
+                            ? new Date(tracker.lastSeenAt).toLocaleString()
+                            : 'Never received'}
+                        </p>
                       </button>
                     );
                   })
                 ) : (
                   <p className="text-muted-foreground p-3 text-sm">
-                    No tracker devices found.
+                    {trackerStatusUnavailable
+                      ? 'Tracker list is unavailable.'
+                      : 'No tracker devices found.'}
                   </p>
                 )}
               </div>
@@ -193,6 +265,7 @@ export default function GpsMapPage() {
                   height={isFullscreen ? '100%' : 'calc(100vh - 18rem)'}
                   selectedVehicleId={selectedVehicleId}
                   onSelectedVehicleIdChange={setSelectedVehicleId}
+                  trackerConnections={trackerConnections}
                 />
               )}
             </CardContent>

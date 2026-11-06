@@ -24,6 +24,7 @@ import { tripTicketsRouter } from './modules/trip-tickets/router.js';
 import { usersRouter } from './modules/users/router.js';
 import { reportsRouter } from './modules/reports/router.js';
 import { vehiclesRouter } from './modules/vehicles/router.js';
+import { documentationRouter } from './modules/documentation/router.js';
 
 // Vite takes the next free port when 5173 is busy (a leftover dev server, a
 // second checkout), and the browser then fails every request with an opaque
@@ -94,6 +95,7 @@ export function createApp(): express.Express {
   app.use('/api/analytics', analyticsRouter);
   app.use('/api/approvals', approvalsRouter);
   app.use('/api/reports', reportsRouter);
+  app.use('/api/docs', documentationRouter);
 
   // Domain routers mount here in later plans.
 

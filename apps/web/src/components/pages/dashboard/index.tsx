@@ -1,12 +1,4 @@
-import VehicleMap from '@/components/shared/vehicle-map';
-import { useLatestGpsData } from '@/lib/query/gps';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
+import FleetTracking from './fleet-tracking';
 import GuardConfirmationPage from '@/components/pages/trip-tickets/guard-confirmation';
 import DriverDashboard from '@/components/pages/trip-tickets/driver-dashboard';
 import RequesterDashboard from '@/components/pages/trip-tickets/requester-dashboard';
@@ -28,14 +20,11 @@ const Dashboard = () => {
   // role has to be in hand up here to keep the fleet-wide reads below from
   // firing for the roles that never reach the fleet view.
   const userRoleName = userRole?.roles?.name;
-  // The two roles GET /gps/latest and /analytics/* actually admit
-  // (apps/api/src/modules/gps/router.ts ANALYTICS_ROLES).
+  // Fleet analytics and tracking are restricted to administrators and EVP Operations.
   const canTrackFleet =
     userRoleName === USER_ROLES.admin ||
     userRoleName === USER_ROLES.evp_operations;
 
-  const { data: gpsData, isLoading: gpsLoading } =
-    useLatestGpsData(canTrackFleet);
   const { data: statusCounts } = useVehicleStatusCounts(canTrackFleet);
   const { data: completedTrips } = useCompletedTripsCount(canTrackFleet);
 
@@ -66,14 +55,6 @@ const Dashboard = () => {
     return <RequesterDashboard />;
   }
 
-  if (gpsLoading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <p className="text-muted-foreground">Loading GPS data...</p>
-      </div>
-    );
-  }
-
   const metrics = [
     { label: 'Available Vehicles', value: statusCounts?.available ?? 0 },
     { label: 'Under Maintenance', value: statusCounts?.underMaintenance ?? 0 },
@@ -98,18 +79,7 @@ const Dashboard = () => {
         <PredictiveMaintenance showViewAll />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Vehicle Tracking</CardTitle>
-          <CardDescription>
-            Latest reported positions from registered vehicle trackers
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* height is the md-and-up size; the map caps itself on phones. */}
-          <VehicleMap gpsData={gpsData || []} height="460px" zoom={13} />
-        </CardContent>
-      </Card>
+      {canTrackFleet && <FleetTracking />}
     </div>
   );
 };

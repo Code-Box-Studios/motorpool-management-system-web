@@ -1,7 +1,16 @@
-import StatusBadge from '@/components/shared/status-badge';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { resolveStatus } from '@/lib/status';
+import { useEffect, useMemo, useRef } from 'react';
 import type { Marker as LeafletMarker } from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Tooltip,
+  useMap
+} from 'react-leaflet';
+import { DEVICE_ONLINE_THRESHOLD_MS } from '@/lib/utils/tracker-devices';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -16,7 +25,11 @@ L.Icon.Default.mergeOptions({
     'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png'
 });
 
-const createVehicleIcon = (status: string, speed?: number) => {
+const createVehicleIcon = (
+  status: string,
+  speed?: number,
+  trackingColor?: string
+) => {
   const colors: Record<string, string> = {
     available: 'green',
     on_trip: 'blue',
@@ -25,8 +38,7 @@ const createVehicleIcon = (status: string, speed?: number) => {
     to_be_repaired: 'purple'
   };
 
-  const color = colors[status] || 'gray';
-  const isMoving = speed && speed > 0;
+  const color = trackingColor ?? colors[status] ?? 'gray';
 
   return L.divIcon({
     className: 'custom-vehicle-marker',
@@ -41,19 +53,12 @@ const createVehicleIcon = (status: string, speed?: number) => {
         display: flex;
         align-items: center;
         justify-content: center;
-        ${isMoving ? 'animation: pulse 1.5s infinite;' : ''}
       ">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
           <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
         </svg>
         ${speed !== undefined ? `<div style="position: absolute; bottom: -20px; background: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; color: ${color}; white-space: nowrap;">${Math.round(speed)} km/h</div>` : ''}
       </div>
-      <style>
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.1); opacity: 0.8; }
-        }
-      </style>
     `,
     iconSize: [40, 40],
     iconAnchor: [20, 20],
@@ -89,7 +94,13 @@ interface VehicleMapProps {
   height?: string;
   showTrails?: boolean;
   selectedVehicleId?: string | null;
-  onSelectedVehicleIdChange?: (vehicleId: string) => void;
+  onSelectedVehicleIdChange?: (vehicleId: string | null) => void;
+  /** Explicit viewport requests; normal data polling preserves the operator's view. */
+  focusRequest?: number;
+  fitRequest?: number;
+  /** Plate labels and position freshness colors; details are outside the map. */
+  dashboardPresentation?: boolean;
+  trackerConnections?: Record<string, 'online' | 'offline' | 'unknown'>;
 }
 
 // `height` is a fixed pixel value, which a phone in landscape (~375px of
@@ -99,17 +110,58 @@ interface VehicleMapProps {
 const VIEWPORT_HEIGHT_CAP = 'max-h-[min(360px,60vh)] md:max-h-none';
 
 function MapUpdater({
-  center,
-  zoom
+  points,
+  selectedVehicleId,
+  focusRequest,
+  fitRequest
 }: {
-  center: [number, number];
-  zoom?: number;
+  points: GpsDataWithVehicle[];
+  selectedVehicleId: string | null;
+  focusRequest: number;
+  fitRequest: number;
 }) {
   const map = useMap();
+  const previous = useRef<{
+    ids: string;
+    selected: string | null;
+    focus: number;
+    fit: number;
+  } | null>(null);
 
   useEffect(() => {
-    map.setView(center, zoom ?? map.getZoom());
-  }, [center, map, zoom]);
+    const ids = points
+      .map((p) => p.vehicles!.id)
+      .sort()
+      .join(',');
+    const before = previous.current;
+    const fit = !before || before.fit !== fitRequest || before.ids !== ids;
+    const focus =
+      !before ||
+      before.selected !== selectedVehicleId ||
+      before.focus !== focusRequest;
+    previous.current = {
+      ids,
+      selected: selectedVehicleId,
+      focus: focusRequest,
+      fit: fitRequest
+    };
+    const selected = points.find((p) => p.vehicles?.id === selectedVehicleId);
+    if (focus && selected) {
+      map.setView([selected.latitude!, selected.longitude!], 16);
+    } else if (fit && points.length) {
+      map.closePopup();
+      map.fitBounds(
+        L.latLngBounds(points.map((p) => [p.latitude!, p.longitude!])),
+        { padding: [48, 48], maxZoom: 15 }
+      );
+    }
+  }, [points, selectedVehicleId, focusRequest, fitRequest, map]);
+
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
 
   return null;
 }
@@ -151,10 +203,12 @@ export function VehicleMap({
   zoom = 13,
   height = '500px',
   selectedVehicleId = null,
-  onSelectedVehicleIdChange
+  onSelectedVehicleIdChange,
+  focusRequest = 0,
+  fitRequest = 0,
+  dashboardPresentation = false,
+  trackerConnections
 }: VehicleMapProps) {
-  const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
-  const [selectionZoom, setSelectionZoom] = useState<number | undefined>();
   const markerRefs = useRef<Record<string, LeafletMarker | null>>({});
 
   const validGpsData = useMemo(
@@ -173,42 +227,14 @@ export function VehicleMap({
   );
 
   useEffect(() => {
-    if (validGpsData.length > 0) {
-      const firstData = validGpsData[0];
-      if (firstData.latitude !== null && firstData.longitude !== null) {
-        const { latitude, longitude } = firstData;
-        setMapCenter((previous) =>
-          previous?.[0] === latitude && previous?.[1] === longitude
-            ? previous
-            : [latitude, longitude]
-        );
-      }
-    }
-  }, [validGpsData]);
-
-  useEffect(() => {
-    if (!selectedVehicleId) return;
-
-    const selected = validGpsData.find(
-      (data) => data.vehicles?.id === selectedVehicleId
-    );
-    if (!selected || selected.latitude === null || selected.longitude === null)
-      return;
-
-    const { latitude, longitude } = selected;
-    setMapCenter((previous) =>
-      previous?.[0] === latitude && previous?.[1] === longitude
-        ? previous
-        : [latitude, longitude]
-    );
-    setSelectionZoom(16);
+    if (!selectedVehicleId || dashboardPresentation) return;
     markerRefs.current[selectedVehicleId]?.openPopup();
-  }, [selectedVehicleId, validGpsData]);
+  }, [selectedVehicleId, focusRequest, dashboardPresentation]);
 
   if (validGpsData.length === 0) {
     return (
       <div
-        className={VIEWPORT_HEIGHT_CAP}
+        className={`${VIEWPORT_HEIGHT_CAP} bg-muted text-muted-foreground`}
         style={{
           height,
           width: '100%',
@@ -216,9 +242,7 @@ export function VehicleMap({
           overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#f0f0f0',
-          color: '#666'
+          justifyContent: 'center'
         }}
       >
         <div style={{ textAlign: 'center', padding: '20px' }}>
@@ -234,7 +258,7 @@ export function VehicleMap({
   }
 
   const firstPoint = validGpsData[0];
-  const currentCenter: [number, number] = mapCenter ?? [
+  const currentCenter: [number, number] = [
     firstPoint.latitude!,
     firstPoint.longitude!
   ];
@@ -248,22 +272,48 @@ export function VehicleMap({
         center={currentCenter}
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
-        scrollWheelZoom={true}
+        scrollWheelZoom={!dashboardPresentation}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapUpdater center={currentCenter} zoom={selectionZoom} />
+        <MapUpdater
+          points={validGpsData}
+          selectedVehicleId={selectedVehicleId}
+          focusRequest={focusRequest}
+          fitRequest={fitRequest}
+        />
         <SingleFingerDragToggle />
 
         {validGpsData.map((data) => {
           const vehicle = data.vehicles!;
+          const fresh =
+            Number.isFinite(Date.parse(data.created_at)) &&
+            Date.now() - Date.parse(data.created_at) <
+              DEVICE_ONLINE_THRESHOLD_MS;
+          const trackingColor = !fresh
+            ? '#64748b'
+            : data.speed === null
+              ? '#64748b'
+              : data.speed > 0
+                ? '#059669'
+                : '#2563eb';
+          const connection = trackerConnections?.[vehicle.id] ?? 'unknown';
+          const availability = resolveStatus(vehicle.status);
           return (
             <Marker
-              key={data.gps_id}
+              key={vehicle.id}
+              title={vehicle.license_plate}
+              alt={vehicle.license_plate}
               position={[data.latitude!, data.longitude!]}
-              icon={createVehicleIcon(vehicle.status, data.speed ?? undefined)}
+              icon={createVehicleIcon(
+                vehicle.status,
+                dashboardPresentation || !fresh
+                  ? undefined
+                  : (data.speed ?? undefined),
+                trackingColor
+              )}
               ref={(marker) => {
                 markerRefs.current[vehicle.id] = marker;
               }}
@@ -271,56 +321,102 @@ export function VehicleMap({
                 click: () => onSelectedVehicleIdChange?.(vehicle.id)
               }}
             >
-              <Popup>
-                <div style={{ minWidth: '250px' }}>
-                  <h3 style={{ fontWeight: 'bold', marginBottom: '8px' }}>
-                    {vehicle.make} {vehicle.model}
-                  </h3>
-                  <p style={{ margin: '4px 0' }}>
-                    <strong>License Plate:</strong> {vehicle.license_plate}
-                  </p>
-                  <p style={{ margin: '4px 0' }}>
-                    <strong>Status:</strong>{' '}
-                    <StatusBadge status={vehicle.status} />
-                  </p>
-                  <p style={{ margin: '4px 0' }}>
-                    <strong>Speed:</strong>{' '}
-                    {data.speed !== null
-                      ? `${Math.round(data.speed)} km/h`
-                      : 'Unknown'}
-                  </p>
-                  <p style={{ margin: '4px 0' }}>
-                    <strong>Engine:</strong>{' '}
-                    <span
+              {dashboardPresentation ? (
+                <Tooltip permanent direction="bottom" offset={[0, 20]}>
+                  <span className="font-semibold">{vehicle.license_plate}</span>
+                </Tooltip>
+              ) : (
+                <Popup>
+                  <div style={{ minWidth: '250px' }}>
+                    <h3 style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+                      {vehicle.make} {vehicle.model}
+                    </h3>
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>License Plate:</strong> {vehicle.license_plate}
+                    </p>
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>Tracker connection:</strong>{' '}
+                      {connection === 'online'
+                        ? 'Online'
+                        : connection === 'offline'
+                          ? 'Offline'
+                          : 'Unknown'}
+                    </p>
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>Booking availability:</strong>{' '}
+                      <Badge variant={availability.tone}>
+                        {vehicle.status === 'available'
+                          ? 'Available for booking'
+                          : availability.label}
+                      </Badge>
+                    </p>
+                    {!fresh && (
+                      <p
+                        style={{
+                          margin: '10px 0',
+                          padding: '8px',
+                          borderRadius: '6px',
+                          background: '#f1e7cf',
+                          color: '#6c5014',
+                          fontSize: '12px'
+                        }}
+                      >
+                        <strong>Last known position.</strong> No recent GPS
+                        update. Readings below are from the recorded position.
+                      </p>
+                    )}
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>
+                        {fresh ? 'Reported speed:' : 'Last reported speed:'}
+                      </strong>{' '}
+                      {data.speed !== null
+                        ? `${Math.round(data.speed)} km/h`
+                        : 'Unknown'}
+                    </p>
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>
+                        {fresh
+                          ? 'Reported ignition:'
+                          : 'Last reported ignition:'}
+                      </strong>{' '}
+                      <span
+                        style={{
+                          color:
+                            data.engine_status === 'on'
+                              ? 'green'
+                              : data.engine_status === 'off'
+                                ? '#555'
+                                : '#666',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        {data.engine_status === 'on' ||
+                        data.engine_status === 'off'
+                          ? data.engine_status.toUpperCase()
+                          : 'Unknown'}
+                      </span>
+                    </p>
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>
+                        {fresh ? 'Reported heading:' : 'Last reported heading:'}
+                      </strong>{' '}
+                      {data.heading !== null
+                        ? `${Math.round(data.heading)}°`
+                        : 'Unknown'}
+                    </p>
+                    <p
                       style={{
-                        color:
-                          data.engine_status === 'on'
-                            ? 'green'
-                            : data.engine_status === 'off'
-                              ? 'red'
-                              : '#666',
-                        fontWeight: 'bold'
+                        margin: '4px 0',
+                        fontSize: '12px',
+                        color: '#666'
                       }}
                     >
-                      {data.engine_status === 'on' ||
-                      data.engine_status === 'off'
-                        ? data.engine_status.toUpperCase()
-                        : 'Unknown'}
-                    </span>
-                  </p>
-                  <p style={{ margin: '4px 0' }}>
-                    <strong>Heading:</strong>{' '}
-                    {data.heading !== null
-                      ? `${Math.round(data.heading)}°`
-                      : 'Unknown'}
-                  </p>
-                  <p
-                    style={{ margin: '4px 0', fontSize: '12px', color: '#666' }}
-                  >
-                    Last update: {new Date(data.created_at).toLocaleString()}
-                  </p>
-                </div>
-              </Popup>
+                      Position recorded:{' '}
+                      {new Date(data.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </Popup>
+              )}
             </Marker>
           );
         })}
