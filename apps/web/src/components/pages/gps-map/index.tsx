@@ -12,8 +12,6 @@ import { useTrackerDevices } from '@/lib/query/tracker-devices';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import { assignedVehicleLabel } from '@/lib/utils/tracker-devices';
 
-const MAP_CENTER: [number, number] = [7.0731, 125.6128];
-
 export default function GpsMapPage() {
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -191,11 +189,8 @@ export default function GpsMapPage() {
               ) : (
                 <VehicleMap
                   gpsData={gpsData}
-                  center={MAP_CENTER}
                   zoom={13}
-                  height={
-                    isFullscreen ? '100%' : 'calc(100vh - 18rem)'
-                  }
+                  height={isFullscreen ? '100%' : 'calc(100vh - 18rem)'}
                   selectedVehicleId={selectedVehicleId}
                   onSelectedVehicleIdChange={setSelectedVehicleId}
                 />

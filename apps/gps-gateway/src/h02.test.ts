@@ -5,6 +5,12 @@ import { decodeFrame } from './h02.js';
 const POSITION =
   '*HQ,1234567890,V1,084739,A,3123.4537,N,12112.3427,E,010.00,090,200420,FFFFFDFF,000,00,0,0#';
 
+// ST-901L-X V5.25 layouts, using synthetic identifiers and coordinates.
+const ST901L_POSITIONS = [
+  ['V6', '*HQ,1234567890,V6,052239,A,123.4567,N,12345.6789,E,2.00,359.00,061126,FFFFF9FF,0,00,12345,12345678,89000000000000000000#'],
+  ['V8', '*HQ,1234567890,V8,052239,A,123.4567,N,12345.6789,E,2.00,359.00,061126,FFFFF9FF,0,00,12345,12345678,10,23,118,100#']
+] as const;
+
 describe('decodeFrame', () => {
   it('decodes a valid position, converting ddmm.mmmm to decimal degrees', () => {
     const frame = decodeFrame(POSITION, 'knots');
@@ -24,6 +30,24 @@ describe('decodeFrame', () => {
     const frame = decodeFrame(POSITION, 'kmh');
     if (frame.kind !== 'position') throw new Error('expected position');
     expect(frame.speedKmh).toBeCloseTo(10, 5);
+  });
+
+  it.each(ST901L_POSITIONS)('decodes ST-901L-X %s positions with trailing telemetry', (_type, raw) => {
+    const frame = decodeFrame(raw, 'knots');
+    expect(frame.kind).toBe('position');
+    if (frame.kind !== 'position') throw new Error('expected position');
+    expect(frame.deviceId).toBe('1234567890');
+    expect(frame.valid).toBe(true);
+    expect(frame.latitude).toBeCloseTo(1.390945, 6);
+    expect(frame.longitude).toBeCloseTo(123.761315, 6);
+    expect(frame.speedKmh).toBeCloseTo(3.704, 3);
+    expect(frame.heading).toBe(359);
+    expect(frame.fixTime?.toISOString()).toBe('2026-11-06T05:22:39.000Z');
+  });
+
+  it.each(ST901L_POSITIONS)('marks an ST-901L-X %s void fix as invalid', (_type, raw) => {
+    const frame = decodeFrame(raw.replace(',A,', ',V,'), 'kmh');
+    expect(frame).toMatchObject({ kind: 'position', valid: false, speedKmh: 2 });
   });
 
   it('negates southern and western hemispheres', () => {
@@ -64,6 +88,11 @@ describe('decodeFrame', () => {
     expect(frame.kind).toBe('heartbeat');
     if (frame.kind !== 'heartbeat') return;
     expect(frame.deviceId).toBe('1234567890');
+  });
+
+  it('recognises an ST-901L-X H1 heartbeat without requiring position fields', () => {
+    const raw = '*HQ,1234567890,H1,052535#';
+    expect(decodeFrame(raw, 'knots')).toEqual({ kind: 'heartbeat', deviceId: '1234567890', raw });
   });
 
   it('returns unknown for other message types and malformed input', () => {

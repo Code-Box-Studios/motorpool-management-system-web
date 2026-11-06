@@ -59,6 +59,21 @@ describe('gateway', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it.each(['V6', 'V8'])('forwards an ST-901L-X %s position received over TCP', async (type) => {
+    const resolve = vi.fn().mockResolvedValue('veh-1');
+    const send = vi.fn().mockResolvedValue(undefined);
+    server = await startGateway(CONFIG, { registry: { resolve }, forwarder: { send } });
+
+    await sendToGateway((server.address() as AddressInfo).port, VALID.replace(',V1,', `,${type},`));
+
+    expect(resolve).toHaveBeenCalledWith('imei-1');
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0]?.[0]).toBe('veh-1');
+    expect(send.mock.calls[0]?.[1]).toMatchObject({
+      kind: 'position', deviceId: 'imei-1', valid: true, speedKmh: 18.52
+    });
+  });
+
   it('does not forward when the device is unknown', async () => {
     const resolve = vi.fn().mockResolvedValue(null);
     const send = vi.fn().mockResolvedValue(undefined);
@@ -70,12 +85,12 @@ describe('gateway', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('refreshes liveness on a heartbeat without forwarding a position', async () => {
+  it.each(['V0', 'H1'])('refreshes liveness on a %s heartbeat without forwarding a position', async (type) => {
     const resolve = vi.fn().mockResolvedValue('veh-1');
     const send = vi.fn().mockResolvedValue(undefined);
     server = await startGateway(CONFIG, { registry: { resolve }, forwarder: { send } });
 
-    await sendToGateway((server.address() as AddressInfo).port, '*HQ,imei-1,V0,084739#');
+    await sendToGateway((server.address() as AddressInfo).port, `*HQ,imei-1,${type},084739#`);
 
     expect(resolve).toHaveBeenCalledWith('imei-1');
     expect(send).not.toHaveBeenCalled();

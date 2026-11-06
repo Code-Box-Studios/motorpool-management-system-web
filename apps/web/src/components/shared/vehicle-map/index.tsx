@@ -84,7 +84,6 @@ export interface GpsDataWithVehicle {
 
 interface VehicleMapProps {
   gpsData: GpsDataWithVehicle[];
-  center?: [number, number];
   zoom?: number;
   /** The map height from `md` up. Below that it is capped to the viewport. */
   height?: string;
@@ -109,9 +108,7 @@ function MapUpdater({
   const map = useMap();
 
   useEffect(() => {
-    if (center[0] !== 0 && center[1] !== 0) {
-      map.setView(center, zoom ?? map.getZoom());
-    }
+    map.setView(center, zoom ?? map.getZoom());
   }, [center, map, zoom]);
 
   return null;
@@ -151,13 +148,12 @@ function SingleFingerDragToggle() {
 
 export function VehicleMap({
   gpsData,
-  center = [7.0731, 125.6128],
   zoom = 13,
   height = '500px',
   selectedVehicleId = null,
   onSelectedVehicleIdChange
 }: VehicleMapProps) {
-  const [mapCenter, setMapCenter] = useState<[number, number]>(center);
+  const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
   const [selectionZoom, setSelectionZoom] = useState<number | undefined>();
   const markerRefs = useRef<Record<string, LeafletMarker | null>>({});
 
@@ -165,7 +161,13 @@ export function VehicleMap({
     () =>
       gpsData.filter(
         (data) =>
-          data.latitude !== null && data.longitude !== null && data.vehicles
+          data.latitude !== null &&
+          data.longitude !== null &&
+          Number.isFinite(data.latitude) &&
+          Number.isFinite(data.longitude) &&
+          Math.abs(data.latitude) <= 90 &&
+          Math.abs(data.longitude) <= 180 &&
+          data.vehicles
       ),
     [gpsData]
   );
@@ -176,7 +178,7 @@ export function VehicleMap({
       if (firstData.latitude !== null && firstData.longitude !== null) {
         const { latitude, longitude } = firstData;
         setMapCenter((previous) =>
-          previous[0] === latitude && previous[1] === longitude
+          previous?.[0] === latitude && previous?.[1] === longitude
             ? previous
             : [latitude, longitude]
         );
@@ -195,7 +197,7 @@ export function VehicleMap({
 
     const { latitude, longitude } = selected;
     setMapCenter((previous) =>
-      previous[0] === latitude && previous[1] === longitude
+      previous?.[0] === latitude && previous?.[1] === longitude
         ? previous
         : [latitude, longitude]
     );
@@ -231,13 +233,19 @@ export function VehicleMap({
     );
   }
 
+  const firstPoint = validGpsData[0];
+  const currentCenter: [number, number] = mapCenter ?? [
+    firstPoint.latitude!,
+    firstPoint.longitude!
+  ];
+
   return (
     <div
       className={VIEWPORT_HEIGHT_CAP}
       style={{ height, width: '100%', borderRadius: '8px', overflow: 'hidden' }}
     >
       <MapContainer
-        center={mapCenter}
+        center={currentCenter}
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
@@ -246,7 +254,7 @@ export function VehicleMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapUpdater center={mapCenter} zoom={selectionZoom} />
+        <MapUpdater center={currentCenter} zoom={selectionZoom} />
         <SingleFingerDragToggle />
 
         {validGpsData.map((data) => {
@@ -255,7 +263,7 @@ export function VehicleMap({
             <Marker
               key={data.gps_id}
               position={[data.latitude!, data.longitude!]}
-              icon={createVehicleIcon(vehicle.status, data.speed || undefined)}
+              icon={createVehicleIcon(vehicle.status, data.speed ?? undefined)}
               ref={(marker) => {
                 markerRefs.current[vehicle.id] = marker;
               }}
@@ -276,26 +284,35 @@ export function VehicleMap({
                     <StatusBadge status={vehicle.status} />
                   </p>
                   <p style={{ margin: '4px 0' }}>
-                    <strong>Mileage:</strong> {vehicle.mileage} km
-                  </p>
-                  <p style={{ margin: '4px 0' }}>
                     <strong>Speed:</strong>{' '}
-                    {data.speed ? `${Math.round(data.speed)} km/h` : 'Stopped'}
+                    {data.speed !== null
+                      ? `${Math.round(data.speed)} km/h`
+                      : 'Unknown'}
                   </p>
                   <p style={{ margin: '4px 0' }}>
                     <strong>Engine:</strong>{' '}
                     <span
                       style={{
-                        color: data.engine_status === 'on' ? 'green' : 'red',
+                        color:
+                          data.engine_status === 'on'
+                            ? 'green'
+                            : data.engine_status === 'off'
+                              ? 'red'
+                              : '#666',
                         fontWeight: 'bold'
                       }}
                     >
-                      {data.engine_status?.toUpperCase() || 'UNKNOWN'}
+                      {data.engine_status === 'on' ||
+                      data.engine_status === 'off'
+                        ? data.engine_status.toUpperCase()
+                        : 'Unknown'}
                     </span>
                   </p>
                   <p style={{ margin: '4px 0' }}>
                     <strong>Heading:</strong>{' '}
-                    {data.heading ? `${Math.round(data.heading)}°` : 'N/A'}
+                    {data.heading !== null
+                      ? `${Math.round(data.heading)}°`
+                      : 'Unknown'}
                   </p>
                   <p
                     style={{ margin: '4px 0', fontSize: '12px', color: '#666' }}

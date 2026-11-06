@@ -132,4 +132,4 @@ In priority order — but push back if you disagree:
 
 - **Regenerate the screenshots:** with the app running (`pnpm dev`), run `pnpm --filter @mms/web test:e2e`. They land in `apps/web/e2e/screenshots/`.
 - **Try it yourself:** the app seeds demo accounts, all with the password `Password123!` — `admin@mms.local`, `requester@mms.local`, `evp_operations@mms.local`, `security_guard@mms.local`, `driver@mms.local`. Logging in as each role is the fastest way to feel the problem.
-- **Ignore in the screenshots:** the map markers sit in *Manila* while the map centres on *Davao* — that's stale demo seed data, not a design decision. Also the "Start Demo" button on the map is a dev affordance.
+- **GPS data:** maps center on received tracker coordinates. Show an empty state without valid positions and **Unknown** for missing telemetry. Production screens have no simulated routes or demo controls.

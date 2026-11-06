@@ -59,7 +59,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 Expected result: `401`. A `500` means the API deployment does not yet have `GPS_DEVICE_API_KEY`.
 
-**Security note:** for real hardware, put this secret only in the API service and the gateway VM. Do not expose it in a `VITE_*` browser variable. The browser demo is a separate development feature and is not needed for tracker hardware.
+**Security note:** put this secret only in the API service and the gateway VM. The browser reads GPS data and does not need an ingest key.
 
 ## 2. Create a gateway VM with a permanent IP address
 
@@ -163,29 +163,18 @@ Expected log line:
 GPS gateway listening on tcp/5013
 ```
 
-## 4. Prove the complete pipeline before touching the tracker
+## 4. Check the gateway before configuring the tracker
 
-This avoids debugging the SIM, tracker, cloud firewall, and MMS all at once.
+Confirm the gateway service is active and logs `GPS gateway listening on tcp/5013`.
+From a computer outside the VM, verify public TCP access:
 
-1. Sign in to MMS as an Admin.
-2. Open **Trackers** → **Register Device**.
-3. Register IMEI `1234567890`, assign `<VEHICLE>`, and set status to **Active**.
-4. On the VM, restart the gateway to clear its five-minute registry cache:
+```bash
+nc -vz <VM_IP> 5013
+```
 
-   ```bash
-   sudo systemctl restart mms-gps-gateway
-   ```
+Check the deployed API's `/api/health` endpoint and the device-key rejection check in step 1. Confirm the gateway and API use the same private key. The browser does not need that key.
 
-5. From your computer in the MMS repo, run:
-
-   ```bash
-   pnpm --filter @mms/gps-gateway simulate 1234567890 <VM_IP> 5013
-   ```
-
-6. Watch the VM log with `journalctl -u mms-gps-gateway -f` and the deployed MMS dashboard. Within about 10 seconds, `<VEHICLE>` should move on the map.
-7. Stop the simulator with `Ctrl+C`, then change the fake device's status to **Inactive** in **Trackers**. MMS allows only one active tracker per vehicle.
-
-If the simulator works, the internet firewall, gateway, API URL, secret, registration, and map are all correct.
+Use the real device in steps 5–6 to verify registration, ingestion, and the map. Keep simulator tests in an isolated development API/database rather than inserting artificial positions into production history.
 
 ## 5. Prepare and configure the physical tracker
 
@@ -237,7 +226,7 @@ At this stage an `unregistered/unassigned device ...` message is expected. Copy 
 | ------------------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | API check returns `500 GPS_NOT_CONFIGURED` | API key missing from the deployed API                                            | Set `GPS_DEVICE_API_KEY` in the API service and wait for its deploy to finish.                    |
 | Gateway will not start                     | Missing/malformed `.env`, incorrect Node installation, or key absent             | Run `journalctl -u mms-gps-gateway -n 50 --no-pager`; check the four required `.env` values.      |
-| Simulator cannot move the map              | Firewall, secret, API URL, or tracker registration issue                         | Fix this before configuring hardware; follow step 4 from the top.                                 |
+| Public TCP probe fails                    | Gateway service, external IP, or firewall issue                                 | Check the listener and public TCP 5013 before configuring the tracker.                             |
 | `unregistered/unassigned`                  | Logged ID is not active/assigned in MMS, or the old 404 is cached                | Register the exact logged ID, assign a vehicle, activate it, restart gateway.                     |
 | `dropping void fix`                        | The tracker lacks a GPS satellite fix                                            | Move outdoors with clear sky and wait several minutes.                                            |
 | `SET OK` but no VM logs after 10 minutes   | Incorrect APN, no data plan, incompatible/absent 2G coverage, or wrong server IP | Recheck APN and SIM in a phone; confirm `<VM_IP>:5013` with the simulator.                        |

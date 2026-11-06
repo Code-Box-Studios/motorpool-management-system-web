@@ -15,8 +15,9 @@ export type DecodedFrame =
   | { kind: 'unknown'; raw: string };
 
 const KNOTS_TO_KMH = 1.852;
-const POSITION_TYPES = new Set(['V1', 'V5']);
-const HEARTBEAT_TYPES = new Set(['V0', 'HTBT']);
+// ST-901L-X V6/V8 reports share the position prefix and append extra telemetry.
+const POSITION_TYPES = new Set(['V1', 'V5', 'V6', 'V8']);
+const HEARTBEAT_TYPES = new Set(['V0', 'HTBT', 'H1']);
 
 // `ddmm.mmmm` / `dddmm.mmmm` — the last two digits BEFORE the dot are minutes.
 function dmToDecimal(value: string, hemisphere: string): number | null {

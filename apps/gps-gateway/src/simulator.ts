@@ -8,7 +8,7 @@ const imei = process.argv[2] ?? '1234567890';
 const host = process.argv[3] ?? '127.0.0.1';
 const port = Number(process.argv[4] ?? process.env.GATEWAY_TCP_PORT ?? 5013);
 
-// A short drive through Davao City (matches the dashboard's map centre).
+// A synthetic route for explicit development testing.
 const route = [
   [7.0731, 125.6128],
   [7.0745, 125.6142],

@@ -200,6 +200,6 @@ Inactive or role-stripped accounts are rejected at login, refresh, and `/auth/me
 7. **Driver status is decorative.** `on_trip` for a *driver* is only ever set by hand; trips flip the vehicle but never the driver. Vehicle status `unavailable` is likewise an orphan no process produces.
 8. **Client-side route guards only cover index pages.** Any authenticated role can deep-link into detail/add pages (forms render, then 403 at submit). The API is the real gate — but the UI over-promises.
 9. **Several API capabilities have no UI at all:** trip-ticket editing and deletion, job-order edit/delete, driver creation, all delete buttons for fleet assets, GPS history/trails.
-10. **GPS wrinkles:** the browser demo key ships in the public JS bundle; a freshly registered device can be ignored for up to 5 minutes (negative resolve cache); the online indicator can flap "Offline" while a device is actively streaming (last-seen only refreshes on cache misses).
+10. **GPS wrinkles:** a freshly registered device can be ignored for up to 5 minutes (negative resolve cache); the online indicator can flap "Offline" while a device is actively streaming (last-seen only refreshes on cache misses). The browser reads GPS data only; ingest credentials belong to the gateway and API.
 
 None of these break the demo path; items 1, 2 and 5 are the ones most likely to come up in a live defense Q&A.

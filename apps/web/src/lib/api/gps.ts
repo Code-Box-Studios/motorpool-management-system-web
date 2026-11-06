@@ -1,5 +1,5 @@
 // src/lib/api/gps.ts
-import { api, apiRequest, ApiError } from './client.js';
+import { api } from './client.js';
 
 // FE-facing shape (mirrors the pre-cutover Supabase gps type so
 // consumers like VehicleMap/useLatestGpsData are unaffected): snake_case,
@@ -121,47 +121,4 @@ export async function getGpsDataByVehicle(
     }
   );
   return res.data.map(toRow);
-}
-
-// Outgoing demo ingest body (camelCase, matches the API's ingestGpsBodySchema).
-export interface GpsIngestInput {
-  vehicleId: string;
-  latitude: number;
-  longitude: number;
-  speed?: number | null;
-  heading?: number | null;
-  engineStatus?: string | null;
-}
-
-interface GpsIngestResult {
-  success: boolean;
-  gpsId: string;
-}
-
-// Simulate a device GPS ping for the dashboard demo. This endpoint uses
-// device-key auth (NOT the user's JWT) -- see require-device-key.ts -- so the
-// device key is sent as an explicit header instead of relying on the client's
-// bearer-token auth.
-export async function insertGpsData(
-  gpsData: GpsIngestInput
-): Promise<GpsIngestResult> {
-  const deviceKey = import.meta.env.VITE_GPS_DEVICE_KEY as string | undefined;
-  // Fail fast (and clearly) on a misconfigured demo rather than firing a doomed
-  // request that the API rejects with a device-key 401.
-  if (!deviceKey) {
-    throw new ApiError(
-      0,
-      'GPS_DEVICE_KEY_MISSING',
-      'VITE_GPS_DEVICE_KEY is not set — the GPS demo needs a device key.'
-    );
-  }
-  return apiRequest<GpsIngestResult>('/gps/ingest', {
-    method: 'POST',
-    json: gpsData,
-    // This endpoint uses device-key auth, NOT the user's JWT. A 401 here means a
-    // bad/absent device key — it must NOT trigger the client's JWT refresh (and
-    // its logout-on-failure path), which would kick out a validly logged-in user.
-    skipRefresh: true,
-    headers: { 'x-device-api-key': deviceKey }
-  });
 }

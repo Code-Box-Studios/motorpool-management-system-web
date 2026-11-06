@@ -39,7 +39,7 @@ interface RequestOpts {
   json?: unknown; // JSON body
   formData?: FormData; // multipart body (takes precedence over json)
   query?: Record<string, string | number | undefined | null>;
-  headers?: Record<string, string>; // extra headers (e.g. x-device-api-key for the gps demo)
+  headers?: Record<string, string>; // additional request headers
   skipRefresh?: boolean; // used by the refresh call itself to avoid recursion
 }
 

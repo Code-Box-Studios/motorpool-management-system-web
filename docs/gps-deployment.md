@@ -1,23 +1,20 @@
 # GPS Deployment Runbook
 
-One guide, three tiers. Climb only as far as the day requires:
+Deploy real trackers through the gateway. The simulator is an optional development tool for an isolated test API/database.
 
-| Tier | What it proves | Needs | Time |
+| Workflow | What it proves | Needs | Time |
 |---|---|---|---|
-| **1 — Browser demo** | Map works on the deployed site | Two env vars | ~5 min |
-| **2 — Simulator pipeline** | The real gateway → API path works | Laptop + repo | ~15 min |
-| **3 — Real hardware** | Live ST-901 trackers in vehicles | Google Cloud VM + tracker + SIM | ~half a day |
+| **Development simulator** | Gateway → API path in an isolated environment | Laptop + repo + test API/database | ~15 min |
+| **Real hardware** | Live compatible trackers in vehicles | Google Cloud VM + tracker + SIM | ~half a day |
 
 ```mermaid
 flowchart LR
   T["ST-901 tracker"] -->|"TCP H02 :5013"| G["Gateway"]
-  S["Simulator (Tier 2)"] -.-> G
   G -->|"POST /api/gps/ingest + device key"| A["API (Render)"]
-  B["Browser demo (Tier 1)"] -.->|same ingest endpoint| A
   A --> M["Dashboard map (polls 5 s)"]
 ```
 
-Positions flow into `/api/gps/ingest` authenticated by a shared device key; the map polls the latest point per vehicle every 5 seconds. Tiers 1–2 fake the tracker at different depths; Tier 3 is the real thing.
+Positions flow into `/api/gps/ingest` authenticated by a shared device key; the map polls the latest point per vehicle every 5 seconds. The browser reads GPS data only. There are no in-app demo controls or generated GPS seed points.
 
 ---
 
@@ -25,31 +22,20 @@ Positions flow into `/api/gps/ingest` authenticated by a shared device key; the 
 
 1. Generate a secret: `openssl rand -hex 24`
 2. **Render** → API service → Environment → `GPS_DEVICE_API_KEY=<secret>` → save.
-3. **Vercel** → FE project → Settings → Environment Variables → `VITE_GPS_DEVICE_KEY=<same secret>` → redeploy the FE (Vite bakes env at build).
+3. Put the same private `GPS_DEVICE_API_KEY` in the gateway environment. The web app needs only its API URL.
 
 **✓ Verify:** `curl -X POST https://YOUR-API.onrender.com/api/gps/ingest -H "x-device-api-key: wrong"` returns 401 (not 500 — a 500 means the key isn't set).
 
 ---
 
-## Tier 1 — Browser demo
+## Development — Simulator through the gateway
 
-1. Open the deployed dashboard as `admin@mms.local`.
-2. Vehicle Tracking card → **Start Demo**.
-
-**✓ Verify:** a marker drives through Davao City on the map.
-
-If it doesn't: `VITE_GPS_DEVICE_KEY` missing/mismatched or FE not redeployed after setting it — check the browser console for 401s on `/api/gps/ingest`.
-
----
-
-## Tier 2 — Simulator through the real gateway
-
-Runs the actual gateway on your laptop, pointed at the deployed API.
+Run the gateway on your laptop against a development API/database. Simulated points are stored like real readings, so use a dedicated test vehicle and keep this workflow separate from production tracking.
 
 1. Create `apps/gps-gateway/.env`:
    ```ini
    GATEWAY_TCP_PORT=5013
-   MMS_API_URL=https://YOUR-API.onrender.com
+   MMS_API_URL=http://localhost:3001
    GPS_DEVICE_API_KEY=<the secret from step 0>
    SPEED_UNIT=knots
    ```
@@ -57,13 +43,13 @@ Runs the actual gateway on your laptop, pointed at the deployed API.
 3. Terminal 1: `pnpm --filter @mms/gps-gateway dev` → wait for `listening on tcp/5013`.
 4. Terminal 2: `pnpm --filter @mms/gps-gateway simulate 1234567890`.
 
-**✓ Verify:** gateway logs show forwarded positions; the assigned vehicle moves on the deployed map within ~10 s.
+**✓ Verify:** the assigned test vehicle moves on the development map within ~10 s.
 
 > Registered the device *after* starting the gateway? Restart the gateway — it caches "unknown device" answers for 5 minutes.
 
 ---
 
-## Tier 3 — Real ST-901 hardware
+## 3. Real ST-901 hardware
 
 The tracker dials a public IP over TCP, so the gateway moves to a Google Cloud e2-micro VM. **The ST-901 is 2G-only** — confirm 2G coverage with your telco first (ST-901L is the 4G variant).
 
@@ -196,21 +182,20 @@ Take the tracker outdoors; first GPS fix can take minutes.
 H02 trackers often send a device ID that is **not** the full IMEI — read it, don't guess:
 
 1. `journalctl -u mms-gps-gateway -f` → the "unregistered/unassigned" warning contains the exact ID the device sends.
-2. Register that ID: **Trackers → Register Device**, assign the vehicle, Active. (One active device per vehicle — deactivate the Tier-2 fake on that vehicle first.)
+2. Register that ID: **Trackers → Register Device**, assign the vehicle, Active. Only one active device may be assigned to a vehicle.
 3. `sudo systemctl restart mms-gps-gateway` (clears the 5-min cache).
 
 **✓ Verify:** frames from the device's ID in the logs; marker live on the map; Trackers page shows Online.
 
 ---
 
-## Troubleshooting (all tiers)
+## Troubleshooting
 
-| Tier | Symptom | Fix |
+| Workflow | Symptom | Fix |
 |---|---|---|
-| 1 | Start Demo does nothing / console 401s | `VITE_GPS_DEVICE_KEY` wrong or FE not redeployed after setting it |
 | any | Ingest returns 500 `GPS_NOT_CONFIGURED` | `GPS_DEVICE_API_KEY` not set on Render |
-| 2–3 | Gateway logs "unregistered/unassigned" | Register the exact logged ID, then restart the gateway (5-min cache) |
-| 2–3 | Forwarder errors / retries | Wrong `MMS_API_URL` or key; or Render asleep — gateway retries 3× then drops the point, next frames land once awake. Wake the API before demos |
+| any | Gateway logs "unregistered/unassigned" | Register the exact logged ID, then restart the gateway (5-min cache) |
+| any | Forwarder errors / retries | Check `MMS_API_URL`, the private gateway/API key, and API availability |
 | 3 | No SMS reply from tracker | SIM lacks load/SMS or device unpowered — test SIM in a phone |
 | 3 | SET OK but nothing reaches the VM | Wrong APN, no data plan, or no 2G coverage; re-test port with the simulator from a phone hotspot |
 | 3 | `systemd` unit fails instantly on GCP | The unit was written with a quoted heredoc, so `User=` is the literal `$USER`. Rewrite it with unquoted `EOF` (3.3) — your GCP login is not `ubuntu` |

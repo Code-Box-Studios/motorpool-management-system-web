@@ -120,7 +120,7 @@ async function main() {
   }
 
   // North Branch's own vans. Deliberately NOT pushed onto `vehicles` — everything
-  // downstream (the maintenance history, the seeded trips, the GPS traces) walks
+  // downstream (the maintenance history and the seeded trips) walks
   // that array by index, and quietly folding another branch's vans into it would
   // turn seeded head-office trips into cross-branch borrows behind the tests'
   // backs. North owns these; nothing else touches them.
@@ -415,24 +415,6 @@ async function main() {
         }
       });
     }
-  }
-
-  // GPS points — ~50 along a line for 2 vehicles
-  if ((await prisma.gpsData.count()) === 0) {
-    const base = { lat: 14.5995, lng: 120.9842 };
-    const rows = [];
-    for (const [v, vehicle] of [vehicles[2]!, vehicles[0]!].entries()) {
-      for (let i = 0; i < 25; i++) {
-        rows.push({
-          vehicleId: vehicle.id,
-          latitude: base.lat + v * 0.01 + i * 0.0005,
-          longitude: base.lng + i * 0.0007,
-          speed: 30 + (i % 20), heading: 90, engineStatus: 'on',
-          createdAt: new Date(Date.parse('2026-07-01T08:00:00Z') + i * 60_000)
-        });
-      }
-    }
-    await prisma.gpsData.createMany({ data: rows });
   }
 
   console.log('Seed complete.');

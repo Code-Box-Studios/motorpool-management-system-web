@@ -1,16 +1,17 @@
-# MMS GPS Gateway (SinoTrack ST-901 / H02)
+# MMS GPS Gateway (SinoTrack ST-901 / ST-901L-X / H02)
 
 A standalone TCP service that receives H02 frames from SinoTrack ST-901 trackers,
-resolves each device's IMEI to a vehicle, and forwards positions to the MMS API's
+resolves each reported device ID to a vehicle, and forwards positions to the MMS API's
 `POST /api/gps/ingest`. It never touches the database.
 
-    ST-901 --2G/TCP--> gateway --HTTPS--> MMS API --> Postgres --> dashboard
+    Tracker --mobile data/TCP--> gateway --HTTPS--> MMS API --> Postgres --> dashboard
 
 ## Why a gateway?
 
-The ST-901 is a sealed 2G device. It cannot run custom firmware and does not speak
-HTTP/JSON — it opens a raw TCP socket to a server you configure by SMS and streams
-the manufacturer's H02 protocol, identifying itself by IMEI. The gateway translates.
+Compatible ST-901-family trackers open a raw TCP socket to a server configured by
+SMS and stream H02 messages. The gateway translates those messages into HTTPS API
+requests. Radio support depends on the model: ST-901L-X is a 4G variant. Register
+the exact device ID observed in gateway logs rather than assuming the printed IMEI.
 
 ## Configuration
 
@@ -27,16 +28,20 @@ confirm it against your device (see Capturing below) before trusting the dashboa
     pnpm --filter @mms/gps-gateway dev        # watch mode
     pnpm --filter @mms/gps-gateway build && pnpm --filter @mms/gps-gateway start
 
-Test the whole pipeline without hardware:
+Test the pipeline against an isolated development API/database:
 
     pnpm --filter @mms/gps-gateway simulate <imei>
 
-(Register that IMEI in the Trackers admin screen and assign it to a vehicle first, or
+(Register that IMEI in the development Trackers screen and assign a test vehicle first, or
 the gateway will correctly drop the frames as unregistered.)
 
 ## Capturing real device frames
 
-ST-901 firmware revisions differ (`V1` vs `V5` message types, field counts, speed units).
+ST-901 firmware revisions differ in message types, field counts, and speed units.
+The decoder supports `V1`, `V5`, `V6`, and `V8` position reports and `V0`, `HTBT`, and
+`H1` heartbeats. ST-901L-X firmware uses `V6`/`V8` positions with extra telemetry
+after the status word; the common position fields are decoded and the extra fields
+are ignored.
 Before trusting the decoder against a new device, capture what it actually sends:
 
     pnpm --filter @mms/gps-gateway capture
@@ -66,19 +71,20 @@ tracker by SMS), and the always-free shape is `e2-micro` + a **standard** 30 GB 
 
 ## Provisioning an ST-901 (SMS cheat-sheet)
 
-Insert an activated **2G data SIM**, power the device, then SMS these to the SIM
+Insert an activated SIM with SMS and data service compatible with the tracker,
+power the device, then send these SMS messages to the SIM
 (default password is `0000` on most units — check your device's manual, commands vary
 by firmware):
 
 | Purpose | SMS |
 | --- | --- |
-| Check status / IMEI | `CHECK#` (or `STATUS#`) |
-| Set the APN | `APN,<apn>,<user>,<pass>#` |
-| Point it at the gateway | `SERVER,1,<gateway-public-ip>,<port>,0#` |
-| Set the reporting interval | `TIMER,<seconds>#` |
-| Factory reset | `FACTORY#` / `RESET#` |
+| Read configuration / device ID | `RCONF` |
+| Set the APN | `8030000 <apn>` |
+| Point it at the gateway | `8040000 <gateway-public-ip> 5013` |
+| Ignition-on reporting interval | `8050000 30` |
+| Ignition-off reporting interval | `8090000 180` |
 
-Then register the device's **IMEI** in the MMS Trackers admin screen and assign it to a
+Then register the reported **device ID** in the MMS Trackers admin screen and assign it to a
 vehicle. Confirm with `journalctl -u gps-gateway -f` that frames arrive and forward.
 
 > ⚠️ **2G is being switched off in many countries.** Confirm your carrier still runs a

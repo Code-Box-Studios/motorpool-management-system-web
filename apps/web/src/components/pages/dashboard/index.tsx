@@ -1,6 +1,5 @@
 import VehicleMap from '@/components/shared/vehicle-map';
-import { useLatestGpsData, useInsertGpsData } from '@/lib/query/gps';
-import { useVehicles } from '@/lib/query/vehicles';
+import { useLatestGpsData } from '@/lib/query/gps';
 import {
   Card,
   CardContent,
@@ -8,9 +7,6 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
-import { Play, Square } from 'lucide-react';
 import GuardConfirmationPage from '@/components/pages/trip-tickets/guard-confirmation';
 import DriverDashboard from '@/components/pages/trip-tickets/driver-dashboard';
 import RequesterDashboard from '@/components/pages/trip-tickets/requester-dashboard';
@@ -26,18 +22,6 @@ import {
   useCompletedTripsCount
 } from '@/lib/query/analytics';
 
-// Davao City route coordinates
-const davaoCityRoute = [
-  { lat: 7.0731, lng: 125.6128 }, // Starting point - Roxas Avenue
-  { lat: 7.0745, lng: 125.6142 }, // San Pedro Street
-  { lat: 7.076, lng: 125.6155 }, // CM Recto Avenue
-  { lat: 7.078, lng: 125.617 }, // JP Laurel Avenue
-  { lat: 7.08, lng: 125.619 }, // Quirino Avenue
-  { lat: 7.082, lng: 125.621 }, // Ulas
-  { lat: 7.085, lng: 125.624 }, // Agdao
-  { lat: 7.088, lng: 125.627 } // Buhangin
-];
-
 const Dashboard = () => {
   const { data: userRole } = useUserRole();
   // Read before the queries, not after: hooks cannot be conditional, so the
@@ -52,80 +36,8 @@ const Dashboard = () => {
 
   const { data: gpsData, isLoading: gpsLoading } =
     useLatestGpsData(canTrackFleet);
-  // Only the fall-through view has the Start Demo button this list feeds.
-  const { data: vehiclesData } = useVehicles(1, 100, undefined, canTrackFleet);
-  const insertGps = useInsertGpsData();
   const { data: statusCounts } = useVehicleStatusCounts(canTrackFleet);
   const { data: completedTrips } = useCompletedTripsCount(canTrackFleet);
-
-  const [isDemoRunning, setIsDemoRunning] = useState(false);
-  const [currentRouteIndex, setCurrentRouteIndex] = useState(0);
-  const [demoVehicleId, setDemoVehicleId] = useState<string | null>(null);
-
-  // Find first available vehicle for simulation
-  useEffect(() => {
-    if (vehiclesData?.data && vehiclesData.data.length > 0 && !demoVehicleId) {
-      setDemoVehicleId(vehiclesData.data[0].id);
-    }
-  }, [vehiclesData, demoVehicleId]);
-
-  // Start demo simulation
-  const startDemo = () => {
-    if (demoVehicleId) {
-      setIsDemoRunning(true);
-      setCurrentRouteIndex(0);
-    }
-  };
-
-  // Stop demo simulation
-  const stopDemo = () => {
-    setIsDemoRunning(false);
-    setCurrentRouteIndex(0);
-  };
-
-  // Simulate vehicle movement
-  useEffect(() => {
-    if (!isDemoRunning || !demoVehicleId) return;
-
-    const interval = setInterval(() => {
-      const currentPosition = davaoCityRoute[currentRouteIndex];
-      const nextIndex = (currentRouteIndex + 1) % davaoCityRoute.length;
-      const nextPosition = davaoCityRoute[nextIndex];
-
-      const calculateHeading = (
-        from: typeof currentPosition,
-        to: typeof currentPosition
-      ) => {
-        const dLon = ((to.lng - from.lng) * Math.PI) / 180;
-        const lat1 = (from.lat * Math.PI) / 180;
-        const lat2 = (to.lat * Math.PI) / 180;
-
-        const y = Math.sin(dLon) * Math.cos(lat2);
-        const x =
-          Math.cos(lat1) * Math.sin(lat2) -
-          Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-        const heading = (Math.atan2(y, x) * 180) / Math.PI;
-
-        return (heading + 360) % 360;
-      };
-
-      const heading = calculateHeading(currentPosition, nextPosition);
-      const speed = 30 + Math.random() * 20;
-
-      insertGps.mutate({
-        vehicleId: demoVehicleId,
-        latitude: currentPosition.lat,
-        longitude: currentPosition.lng,
-        speed,
-        heading,
-        engineStatus: 'on'
-      });
-
-      setCurrentRouteIndex(nextIndex);
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [isDemoRunning, demoVehicleId, currentRouteIndex, insertGps]);
 
   // Check user role and show appropriate view
 
@@ -188,46 +100,14 @@ const Dashboard = () => {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <CardTitle>Vehicle Tracking</CardTitle>
-              <CardDescription>
-                Real-time GPS location tracking of all vehicles in the fleet
-                (Davao Region)
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              {!isDemoRunning ? (
-                <Button onClick={startDemo} disabled={!demoVehicleId} size="sm">
-                  <Play className="mr-2 h-4 w-4" />
-                  Start Demo
-                </Button>
-              ) : (
-                <Button onClick={stopDemo} variant="destructive" size="sm">
-                  <Square className="mr-2 h-4 w-4" />
-                  Stop Demo
-                </Button>
-              )}
-            </div>
-          </div>
+          <CardTitle>Vehicle Tracking</CardTitle>
+          <CardDescription>
+            Latest reported positions from registered vehicle trackers
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* height is the md-and-up size; the map caps itself on phones. */}
-          <VehicleMap
-            gpsData={gpsData || []}
-            height="460px"
-            center={[7.0731, 125.6128]}
-            zoom={13}
-          />
-
-          {/* The demo note belongs to the map it describes, not to the page. */}
-          {isDemoRunning && (
-            <p className="bg-status-move-bg text-status-move-fg rounded-[14px] px-4 py-3 text-sm">
-              Demo vehicle is moving through Davao City. The marker updates
-              every 3 seconds with GPS coordinates, speed, heading, and engine
-              status.
-            </p>
-          )}
+          <VehicleMap gpsData={gpsData || []} height="460px" zoom={13} />
         </CardContent>
       </Card>
     </div>
