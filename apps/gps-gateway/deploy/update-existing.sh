@@ -39,7 +39,7 @@ tar -xzf "$release_dir/source.tar.gz" --strip-components=1 -C "$release_dir/sour
 cd "$release_dir/source"
 pnpm install --frozen-lockfile --filter '@mms/gps-gateway...'
 pnpm --filter '@mms/gps-gateway...' build
-pnpm --filter @mms/gps-gateway deploy --prod --legacy "$runtime"
+node --max-old-space-size=64 apps/gps-gateway/deploy/package-runtime.mjs "$runtime"
 install -m 600 "$current_dir/.env" "$runtime/.env"
 
 # Validate dependencies, configuration and the deployed upload endpoint without

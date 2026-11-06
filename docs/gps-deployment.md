@@ -163,7 +163,7 @@ sudo systemctl enable --now mms-gps-gateway
 Apply the API packet-log migration and deploy API/frontend before updating the gateway.
 The dependency-inclusive build above generates `@mms/shared/dist` as well as the
 gateway. This service runs inside the built workspace; do not copy its `dist` folder
-alone. For a portable release, follow the gateway README and preserve the packaged
+alone. For a portable release, run `node --max-old-space-size=64 apps/gps-gateway/deploy/package-runtime.mjs <new-runtime-directory>` from the built repository root. This copies the three installed production packages without running another dependency resolver. Follow the gateway README and preserve the packaged
 `node_modules`. Configure `.env` separately; local environment files are excluded
 from the release.
 
@@ -238,4 +238,6 @@ H02 trackers often send a device ID that is **not** the full IMEI — read it, d
   ```
 
   The SSH user must be able to read the current gateway `.env` and use `sudo`. The script expects an active `mms-gps-gateway` service and Node 20 or later. A successful command confirms the service and listener; also verify that a new real tracker packet appears in MMS **Packet Logs**. Previous rejected traffic is unavailable. Closing Cloud Shell leaves the systemd service running.
+
+  If an older updater stops with `Killed` during `pnpm deploy`, use the latest verified updater commit. That packaging command may resolve the full monorepo and exceed a micro VM's memory. The corrected updater packages already-installed runtime dependencies with a 64 MiB heap limit. Failure at the packaging step occurs before the updater changes or restarts the service.
 - Costs: everything free except SIM data (a few MB/day per tracker).

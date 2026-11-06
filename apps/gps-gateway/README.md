@@ -98,11 +98,13 @@ fails. Deploy the API migration first, then verify a new real packet in MMS.
 1. Install Node 22, clone the repo, run `pnpm install --frozen-lockfile`, then
    `pnpm --filter @mms/gps-gateway... build` to build the shared runtime dependency too.
 2. Run directly from the built workspace as in the linked runbook. For the provided
-   `/opt/mms/gps-gateway` unit, first create a portable release with
-   `pnpm --filter @mms/gps-gateway deploy --prod --legacy <new-empty-release-directory>`.
+   `/opt/mms/gps-gateway` unit, first create a portable release from the repository root:
+   `node --max-old-space-size=64 apps/gps-gateway/deploy/package-runtime.mjs <new-runtime-directory>`.
+   The destination must not exist yet. The packager copies the installed, lockfile-selected
+   production packages without resolving the rest of the workspace or accessing the registry.
    Copy the entire release, including `node_modules`, to `/opt/mms/gps-gateway` and
    configure its `.env` separately. Copying only `dist` misses runtime dependencies.
-   The package file allowlist excludes local `.env` files from the release.
+   Local `.env` files and development dependencies are excluded from the release.
 3. Install the unit: `cp deploy/gps-gateway.service /etc/systemd/system/` then
    `systemctl enable --now gps-gateway`.
 4. Open the TCP port with a VPC firewall rule scoped to the instance's network tag

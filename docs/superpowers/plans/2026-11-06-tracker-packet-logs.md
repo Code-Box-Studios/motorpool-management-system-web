@@ -97,3 +97,11 @@ Verified shared94tests, gateway53tests, eight browser regressions, a full isolat
 The concurrent configuration test typecheck issue was corrected by its owner. The user subsequently authorized the combined deployment. Fresh combined checks passed: 699 API tests, 94 shared tests, 53 gateway tests, 29 browser checks, production builds, typechecks and web lint. A second read-only release review found no remaining material packet-code issues.
 
 The existing Google Cloud VM rejects this computer's SSH key. Added a separate-release Cloud Shell updater with configuration/source preservation, API preflight, persistent spool settings and failed-start rollback. Review fixed an EnvironmentFile override risk by pinning PACKET_LOG_DIR in ExecStart. Syntax, package imports, environment-file exclusion and three orchestration scenarios passed. API/frontend rollout must precede this VM update; a new physical tracker receipt is still required to verify live capture.
+
+## Gateway packaging recovery
+
+The user ran release 17bc921 on the existing VM. Its filtered install and both TypeScript builds succeeded, but `pnpm deploy --prod --legacy` resolved the full monorepo and was killed before the service-switch stage. Memory pressure is likely; kernel OOM confirmation was not available.
+
+Replaced that resolver with an offline packager that copies the lockfile-selected shared library, dotenv and Zod from the completed install. It rejects unexpected runtime dependencies, excludes local configuration and development packages, dereferences pnpm links, pins copied versions, and refuses to overwrite existing runtimes. The updater runs it with a 64 MiB heap limit. A local actual-runtime run took 0.11 seconds with about 58 MiB peak resident memory; these are local measurements, not VM measurements.
+
+Verified 53 gateway tests, four new packaging regressions, gateway build/typecheck, actual standalone runtime imports under the 64 MiB heap limit, shell syntax, and successful/preflight-failure/listener-failure deployment scenarios. Independent read-only review found no material issues. The updated VM rollout and a real tracker receipt remain pending.

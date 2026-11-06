@@ -14,7 +14,7 @@
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run",
+    "test": "vitest run && node --test deploy/package-runtime.test.mjs",
     "capture": "tsx src/capture.ts",
     "simulate": "tsx src/simulator.ts"
   },
