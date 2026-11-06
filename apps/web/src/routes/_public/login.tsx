@@ -7,7 +7,7 @@ export const Route = createFileRoute('/_public/login')({
 
 function RouteComponent() {
   return (
-    <div className="bg w-full max-w-sm md:max-w-5xl">
+    <div className="w-full max-w-[1180px]">
       <LoginForm />
     </div>
   );

@@ -19,25 +19,26 @@
   --popover: #ffffff;
   --popover-foreground: #141413;
 
-  /* The primary action is INK, not the brand colour — a near-black pill. */
-  --primary: #141413;
-  --primary-foreground: #f3f0ee;
+  /* Maroon connects actions, selection, and navigation to the MMS identity. */
+  --primary: var(--signal);
+  --primary-foreground: #ffffff;
+  --primary-hover: #a83b4a;
 
   --secondary: #e7e0d8; /* ghost */
   --secondary-foreground: #141413;
   --muted: #eae4dd;
   --muted-foreground: #8b857d;
 
-  /* shadcn's --accent is a hover SURFACE, not the brand colour. */
-  --accent: #e7e0d8;
-  --accent-foreground: #141413;
+  /* A quiet maroon tint supports hover surfaces without tinting the canvas. */
+  --accent: #f3e7ea;
+  --accent-foreground: #65202c;
 
   --destructive: #9c3a2a;
   --destructive-foreground: #ffffff;
 
   --border: #e5dfd7; /* line */
   --input: #d6d0c7; /* line-strong */
-  --ring: #141413;
+  --ring: var(--signal);
 
   /* Brand signal — switch with data-accent="orange|rust|maroon" on <html>. */
   --signal: #7e2230;
@@ -62,21 +63,21 @@
   --status-neut-fg: #6c665f;
   --status-neut-bg: #eae4dd;
 
-  --chart-1: #7e2230;
+  --chart-1: var(--signal);
   --chart-2: #3a5c9e;
   --chart-3: #3e6b4e;
   --chart-4: #8a6a1f;
   --chart-5: #6c665f;
 
-  /* The rail is a surface, and the active item is an ink pill. */
+  /* Navigation shares the same maroon emphasis as primary actions. */
   --sidebar: #ffffff;
   --sidebar-foreground: #262627;
-  --sidebar-primary: #141413;
-  --sidebar-primary-foreground: #f3f0ee;
-  --sidebar-accent: #e7e0d8;
-  --sidebar-accent-foreground: #141413;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: #f3e7ea;
+  --sidebar-accent-foreground: #65202c;
   --sidebar-border: #e5dfd7;
-  --sidebar-ring: #141413;
+  --sidebar-ring: var(--ring);
 
   --font-sans: 'Sofia Sans', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Sofia Sans', ui-sans-serif, serif;
@@ -122,25 +123,26 @@
   --popover: #2a2724;
   --popover-foreground: #f3f0ee;
 
-  /* Ink inverts in the dark: the primary pill becomes light-on-dark. */
-  --primary: #f3f0ee;
-  --primary-foreground: #191816;
+  /* Filled controls stay maroon; text accents use a lighter tone below. */
+  --primary: #b35065;
+  --primary-foreground: #ffffff;
+  --primary-hover: #9b3f53;
 
   --secondary: #22201d;
   --secondary-foreground: #f3f0ee;
   --muted: #2c2825;
   --muted-foreground: #8e877e;
-  --accent: #22201d;
-  --accent-foreground: #f3f0ee;
+  --accent: #3b2930;
+  --accent-foreground: #f3d5dc;
   --destructive: #e59c8a;
   --destructive-foreground: #191816;
   --border: #332f2b;
   --input: #3d3833;
-  --ring: #f3f0ee;
+  --ring: var(--signal);
 
-  --signal: #a83b4a;
-  --signal-soft: #c6602a;
-  --signal-foreground: #ffffff;
+  --signal: #d995a2;
+  --signal-soft: #efbbc5;
+  --signal-foreground: #30171e;
 
   --ink-soft: #e7e1d9;
   --slate: #a69f96;
@@ -160,7 +162,7 @@
      all — quiet is the intent, invisible is not. */
   --status-neut-bg: #3a352f;
 
-  --chart-1: #a83b4a;
+  --chart-1: var(--signal);
   --chart-2: #9fb8ea;
   --chart-3: #93c6a2;
   --chart-4: #d9b265;
@@ -168,12 +170,12 @@
 
   --sidebar: #221f1d;
   --sidebar-foreground: #e7e1d9;
-  --sidebar-primary: #f3f0ee;
-  --sidebar-primary-foreground: #191816;
-  --sidebar-accent: #2c2825;
-  --sidebar-accent-foreground: #f3f0ee;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: #3b2930;
+  --sidebar-accent-foreground: #f3d5dc;
   --sidebar-border: #332f2b;
-  --sidebar-ring: #f3f0ee;
+  --sidebar-ring: var(--ring);
 
   --font-sans: 'Sofia Sans', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Sofia Sans', ui-sans-serif, serif;
@@ -222,6 +224,10 @@
   --signal: #7e2230;
   --signal-soft: #a83b4a;
 }
+:root.dark[data-accent='maroon'] {
+  --signal: #d995a2;
+  --signal-soft: #efbbc5;
+}
 
 @theme inline {
   --color-signal: var(--signal);
@@ -251,6 +257,7 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -367,10 +374,10 @@
   --fc-button-text-color: var(--primary-foreground);
   --fc-button-bg-color: var(--primary);
   --fc-button-border-color: var(--primary);
-  --fc-button-hover-bg-color: var(--ink-soft);
-  --fc-button-hover-border-color: var(--ink-soft);
-  --fc-button-active-bg-color: var(--ink-soft);
-  --fc-button-active-border-color: var(--ink-soft);
+  --fc-button-hover-bg-color: var(--primary-hover);
+  --fc-button-hover-border-color: var(--primary-hover);
+  --fc-button-active-bg-color: var(--primary-hover);
+  --fc-button-active-border-color: var(--primary-hover);
 }
 
 .fc .fc-button {
@@ -378,6 +385,10 @@
   font-weight: 600;
   text-transform: capitalize;
   box-shadow: none;
+}
+
+.fc .fc-button.fc-button-active {
+  box-shadow: inset 0 0 0 1px var(--primary-foreground);
 }
 
 /* The toolbar ships as a no-wrap flex row, so its three chunks (nav, title,

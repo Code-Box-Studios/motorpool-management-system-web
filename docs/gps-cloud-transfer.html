@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Step-by-step MMS GPS receiver transfer to a brand-new Google Cloud project and a different Google account."><title>MMS · GPS Cloud Transfer Guide</title><style>
+:root{--ink:#2d2025;--maroon:#611d32;--deep:#421323;--ivory:#f8f3e9;--paper:#fffdf8;--muted:#70636a;--line:#ded3ce;--accent:#ac753b;font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--ivory);scroll-behavior:smooth;scroll-padding-top:24px}
+*{box-sizing:border-box}body{margin:0}a{color:var(--maroon);text-underline-offset:3px}a:hover{text-decoration-thickness:2px}button,input{font:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #b88b41;outline-offset:4px}button{border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--maroon);padding:8px 14px;font-size:.82rem;font-weight:650}.skip{position:absolute;left:12px;top:-80px;background:white;padding:8px;z-index:10}.skip:focus{top:8px}.masthead{background:var(--deep);color:white;padding:29px max(24px,calc((100vw - 1440px)/2));display:flex;align-items:center;justify-content:space-between;gap:18px}.brand{display:flex;gap:15px;align-items:center}.seal{width:42px;height:42px;border:1px solid #ae8290;display:grid;place-items:center;border-radius:50%;font:700 12px/1 Georgia,serif;letter-spacing:1px}.brand small{display:block;color:#d7b9c2;letter-spacing:.16em;font-size:10px;font-weight:650}.brand strong{font-size:14px;letter-spacing:.015em}.masthead button{border-color:#966b79;background:transparent;color:white}.layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:48px;max-width:1440px;margin:auto;padding:44px 28px 80px}.sidebar{position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);overflow:auto;padding-right:10px}.sidebar h2{font-size:.7rem;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin:0 0 12px}.search-label{display:block;font-size:.8rem;font-weight:650;margin-bottom:7px}.search-row{display:flex;gap:5px;margin-bottom:8px}.search-row input{min-width:0;width:100%;border:1px solid #cbbab8;border-radius:5px;background:var(--paper);padding:9px 10px;font-size:.83rem}.search-row button{padding:6px 9px}.search-status{font-size:.73rem;color:var(--muted);min-height:20px;margin:0 0 18px}nav{display:grid;gap:4px}nav a{display:block;font-size:.8rem;line-height:1.45;text-decoration:none;padding:9px 10px;border-radius:5px;color:#67565d}nav a:hover,nav a.current{background:#eadde0;color:var(--maroon)}.sidebar-note{border-top:1px solid var(--line);padding-top:17px;margin-top:24px;font-size:.74rem;color:var(--muted)}.content{min-width:0;max-width:1030px}.hero{padding:4px 0 30px}.eyebrow{color:var(--maroon);font-size:.72rem;letter-spacing:.15em;font-weight:750;text-transform:uppercase;margin:0 0 10px}h1{font:500 clamp(2rem,3.1vw,3.2rem)/1.12 Georgia,"Times New Roman",serif;letter-spacing:-.025em;max-width:790px;margin:0 0 22px}p{margin:.8em 0}h2{font:500 clamp(1.6rem,2.4vw,2.1rem)/1.25 Georgia,"Times New Roman",serif;margin:0 0 18px;letter-spacing:-.015em}h3{font-size:1rem;line-height:1.4;color:var(--maroon);margin:30px 0 12px}h4{font-size:.95rem}.hero p{max-width:820px;color:#66565c}.hero p:last-child{border-left:3px solid var(--accent);padding:12px 16px;background:#f0e7d8;font-size:.88rem}.guide-section{padding:35px 38px 32px;background:var(--paper);border:1px solid var(--line);border-radius:10px;margin-bottom:24px;min-width:0;box-shadow:0 3px 0 #e8ddd333}.location{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#f0e4e7;border-radius:5px;padding:10px 12px;margin:0 0 25px;font-size:.8rem;font-weight:600;color:var(--maroon)}.location span{font-size:.58rem;letter-spacing:.13em;border-right:1px solid #ceadb7;padding-right:12px;color:#805968}ul,ol{padding-left:1.5rem}li{margin:.45em 0}code{font: .84em/1.6 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;background:#f0e8e6;border-radius:3px;padding:.12em .28em;overflow-wrap:anywhere}pre{overflow:auto;margin:0;padding:19px 20px;color:#f9f0e9;background:#2d1e25;font-size:12px;line-height:1.65;tab-size:2}pre code{font:inherit;background:none;border-radius:0;padding:0;overflow-wrap:normal;white-space:pre}.command{border:1px solid #563c46;border-radius:7px;overflow:hidden;margin:20px 0}.command-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;background:#412a34;color:#dbc8cc;font-size:.68rem;letter-spacing:.015em}.command-bar button{padding:4px 10px;font-size:.7rem;background:#62404e;color:#fff;border-color:#8b6372}.bootstrap{margin:22px 0;border:1px solid var(--line);border-radius:7px}.bootstrap summary{cursor:pointer;color:var(--maroon);padding:16px;font-size:.9rem;font-weight:650}.bootstrap summary span{display:block;margin:3px 0 0 17px;font-size:.73rem;font-weight:400;color:var(--muted)}.bootstrap .command{margin:0;border-radius:0 0 6px 6px;border-width:1px 0 0}table{border-collapse:collapse;width:100%;font-size:.82rem;margin:20px 0;table-layout:fixed}th{text-align:left;background:#efe5e3;color:var(--maroon);font-size:.75rem;font-weight:700}th,td{padding:12px 13px;vertical-align:top;border:1px solid var(--line);overflow-wrap:anywhere}td:first-child{font-weight:550}strong{font-weight:700}.check-item{list-style:none;margin-left:-1.3rem}.check-item label{display:flex;align-items:flex-start;gap:9px}.check-item input{margin-top:7px;accent-color:var(--maroon);flex-shrink:0;width:16px;height:16px}.empty{padding:32px;border:1px dashed var(--line);border-radius:8px;text-align:center}.hidden,[hidden]{display:none!important}.page-foot{margin:35px 0;color:var(--muted);font-size:.75rem}.mobile-nav{display:none}
+@media(max-width:1000px){.layout{gap:26px;grid-template-columns:220px minmax(0,1fr);padding:30px 20px}.guide-section{padding:28px 25px}.masthead{padding:22px 24px}}
+@media(max-width:760px){.layout{display:block;padding:22px 15px 45px}.sidebar{position:static;max-height:none;padding:0;margin-bottom:25px}.sidebar h2,.sidebar-note{display:none}.mobile-nav{display:block;width:100%;text-align:left;margin-bottom:13px}.sidebar nav{display:none;grid-template-columns:1fr 1fr;gap:3px}.sidebar.open nav{display:grid}.sidebar nav a{font-size:.74rem;padding:7px}.search-status{margin-bottom:3px}.hero{padding:12px 4px 25px}h1{font-size:2.25rem}.masthead{padding:18px}.brand small{font-size:8px}.brand strong{font-size:12px}.seal{width:34px;height:34px;font-size:10px}.masthead button{font-size:.72rem;padding:7px 10px}.guide-section{padding:25px 19px 22px;border-radius:8px}h2{font-size:1.65rem}.guide-section p,.guide-section li{font-size:.92rem}.location{font-size:.72rem!important;gap:7px}.location span{font-size:.53rem}table{font-size:.7rem}td,th{padding:8px 7px}pre{font-size:11px;padding:15px}.command-bar{font-size:.6rem}h3{margin-top:25px}}
+@media(prefers-reduced-motion:reduce){:root{scroll-behavior:auto}}
+@media print{@page{margin:15mm}body{background:#fff;color:#111;font-size:10pt}.masthead,.sidebar,.command-bar,.skip,.page-foot{display:none}.layout{display:block;padding:0;max-width:none}.content{max-width:none}.hero{padding:0}.hero p:last-child{background:none}.guide-section{display:block!important;border:0;border-top:1px solid #aaa;box-shadow:none;padding:20px 0 8px;margin:0;border-radius:0;break-inside:auto}.location{background:#eee!important;color:#111;print-color-adjust:exact}h1{font-size:26pt}h2{font-size:20pt;break-after:avoid}h3{break-after:avoid}a{color:#111;text-decoration:underline}pre{white-space:pre-wrap;overflow:visible;color:#111;background:#f4f4f4;print-color-adjust:exact;font-size:8pt;overflow-wrap:anywhere}pre code{white-space:pre-wrap;overflow-wrap:anywhere}.command{border:1px solid #aaa;break-inside:auto}.bootstrap{border:0}.bootstrap summary{padding:8px 0}.bootstrap summary span{display:none}table{font-size:8pt;table-layout:auto;break-inside:auto}tr{break-inside:avoid}th{background:#eee!important;print-color-adjust:exact}.hidden{display:block!important}.empty{display:none!important}}
+</style></head><body>
+<a class="skip" href="#main">Skip to guide</a>
+<header class="masthead"><div class="brand"><div class="seal" aria-hidden="true">MMS</div><div><small>MOTORPOOL MANAGEMENT SYSTEM</small><strong>Operations field guide</strong></div></div><button id="print" type="button">Print / Save PDF</button></header>
+<div class="layout"><aside class="sidebar" aria-label="Guide navigation"><h2>GPS cloud transfer</h2><button id="toggle-nav" class="mobile-nav" type="button" aria-expanded="false" aria-controls="contents">Browse all 13 sections</button><label for="search" class="search-label">Find a step or command</label><div class="search-row"><input id="search" type="search" placeholder="Try: IAP, rollback, SMS" autocomplete="off"><button id="clear-search" type="button" aria-label="Clear search">Clear</button></div><p id="search-status" class="search-status" aria-live="polite"></p><nav id="contents" aria-label="Table of contents"><a href="#01-understand-the-move" data-step="01-understand-the-move">01 · Understand the move</a><a href="#02-back-up-the-existing-private-configuration" data-step="02-back-up-the-existing-private-configuration">02 · Back up the existing private configuration</a><a href="#03-create-and-prepare-the-new-project" data-step="03-create-and-prepare-the-new-project">03 · Create and prepare the new project</a><a href="#04-build-the-new-receivers-network-and-vm" data-step="04-build-the-new-receivers-network-and-vm">04 · Build the new receiver's network and VM</a><a href="#05-upload-the-private-file-to-the-new-vm" data-step="05-upload-the-private-file-to-the-new-vm">05 · Upload the private file to the new VM</a><a href="#06-install-the-receiver-on-the-fresh-vm" data-step="06-install-the-receiver-on-the-fresh-vm">06 · Install the receiver on the fresh VM</a><a href="#07-verify-the-new-server-before-sending-sms" data-step="07-verify-the-new-server-before-sending-sms">07 · Verify the new server before sending SMS</a><a href="#08-move-one-pilot-tracker" data-step="08-move-one-pilot-tracker">08 · Move one pilot tracker</a><a href="#09-move-the-remaining-trackers-one-by-one" data-step="09-move-the-remaining-trackers-one-by-one">09 · Move the remaining trackers one by one</a><a href="#10-stop-the-old-receiver-and-complete-the-final-proof" data-step="10-stop-the-old-receiver-and-complete-the-final-proof">10 · Stop the old receiver and complete the final proof</a><a href="#11-roll-back-if-needed" data-step="11-roll-back-if-needed">11 · Roll back if needed</a><a href="#12-troubleshooting-and-common-questions" data-step="12-troubleshooting-and-common-questions">12 · Troubleshooting and common questions</a><a href="#13-reference-and-completion-record" data-step="13-reference-and-completion-record">13 · Reference and completion record</a></nav><p class="sidebar-note">Keep the old receiver available until every tracker passes.<br><br>Prepared 7 November 2026.<br>Documentation only. No live cloud transfer was performed.</p></aside>
+<main id="main" class="content"><div class="hero"><p class="eyebrow">New account · New project · Same MMS</p><h1 id="move-the-mms-gps-server-to-a-new-google-cloud-account">Move the MMS GPS server to a new Google Cloud account</h1>
+<p>A guided transfer to a <strong>brand-new Google Cloud project</strong>, while the old server remains available for rollback.</p>
+<p><strong>Prepared: 7 November 2026.</strong> This is an operator guide, not a completed migration. Its shell commands were checked for syntax locally. They have not been run against a new Google Cloud project or tested with a physical tracker as part of this documentation task. Read each expected result before continuing.</p>
+</div><p id="empty" class="empty" hidden>No sections match. Try fewer words or clear search.</p><section class="guide-section" id="section-01-understand-the-move" aria-labelledby="01-understand-the-move"><h2 id="01-understand-the-move">01 · Understand the move</h2>
+<p class="location"><span>WORK LOCATION</span> planning desk — no account changes yet</p>
+<p>You are replacing the small server that receives tracker messages. You are not moving the whole MMS application.</p>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>After the transfer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPS receiver</td>
+<td>New Google account, new project, new VM and new public IP</td>
+</tr>
+<tr>
+<td>API</td>
+<td>Same Render service: https://motorpool-management-system-web.onrender.com</td>
+</tr>
+<tr>
+<td>MMS website</td>
+<td>Same Vercel site: https://um-mms-web.vercel.app</td>
+</tr>
+<tr>
+<td>Database, GPS history, vehicles and tracker assignments</td>
+<td>Same existing records; no export/import or re-registration</td>
+</tr>
+<tr>
+<td>Tracker configuration</td>
+<td>Change only the server IP; keep TCP port 5013</td>
+</tr>
+<tr>
+<td>MMS administrator login</td>
+<td>Existing MMS account and permissions still apply</td>
+</tr>
+</tbody>
+</table>
+<p>The route becomes: <strong>tracker → new Google Cloud VM, TCP 5013 → existing Render API → existing database → existing MMS website</strong>.</p>
+<p>The guide runs the old and new receivers together while you move one tracker at a time. The API accepts reports from either receiver using the existing private key. There is no automatic forwarding from the old IP to the new IP.</p>
+<h3 id="know-the-four-work-locations">Know the four work locations</h3>
+<table>
+<thead>
+<tr>
+<th>Label in this guide</th>
+<th>What to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>OLD ACCOUNT · Cloud Shell</strong></td>
+<td>Google account that can administer project <code>um-mms-gps</code></td>
+</tr>
+<tr>
+<td><strong>NEW ACCOUNT · Cloud Shell</strong></td>
+<td>Different Google account that owns the new project</td>
+</tr>
+<tr>
+<td><strong>NEW VM · SSH</strong></td>
+<td>Terminal opened through IAP to the new server</td>
+</tr>
+<tr>
+<td><strong>PHONE / MMS</strong></td>
+<td>SMS app that can message the tracker / existing MMS administrator login</td>
+</tr>
+</tbody>
+</table>
+<p>Use separate browser profiles or clearly named windows for the old and new accounts. Check the avatar and active account at every switch. Use Zen Browser for any MCP/OAuth authorization links. Opening a normal Google Cloud console page does not itself change resources.</p>
+<h3 id="only-two-new-values-to-fill-in">Only two new values to fill in</h3>
+<ol>
+<li><strong>NEW_PROJECT_ID:</strong> the unique project ID you choose in step 03, not its display name or project number.</li>
+<li><strong>NEW_IP:</strong> the static public IPv4 address Google allocates in step 04.</li>
+</ol>
+<p>Do not invent or copy the secret key into this guide. The private environment file carries it between the accounts.</p>
+<h3 id="existing-server-reference-verify-before-using">Existing server reference — verify before using</h3>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Old project</td>
+<td><code>um-mms-gps</code></td>
+</tr>
+<tr>
+<td>Old VM</td>
+<td><code>mms-gps-gateway</code></td>
+</tr>
+<tr>
+<td>Old zone</td>
+<td><code>us-central1-a</code></td>
+</tr>
+<tr>
+<td>Previous endpoint</td>
+<td><code>104.198.172.49:5013</code></td>
+</tr>
+<tr>
+<td>Service</td>
+<td><code>mms-gps-gateway.service</code></td>
+</tr>
+</tbody>
+</table>
+<p>The old endpoint is a reference, not a live verification. If step 02 shows a different IP, use the verified address for rollback.</p>
+<p><strong>Stop here if:</strong> nobody can access the old VM, the existing configuration cannot be backed up, no one can send SMS to the trackers, or the current MMS administrator cannot view Tracker Logs.</p>
+</section><section class="guide-section" id="section-02-back-up-the-existing-private-configuration" aria-labelledby="02-back-up-the-existing-private-configuration"><h2 id="02-back-up-the-existing-private-configuration">02 · Back up the existing private configuration</h2>
+<p class="location"><span>WORK LOCATION</span> OLD ACCOUNT · Cloud Shell, then your computer</p>
+<p>Open <a href="https://console.cloud.google.com/">Google Cloud Console</a> with the old account. Choose project <code>um-mms-gps</code>. Click <strong>Activate Cloud Shell</strong> in the top bar. Authorize Cloud Shell if asked.</p>
+<p>First check the account and server:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">gcloud auth list --filter=status:ACTIVE --format='value(account)'
+gcloud compute instances describe mms-gps-gateway \
+  --project=um-mms-gps --zone=us-central1-a \
+  --format='table(name,status,networkInterfaces[0].accessConfigs[0].natIP)'
+</code></pre></div>
+<p><strong>Expected:</strong> the old account email, VM status <code>RUNNING</code>, and its current public IP. Write down that IP as the rollback destination. If it differs from <code>104.198.172.49</code>, use the displayed address.</p>
+<p>The next block finds the service's actual working directory. It never assumes a release folder and never displays the environment file.</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">gcloud compute ssh mms-gps-gateway \
+  --project=um-mms-gps --zone=us-central1-a \
+  --command='set -eu
+unit=mms-gps-gateway.service
+systemctl is-active --quiet &quot;$unit&quot;
+current_dir=$(systemctl show &quot;$unit&quot; --property=WorkingDirectory --value)
+case &quot;$current_dir&quot; in /*) ;; *) echo &quot;STOP: no absolute WorkingDirectory&quot;; exit 1 ;; esac
+sudo test -s &quot;$current_dir/.env&quot;
+install -d -m 700 &quot;$HOME/mms-transfer&quot;
+sudo cat &quot;$current_dir/.env&quot; &gt; &quot;$HOME/mms-transfer/gateway.env&quot;
+chmod 600 &quot;$HOME/mms-transfer/gateway.env&quot;
+test -s &quot;$HOME/mms-transfer/gateway.env&quot;
+printf &quot;Private environment backup ready. Existing service remains running.\n&quot;'
+</code></pre></div>
+<p>Now copy the private backup into the old account's Cloud Shell home directory, then download it:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">install -d -m 700 &quot;$HOME/mms-transfer&quot;
+gcloud compute scp \
+  'mms-gps-gateway:~/mms-transfer/gateway.env' \
+  &quot;$HOME/mms-transfer/gateway.env&quot; \
+  --project=um-mms-gps --zone=us-central1-a
+chmod 600 &quot;$HOME/mms-transfer/gateway.env&quot;
+test -s &quot;$HOME/mms-transfer/gateway.env&quot;
+cloudshell download &quot;$HOME/mms-transfer/gateway.env&quot;
+</code></pre></div>
+<p>Allow the browser download. Store <code>gateway.env</code> privately on your computer. Do not open it on screen, paste it into chat, email it, attach it to an issue, or upload it to this repository. It contains the existing <code>GPS_DEVICE_API_KEY</code> and preserves settings such as <code>SPEED_UNIT</code>.</p>
+<p>Cloud Shell supports downloads by command and uploads from its <strong>More → Upload</strong> menu. File transfers use its home directory. <a href="https://docs.cloud.google.com/shell/docs/uploading-and-downloading-files">Google Cloud Shell file transfer guide</a>.</p>
+<p>In MMS, record the pilot tracker's device ID, assigned vehicle and recent report time. The ID seen in Tracker Logs is the useful identifier; do not assume the printed IMEI is identical. Keep a private list of every tracker, including units currently powered off.</p>
+<p><strong>Expected:</strong> a nonempty private file on your computer, the old service still active, the old IP recorded, and an inventory of trackers.</p>
+<p><strong>Stop if:</strong> SSH/scp fails, the service is inactive, or no readable <code>.env</code> exists. Use the old VM's established access method. Do not loosen its firewall or recreate a key to get past this step.</p>
+</section><section class="guide-section" id="section-03-create-and-prepare-the-new-project" aria-labelledby="03-create-and-prepare-the-new-project"><h2 id="03-create-and-prepare-the-new-project">03 · Create and prepare the new project</h2>
+<p class="location"><span>WORK LOCATION</span> NEW ACCOUNT · Google Cloud Console, then Cloud Shell</p>
+<p>Switch to the new account's browser window. Confirm its avatar email.</p>
+<ol>
+<li>Open the project selector at the top of Google Cloud Console.</li>
+<li>Click <strong>New Project</strong>. Use a clear name such as “MMS GPS”.</li>
+<li>Choose the project ID. Copy this exact ID as <strong>NEW_PROJECT_ID</strong>.</li>
+<li>Create the project, select it, and open <strong>Billing</strong>.</li>
+<li>Link an active billing account owned or authorized by the new account. Do this before enabling services.</li>
+<li>Open <strong>Billing → Budgets &amp; alerts</strong>. Create an <strong>alerts-only</strong> monthly budget scoped to the new project, with useful thresholds and a monitored recipient email.</li>
+</ol>
+<p>An alerts-only budget sends notices; it does <strong>not</strong> cap spending or automatically stop this server. Confirm actual usage in Billing. <a href="https://docs.cloud.google.com/billing/docs/how-to/budgets">Google Cloud budget behavior</a>.</p>
+<p>Open Cloud Shell in this new account. The following block asks for the project ID once and saves only that nonsecret ID and a guard function. The function rejects the old project before any resource creation.</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">install -d -m 700 &quot;$HOME/mms-transfer&quot;
+cat &gt; &quot;$HOME/mms-transfer/set-new-project.sh&quot; &lt;&lt;'BASH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+read -r -p 'Paste NEW project ID: ' NEW_PROJECT_ID
+[[ $NEW_PROJECT_ID =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]] || {
+  echo 'STOP: enter the project ID, not its name or number.' &gt;&amp;2; exit 1;
+}
+[[ $NEW_PROJECT_ID != um-mms-gps ]] || {
+  echo 'STOP: the old project is forbidden.' &gt;&amp;2; exit 1;
+}
+gcloud auth list --filter=status:ACTIVE --format='value(account)'
+gcloud projects describe &quot;$NEW_PROJECT_ID&quot; --format='table(projectId,name,lifecycleState)'
+printf 'NEW_PROJECT_ID=%q\n' &quot;$NEW_PROJECT_ID&quot; &gt; &quot;$HOME/mms-transfer/new-project.sh&quot;
+cat &gt;&gt; &quot;$HOME/mms-transfer/new-project.sh&quot; &lt;&lt;'GUARD'
+require_new_project() {
+  [[ $NEW_PROJECT_ID =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ &amp;&amp; $NEW_PROJECT_ID != um-mms-gps ]] || {
+    echo 'STOP: invalid or old project ID.' &gt;&amp;2; return 1;
+  }
+  [[ $(gcloud projects describe &quot;$NEW_PROJECT_ID&quot; --format='value(projectId)') = &quot;$NEW_PROJECT_ID&quot; ]] || {
+    echo 'STOP: project could not be verified.' &gt;&amp;2; return 1;
+  }
+}
+GUARD
+chmod 600 &quot;$HOME/mms-transfer/new-project.sh&quot;
+BASH
+bash &quot;$HOME/mms-transfer/set-new-project.sh&quot;
+</code></pre></div>
+<p><strong>Expected:</strong> the new account email, the new ID and project state <code>ACTIVE</code>. Check them before the next block.</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">bash &lt;&lt;'BASH'
+set -Eeuo pipefail
+source &quot;$HOME/mms-transfer/new-project.sh&quot;
+require_new_project
+billing_enabled=$(gcloud billing projects describe &quot;$NEW_PROJECT_ID&quot; \
+  --format='value(billingEnabled)')
+[[ $billing_enabled = True || $billing_enabled = true ]] || {
+  echo 'STOP: link billing to the new project first.' &gt;&amp;2; exit 1;
+}
+gcloud config set project &quot;$NEW_PROJECT_ID&quot;
+gcloud services enable compute.googleapis.com iap.googleapis.com \
+  --project=&quot;$NEW_PROJECT_ID&quot;
+BASH
+</code></pre></div>
+<p><strong>Expected:</strong> service enablement completes successfully in the new project.</p>
+<p>The person who created a project normally has the needed project permissions. For a delegated operator, a project administrator must grant permission to create Compute resources and enable services, plus <strong>IAP-secured Tunnel User</strong> and the appropriate Compute SSH permissions. If OS Login is enforced, ask the administrator for the required OS Login role, including sudo access for installation. Do not disable an organization policy to bypass an access error. <a href="https://docs.cloud.google.com/iap/docs/using-tcp-forwarding">IAP roles and SSH requirements</a>.</p>
+<p><strong>Stop if:</strong> the email is the old account, the project ID is <code>um-mms-gps</code>, billing is not linked, or permission/policy errors appear. Fix the specific access issue before continuing.</p>
+</section><section class="guide-section" id="section-04-build-the-new-receivers-network-and-vm" aria-labelledby="04-build-the-new-receivers-network-and-vm"><h2 id="04-build-the-new-receivers-network-and-vm">04 · Build the new receiver's network and VM</h2>
+<p class="location"><span>WORK LOCATION</span> NEW ACCOUNT · Cloud Shell</p>
+<p>This creates resources only in the guarded new project. Copy the whole block once. If a command fails, stop and inspect the error. Do not repeatedly create resources with different names.</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">bash &lt;&lt;'BASH'
+set -Eeuo pipefail
+source &quot;$HOME/mms-transfer/new-project.sh&quot;
+require_new_project
+
+gcloud compute networks create mms-gps-network \
+  --project=&quot;$NEW_PROJECT_ID&quot; --subnet-mode=custom
+gcloud compute networks subnets create mms-gps-subnet \
+  --project=&quot;$NEW_PROJECT_ID&quot; --network=mms-gps-network \
+  --region=us-central1 --range=10.20.0.0/24
+
+gcloud compute firewall-rules create mms-gps-allow-trackers \
+  --project=&quot;$NEW_PROJECT_ID&quot; --network=mms-gps-network \
+  --direction=INGRESS --action=ALLOW --rules=tcp:5013 \
+  --source-ranges=0.0.0.0/0 --target-tags=mms-gps-gateway
+gcloud compute firewall-rules create mms-gps-allow-iap-ssh \
+  --project=&quot;$NEW_PROJECT_ID&quot; --network=mms-gps-network \
+  --direction=INGRESS --action=ALLOW --rules=tcp:22 \
+  --source-ranges=35.235.240.0/20 --target-tags=mms-gps-gateway
+
+gcloud compute addresses create mms-gps-ip \
+  --project=&quot;$NEW_PROJECT_ID&quot; --region=us-central1 \
+  --network-tier=STANDARD --ip-version=IPV4
+NEW_IP=$(gcloud compute addresses describe mms-gps-ip \
+  --project=&quot;$NEW_PROJECT_ID&quot; --region=us-central1 --format='value(address)')
+test -n &quot;$NEW_IP&quot;
+
+gcloud compute instances create mms-gps-gateway \
+  --project=&quot;$NEW_PROJECT_ID&quot; --zone=us-central1-a \
+  --machine-type=e2-micro \
+  --image-family=ubuntu-2404-lts-amd64 --image-project=ubuntu-os-cloud \
+  --boot-disk-size=30GB --boot-disk-type=pd-standard \
+  --network=mms-gps-network --subnet=mms-gps-subnet \
+  --network-tier=STANDARD --address=&quot;$NEW_IP&quot; \
+  --tags=mms-gps-gateway --no-service-account --no-scopes
+
+printf '\nNEW_IP=%s\n' &quot;$NEW_IP&quot;
+gcloud compute instances describe mms-gps-gateway \
+  --project=&quot;$NEW_PROJECT_ID&quot; --zone=us-central1-a \
+  --format='table(name,status,networkInterfaces[0].accessConfigs[0].natIP)'
+BASH
+</code></pre></div>
+<p><strong>Expected:</strong> <code>RUNNING</code>, with the same IP as <code>NEW_IP</code>. Write down this second worksheet value.</p>
+<p>The static address stays assigned for tracker use. Address and VM network tiers must match; both are Standard here. <a href="https://docs.cloud.google.com/compute/docs/ip-addresses/configure-static-external-ip-address">Google static external IP guidance</a>.</p>
+<p>TCP 5013 accepts tracker connections from public IPv4 networks because carrier source addresses can vary. SSH port 22 accepts only Google's IAP forwarding range <code>35.235.240.0/20</code>. The rules target the tagged VM in this custom VPC; they do not open SSH to the whole internet. <a href="https://docs.cloud.google.com/iap/docs/using-tcp-forwarding">Google IAP firewall requirements</a>.</p>
+<p>The VM has no Google service account and no OAuth scopes. The gateway authenticates to MMS using the preserved device key, not a Google API credential.</p>
+<p><strong>Stop if:</strong> the displayed IP is empty or mismatched, the VM is not running, the image is unavailable, or a quota/organization policy blocks creation. Do not use another zone, larger VM, different disk or open SSH rule without reviewing the consequence.</p>
+<h3 id="cost-checkpoint">Cost checkpoint</h3>
+<p>An eligible <code>e2-micro</code> in <code>us-central1</code> and up to 30 GB-months of standard persistent disk can fall within Free Tier limits. Eligibility and allowance apply at the billing-account level; overlapping VMs can exceed the allowance. “Free Tier VM” does not mean this complete setup is free. <a href="https://docs.cloud.google.com/free/docs/free-cloud-features">Current Free Tier terms</a>.</p>
+<p>External IPv4 and outbound traffic can add charges. At the checked USD rate, an in-use static IPv4 is $0.005/hour, about $3.65 for 730 hours, before taxes, currency conversion or other usage. An unattached reserved address can cost more. A static address attached to a stopped VM is still considered in use for IP billing; the VM's persistent disk also remains allocated. Keep the old setup only as long as operationally needed. <a href="https://docs.cloud.google.com/vpc/network-pricing">Google network and IPv4 pricing</a>.</p>
+</section><section class="guide-section" id="section-05-upload-the-private-file-to-the-new-vm" aria-labelledby="05-upload-the-private-file-to-the-new-vm"><h2 id="05-upload-the-private-file-to-the-new-vm">05 · Upload the private file to the new VM</h2>
+<p class="location"><span>WORK LOCATION</span> NEW ACCOUNT · Cloud Shell</p>
+<p>In the new account's Cloud Shell, choose <strong>More (⋮) → Upload → Choose files</strong>. Select the private <code>gateway.env</code> downloaded in step 02. Upload it into the Cloud Shell home directory. Do not paste its contents into the terminal or editor.</p>
+<p>Then copy it to the VM through IAP:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">bash &lt;&lt;'BASH'
+set -Eeuo pipefail
+source &quot;$HOME/mms-transfer/new-project.sh&quot;
+require_new_project
+test -s &quot;$HOME/gateway.env&quot;
+chmod 600 &quot;$HOME/gateway.env&quot;
+gcloud compute scp &quot;$HOME/gateway.env&quot; 'mms-gps-gateway:~/gateway.env' \
+  --project=&quot;$NEW_PROJECT_ID&quot; --zone=us-central1-a --tunnel-through-iap
+BASH
+</code></pre></div>
+<p><strong>Expected:</strong> a successful file transfer. The file is kept private and will be installed with permission <code>600</code>.</p>
+<p>To connect, run:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">source &quot;$HOME/mms-transfer/new-project.sh&quot;
+require_new_project
+gcloud compute ssh mms-gps-gateway \
+  --project=&quot;$NEW_PROJECT_ID&quot; --zone=us-central1-a --tunnel-through-iap
+</code></pre></div>
+<p>Accept a first-use SSH host-key prompt only when it refers to this new VM. Wait a minute and retry if SSH is not yet ready. A normal Google SSH username is expected; it does not have to be <code>ubuntu</code>.</p>
+<p><strong>Stop if:</strong> IAP or SSH permission is denied. Check the new project ID, IAP API, IAP role, Compute SSH permissions and the TCP 22 rule. Do not change the rule to <code>0.0.0.0/0</code>. <a href="https://docs.cloud.google.com/iap/docs/using-tcp-forwarding">Google IAP connection guide</a>.</p>
+</section><section class="guide-section" id="section-06-install-the-receiver-on-the-fresh-vm" aria-labelledby="06-install-the-receiver-on-the-fresh-vm"><h2 id="06-install-the-receiver-on-the-fresh-vm">06 · Install the receiver on the fresh VM</h2>
+<p class="location"><span>WORK LOCATION</span> NEW VM · SSH</p>
+<p>Keep the old receiver running. This step installs a separate receiver and does not send any tracker SMS.</p>
+<p>The existing <code>apps/gps-gateway/deploy/update-existing.sh</code> expects an already installed service and readable working directory. It cannot bootstrap an empty VM. Use the complete first-install script below.</p>
+<p>It pins gateway release <strong>2af8a90624200932c886043f8b7525432b1b36a9</strong>, installs <strong>Node 24</strong> and <strong>pnpm 10.27.0</strong>, builds the shared package and gateway with a filtered frozen-lockfile install, then copies the three runtime packages using the repository's fixed packager. It never runs <code>pnpm deploy --legacy</code>; that approach exhausted this micro VM's memory previously.</p>
+<p>The script adds 1 GiB of temporary build swap only if the VM has no active swap. It does not change <code>/etc/fstab</code>. The runtime itself starts under systemd and does not depend on that swap or the SSH session.</p>
+<h3 id="copy-the-complete-bootstrap-script">Copy the complete bootstrap script</h3>
+<p>Copy this whole block into the <strong>new VM's SSH terminal</strong>. It writes a script file; it does not run it yet.</p>
+<details class="bootstrap"><summary>Full first-install script <span>Expand to read or copy</span></summary><div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">cat &gt; &quot;$HOME/gps-cloud-transfer-bootstrap.sh&quot; &lt;&lt;'MMS_BOOTSTRAP'
+#!/usr/bin/env bash
+# First installation only. Run as the IAP SSH user on the new Ubuntu 24.04 VM.
+# No cloud resources are created here. The existing private .env is an input file.
+set -Eeuo pipefail
+umask 077
+
+expected_project=${1:-}
+env_file=${2:-&quot;$HOME/gateway.env&quot;}
+release_sha=2af8a90624200932c886043f8b7525432b1b36a9
+unit=mms-gps-gateway.service
+
+fail() { printf 'STOP: %s\n' &quot;$*&quot; &gt;&amp;2; exit 1; }
+[[ $expected_project =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]] ||
+  fail 'Usage: bash gps-cloud-transfer-bootstrap.sh NEW_PROJECT_ID /path/to/gateway.env'
+[[ $expected_project != um-mms-gps ]] || fail 'The old project is forbidden.'
+(( EUID != 0 )) || fail 'Run as your normal SSH user, without sudo before bash.'
+[[ -f $env_file &amp;&amp; -r $env_file &amp;&amp; -s $env_file ]] || fail 'Private gateway.env is missing or empty.'
+[[ $HOME = /* &amp;&amp; $HOME != *[[:space:]%]* ]] || fail 'This installer requires a home path without whitespace or %.'
+
+# Query the VM itself, rather than trusting the shell prompt or gcloud defaults.
+actual_project=$(curl --fail --silent --show-error --max-time 10 \
+  -H 'Metadata-Flavor: Google' \
+  http://metadata.google.internal/computeMetadata/v1/project/project-id)
+[[ $actual_project = &quot;$expected_project&quot; ]] || fail 'VM project differs from NEW_PROJECT_ID.'
+actual_name=$(curl --fail --silent --show-error --max-time 10 \
+  -H 'Metadata-Flavor: Google' \
+  http://metadata.google.internal/computeMetadata/v1/instance/name)
+[[ $actual_name = mms-gps-gateway ]] || fail 'Unexpected VM name.'
+actual_zone=$(curl --fail --silent --show-error --max-time 10 \
+  -H 'Metadata-Flavor: Google' \
+  http://metadata.google.internal/computeMetadata/v1/instance/zone)
+[[ ${actual_zone##*/} = us-central1-a ]] || fail 'Unexpected VM zone; expected us-central1-a.'
+[[ $(uname -m) = x86_64 ]] || fail 'This installer expects amd64/x86_64.'
+. /etc/os-release
+[[ $ID = ubuntu &amp;&amp; $VERSION_ID = 24.04 ]] || fail 'This installer expects Ubuntu 24.04 LTS.'
+[[ $(systemctl show &quot;$unit&quot; --property=LoadState --value) = not-found ]] ||
+  fail 'A gateway unit already exists. Do not use the first-install script for updates.'
+[[ ! -e /etc/systemd/system/$unit &amp;&amp; ! -e /etc/systemd/system/$unit.d ]] ||
+  fail 'A gateway unit or drop-in already exists.'
+sudo -v
+chmod 600 &quot;$env_file&quot;
+
+release_base=&quot;$HOME/.local/share/mms-gps-releases&quot;
+mkdir -p &quot;$release_base&quot;
+release_dir=$(mktemp -d &quot;$release_base/$release_sha.XXXXXX&quot;)
+runtime=&quot;$release_dir/runtime&quot;
+trap 'printf &quot;STOP: installer failed near line %s. Keep the old gateway running.\n&quot; &quot;$LINENO&quot; &gt;&amp;2' ERR
+
+sudo env DEBIAN_FRONTEND=noninteractive apt-get update
+sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl tar
+# Download the official NodeSource Node 24 installer; do not print the private env.
+curl --fail --silent --show-error --location --retry 2 \
+  https://deb.nodesource.com/setup_24.x --output &quot;$release_dir/nodesource-setup.sh&quot;
+sudo env DEBIAN_FRONTEND=noninteractive bash &quot;$release_dir/nodesource-setup.sh&quot;
+sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+sudo npm install --global pnpm@10.27.0
+[[ $(node -p 'process.versions.node.split(&quot;.&quot;)[0]') = 24 ]] || fail 'Node 24 installation failed.'
+[[ $(pnpm --version) = 10.27.0 ]] || fail 'Unexpected pnpm version.'
+
+# A small VM can need swap during TypeScript builds. This swap lasts until reboot.
+# It changes no fstab entry and is separate from the persistent packet-log spool.
+if [[ -z $(swapon --show=NAME --noheadings) ]]; then
+  swap_file=&quot;$release_dir/build.swap&quot;
+  sudo fallocate -l 1G &quot;$swap_file&quot;
+  sudo chmod 600 &quot;$swap_file&quot;
+  sudo mkswap &quot;$swap_file&quot; &gt;/dev/null
+  sudo swapon &quot;$swap_file&quot;
+fi
+
+mkdir &quot;$release_dir/source&quot;
+curl --fail --silent --show-error --location --retry 2 \
+  &quot;https://codeload.github.com/Code-Box-Studios/motorpool-management-system-web/tar.gz/$release_sha&quot; \
+  --output &quot;$release_dir/source.tar.gz&quot;
+tar -xzf &quot;$release_dir/source.tar.gz&quot; --strip-components=1 -C &quot;$release_dir/source&quot;
+cd &quot;$release_dir/source&quot;
+pnpm install --frozen-lockfile --filter '@mms/gps-gateway...' \
+  --child-concurrency=1 --network-concurrency=4
+pnpm --filter '@mms/gps-gateway...' build
+# Copy the three installed runtime packages without a second dependency resolver.
+# Do not replace this with `pnpm deploy --legacy` on the micro VM.
+node --max-old-space-size=64 apps/gps-gateway/deploy/package-runtime.mjs &quot;$runtime&quot;
+install -m 600 &quot;$env_file&quot; &quot;$runtime/.env&quot;
+
+cd &quot;$runtime&quot;
+node --input-type=module &lt;&lt;'JS'
+import 'dotenv/config';
+import { loadConfig } from './dist/config.js';
+await import('./dist/gateway.js');
+const config = loadConfig();
+if (config.tcpPort !== 5013) throw new Error('Expected preserved TCP port 5013.');
+if (config.apiUrl !== 'https://motorpool-management-system-web.onrender.com')
+  throw new Error('Preserved MMS_API_URL is not the expected existing Render API.');
+const response = await fetch(`${config.apiUrl}/api/gps/packet-logs`, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', 'x-device-api-key': config.deviceApiKey },
+  body: '{}',
+  signal: AbortSignal.timeout(15000)
+});
+await response.body?.cancel();
+if (response.status !== 400)
+  throw new Error(`Packet-log API preflight failed: HTTP ${response.status}`);
+console.log('Runtime, preserved configuration, and authenticated API preflight passed (HTTP 400).');
+JS
+
+service_user=$(id -un)
+cat &gt; &quot;$release_dir/$unit&quot; &lt;&lt;EOF
+[Unit]
+Description=MMS GPS gateway (H02 TCP to existing MMS API)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$service_user
+WorkingDirectory=&quot;$runtime&quot;
+ExecStart=/usr/bin/env PACKET_LOG_DIR=/var/lib/mms-gps-gateway /usr/bin/node &quot;$runtime/dist/main.js&quot;
+Environment=PACKET_LOG_DIR=/var/lib/mms-gps-gateway
+StateDirectory=mms-gps-gateway
+StateDirectoryMode=0700
+UMask=0077
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo install -m 644 &quot;$release_dir/$unit&quot; &quot;/etc/systemd/system/$unit&quot;
+sudo systemctl daemon-reload
+sudo systemctl enable --now &quot;$unit&quot;
+
+# An empty TCP connection checks readiness without inventing a tracker packet.
+node --input-type=module &lt;&lt;'JS'
+import net from 'node:net';
+import { setTimeout } from 'node:timers/promises';
+for (let attempt = 0; ; attempt++) {
+  try {
+    await new Promise((resolve, reject) =&gt; {
+      const socket = net.connect({ host: '127.0.0.1', port: 5013 });
+      socket.setTimeout(2000);
+      socket.once('connect', () =&gt; { socket.end(); resolve(); });
+      socket.once('error', reject);
+      socket.once('timeout', () =&gt; socket.destroy(new Error('Listener check timed out')));
+    });
+    break;
+  } catch (error) {
+    if (attempt &gt;= 9) throw error;
+    await setTimeout(1000);
+  }
+}
+JS
+sleep 5
+systemctl is-active --quiet &quot;$unit&quot;
+systemctl is-enabled --quiet &quot;$unit&quot;
+printf 'READY: new project %s; release %s; TCP 5013 active.\n' &quot;$actual_project&quot; &quot;$release_sha&quot;
+printf 'Runtime: %s\n' &quot;$runtime&quot;
+printf 'Keep the old gateway running. Next: verify external TCP, then move one pilot tracker.\n'
+MMS_BOOTSTRAP
+chmod 700 &quot;$HOME/gps-cloud-transfer-bootstrap.sh&quot;
+</code></pre></div></details>
+<p>This same script is also available as <a href="gps-cloud-transfer-bootstrap.sh">gps-cloud-transfer-bootstrap.sh</a>. The HTML guide contains the entire script and can be used on its own.</p>
+<p>The installer uses the VM metadata service to check its actual project, VM name and zone before changing anything. The project must match the ID you supply, the VM must be <code>mms-gps-gateway</code>, and the zone must be <code>us-central1-a</code>. It rejects <code>um-mms-gps</code> before installation and refuses an existing gateway service. <a href="https://docs.cloud.google.com/compute/docs/metadata/querying-metadata">Google metadata query format</a>. Node 24 installation follows the official <a href="https://github.com/nodesource/distributions/blob/master/scripts/deb/setup_24.x">NodeSource setup script</a>.</p>
+<h3 id="run-the-script">Run the script</h3>
+<p>Paste the same new project ID used in step 03 when asked. Run as your normal SSH user; do not put <code>sudo</code> before <code>bash</code>.</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">read -r -p 'Paste the same NEW project ID: ' NEW_PROJECT_ID
+bash &quot;$HOME/gps-cloud-transfer-bootstrap.sh&quot; &quot;$NEW_PROJECT_ID&quot; &quot;$HOME/gateway.env&quot;
+</code></pre></div>
+<p>Installation can take several minutes. The source archive is downloaded at the pinned SHA. The small runtime includes <code>@mms/shared</code>, <code>dotenv</code> and <code>zod</code> alongside the compiled gateway.</p>
+<p><strong>Expected:</strong> a line ending with <code>authenticated API preflight passed (HTTP 400)</code>, followed by <code>READY: new project …; release …; TCP 5013 active.</code></p>
+<p><strong>Why HTTP 400 is correct here:</strong> the installer sends authenticated <code>POST {}</code> to the existing packet-log endpoint. The correct key reaches body validation, which rejects the intentionally incomplete body. No test packet is created. A <code>401</code>, <code>404</code>, <code>500</code>, timeout, or any status other than <code>400</code> is a failed preflight.</p>
+<p>The script preserves the uploaded file, including <code>GPS_DEVICE_API_KEY</code> and <code>SPEED_UNIT</code>. The service forces only <code>PACKET_LOG_DIR=/var/lib/mms-gps-gateway</code> through its start command, so a value in the copied file cannot redirect the durable spool elsewhere. systemd creates that state directory for the actual SSH user.</p>
+<p><strong>Stop if:</strong> installation reports <code>STOP</code>, build/download errors, or a failed API check. Do not change the Render API, web deployment, database or private key to make a failed transfer appear successful. If a unit was created before a later failure, do not rerun the first-install script; inspect the service and get maintainer help.</p>
+</section><section class="guide-section" id="section-07-verify-the-new-server-before-sending-sms" aria-labelledby="07-verify-the-new-server-before-sending-sms"><h2 id="07-verify-the-new-server-before-sending-sms">07 · Verify the new server before sending SMS</h2>
+<p class="location"><span>WORK LOCATION</span> NEW VM · SSH, then NEW ACCOUNT · Cloud Shell</p>
+<p>In the VM SSH terminal:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">systemctl is-active mms-gps-gateway.service
+systemctl is-enabled mms-gps-gateway.service
+sudo ss -ltnp 'sport = :5013'
+sudo journalctl -u mms-gps-gateway.service -n 30 --no-pager
+</code></pre></div>
+<p><strong>Expected:</strong> <code>active</code>, <code>enabled</code>, a listener on TCP 5013, and <code>GPS gateway listening on tcp/5013</code>. No repeated startup, authentication, upload, or spool-write errors.</p>
+<p>This proves service readiness, not a real tracker connection. An empty TCP check also does not create a tracker record.</p>
+<p>Type <code>exit</code> to leave SSH and return to the <strong>new account's Cloud Shell</strong>. Run a public TCP check from there:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">bash &lt;&lt;'BASH'
+set -Eeuo pipefail
+source &quot;$HOME/mms-transfer/new-project.sh&quot;
+require_new_project
+NEW_IP=$(gcloud compute addresses describe mms-gps-ip \
+  --project=&quot;$NEW_PROJECT_ID&quot; --region=us-central1 --format='value(address)')
+test -n &quot;$NEW_IP&quot;
+python3 - &quot;$NEW_IP&quot; &lt;&lt;'PY'
+import socket, sys
+with socket.create_connection((sys.argv[1], 5013), timeout=10):
+    print(&quot;PASS: new public IP accepts TCP 5013.&quot;)
+PY
+BASH
+</code></pre></div>
+<p><strong>Expected:</strong> <code>PASS: new public IP accepts TCP 5013.</code> A timeout means stop: compare the reserved IP, VM IP, network tag, TCP 5013 rule and service listener.</p>
+<p>Closing Cloud Shell, the SSH tab or your browser does not stop this VM or the systemd service. Cloud Shell is the control terminal; the VM is the continuously running server.</p>
+<p><strong>Before the next step:</strong> confirm the old receiver is still available, both IPs are recorded, and rollback SMS is ready.</p>
+</section><section class="guide-section" id="section-08-move-one-pilot-tracker" aria-labelledby="08-move-one-pilot-tracker"><h2 id="08-move-one-pilot-tracker">08 · Move one pilot tracker</h2>
+<p class="location"><span>WORK LOCATION</span> PHONE / MMS, with NEW VM · SSH open for verification</p>
+<p>Choose one powered tracker you can physically check. Keep the rest on the old IP.</p>
+<ol>
+<li>In MMS, note the pilot's exact device ID and current latest report time.</li>
+<li>Send <code>RCONF</code> to the pilot tracker. Privately record its current server IP/port and working settings.</li>
+<li>Prepare the rollback SMS before making any change.</li>
+<li>Send the new server command using <strong>NEW_IP from step 04</strong>.</li>
+</ol>
+<p>For a tracker that still uses the factory SMS password <code>0000</code>:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-text">8040000 NEW_IP 5013
+</code></pre></div>
+<p>Replace <code>NEW_IP</code> with the actual number. Do not send those letters. The command has spaces between the command, IP and port.</p>
+<p>If this tracker's SMS password was changed, use its current password in the device's <code>804&lt;password&gt; &lt;IP&gt; &lt;port&gt;</code> command format. Prepare and check that exact command before sending it. Do not reset the password.</p>
+<p>Then send:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-text">RCONF
+</code></pre></div>
+<p><strong>Expected:</strong> an acknowledgement such as <code>SET OK</code>, and <code>RCONF</code> showing the new IP and port <code>5013</code>.</p>
+<p><strong>Keep the working APN, upload interval (currently 5,5), tracker ID, mode and timezone unchanged.</strong> Do not use this migration to “fix” other settings. Take the tracker outdoors for a valid GPS fix if needed.</p>
+<p>An acknowledgement and <code>RCONF</code> prove that the tracker accepted a setting. They do not prove it connected to the new receiver or saved a position.</p>
+<h3 id="prove-that-the-new-vm-receives-traffic">Prove that the new VM receives traffic</h3>
+<p>Reconnect through IAP using step 05. In <strong>NEW VM · SSH</strong>, run while the pilot is powered:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">sudo ss -tnp state established '( sport = :5013 )'
+</code></pre></div>
+<p><strong>Expected:</strong> an established TCP connection with local port 5013. This proves a connection to the new VM, but the carrier peer IP is not a reliable tracker identity.</p>
+<p>For direct pilot identification, the optional command below prints only H02 device IDs from traffic arriving at the new VM. It does not save a packet capture or print coordinates. Run it before the next pilot report:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">sudo apt-get install -y tcpdump
+sudo timeout 90 tcpdump -i any -nn -l -A -s 0 'tcp dst port 5013' |
+  python3 -u -c 'import re, sys
+for line in sys.stdin:
+    for match in re.finditer(r&quot;\*[^,\s]+,([^,\s]+),&quot;, line):
+        print(&quot;H02 device ID:&quot;, match.group(1), flush=True)'
+</code></pre></div>
+<p>It ends after 90 seconds; a timeout exit code of 124 is normal. Duplicate IDs are harmless. The simple text filter can miss a header split across TCP segments. No output therefore requires further investigation; it is not proof that nothing arrived. Compare an observed ID with the pilot's ID in MMS.</p>
+<h3 id="prove-that-mms-saves-fresh-pilot-reports">Prove that MMS saves fresh pilot reports</h3>
+<p>In the existing MMS administrator account:</p>
+<ol>
+<li>Open <strong>Tracker Devices → Tracker Logs</strong>.</li>
+<li>Filter/search for the pilot's exact device ID.</li>
+<li>Check a <strong>new receipt time after the SMS change</strong>, its raw message/decoded fix and outcome.</li>
+<li>For a valid position, expect outcome <code>saved</code> and the correct vehicle assignment.</li>
+<li>Open the GPS map/history. Confirm a fresh position time for that same vehicle; move it safely and verify several subsequent updates.</li>
+</ol>
+<p><strong>Critical evidence limit:</strong> packet logs do not store a source-gateway identifier. While both VMs run, MMS “online” or a fresh log alone cannot identify which gateway received it. Pair MMS evidence with a connection on the new VM and, preferably, the ID-only observation above. If identity remains ambiguous, do not proceed; resolve it before moving more trackers.</p>
+<p><strong>Pilot passes only when:</strong> the new IP is confirmed in <code>RCONF</code>, the new VM receives the pilot, and MMS shows fresh saved positions for its correct vehicle. A heartbeat proves traffic but not a valid saved position.</p>
+<p><strong>Stop if:</strong> the new VM shows no receipt, the device ID is unexpected, the fix is invalid, the device is unassigned, or MMS times stop advancing. Keep all other trackers unchanged. Use rollback in step 11 if the pilot cannot be verified.</p>
+</section><section class="guide-section" id="section-09-move-the-remaining-trackers-one-by-one" aria-labelledby="09-move-the-remaining-trackers-one-by-one"><h2 id="09-move-the-remaining-trackers-one-by-one">09 · Move the remaining trackers one by one</h2>
+<p class="location"><span>WORK LOCATION</span> PHONE / MMS, with NEW VM · SSH available</p>
+<p>Repeat step 08 for each tracker. Check one device fully before changing the next.</p>
+<p>Use a private checklist like this; the guide itself does not need SIM numbers, passwords or coordinates:</p>
+<table>
+<thead>
+<tr>
+<th>Tracker / vehicle</th>
+<th>RCONF has NEW_IP:5013</th>
+<th>Seen on new VM</th>
+<th>Fresh MMS saved positions</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pilot</td>
+<td>☐</td>
+<td>☐</td>
+<td>☐</td>
+<td>Pending</td>
+</tr>
+<tr>
+<td>Tracker 2</td>
+<td>☐</td>
+<td>☐</td>
+<td>☐</td>
+<td>Pending</td>
+</tr>
+<tr>
+<td>Tracker 3</td>
+<td>☐</td>
+<td>☐</td>
+<td>☐</td>
+<td>Pending</td>
+</tr>
+</tbody>
+</table>
+<p>Keep unpowered, unreachable or parked devices <strong>pending</strong> until they return and pass the same checks. A device left on the old IP will lose reports when the old receiver stops.</p>
+<p><strong>Expected:</strong> every tracker in the inventory has a recorded successful check. The new VM's logs show no persistent upload errors.</p>
+<p><strong>Stop if:</strong> any device is still pending. Do not call the transfer complete or retire the old receiver.</p>
+</section><section class="guide-section" id="section-10-stop-the-old-receiver-and-complete-the-final-proof" aria-labelledby="10-stop-the-old-receiver-and-complete-the-final-proof"><h2 id="10-stop-the-old-receiver-and-complete-the-final-proof">10 · Stop the old receiver and complete the final proof</h2>
+<p class="location"><span>WORK LOCATION</span> OLD ACCOUNT · Cloud Shell, then MMS and NEW VM · SSH</p>
+<p>Only begin after every tracker has passed step 09. Keep the old VM, disk, reserved IP and configuration available for rollback.</p>
+<h3 id="record-the-actual-old-spool-before-stopping-the-service">Record the actual old spool before stopping the service</h3>
+<p>Do this while the old gateway is still running. Its packet logger keeps its spool directory open for durability checks. The command below finds that directory from the running Node process's open directory descriptors, rather than assuming a configuration path. It reads no environment values or packet contents.</p>
+<p>It requires exactly one distinct, existing directory and checks that the process did not restart during inspection. Missing, deleted or ambiguous directories block retirement. The verified path is saved in a root-only record on the old VM; later counts use that same record.</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">gcloud compute ssh mms-gps-gateway \
+  --project=um-mms-gps --zone=us-central1-a \
+  --command='sudo python3 -' &lt;&lt;'PY'
+import os
+from pathlib import Path
+import stat
+import subprocess
+
+unit = &quot;mms-gps-gateway.service&quot;
+
+def stop(message):
+    raise SystemExit(&quot;STOP: &quot; + message)
+
+def main_pid():
+    active = subprocess.run([&quot;systemctl&quot;, &quot;is-active&quot;, &quot;--quiet&quot;, unit])
+    if active.returncode != 0:
+        stop(&quot;the old service must be active to discover its spool.&quot;)
+    value = subprocess.check_output(
+        [&quot;systemctl&quot;, &quot;show&quot;, unit, &quot;--property=MainPID&quot;, &quot;--value&quot;], text=True
+    ).strip()
+    if not value.isdecimal() or int(value) &lt;= 0:
+        stop(&quot;the old service has no live MainPID.&quot;)
+    return int(value)
+
+def discover_spool(pid):
+    process = Path(&quot;/proc&quot;) / str(pid)
+    if Path(os.readlink(process / &quot;exe&quot;)).name not in (&quot;node&quot;, &quot;nodejs&quot;):
+        stop(&quot;the service MainPID is not the expected Node gateway.&quot;)
+    candidates = set()
+    for descriptor in (process / &quot;fd&quot;).iterdir():
+        try:
+            opened = descriptor.stat()
+            if not stat.S_ISDIR(opened.st_mode):
+                continue
+            target = os.readlink(descriptor)
+            if not target.startswith(&quot;/&quot;) or target.endswith(&quot; (deleted)&quot;):
+                stop(&quot;an open directory is relative or deleted.&quot;)
+            path = Path(target).resolve(strict=True)
+            current = path.stat()
+            if (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino):
+                stop(&quot;an open directory no longer matches its path.&quot;)
+            candidates.add(str(path))
+        except FileNotFoundError:
+            # A transient descriptor can close while /proc is being inspected.
+            continue
+    if len(candidates) != 1:
+        stop(&quot;expected exactly one spool directory; maintainer verification is required.&quot;)
+    return candidates.pop()
+
+try:
+    pid = main_pid()
+    spool = discover_spool(pid)
+    if main_pid() != pid or discover_spool(pid) != spool:
+        stop(&quot;the old process or directory changed; inspect it again.&quot;)
+    record_dir = Path(&quot;/var/lib/mms-gps-transfer&quot;)
+    if record_dir.is_symlink():
+        stop(&quot;the private record directory must not be a symlink.&quot;)
+    record_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if record_dir.stat().st_uid != 0:
+        stop(&quot;the private record directory must be owned by root.&quot;)
+    record_dir.chmod(0o700)
+    record = record_dir / &quot;spool-path&quot;
+    if record.is_symlink():
+        stop(&quot;the spool path record must not be a symlink.&quot;)
+    if record.exists():
+        if record.read_text().rstrip(&quot;\n&quot;) != spool:
+            stop(&quot;an earlier spool record differs; preserve and review both locations.&quot;)
+    else:
+        with record.open(&quot;x&quot;, encoding=&quot;utf-8&quot;) as output:
+            output.write(spool + &quot;\n&quot;)
+    record.chmod(0o600)
+    print(&quot;Verified old spool:&quot;, spool)
+    print(&quot;Private spool path record saved. The old service is still running.&quot;)
+except (OSError, subprocess.SubprocessError) as error:
+    stop(&quot;spool inspection failed; do not retire the old VM: &quot; + str(error))
+PY
+</code></pre></div>
+<p><strong>Expected:</strong> one verified absolute spool path and confirmation that the old service remains running. It may be <code>/var/lib/mms-gps-gateway</code> or a different directory. Only the directory actually held open by the running gateway is recorded.</p>
+<p><strong>Stop if:</strong> discovery fails or more than one directory is found. Do not use an empty directory at a guessed path as evidence that the queue drained. Ask the maintainer to verify the old process's effective spool configuration and recover every pending location before retirement.</p>
+<h3 id="stop-the-old-receiver">Stop the old receiver</h3>
+<p>Stop the <strong>old service</strong>, using the old account and an explicit old project:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">gcloud compute ssh mms-gps-gateway \
+  --project=um-mms-gps --zone=us-central1-a \
+  --command='set -eu
+sudo test -s /var/lib/mms-gps-transfer/spool-path
+sudo systemctl stop mms-gps-gateway.service
+systemctl is-active mms-gps-gateway.service || true'
+</code></pre></div>
+<p><strong>Expected:</strong> <code>inactive</code>. This stops the receiver process, not the VM. It does not release its IP or remove its disk.</p>
+<p>Now verify in MMS that <strong>every powered tracker produces fresh saved position reports after the old service stopped</strong>. Wait for several expected reporting cycles and move the pilot safely again. Check the new VM's established connections and logs. With the old receiver stopped, these fresh reports provide a stronger final check that service continues through the new receiver.</p>
+<h3 id="drain-the-old-packet-log-spool-before-retirement">Drain the old packet-log spool before retirement</h3>
+<p>Pending packets are files on the old disk, not necessarily present in the MMS database yet. Count them in the actual spool path recorded above, without displaying payloads:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">gcloud compute ssh mms-gps-gateway \
+  --project=um-mms-gps --zone=us-central1-a \
+  --command='sudo python3 -' &lt;&lt;'PY'
+from pathlib import Path
+
+try:
+    record = Path(&quot;/var/lib/mms-gps-transfer/spool-path&quot;)
+    if record.is_symlink() or not record.is_file():
+        raise SystemExit(&quot;STOP: no verified private spool path record.&quot;)
+    value = record.read_text().rstrip(&quot;\n&quot;)
+    spool = Path(value)
+    if not spool.is_absolute() or not spool.is_dir():
+        raise SystemExit(&quot;STOP: the recorded spool directory is missing or invalid.&quot;)
+    entries = list(spool.iterdir())
+    pending = [p for p in entries if p.name.endswith(&quot;.json&quot;)]
+    temporary = [p for p in entries if p.name.endswith(&quot;.json.tmp&quot;)]
+    if any(not p.is_file() for p in pending + temporary):
+        raise SystemExit(&quot;STOP: an unexpected queue entry requires maintainer review.&quot;)
+    print(&quot;Recorded old spool:&quot;, spool)
+    print(&quot;Pending JSON files:&quot;, len(pending))
+    print(&quot;Temporary JSON files:&quot;, len(temporary))
+except OSError as error:
+    raise SystemExit(&quot;STOP: cannot inspect the recorded spool: &quot; + str(error))
+PY
+</code></pre></div>
+<p><strong>Expected:</strong> both counts are <code>0</code> while the old service is stopped.</p>
+<p>If either count is nonzero, keep the old VM and disk. Restart its service to allow its existing uploader to retry; this does not change any tracker IP:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">gcloud compute ssh mms-gps-gateway \
+  --project=um-mms-gps --zone=us-central1-a \
+  --command='sudo systemctl start mms-gps-gateway.service
+sudo journalctl -u mms-gps-gateway.service -n 40 --no-pager'
+</code></pre></div>
+<p>Wait for successful upload and repeat the same count command, which reads the captured path from <code>/var/lib/mms-gps-transfer/spool-path</code>. Stop the old service again using the stop block above, then repeat the same count command once more. Both counts must remain zero in that same recorded directory. Then repeat the fresh-report check in MMS with the old service stopped. Do not overwrite the path record or delete queued files to get a zero count.</p>
+<p>If discovery was unresolved, the recorded directory is missing, a temporary file cannot recover, or uploads keep failing, retirement remains blocked. Ask the maintainer to locate and recover the old spool, including any older configured location. A missing directory or an empty assumed default directory is not evidence that there are no pending packets.</p>
+<h3 id="acceptance-checklist">Acceptance checklist</h3>
+<ul>
+<li class="check-item"><label><input type="checkbox"> <span>Every inventoried tracker was changed and verified; no unpowered device remains pending.</span></label></li>
+<li class="check-item"><label><input type="checkbox"> <span>Every tracker is still linked to its original correct MMS vehicle.</span></label></li>
+<li class="check-item"><label><input type="checkbox"> <span>The old service is stopped.</span></label></li>
+<li class="check-item"><label><input type="checkbox"> <span>New saved reports continue with the old service stopped.</span></label></li>
+<li class="check-item"><label><input type="checkbox"> <span>The actual old spool was recorded from the running gateway before stopping; its <code>.json</code> and <code>.json.tmp</code> counts are zero after stopping.</span></label></li>
+<li class="check-item"><label><input type="checkbox"> <span>The new service is active, enabled and free of repeated upload/spool errors.</span></label></li>
+<li class="check-item"><label><input type="checkbox"> <span>The person responsible for MMS accepts the transfer and rollback/backup retention plan.</span></label></li>
+</ul>
+<p><strong>Do not delete the old project, VM, disk, IP or configuration before explicit acceptance.</strong> This guide intentionally contains no resource-deletion commands. After acceptance, have the owner/maintainer review remaining costs and perform a separately approved retirement. Stopping a VM alone still leaves disk and static-IP charges. Private environment copies should be kept securely until the owner approves their disposal.</p>
+</section><section class="guide-section" id="section-11-roll-back-if-needed" aria-labelledby="11-roll-back-if-needed"><h2 id="11-roll-back-if-needed">11 · Roll back if needed</h2>
+<p class="location"><span>WORK LOCATION</span> OLD ACCOUNT · Cloud Shell, then PHONE / MMS</p>
+<p>Restore the old receiver first:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">gcloud compute ssh mms-gps-gateway \
+  --project=um-mms-gps --zone=us-central1-a \
+  --command='sudo systemctl start mms-gps-gateway.service
+systemctl is-active mms-gps-gateway.service'
+</code></pre></div>
+<p><strong>Expected:</strong> <code>active</code>. If the VM itself was stopped later, its owner must start it and verify its IP before sending rollback SMS.</p>
+<p>For each tracker already moved, send the rollback server command. With factory password <code>0000</code> and the previously recorded old IP unchanged:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-text">8040000 104.198.172.49 5013
+RCONF
+</code></pre></div>
+<p>If step 02 found another current old IP, substitute it. If the SMS password was changed, use that tracker's correct current password. Do not change APN, interval, identity or timezone.</p>
+<p>Verify the old IP in <code>RCONF</code>, an established connection on the old VM, and fresh MMS saved positions. Keep the new VM available for diagnosis. No database rollback or reassignment is needed because the API and database were never moved.</p>
+<p><strong>Stop if:</strong> the old endpoint is unavailable or its public IP changed. Do not send trackers toward an unverified destination.</p>
+</section><section class="guide-section" id="section-12-troubleshooting-and-common-questions" aria-labelledby="12-troubleshooting-and-common-questions"><h2 id="12-troubleshooting-and-common-questions">12 · Troubleshooting and common questions</h2>
+<h3 id="new-vm-is-active-but-no-packets-arrive">New VM is active, but no packets arrive</h3>
+<p>Confirm <code>RCONF</code> has the new IP and TCP 5013. Check the new reserved IP matches the VM, its tag is <code>mms-gps-gateway</code>, its TCP 5013 firewall rule uses the custom network, and the service listens. Ensure the tracker has power, SIM data service, its unchanged working APN, and cellular coverage. Public TCP reachability from Cloud Shell proves the server port is reachable; it does not prove carrier connectivity.</p>
+<h3 id="packets-arrive-but-the-map-does-not-update">Packets arrive, but the map does not update</h3>
+<p>Use Tracker Logs. <code>invalid_fix</code> needs a valid GPS fix; <code>device_unavailable</code> needs the existing active tracker/vehicle assignment checked; <code>resolution_error</code> or <code>forward_error</code> needs API connectivity investigated. A heartbeat is not a saved position. Preserve the device identity and settings while diagnosing.</p>
+<h3 id="api-preflight-gives-401-404-500-or-a-timeout">API preflight gives 401, 404, 500 or a timeout</h3>
+<p>Stop installation. <code>401</code> usually means the uploaded key does not match the existing API. <code>404</code> can mean the packet-log endpoint is not deployed or the URL is wrong. <code>500</code> needs API configuration/log checks. A timeout can indicate network or sleeping/unavailable API behavior. The expected Render API must already support packet logs. Do not replace the real key with a sample or invent a new one during transfer.</p>
+<h3 id="the-bootstrap-stopped-or-it-says-a-gateway-unit-already-exists">The bootstrap stopped, or it says a gateway unit already exists</h3>
+<p>Do not keep rerunning a fresh installer. Check:</p>
+<div class="command"><div class="command-bar"><span>Copy the whole block</span><button class="copy" type="button">Copy code</button></div><pre><code class="language-bash">systemctl status mms-gps-gateway.service --no-pager
+sudo journalctl -u mms-gps-gateway.service -n 80 --no-pager
+free -h
+df -h
+</code></pre></div>
+<p>Share the error text with the maintainer, without sharing the private environment file. A successful first installation can use the existing updater for future releases; that is a separate operation.</p>
+<h3 id="will-closing-the-browser-turn-tracking-off">Will closing the browser turn tracking off?</h3>
+<p>No. The new VM runs continuously, and systemd starts the gateway at boot. Cloud Shell and SSH are remote control sessions. Closing them does not stop the server. Stopping/deleting the VM or stopping its service does affect tracking.</p>
+<h3 id="does-the-new-google-account-become-an-mms-administrator">Does the new Google account become an MMS administrator?</h3>
+<p>No. Google Cloud permissions control cloud resources. MMS permissions belong to the existing MMS accounts. Use the established MMS administrator login; request a separate MMS role change from its owner if needed.</p>
+<h3 id="will-old-gps-history-or-vehicle-assignments-disappear">Will old GPS history or vehicle assignments disappear?</h3>
+<p>No data migration is part of this procedure. The same API writes to the same database. Keep existing tracker identifiers and vehicle assignments. The guide does not change Render, Vercel or database configuration.</p>
+<h3 id="can-we-keep-10419817249-instead">Can we keep 104.198.172.49 instead?</h3>
+<p>Possibly, through an advanced static IPv4 transfer. Google permits moves between projects in the same <strong>or different organizations</strong>, with permissions in both projects. The address must be reserved/static, external IPv4 and detached from every resource; the destination needs available address quota, and address-move system limits must be greater than zero. Regional addresses remain in their region; Google currently documents a 20-minute wait after unassignment before a regional move. <a href="https://docs.cloud.google.com/vpc/docs/move-ip-address-different-project">Google's complete IP move requirements</a>.</p>
+<p>That route needs a planned outage and a separately reviewed procedure. Do not release/delete the old address to try to reserve the same number again. The default in this guide uses a new IP so both receivers can run during pilot testing.</p>
+<h3 id="is-it-free-do-budget-alerts-prevent-charges">Is it free? Do budget alerts prevent charges?</h3>
+<p>No guarantee. Check billing-account eligibility and current pricing; IPv4, traffic, overlapping servers and retained disks can cost money. The alerts-only budget in this guide is a notification system, not a spending cap. Review <a href="https://docs.cloud.google.com/free/docs/free-cloud-features">Free Tier limits</a>, <a href="https://docs.cloud.google.com/vpc/network-pricing">network/IP pricing</a> and <a href="https://docs.cloud.google.com/billing/docs/how-to/budgets">budget behavior</a>.</p>
+</section><section class="guide-section" id="section-13-reference-and-completion-record" aria-labelledby="13-reference-and-completion-record"><h2 id="13-reference-and-completion-record">13 · Reference and completion record</h2>
+<p class="location"><span>WORK LOCATION</span> operator's private handover notes</p>
+<p>Keep a record of the new project ID, new static IP, verified old rollback IP, transfer date, operator, tracker checklist, pinned release SHA, final MMS report times and explicit acceptance. Do not include secret keys, passwords, private coordinates or raw environment files in a public handover.</p>
+<h3 id="official-sources-checked-for-this-guide">Official sources checked for this guide</h3>
+<ul>
+<li><a href="https://docs.cloud.google.com/vpc/docs/move-ip-address-different-project">Move an external IPv4 address between projects</a></li>
+<li><a href="https://docs.cloud.google.com/iap/docs/using-tcp-forwarding">Use IAP for TCP forwarding</a></li>
+<li><a href="https://docs.cloud.google.com/compute/docs/ip-addresses/configure-static-external-ip-address">Configure a static external IP</a></li>
+<li><a href="https://docs.cloud.google.com/shell/docs/uploading-and-downloading-files">Upload and download Cloud Shell files</a></li>
+<li><a href="https://docs.cloud.google.com/billing/docs/how-to/budgets">Budgets and alerts</a></li>
+<li><a href="https://docs.cloud.google.com/free/docs/free-cloud-features">Free Tier terms</a></li>
+<li><a href="https://docs.cloud.google.com/compute/docs/metadata/querying-metadata">Query VM metadata</a></li>
+<li><a href="https://docs.cloud.google.com/vpc/network-pricing">Network and IPv4 pricing</a></li>
+<li><a href="https://github.com/nodesource/distributions/blob/master/scripts/deb/setup_24.x">Official NodeSource Node 24 installer</a></li>
+</ul>
+<h3 id="repository-references">Repository references</h3>
+<ul>
+<li><code>apps/gps-gateway/deploy/update-existing.sh</code> — existing-service updater and authenticated, non-writing API preflight.</li>
+<li><code>apps/gps-gateway/deploy/package-runtime.mjs</code> — portable runtime packager; copies three installed production packages.</li>
+<li><code>apps/gps-gateway/src/config.ts</code> — gateway configuration, including the private key, speed unit and spool path.</li>
+<li><code>apps/gps-gateway/src/packet-log.ts</code> — local disk queue and upload retry behavior.</li>
+<li><a href="new-gps-tracker-setup.md">New tracker setup</a> — separate onboarding reference; this transfer preserves already working settings.</li>
+</ul>
+<p><strong>Guide verification scope:</strong> local shell syntax, document links/structure and HTML behavior can be checked without touching Google Cloud. Only a real operator-run transfer and real tracker evidence can establish a successful migration.</p></section><footer class="page-foot">MMS operations · Private environment files never belong in this document. All styles, navigation and command-copy behavior are included in this file.</footer></main></div><script>
+(() => {
+  const sections = [...document.querySelectorAll('.guide-section')];
+  const links = [...document.querySelectorAll('nav a')];
+  const search = document.getElementById('search');
+  const status = document.getElementById('search-status');
+  const empty = document.getElementById('empty');
+  const corpus = sections.map(s => s.textContent.toLowerCase());
+  function filter() {
+    const words = search.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    let count = 0;
+    sections.forEach((s, i) => {
+      const match = words.every(w => corpus[i].includes(w));
+      s.hidden = !match;
+      links[i].hidden = !match;
+      if (match) count++;
+    });
+    empty.hidden = count !== 0;
+    status.textContent = words.length ? `${count} of ${sections.length} sections match` : `${sections.length} sections · search words or commands`;
+  }
+  search.addEventListener('input', filter);
+  document.getElementById('clear-search').addEventListener('click', () => { search.value = ''; filter(); search.focus(); });
+  search.addEventListener('keydown', e => { if (e.key === 'Escape') { search.value = ''; filter(); } });
+  document.querySelectorAll('.copy').forEach(button => button.addEventListener('click', async () => {
+    const value = button.closest('.command').querySelector('code').textContent;
+    try {
+      if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(value);
+      else {
+        const area = document.createElement('textarea');
+        area.value = value; area.style.position = 'fixed'; area.style.opacity = '0';
+        document.body.append(area); area.select();
+        const copied = document.execCommand('copy'); area.remove();
+        if (!copied) throw new Error('copy unavailable');
+      }
+      button.textContent = 'Copied';
+    } catch { button.textContent = 'Select code to copy'; }
+    setTimeout(() => { button.textContent = 'Copy code'; }, 2200);
+  }));
+  const toggle = document.getElementById('toggle-nav');
+  toggle.addEventListener('click', () => {
+    const open = document.querySelector('.sidebar').classList.toggle('open');
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.textContent = open ? 'Hide contents' : 'Browse all 13 sections';
+  });
+  links.forEach(link => link.addEventListener('click', () => {
+    document.querySelector('.sidebar').classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.textContent = 'Browse all 13 sections';
+  }));
+  let printState = [];
+  window.addEventListener('beforeprint', () => {
+    printState = [...document.querySelectorAll('details')].map(d => [d, d.open]);
+    printState.forEach(([d]) => { d.open = true; });
+  });
+  window.addEventListener('afterprint', () => printState.forEach(([d, open]) => { d.open = open; }));
+  document.getElementById('print').addEventListener('click', () => window.print());
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => { if (entry.isIntersecting) {
+      links.forEach(l => l.classList.toggle('current', l.hash === '#' + entry.target.querySelector('h2').id));
+    }});
+  }, {rootMargin: '-5% 0px -70% 0px'});
+  sections.forEach(s => observer.observe(s));
+  filter();
+})();
+</script></body></html>

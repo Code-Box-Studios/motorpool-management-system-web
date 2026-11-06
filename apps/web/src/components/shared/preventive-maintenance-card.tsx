@@ -104,7 +104,7 @@ const VehicleIdentity = ({
         to="/vehicles/$vehicleId"
         params={{ vehicleId: id }}
         title={vehicleName}
-        className="text-primary decoration-primary/40 focus-visible:ring-ring/50 flex max-w-full items-center gap-1 rounded-sm text-base font-semibold underline underline-offset-4 transition-colors hover:decoration-current focus-visible:ring-2 focus-visible:outline-none"
+        className="text-signal decoration-primary/40 focus-visible:ring-ring/50 flex max-w-full items-center gap-1 rounded-sm text-base font-semibold underline underline-offset-4 transition-colors hover:decoration-current focus-visible:ring-2 focus-visible:outline-none"
       >
         <span className="truncate">{vehicleName}</span>
         <ChevronRight aria-hidden="true" className="size-4 shrink-0" />

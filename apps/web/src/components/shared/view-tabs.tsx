@@ -10,7 +10,7 @@ import ListToolbar from '@/components/shared/list-toolbar';
 // records carry photos, and it is one click away. Same data, same links, same
 // actions: only the shape changes.
 //
-// Emphasis is the ink pill this app already uses for the primary button and the
+// Emphasis follows the shared primary color used by the primary button and the
 // active sidebar item, so the ACTIVE tab is the filled one. (shadcn's default
 // paints the active tab with --background, which is lighter than the --muted
 // track behind the inactive one, and the control reads backwards.)

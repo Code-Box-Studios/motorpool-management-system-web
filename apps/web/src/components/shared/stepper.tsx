@@ -4,9 +4,8 @@ import { cn } from '@/lib/utils';
 // A long form asks for everything at once and leaves you to work out what it
 // wants; a stepper asks one question at a time and tells you how much is left.
 //
-// Emphasis is the ink pill this app already uses for the primary button, the
-// active sidebar item and the active tab — a step you are on, or have done,
-// is ink; a step ahead of you is a quiet outline.
+// Current and completed steps share the primary color used by actions and
+// selected tabs. Future steps use a quiet outline.
 export interface Step {
   title: string;
 }

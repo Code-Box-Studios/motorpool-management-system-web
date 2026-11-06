@@ -52,7 +52,7 @@ export function FuelDetails({ fuel }: { fuel: FuelReportDetails }) {
               {rows.map(([label, value]) => (
                 <div
                   key={label}
-                  className={`grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 py-3 text-sm ${label === 'Estimated fuel requirement' ? 'text-primary font-semibold' : ''}`}
+                  className={`grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 py-3 text-sm ${label === 'Estimated fuel requirement' ? 'text-signal font-semibold' : ''}`}
                 >
                   <dt className="text-muted-foreground">{label}</dt>
                   <dd className="font-medium break-words">{value}</dd>

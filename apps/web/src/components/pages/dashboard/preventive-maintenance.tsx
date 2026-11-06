@@ -119,7 +119,7 @@ const PreventiveMaintenance = ({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="text-primary h-4 w-4 cursor-help" />
+                    <Info className="text-signal h-4 w-4 cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent className="max-w-sm">
                     <div className="space-y-1">

@@ -61,7 +61,7 @@ import { statusEventColor, resolveStatus } from '@/lib/status';
 // shadcn paints the ACTIVE tab with --background — a canvas beige that sits
 // *lighter* than the --muted track behind the inactive one, so on a white card
 // the segmented control read inverted, the unselected view looking selected.
-// Emphasis is the ink pill this app already uses for the primary button and the
+// Emphasis follows the shared primary color used by the primary button and the
 // active sidebar item.
 const ACTIVE_TAB =
   'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground dark:data-[state=active]:border-primary';
@@ -334,9 +334,7 @@ const TripTicketsPage = () => {
   const openCreate = (date?: string) => {
     const opener = document.activeElement;
     createReturnFocusRef.current =
-      opener instanceof HTMLElement && opener !== document.body
-        ? opener
-        : null;
+      opener instanceof HTMLElement && opener !== document.body ? opener : null;
     setCreateDate(date);
     setCreateOpen(true);
   };

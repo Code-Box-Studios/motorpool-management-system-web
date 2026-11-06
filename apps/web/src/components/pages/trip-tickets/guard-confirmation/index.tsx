@@ -204,7 +204,7 @@ export default function GuardConfirmationPage() {
                         <h2 className="font-mono text-sm font-semibold">
                           {formatRef('TT', item.ticket_no)}
                         </h2>
-                        <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium">
+                        <span className="bg-primary/10 text-signal rounded-full px-3 py-1 text-xs font-medium">
                           {gateLabel(item)}
                         </span>
                       </div>
@@ -309,7 +309,7 @@ export default function GuardConfirmationPage() {
                             {item.destination}
                           </TableCell>
                           <TableCell>
-                            <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium">
+                            <span className="bg-primary/10 text-signal rounded-full px-3 py-1 text-xs font-medium">
                               {gateLabel(item)}
                             </span>
                           </TableCell>
@@ -425,7 +425,7 @@ export default function GuardConfirmationPage() {
             {verified && (
               <div
                 role="status"
-                className="bg-primary/10 text-primary flex items-start gap-3 rounded-xl p-4 text-sm font-medium"
+                className="bg-primary/10 text-signal flex items-start gap-3 rounded-xl p-4 text-sm font-medium"
               >
                 <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
                 <p>

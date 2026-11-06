@@ -5,16 +5,15 @@ import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@/lib/utils';
 
-// Actions are ink, not brand-coloured: a solid near-black pill for the primary
-// action, the same shape outlined for the secondary. Both carry the design's
-// 1.5px ink edge, and press down slightly when tapped.
+// Primary actions use the shared maroon palette. Secondary actions keep a
+// quiet outline, and both press down slightly when tapped.
 const buttonVariants = cva(
   "focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-[3px] active:translate-y-px active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          'border-primary bg-primary text-primary-foreground border-[1.5px] hover:brightness-125',
+          'border-primary bg-primary text-primary-foreground hover:border-primary-hover hover:bg-primary-hover border-[1.5px]',
         destructive:
           'border-destructive bg-destructive text-destructive-foreground focus-visible:ring-destructive/20 border-[1.5px] hover:brightness-110',
         outline:

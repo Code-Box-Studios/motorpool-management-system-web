@@ -52,7 +52,10 @@ const navigationGroups = [
     title: 'Fleet & inventory',
     items: ['Vehicles', 'Drivers', 'Trackers', 'Spare Parts', 'Tools']
   },
-  { title: 'Administration', items: ['Organization', 'User Management', 'Docs'] }
+  {
+    title: 'Administration',
+    items: ['Organization', 'User Management', 'Docs']
+  }
 ];
 
 export function AppSidebar() {
@@ -125,7 +128,7 @@ export function AppSidebar() {
             className="size-8 shrink-0 object-contain"
           />
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <p className="text-primary text-base font-bold tracking-tight">
+            <p className="text-signal text-base font-bold tracking-tight">
               MMS
             </p>
             <p className="text-muted-foreground truncate text-xs">
@@ -166,7 +169,7 @@ export function AppSidebar() {
                             asChild
                             isActive={active}
                             tooltip={item.title}
-                            className="data-[active=true]:bg-primary/10 data-[active=true]:text-primary h-9 gap-3 rounded-lg px-3 data-[active=true]:font-semibold"
+                            className="data-[active=true]:bg-primary/10 data-[active=true]:text-signal h-9 gap-3 rounded-lg px-3 data-[active=true]:font-semibold"
                           >
                             <Link
                               to={item.url}

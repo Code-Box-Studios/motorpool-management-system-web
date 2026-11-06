@@ -60,7 +60,7 @@ const NotificationBell = () => {
           {unread > 0 && (
             /* Sits on the icon rather than beside it so the header's spacing is
                identical whether or not anything is waiting. */
-            <span className="bg-signal text-primary-foreground absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-bold tabular-nums">
+            <span className="bg-signal text-signal-foreground absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-bold tabular-nums">
               {unread > 9 ? '9+' : unread}
             </span>
           )}
