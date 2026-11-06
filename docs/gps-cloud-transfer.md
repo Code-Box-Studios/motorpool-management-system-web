@@ -894,4 +894,3 @@ Keep a record of the new project ID, new static IP, verified old rollback IP, tr
 - [New tracker setup](new-gps-tracker-setup.md) — separate onboarding reference; this transfer preserves already working settings.
 
 **Guide verification scope:** local shell syntax, document links/structure and HTML behavior can be checked without touching Google Cloud. Only a real operator-run transfer and real tracker evidence can establish a successful migration.
-
