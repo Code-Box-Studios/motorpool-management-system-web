@@ -44,3 +44,16 @@
 - Production read-only API inspection: 1,722 exact matches before 2026-11-06T05:36:19Z across the current fleet, no unmatched older points in those vehicle histories. A private snapshot was saved. No production rows have been deleted.
 - Production database mutation awaits Render access. A Render integration was offered but is not confirmed installed/connected.
 - Independent review found no actionable correctness issues. These checks were recorded before publication; the user subsequently requested committing and pushing the verified changes directly to `main`. Production history deletion remains separate and pending Render access.
+
+## Followup deployment cleanup and tracker setup guide
+
+The user then identified the old MMS-0008 simulator marker in production and requested a new-device installation guide. Render authentication was restored and confirmed with real workspace/service calls. The correct API service tracks this repository's `main` branch, automatically deploys commits, and already runs `prisma migrate deploy` during its build.
+
+- The live GPS endpoint now requires an active registered tracker with a recorded check-in and ignores points older than that device's registration. Offline real trackers retain their last-known position.
+- The one-time cleanup migration uses the inspected historical fingerprints and cutoff, keeps exact recovery snapshots, preserves changed or trip-linked rows, deletes only snapshot-backed rows, and rebuilds affected cached positions.
+- A following migration protects recovery backups with row-level security and removes public table access.
+- Four GPS-filter regressions and two initial migration regressions were observed failing before implementation. A new backup-security check was also observed failing before its protection was added.
+- The full API suite passed 660 tests. The final focused GPS/migration suite passed all 15 tests after the backup-security change. API typecheck/build and schema parity checks passed, and an independent review found no actionable issues.
+- `docs/new-gps-tracker-setup.md` covers car installation, SMS setup, exact device registration, verification, troubleshooting, and why closing Cloud Shell does not stop the background gateway. A printable PDF was exported separately.
+
+These are pre-publication checks. Verify the automatic Render deployment and production GPS histories after the followup commit is pushed.

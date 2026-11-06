@@ -333,6 +333,8 @@ The workshop's tools, each with a status: **available**, **borrowed**, **under m
 
 ## 12. Live GPS tracking and the map
 
+To install another tracker in a car and register it in the app, follow [Add a SinoTrack ST-901L-X to a Vehicle and MMS](docs/new-gps-tracker-setup.md). It includes SMS setup, car installation checks, app registration, and what keeps working after browser tabs are closed.
+
 The Admin dashboard and dedicated GPS Map show the latest positions received from registered vehicle trackers. Maps center on reported coordinates and show an empty state when no valid location is available.
 
 - **Where the dots come from.** Vehicles fitted with GPS devices report their position and supported telemetry. Each report updates the vehicle's last-known location and stores a GPS history point.

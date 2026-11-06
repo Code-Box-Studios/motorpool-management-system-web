@@ -20,6 +20,7 @@ const TABLES = [
   'tools',
   'spare_parts',
   'gps_data',
+  'gps_simulation_cleanup_backups',
   'geofence_violation',
   'geofence_area',
   'vehicle_status_audit',

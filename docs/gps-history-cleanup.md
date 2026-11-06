@@ -2,6 +2,14 @@
 
 The application no longer generates GPS positions or seeds GPS history. The gateway and API remain the source of live tracker readings.
 
+## Cleanup during deployment
+
+Migration `20261106083000_remove_simulated_gps_history` applies the same historical fingerprints and UTC cutoff through the API's existing migration deployment step. It stores exact recovery copies in the private `gps_simulation_cleanup_backups` table before deleting matched rows from `gps_data` and rebuilding affected vehicle locations. The backup table has no application endpoint. The following migration enables row-level security without public access or row-access policies, preserving access for the table owner and privileged database administrators.
+
+The migration preserves unmatched history, trip-linked rows, and every point at or after the start of real tracking. A changed row or a row whose existing backup differs is preserved. Existing backups are never overwritten. The live-map endpoint also requires an active registered tracker that has checked in, and ignores positions recorded before that registration.
+
+## Manual inspection and cleanup
+
 The cleanup script recognizes the old 50-point seed pattern, the removed browser route, and the standalone TCP simulator's route and fixed telemetry. It requires an explicit UTC cutoff and preserves every point at or after that cutoff. Older nonmatching or trip-linked rows are preserved for review, not assumed to be simulated.
 
 For this deployment, the decoder supporting the first real ST-901L-X frames started at **2026-11-06 05:36:19 UTC**. First inspect the intended database:

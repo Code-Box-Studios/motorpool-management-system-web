@@ -723,6 +723,17 @@ model GpsData {
   @@map("gps_data")
 }
 
+model GpsSimulationCleanupBackup {
+  gpsId           String   @id @map("gps_id") @db.Uuid
+  vehicleId       String?  @map("vehicle_id") @db.Uuid
+  point           Json     @db.JsonB
+  vehicleLocation Json?    @map("vehicle_location") @db.JsonB
+  backedUpAt      DateTime @default(now()) @map("backed_up_at")
+
+  @@index([vehicleId])
+  @@map("gps_simulation_cleanup_backups")
+}
+
 model TrackerDevice {
   id         String              @id @default(uuid()) @db.Uuid
   imei       String              @unique

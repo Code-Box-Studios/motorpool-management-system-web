@@ -63,6 +63,13 @@ export function latestPerVehicle() {
     FROM gps_data g
     JOIN vehicles v ON v.id = g.vehicle_id
     WHERE g.vehicle_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM tracker_devices t
+        WHERE t.vehicle_id = g.vehicle_id
+          AND t.status = 'active'
+          AND t.last_seen_at IS NOT NULL
+          AND g.created_at >= t.created_at
+      )
     ORDER BY g.vehicle_id, g.created_at DESC
   `;
 }

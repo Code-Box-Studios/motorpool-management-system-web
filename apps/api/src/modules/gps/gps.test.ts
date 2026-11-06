@@ -98,6 +98,16 @@ describe('gps module', () => {
   it('GET /gps/latest returns the newest point per vehicle (admin), embeds vehicle', async () => {
     const app = createApp();
     const v = await makeVehicle();
+    await prisma.trackerDevice.create({
+      data: {
+        imei: 'registered-tracker',
+        vehicleId: v.id,
+        status: 'active',
+        createdAt: new Date('2026-06-30T00:00:00Z'),
+        // A real last-known position remains available when a tracker is offline.
+        lastSeenAt: new Date('2026-07-02T00:00:01Z')
+      }
+    });
     await prisma.gpsData.create({
       data: {
         vehicleId: v.id,
@@ -146,6 +156,57 @@ describe('gps module', () => {
       .set('Authorization', authHeader(user.id, user.email, 'driver'));
     expect(res.status).toBe(403);
   });
+
+  it.each([
+    'unregistered',
+    'inactive',
+    'never-seen',
+    'before-registration'
+  ] as const)(
+    'GET /gps/latest excludes %s tracker data without deleting history',
+    async (scenario) => {
+      const app = createApp();
+      const vehicle = await makeVehicle();
+      if (scenario !== 'unregistered') {
+        await prisma.trackerDevice.create({
+          data: {
+            imei: 'not-a-live-tracker',
+            vehicleId: vehicle.id,
+            status: scenario === 'inactive' ? 'inactive' : 'active',
+            createdAt: new Date(
+              scenario === 'before-registration'
+                ? '2026-07-03T00:00:00Z'
+                : '2026-06-30T00:00:00Z'
+            ),
+            lastSeenAt: scenario === 'never-seen' ? null : new Date()
+          }
+        });
+      }
+      await prisma.gpsData.create({
+        data: {
+          vehicleId: vehicle.id,
+          latitude: 7.0731,
+          longitude: 125.6128,
+          speed: 37.04,
+          heading: 90,
+          createdAt: new Date('2026-07-02T00:00:00Z')
+        }
+      });
+      const { user } = await createTestUser({
+        email: 'live@test.local',
+        role: 'admin'
+      });
+      const response = await request(app)
+        .get('/api/gps/latest')
+        .set('Authorization', authHeader(user.id, user.email, 'admin'));
+      expect(response.status).toBe(200);
+      expect(response.body.data).toEqual([]);
+      expect(response.body.count).toBe(0);
+      expect(
+        await prisma.gpsData.count({ where: { vehicleId: vehicle.id } })
+      ).toBe(1);
+    }
+  );
 
   it('GET /gps/history filters by vehicleId + limit, newest first', async () => {
     const app = createApp();
