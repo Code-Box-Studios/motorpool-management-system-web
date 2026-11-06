@@ -74,10 +74,17 @@ export function latestPerVehicle() {
   `;
 }
 
-export async function history(where: Prisma.GpsDataWhereInput, take: number) {
+export async function history(where: Prisma.GpsDataWhereInput, take: number, cursor?: string) {
   const [data, count] = await Promise.all([
-    prisma.gpsData.findMany({ where, orderBy: { createdAt: 'desc' }, take }),
+    prisma.gpsData.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: take + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {})
+    }),
     prisma.gpsData.count({ where })
   ]);
-  return { data, count };
+  const more = data.length > take;
+  const page = more ? data.slice(0, take) : data;
+  return { data: page, count, nextCursor: more ? page.at(-1)!.id : null };
 }

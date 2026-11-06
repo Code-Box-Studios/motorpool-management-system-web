@@ -26,6 +26,7 @@ const TABLES = [
   'vehicle_status_audit',
   'drivers',
   'tracker_devices',
+  'tracker_packet_logs',
   'vehicles',
   'department_offices',
   'office_heads',

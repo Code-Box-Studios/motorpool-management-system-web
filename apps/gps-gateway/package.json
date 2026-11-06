@@ -3,6 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "files": [
+    "dist",
+    "deploy",
+    "README.md",
+    ".env.example"
+  ],
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
@@ -13,6 +19,7 @@
     "simulate": "tsx src/simulator.ts"
   },
   "dependencies": {
+    "@mms/shared": "workspace:*",
     "dotenv": "^17.4.2",
     "zod": "^3.25.76"
   },

@@ -8,9 +8,13 @@ import {
   Marker,
   Popup,
   Tooltip,
+  Polyline,
+  CircleMarker,
   useMap
 } from 'react-leaflet';
 import { DEVICE_ONLINE_THRESHOLD_MS } from '@/lib/utils/tracker-devices';
+import type { GpsDataRow } from '@/lib/api/gps';
+import { hasGpsPosition, routeSegments } from '@/lib/utils/gps-tracking';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -101,6 +105,8 @@ interface VehicleMapProps {
   /** Plate labels and position freshness colors; details are outside the map. */
   dashboardPresentation?: boolean;
   trackerConnections?: Record<string, 'online' | 'offline' | 'unknown'>;
+  routePoints?: GpsDataRow[];
+  routeKey?: string;
 }
 
 // `height` is a fixed pixel value, which a phone in landscape (~375px of
@@ -113,14 +119,19 @@ function MapUpdater({
   points,
   selectedVehicleId,
   focusRequest,
-  fitRequest
+  fitRequest,
+  routePoints,
+  routeKey
 }: {
   points: GpsDataWithVehicle[];
   selectedVehicleId: string | null;
   focusRequest: number;
   fitRequest: number;
+  routePoints?: GpsDataRow[];
+  routeKey?: string;
 }) {
   const map = useMap();
+  const previousRoute = useRef<string | undefined>(undefined);
   const previous = useRef<{
     ids: string;
     selected: string | null;
@@ -146,6 +157,18 @@ function MapUpdater({
       fit: fitRequest
     };
     const selected = points.find((p) => p.vehicles?.id === selectedVehicleId);
+    if (routePoints) {
+      const key = `${routeKey ?? ''}:${fitRequest}`;
+      if (previousRoute.current !== key && routePoints.length) {
+        map.fitBounds(
+          L.latLngBounds(routePoints.map((p) => [p.latitude!, p.longitude!])),
+          { padding: [40, 40], maxZoom: 16 }
+        );
+        previousRoute.current = key;
+      }
+      return;
+    }
+    previousRoute.current = undefined;
     if (focus && selected) {
       map.setView([selected.latitude!, selected.longitude!], 16);
     } else if (fit && points.length) {
@@ -155,7 +178,15 @@ function MapUpdater({
         { padding: [48, 48], maxZoom: 15 }
       );
     }
-  }, [points, selectedVehicleId, focusRequest, fitRequest, map]);
+  }, [
+    points,
+    selectedVehicleId,
+    focusRequest,
+    fitRequest,
+    routePoints,
+    routeKey,
+    map
+  ]);
 
   useEffect(() => {
     const observer = new ResizeObserver(() => map.invalidateSize());
@@ -207,9 +238,22 @@ export function VehicleMap({
   focusRequest = 0,
   fitRequest = 0,
   dashboardPresentation = false,
-  trackerConnections
+  trackerConnections,
+  routePoints,
+  routeKey
 }: VehicleMapProps) {
   const markerRefs = useRef<Record<string, LeafletMarker | null>>({});
+  const validRoute = useMemo(
+    () =>
+      routePoints?.filter(
+        (p) => hasGpsPosition(p) && Number.isFinite(Date.parse(p.created_at))
+      ),
+    [routePoints]
+  );
+  const segments = useMemo(
+    () => routeSegments(routePoints ?? []),
+    [routePoints]
+  );
 
   const validGpsData = useMemo(
     () =>
@@ -231,7 +275,7 @@ export function VehicleMap({
     markerRefs.current[selectedVehicleId]?.openPopup();
   }, [selectedVehicleId, focusRequest, dashboardPresentation]);
 
-  if (validGpsData.length === 0) {
+  if (validGpsData.length === 0 && !validRoute?.length) {
     return (
       <div
         className={`${VIEWPORT_HEIGHT_CAP} bg-muted text-muted-foreground`}
@@ -257,7 +301,7 @@ export function VehicleMap({
     );
   }
 
-  const firstPoint = validGpsData[0];
+  const firstPoint = validRoute?.[0] ?? validGpsData[0];
   const currentCenter: [number, number] = [
     firstPoint.latitude!,
     firstPoint.longitude!
@@ -283,8 +327,72 @@ export function VehicleMap({
           selectedVehicleId={selectedVehicleId}
           focusRequest={focusRequest}
           fitRequest={fitRequest}
+          routePoints={validRoute}
+          routeKey={routeKey}
         />
         <SingleFingerDragToggle />
+
+        {segments.map((segment, i) =>
+          segment.length === 1 ? (
+            <CircleMarker
+              key={`${routeKey}-${i}`}
+              className="gps-route-isolated"
+              center={segment[0]}
+              radius={4}
+              pathOptions={{
+                color: '#2563eb',
+                fillColor: '#2563eb',
+                fillOpacity: 0.85
+              }}
+            >
+              <Tooltip>Recorded position</Tooltip>
+            </CircleMarker>
+          ) : (
+            <Polyline
+              key={`${routeKey}-${i}`}
+              positions={segment}
+              className="gps-route-line"
+              pathOptions={{
+                color: '#2563eb',
+                weight: 4,
+                opacity: 0.85
+              }}
+            />
+          )
+        )}
+        {validRoute?.length ? (
+          <>
+            <CircleMarker
+              center={[validRoute[0].latitude!, validRoute[0].longitude!]}
+              radius={6}
+              pathOptions={{
+                color: '#047857',
+                fillColor: '#10b981',
+                fillOpacity: 1
+              }}
+            >
+              <Tooltip permanent direction="top">
+                Route start
+              </Tooltip>
+            </CircleMarker>
+            <CircleMarker
+              center={[
+                validRoute.at(-1)!.latitude!,
+                validRoute.at(-1)!.longitude!
+              ]}
+              radius={6}
+              pathOptions={{
+                color: '#b45309',
+                fillColor: '#f59e0b',
+                fillOpacity: 1
+              }}
+            >
+              <Tooltip permanent direction="bottom">
+                Route end
+              </Tooltip>
+            </CircleMarker>
+          </>
+        ) : null}
 
         {validGpsData.map((data) => {
           const vehicle = data.vehicles!;

@@ -50,6 +50,7 @@ import {
   type TrackerDeviceFormData
 } from '../action';
 import { relativeTime } from '@/lib/utils/relative-time';
+import { TrackerConfigurationCard } from './configuration';
 
 const TrackerDeviceInner = ({ deviceId }: { deviceId: string }) => {
   const { data: device, isLoading, error } = useTrackerDevice(deviceId);
@@ -174,6 +175,13 @@ const TrackerDeviceInner = ({ deviceId }: { deviceId: string }) => {
             deleteAction
           ) : (
             <>
+              <Link
+                to="/tracker-logs"
+                search={{ deviceId: device.imei }}
+                className={cn(buttonVariants({ variant: 'outline' }))}
+              >
+                View packet logs
+              </Link>
               {deleteAction}
               <Button onClick={() => setIsEditing(true)}>Edit</Button>
             </>
@@ -369,6 +377,8 @@ const TrackerDeviceInner = ({ deviceId }: { deviceId: string }) => {
               <DetailItem label="Last Seen" value={lastSeenValue} />
             </DetailGrid>
           </DetailSection>
+
+          <TrackerConfigurationCard device={device} />
 
           <DetailSection
             title="Assignment"

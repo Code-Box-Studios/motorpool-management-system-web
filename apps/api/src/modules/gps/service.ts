@@ -25,5 +25,5 @@ export async function history(query: GpsHistoryQuery) {
         }
       : {})
   };
-  return repo.history(where, query.limit);
+  return repo.history(where, query.limit, query.cursor);
 }

@@ -1,7 +1,9 @@
 import { api } from './client.js';
 import type {
   CreateTrackerDeviceBody,
-  UpdateTrackerDeviceBody
+  UpdateTrackerDeviceBody,
+  UpdateTrackerConfigurationBody,
+  TrackerConfiguration
 } from '@mms/shared';
 
 // FE-facing tracker device row. TrackerDevice is a brand-new resource with no
@@ -17,6 +19,7 @@ export interface TrackerDevice {
   status: 'active' | 'inactive' | 'decommissioned';
   lastSeenAt: string | null;
   notes: string | null;
+  configuration: TrackerConfiguration | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -69,6 +72,13 @@ export async function updateTrackerDevice(
   body: UpdateTrackerDeviceBody
 ): Promise<TrackerDevice> {
   return api.patch<TrackerDevice>(`/tracker-devices/${id}`, body);
+}
+
+export async function updateTrackerConfiguration(
+  id: string,
+  body: UpdateTrackerConfigurationBody
+): Promise<TrackerDevice> {
+  return api.patch<TrackerDevice>(`/tracker-devices/${id}/configuration`, body);
 }
 
 // DELETE returns 204; nothing to unwrap.

@@ -3,7 +3,9 @@ import { toast } from 'sonner';
 import {
   createTrackerDevice,
   updateTrackerDevice,
-  deleteTrackerDevice
+  deleteTrackerDevice,
+  updateTrackerConfiguration,
+  type TrackerDevice
 } from '@/lib/api/tracker-devices';
 import type { ApiError } from '@/lib/api/client';
 import type {
@@ -58,6 +60,21 @@ export const useDeleteTrackerDevice = () => {
     },
     onError: (error: ApiError) => {
       toast.error(`Deletion failed: ${error?.message ?? String(error)}`);
+    }
+  });
+};
+
+export const useUpdateTrackerConfiguration = () => {
+  const queryClient = useQueryClient();
+  return useMutation<TrackerDevice, ApiError, { id: string; reply: string }>({
+    // A pasted SMS reply may include secrets. Drop mutation variables as soon
+    // as the import dialog releases this mutation; never persist them locally.
+    gcTime: 0,
+    mutationFn: ({ id, reply }) => updateTrackerConfiguration(id, { reply }),
+    onSuccess: (device) => {
+      queryClient.setQueryData(['tracker-devices', device.id], device);
+      queryClient.invalidateQueries({ queryKey: ['tracker-devices'] });
+      toast.success('Configuration saved from RCONF.');
     }
   });
 };

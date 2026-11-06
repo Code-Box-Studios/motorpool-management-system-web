@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { getLatestGpsData, getGpsDataByVehicle } from '@/lib/api/gps';
+import {
+  getLatestGpsData,
+  getGpsDataByVehicle,
+  getGpsRouteHistory,
+  type GpsRouteRange
+} from '@/lib/api/gps';
 
 // Poll the newest GPS point per vehicle every 5s for the live tracking map.
 //
@@ -25,3 +30,12 @@ export const useGpsDataByVehicle = (vehicleId: string) => {
     enabled: !!vehicleId
   });
 };
+
+export const useGpsRouteHistory = (range: GpsRouteRange) =>
+  useQuery({
+    queryKey: ['gps-data', 'route', range.vehicleId, range.from, range.to],
+    queryFn: ({ signal }) => getGpsRouteHistory(range, signal),
+    enabled: !!range.vehicleId,
+    staleTime: 60_000,
+    retry: false
+  });

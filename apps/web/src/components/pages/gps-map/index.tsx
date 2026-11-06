@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Maximize2, Minimize2, RadioTower } from 'lucide-react';
+import { Crosshair, Maximize2, Minimize2, RadioTower } from 'lucide-react';
 import PageHeader from '@/components/shared/page-header';
 import VehicleMap from '@/components/shared/vehicle-map';
-import StatusBadge from '@/components/shared/status-badge';
-import { DeviceOnlineIndicator } from '@/components/shared/device-online-indicator';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { ApiError } from '@/lib/api/client';
 import { useLatestGpsData } from '@/lib/query/gps';
 import { useTrackerDevices } from '@/lib/query/tracker-devices';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import {
-  assignedVehicleLabel,
-  isDeviceOnline
-} from '@/lib/utils/tracker-devices';
+  hasGpsPosition,
+  reportAge,
+  vehicleConnection,
+  type TrackingVehicle
+} from '@/lib/utils/gps-tracking';
+import VehicleOverview from './vehicle-overview';
+import RouteHistory from './route-history';
 
 export default function GpsMapPage() {
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -22,253 +25,330 @@ export default function GpsMapPage() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
     null
   );
-  const { data: gpsData = [], isLoading: gpsLoading } = useLatestGpsData();
+  const [mode, setMode] = useState('live');
+  const [now, setNow] = useState(Date.now);
+  const [fitRequest, setFitRequest] = useState(0);
+  const [focusRequest, setFocusRequest] = useState(0);
+  const gps = useLatestGpsData();
+  const gpsData = gps.data ?? [];
   const trackerQuery = useTrackerDevices(
     {},
     { sortBy: 'imei', sortOrder: 'asc' }
   );
-  const {
-    data: trackerData,
-    isLoading: trackersLoading,
-    refetch: refreshTrackers
-  } = trackerQuery;
-  const trackerStatusUnavailable =
+  const vehicles = useAllVehicles();
+  const registryUnavailable =
     trackerQuery.isError ||
     trackerQuery.errorUpdatedAt > trackerQuery.dataUpdatedAt;
   const trackerReadForbidden =
     trackerQuery.error instanceof ApiError && trackerQuery.error.status === 403;
-  const [, setNow] = useState(Date.now);
-  const { data: vehicles, isLoading: vehiclesLoading } = useAllVehicles();
+  const gpsUnavailable = gps.isError || gps.errorUpdatedAt > gps.dataUpdatedAt;
+  const { refetch: refreshTrackers } = trackerQuery;
 
   useEffect(() => {
+    const clock = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(clock);
+  }, []);
+  useEffect(() => {
     const timer = window.setInterval(() => {
-      setNow(Date.now());
       if (!trackerReadForbidden) void refreshTrackers();
     }, 15000);
     return () => window.clearInterval(timer);
   }, [refreshTrackers, trackerReadForbidden]);
-
-  const trackerConnections: Record<string, 'online' | 'offline' | 'unknown'> =
-    {};
-  for (const tracker of trackerData?.data ?? []) {
-    if (tracker.vehicleId && tracker.status === 'active') {
-      trackerConnections[tracker.vehicleId] = trackerStatusUnavailable
-        ? 'unknown'
-        : isDeviceOnline(tracker.lastSeenAt)
-          ? 'online'
-          : 'offline';
-    }
-  }
-
-  const vehiclesById = useMemo(
-    () => new Map((vehicles ?? []).map((vehicle) => [vehicle.id, vehicle])),
-    [vehicles]
-  );
-  const locatedVehicleIds = useMemo(
-    () =>
-      new Set(
-        gpsData.flatMap((point) =>
-          point.vehicles?.id ? [point.vehicles.id] : []
-        )
-      ),
-    [gpsData]
-  );
-
   useEffect(() => {
-    const syncFullscreen = () =>
+    const update = () =>
       setIsFullscreen(document.fullscreenElement === workspaceRef.current);
-    document.addEventListener('fullscreenchange', syncFullscreen);
-    return () =>
-      document.removeEventListener('fullscreenchange', syncFullscreen);
+    document.addEventListener('fullscreenchange', update);
+    return () => document.removeEventListener('fullscreenchange', update);
   }, []);
 
+  const choices = useMemo(() => {
+    const byId = new Map<string, TrackingVehicle>();
+    for (const tracker of trackerQuery.data?.data ?? []) {
+      if (!tracker.vehicleId) continue;
+      const vehicle = vehicles.data?.find((v) => v.id === tracker.vehicleId);
+      const previous = byId.get(tracker.vehicleId);
+      if (previous?.tracker?.status === 'active') continue;
+      byId.set(tracker.vehicleId, {
+        id: tracker.vehicleId,
+        tracker,
+        plate: vehicle?.license_plate ?? tracker.label ?? 'Assigned vehicle',
+        description: vehicle ? `${vehicle.make} ${vehicle.model}` : tracker.imei
+      });
+    }
+    for (const point of gps.data ?? []) {
+      if (!point.vehicles) continue;
+      byId.set(point.vehicles.id, {
+        ...byId.get(point.vehicles.id),
+        id: point.vehicles.id,
+        point,
+        plate: point.vehicles.license_plate,
+        description: `${point.vehicles.make} ${point.vehicles.model}`
+      });
+    }
+    return [...byId.values()].sort((a, b) => a.plate.localeCompare(b.plate));
+  }, [trackerQuery.data, vehicles.data, gps.data]);
+  const selected =
+    choices.find((v) => v.id === selectedVehicleId) ?? choices[0];
+  const connection = selected
+    ? vehicleConnection(selected, now, registryUnavailable)
+    : 'unknown';
+  const connections = useMemo(
+    () => (selected ? { [selected.id]: connection } : {}),
+    [selected, connection]
+  );
+  const selectVehicle = (id: string | null) => {
+    setSelectedVehicleId(id);
+    setFocusRequest((n) => n + 1);
+  };
   const toggleFullscreen = async () => {
     if (!workspaceRef.current) return;
-    if (document.fullscreenElement === workspaceRef.current) {
+    if (document.fullscreenElement === workspaceRef.current)
       await document.exitFullscreen();
-    } else {
-      await workspaceRef.current.requestFullscreen();
-    }
+    else await workspaceRef.current.requestFullscreen();
   };
+  const mapHeight = isFullscreen ? '100%' : '520px';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {!isFullscreen && (
         <PageHeader
           title="GPS Map"
-          description="View reported positions. Tracker connection, reported ignition, and booking availability are separate indicators."
+          description="Live vehicle telemetry and recorded routes from real tracker reports."
         />
       )}
-
       <div
         ref={workspaceRef}
         className={cn(
-          'bg-background grid gap-4',
-          isFullscreen
-            ? 'h-screen grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-4'
-            : ''
+          'bg-background space-y-4',
+          isFullscreen && 'flex h-dvh flex-col overflow-y-auto p-4'
         )}
       >
-        <div className="flex items-center justify-between gap-3">
-          {isFullscreen ? (
-            <div>
-              <h1 className="text-xl font-semibold">GPS Map</h1>
-              <p className="text-muted-foreground text-sm">
-                Live fleet tracking
-              </p>
-            </div>
-          ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            {isFullscreen && (
+              <h1 className="mb-1 text-lg font-semibold">GPS Map</h1>
+            )}
             <p className="text-muted-foreground text-sm">
-              {trackerData?.count ?? 0} registered tracker
-              {trackerData?.count === 1 ? '' : 's'}
+              {trackerQuery.data?.count ?? choices.length} registered tracker
+              {(trackerQuery.data?.count ?? choices.length) === 1 ? '' : 's'} ·
+              Live positions refresh every 5s
             </p>
-          )}
+          </div>
           <Button
             variant="outline"
             size="sm"
             onClick={() => void toggleFullscreen()}
           >
             {isFullscreen ? (
-              <Minimize2 className="mr-2 size-4" />
+              <Minimize2 className="size-4" />
             ) : (
-              <Maximize2 className="mr-2 size-4" />
+              <Maximize2 className="size-4" />
             )}
             {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
           </Button>
         </div>
-
-        <div className="grid min-h-0 gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
-          <Card className="min-h-0 overflow-hidden">
-            <CardContent className="flex h-full min-h-64 flex-col p-0">
-              <div className="border-b px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <RadioTower className="text-signal size-4" />
-                  <h2 className="font-semibold">Registered Trackers</h2>
-                </div>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Select a tracker with a location to focus the map.
+        {selected && (
+          <VehicleOverview
+            vehicle={selected}
+            now={now}
+            connection={connection}
+            gpsUnavailable={gpsUnavailable}
+          />
+        )}
+        <div
+          className={cn(
+            'grid min-h-0 gap-4 xl:grid-cols-[17rem_minmax(0,1fr)]',
+            isFullscreen && 'flex-1'
+          )}
+        >
+          <Card
+            className={cn(
+              'min-h-0 gap-0 overflow-hidden py-0',
+              isFullscreen
+                ? 'max-h-72 xl:max-h-none'
+                : 'max-h-80 xl:max-h-[720px]'
+            )}
+          >
+            <div className="border-b px-4 py-3">
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <RadioTower className="text-signal size-4" />
+                Registered Trackers
+              </h2>
+              <p className="text-muted-foreground mt-1 text-xs leading-5">
+                Choose a vehicle to inspect its latest report or route.
+              </p>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">
+              {!choices.length && (trackerQuery.isPending || gps.isPending) ? (
+                <p className="text-muted-foreground p-3 text-sm">
+                  Loading trackers…
                 </p>
-                <p className="text-muted-foreground mt-2 text-xs leading-5">
-                  Online means the tracker reported recently. Booking
-                  availability describes whether the vehicle can be assigned to
-                  a trip.
+              ) : !choices.length ? (
+                <p className="text-muted-foreground p-3 text-sm">
+                  {registryUnavailable
+                    ? 'Tracker list is unavailable.'
+                    : 'No assigned trackers found.'}
                 </p>
-                {trackerStatusUnavailable && (
-                  <p role="alert" className="text-status-wait-fg mt-2 text-xs">
-                    Tracker connection is unavailable. Any saved contact time is
-                    historical.
-                  </p>
-                )}
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-2">
-                {trackersLoading || vehiclesLoading ? (
-                  <p className="text-muted-foreground p-3 text-sm">
-                    Loading trackers…
-                  </p>
-                ) : trackerData?.data.length ? (
-                  trackerData.data.map((tracker) => {
-                    const hasLocation =
-                      !!tracker.vehicleId &&
-                      locatedVehicleIds.has(tracker.vehicleId);
-                    const vehicle = vehiclesById.get(tracker.vehicleId ?? '');
-                    const label = assignedVehicleLabel(
-                      tracker.vehicleId,
-                      vehicle,
-                      false
-                    );
-                    const selected = tracker.vehicleId === selectedVehicleId;
-                    return (
-                      <button
-                        key={tracker.id}
-                        type="button"
-                        disabled={!hasLocation}
-                        onClick={() =>
-                          tracker.vehicleId &&
-                          setSelectedVehicleId(tracker.vehicleId)
-                        }
-                        className={cn(
-                          'w-full rounded-xl p-3 text-left transition-colors',
-                          selected
-                            ? 'bg-status-move-bg ring-status-move-fg ring-1'
-                            : 'hover:bg-muted',
-                          !hasLocation && 'cursor-not-allowed opacity-60'
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-semibold">{label}</span>
-                          <span className="flex flex-col items-end gap-1">
-                            <span className="text-muted-foreground text-[10px]">
-                              Registration
-                            </span>
-                            <StatusBadge status={tracker.status} />
-                          </span>
-                        </div>
-                        <p className="text-muted-foreground mt-1 truncate font-mono text-xs">
-                          {tracker.label || tracker.imei}
-                        </p>
-                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                          <span className="inline-flex items-center gap-1.5">
-                            <span className="text-muted-foreground text-xs">
-                              Tracker:
-                            </span>
-                            {trackerStatusUnavailable ? (
-                              <span className="text-muted-foreground text-sm">
-                                Unknown
-                              </span>
-                            ) : (
-                              <DeviceOnlineIndicator
-                                lastSeenAt={tracker.lastSeenAt}
-                              />
-                            )}
-                          </span>
-                          <span className="text-muted-foreground text-xs">
-                            {hasLocation
-                              ? 'View reported position'
-                              : 'No location yet'}
-                          </span>
-                        </div>
-                        <p className="text-muted-foreground mt-2 text-[11px]">
-                          Last contact:{' '}
-                          {tracker.lastSeenAt
-                            ? new Date(tracker.lastSeenAt).toLocaleString()
-                            : 'Never received'}
-                        </p>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <p className="text-muted-foreground p-3 text-sm">
-                    {trackerStatusUnavailable
-                      ? 'Tracker list is unavailable.'
-                      : 'No tracker devices found.'}
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="min-h-0 overflow-hidden py-0">
-            <CardContent
-              className={cn(
-                'h-full min-h-0 p-0',
-                isFullscreen && '[&>div]:max-h-none'
-              )}
-            >
-              {gpsLoading ? (
-                <div className="text-muted-foreground flex h-full min-h-96 items-center justify-center text-sm">
-                  Loading GPS data…
-                </div>
               ) : (
-                <VehicleMap
-                  gpsData={gpsData}
-                  zoom={13}
-                  height={isFullscreen ? '100%' : 'calc(100vh - 18rem)'}
-                  selectedVehicleId={selectedVehicleId}
-                  onSelectedVehicleIdChange={setSelectedVehicleId}
-                  trackerConnections={trackerConnections}
-                />
+                choices.map((vehicle) => {
+                  const state = vehicleConnection(
+                    vehicle,
+                    now,
+                    registryUnavailable
+                  );
+                  return (
+                    <button
+                      key={vehicle.id}
+                      type="button"
+                      aria-pressed={selected?.id === vehicle.id}
+                      onClick={() => selectVehicle(vehicle.id)}
+                      className={cn(
+                        'mb-1 w-full rounded-xl p-3 text-left transition-colors',
+                        selected?.id === vehicle.id
+                          ? 'bg-accent ring-border ring-1 ring-inset'
+                          : 'hover:bg-muted'
+                      )}
+                    >
+                      <span className="block text-sm font-semibold">
+                        {vehicle.plate}
+                      </span>
+                      <span className="text-muted-foreground mt-0.5 block truncate text-xs">
+                        {vehicle.description}
+                      </span>
+                      {vehicle.tracker && (
+                        <span className="text-muted-foreground mt-1 block truncate text-[11px]">
+                          {vehicle.tracker.label || vehicle.tracker.imei}
+                        </span>
+                      )}
+                      <span className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            className={cn(
+                              'size-1.5 rounded-full',
+                              state === 'online'
+                                ? 'bg-emerald-500'
+                                : 'bg-slate-400'
+                            )}
+                          />
+                          {state === 'online'
+                            ? 'Online'
+                            : state === 'offline'
+                              ? 'Offline'
+                              : 'Unknown'}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {vehicle.point
+                            ? reportAge(vehicle.point.created_at, now)
+                            : 'No location yet'}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })
               )}
-            </CardContent>
+            </div>
+            {registryUnavailable && (
+              <p
+                role="alert"
+                className="text-status-wait-fg border-t px-4 py-3 text-xs leading-5"
+              >
+                Tracker connection details are unavailable. A recent GPS receipt
+                still proves contact.
+              </p>
+            )}
+          </Card>
+          <Card className="flex min-h-0 min-w-0 flex-col gap-0 overflow-hidden py-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
+              <Tabs value={mode} onValueChange={setMode}>
+                <TabsList>
+                  <TabsTrigger value="live">Live map</TabsTrigger>
+                  <TabsTrigger value="history" disabled={!selected}>
+                    Route history
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              {mode === 'live' && (
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={
+                      !selected?.point || !hasGpsPosition(selected.point)
+                    }
+                    onClick={() => selected && selectVehicle(selected.id)}
+                  >
+                    <Crosshair className="size-3.5" />
+                    Locate vehicle
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!gpsData.length}
+                    onClick={() => {
+                      setSelectedVehicleId(null);
+                      setFitRequest((n) => n + 1);
+                    }}
+                  >
+                    Fit fleet
+                  </Button>
+                </div>
+              )}
+            </div>
+            {mode === 'history' && selected ? (
+              <RouteHistory
+                vehicleId={selected.id}
+                mapHeight={mapHeight}
+                fullscreen={isFullscreen}
+              />
+            ) : (
+              <>
+                {gpsUnavailable && (
+                  <div
+                    role="alert"
+                    className="bg-status-wait-bg/40 text-status-wait-fg border-b px-4 py-3 text-sm"
+                  >
+                    GPS updates are unavailable. Showing the last received
+                    positions.{' '}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void gps.refetch()}
+                    >
+                      Retry GPS
+                    </Button>
+                  </div>
+                )}
+                {gps.isPending && !gpsUnavailable ? (
+                  <div
+                    role="status"
+                    className="text-muted-foreground flex min-h-64 items-center justify-center text-sm"
+                  >
+                    Loading GPS positions…
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      'min-h-0',
+                      isFullscreen && 'min-h-64 flex-1 [&>div]:max-h-none'
+                    )}
+                  >
+                    <VehicleMap
+                      gpsData={gpsData}
+                      height={mapHeight}
+                      selectedVehicleId={selectedVehicleId}
+                      onSelectedVehicleIdChange={selectVehicle}
+                      focusRequest={focusRequest}
+                      fitRequest={fitRequest}
+                      trackerConnections={connections}
+                    />
+                  </div>
+                )}
+                <p className="text-muted-foreground border-t px-4 py-2.5 text-[11px]">
+                  Reported ignition is separate from tracker connection. Old GPS
+                  reports remain marked as last known positions.
+                </p>
+              </>
+            )}
           </Card>
         </div>
       </div>

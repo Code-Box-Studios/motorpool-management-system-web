@@ -2,7 +2,8 @@ import { Router } from 'express';
 import {
   USER_ROLES,
   createTrackerDeviceBodySchema,
-  updateTrackerDeviceBodySchema
+  updateTrackerDeviceBodySchema,
+  updateTrackerConfigurationBodySchema
 } from '@mms/shared';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { requireDeviceKey } from '../../middleware/require-device-key.js';
@@ -33,6 +34,13 @@ trackerDevicesRouter.post(
   requireRole(USER_ROLES.admin),
   validateBody(createTrackerDeviceBodySchema),
   controller.create
+);
+trackerDevicesRouter.patch(
+  '/:id/configuration',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  validateBody(updateTrackerConfigurationBodySchema),
+  controller.updateConfiguration
 );
 trackerDevicesRouter.patch(
   '/:id',

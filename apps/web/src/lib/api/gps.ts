@@ -1,5 +1,5 @@
 // src/lib/api/gps.ts
-import { api } from './client.js';
+import { api, apiRequest } from './client.js';
 
 // FE-facing shape (mirrors the pre-cutover Supabase gps type so
 // consumers like VehicleMap/useLatestGpsData are unaffected): snake_case,
@@ -121,4 +121,61 @@ export async function getGpsDataByVehicle(
     }
   );
   return res.data.map(toRow);
+}
+
+export interface GpsRouteRange {
+  vehicleId: string;
+  from: string;
+  to: string;
+}
+
+export interface GpsRouteHistory {
+  points: GpsDataRow[];
+  count: number;
+}
+
+// The fixed time range prevents live inserts from moving the end of a paged route.
+export async function getGpsRouteHistory(
+  range: GpsRouteRange,
+  signal?: AbortSignal
+): Promise<GpsRouteHistory> {
+  const points = new Map<string, GpsDataRow>();
+  const cursors = new Set<string>();
+  let cursor: string | undefined;
+  let count = 0;
+  do {
+    signal?.throwIfAborted();
+    const page = await apiRequest<{
+      data: GpsHistoryApiRow[];
+      count: number;
+      nextCursor: string | null;
+    }>('/gps/history', {
+      query: { ...range, limit: 5000, cursor },
+      signal
+    });
+    count = page.count;
+    for (const row of page.data) points.set(row.id, toRow(row));
+    if (points.size > 100_000)
+      throw new Error(
+        'Too many reports in this period. Choose a shorter range.'
+      );
+    if (page.nextCursor && (cursors.has(page.nextCursor) || !page.data.length))
+      throw new Error(
+        'The route could not be loaded completely. Try a shorter period.'
+      );
+    cursor = page.nextCursor ?? undefined;
+    if (cursor) cursors.add(cursor);
+  } while (cursor);
+  if (points.size < count)
+    throw new Error(
+      'The route could not be loaded completely. Try a shorter period.'
+    );
+  return {
+    points: [...points.values()].sort(
+      (a, b) =>
+        Date.parse(a.created_at) - Date.parse(b.created_at) ||
+        a.gps_id.localeCompare(b.gps_id)
+    ),
+    count
+  };
 }

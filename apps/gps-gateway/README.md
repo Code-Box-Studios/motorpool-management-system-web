@@ -4,6 +4,40 @@ A standalone TCP service that receives H02 frames from SinoTrack ST-901 trackers
 resolves each reported device ID to a vehicle, and forwards positions to the MMS API's
 `POST /api/gps/ingest`. It never touches the database.
 
+## Packet logs in MMS
+
+Administrators can open **Tracker Devices → Packet Logs**, or **View packet logs**
+on an individual tracker. The viewer shows receipt time, transmitted tracker ID,
+raw text/hex, decoded coordinates, and processing outcome. Unknown/unassigned
+devices, heartbeats, invalid fixes, binary fragments, incomplete messages, and
+socket/lookup/forwarding failures remain visible. Invalid fixes never update the
+vehicle position. Traffic without a reliable ID appears in the global view.
+
+Capture starts with this gateway version; older rejected traffic cannot be
+reconstructed. Apply API migrations and deploy the API/frontend before the gateway.
+Only a successful position ingest is labeled **Position saved**.
+
+Each receipt and outcome first enters an atomic, fsynced disk spool, then uploads
+to `POST /api/gps/packet-logs` with the existing device key. Pending uploads replay
+after outages/restarts using their original IDs. Log replay does not re-ingest
+positions. A crash before processing finishes can leave a receipt pending.
+
+Set `PACKET_LOG_DIR` to a persistent directory writable by the gateway service
+user. The provided systemd unit creates `/var/lib/mms-gps-gateway` using
+`StateDirectory`; set `PACKET_LOG_DIR=/var/lib/mms-gps-gateway` in the deployed
+environment too if the environment file overrides it. Do not run multiple gateway
+processes against the same spool. Local development defaults to `.packet-log-spool`.
+Pending spool files contain tracker/location data and use owner-only permissions.
+
+`PACKET_LOG_MAX_BYTES` defaults to 256 MiB. Disk-capacity/write failures are explicit
+service-journal errors; traffic received during disk failure cannot be guaranteed
+captured, while vehicle forwarding continues. Monitor free disk and upload errors.
+No automatic deletion policy is applied to database logs. A corrupt spool file is
+retained for operator recovery; a damaged temporary write fails startup rather
+than silently dropping the event. Inspect it before removing or repairing it.
+`API_TIMEOUT_MS` defaults to 5000; upload retry backoff is capped at 30 seconds.
+Messages over 8192 bytes are stored as bounded diagnostic fragments, not positions.
+
     Tracker --mobile data/TCP--> gateway --HTTPS--> MMS API --> Postgres --> dashboard
 
 ## Why a gateway?
@@ -25,8 +59,10 @@ confirm it against your device (see Capturing below) before trusting the dashboa
 
 ## Running
 
+    pnpm --filter @mms/shared build          # required on a fresh checkout
     pnpm --filter @mms/gps-gateway dev        # watch mode
-    pnpm --filter @mms/gps-gateway build && pnpm --filter @mms/gps-gateway start
+    pnpm --filter @mms/gps-gateway... build
+    pnpm --filter @mms/gps-gateway start
 
 Test the pipeline against an isolated development API/database:
 
@@ -53,8 +89,20 @@ Point the tracker at that port, let it report for a few minutes, and inspect
 
 Full runbook with copy-paste commands: [`docs/gps-deployment.md`](../../docs/gps-deployment.md) §3.
 
-1. Install Node 20, clone the repo, `pnpm install`, `pnpm --filter @mms/gps-gateway build`.
-2. Copy the build to `/opt/mms/gps-gateway` and create `/opt/mms/gps-gateway/.env`.
+For an existing running `mms-gps-gateway` service, use the pinned-commit update
+command in that runbook's **Ops** section. The updater preserves the current
+configuration and source checkout, builds a separate portable release, forces a
+persistent spool path, and restores the previous service configuration if startup
+fails. Deploy the API migration first, then verify a new real packet in MMS.
+
+1. Install Node 22, clone the repo, run `pnpm install --frozen-lockfile`, then
+   `pnpm --filter @mms/gps-gateway... build` to build the shared runtime dependency too.
+2. Run directly from the built workspace as in the linked runbook. For the provided
+   `/opt/mms/gps-gateway` unit, first create a portable release with
+   `pnpm --filter @mms/gps-gateway deploy --prod --legacy <new-empty-release-directory>`.
+   Copy the entire release, including `node_modules`, to `/opt/mms/gps-gateway` and
+   configure its `.env` separately. Copying only `dist` misses runtime dependencies.
+   The package file allowlist excludes local `.env` files from the release.
 3. Install the unit: `cp deploy/gps-gateway.service /etc/systemd/system/` then
    `systemctl enable --now gps-gateway`.
 4. Open the TCP port with a VPC firewall rule scoped to the instance's network tag
@@ -76,13 +124,13 @@ power the device, then send these SMS messages to the SIM
 (default password is `0000` on most units — check your device's manual, commands vary
 by firmware):
 
-| Purpose | SMS |
-| --- | --- |
-| Read configuration / device ID | `RCONF` |
-| Set the APN | `8030000 <apn>` |
-| Point it at the gateway | `8040000 <gateway-public-ip> 5013` |
-| Ignition-on reporting interval | `8050000 30` |
-| Ignition-off reporting interval | `8090000 180` |
+| Purpose                         | SMS                                |
+| ------------------------------- | ---------------------------------- |
+| Read configuration / device ID  | `RCONF`                            |
+| Set the APN                     | `8030000 <apn>`                    |
+| Point it at the gateway         | `8040000 <gateway-public-ip> 5013` |
+| Ignition-on reporting interval  | `8050000 30`                       |
+| Ignition-off reporting interval | `8090000 180`                      |
 
 Then register the reported **device ID** in the MMS Trackers admin screen and assign it to a
 vehicle. Confirm with `journalctl -u gps-gateway -f` that frames arrive and forward.

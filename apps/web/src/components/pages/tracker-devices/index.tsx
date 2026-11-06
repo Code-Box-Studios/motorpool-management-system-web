@@ -39,7 +39,8 @@ const COLUMNS: { label: string; width: string; sortKey?: string }[] = [
   { label: 'SIM Number', width: 'w-32', sortKey: 'simNumber' },
   { label: 'Status', width: 'w-24', sortKey: 'status' },
   { label: 'Connectivity', width: 'w-24' },
-  { label: 'Last Seen', width: 'w-32', sortKey: 'lastSeenAt' }
+  { label: 'Last Seen', width: 'w-32', sortKey: 'lastSeenAt' },
+  { label: 'Packets', width: 'w-24' }
 ];
 
 const FILTER_KEYS = ['status', 'assignment'] as const;
@@ -93,12 +94,21 @@ const TrackerDevices = () => {
         title="Tracker Devices"
         description="Register, assign, and decommission GPS tracker devices."
         action={
-          <Link
-            to="/tracker-devices/add-device"
-            className={cn(buttonVariants())}
-          >
-            Register Device
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/tracker-logs"
+              search={{}}
+              className={cn(buttonVariants({ variant: 'outline' }))}
+            >
+              Tracker Logs
+            </Link>
+            <Link
+              to="/tracker-devices/add-device"
+              className={cn(buttonVariants())}
+            >
+              Register Device
+            </Link>
+          </div>
         }
       />
 
@@ -188,6 +198,16 @@ const TrackerDevices = () => {
                           {device.lastSeenAt
                             ? new Date(device.lastSeenAt).toLocaleString()
                             : 'Never'}
+                        </TableCell>
+                        <TableCell>
+                          <Link
+                            to="/tracker-logs"
+                            search={{ deviceId: device.imei }}
+                            aria-label={`View packet logs for ${device.imei}`}
+                            className="text-sm font-medium hover:underline"
+                          >
+                            View logs
+                          </Link>
                         </TableCell>
                       </TableRow>
                     ))

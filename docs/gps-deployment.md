@@ -2,10 +2,10 @@
 
 Deploy real trackers through the gateway. The simulator is an optional development tool for an isolated test API/database.
 
-| Workflow | What it proves | Needs | Time |
-|---|---|---|---|
-| **Development simulator** | Gateway → API path in an isolated environment | Laptop + repo + test API/database | ~15 min |
-| **Real hardware** | Live compatible trackers in vehicles | Google Cloud VM + tracker + SIM | ~half a day |
+| Workflow                  | What it proves                                | Needs                             | Time        |
+| ------------------------- | --------------------------------------------- | --------------------------------- | ----------- |
+| **Development simulator** | Gateway → API path in an isolated environment | Laptop + repo + test API/database | ~15 min     |
+| **Real hardware**         | Live compatible trackers in vehicles          | Google Cloud VM + tracker + SIM   | ~half a day |
 
 ```mermaid
 flowchart LR
@@ -45,7 +45,7 @@ Run the gateway on your laptop against a development API/database. Simulated poi
 
 **✓ Verify:** the assigned test vehicle moves on the development map within ~10 s.
 
-> Registered the device *after* starting the gateway? Restart the gateway — it caches "unknown device" answers for 5 minutes.
+> Registered the device _after_ starting the gateway? Restart the gateway — it caches "unknown device" answers for 5 minutes.
 
 ---
 
@@ -53,7 +53,7 @@ Run the gateway on your laptop against a development API/database. Simulated poi
 
 The tracker dials a public IP over TCP, so the gateway moves to a Google Cloud e2-micro VM. **The ST-901 is 2G-only** — confirm 2G coverage with your telco first (ST-901L is the 4G variant).
 
-**What this costs.** The `e2-micro` is Always Free (forever, no trial needed) *provided* it runs in `us-west1`, `us-central1` or `us-east1` on a **standard** persistent disk of 30 GB or less. Pick any other region, or the default *balanced* disk, and you are billed. The one thing Always Free does **not** cover is the external IPv4 address the tracker has to dial: since Feb 2024 that is **$0.005/hour ≈ $3.65/month**. The $300 / 90-day signup credit swallows it (~$11 over the whole trial), so budget the decision for the 90-day mark, not for now.
+**What this costs.** The `e2-micro` is Always Free (forever, no trial needed) _provided_ it runs in `us-west1`, `us-central1` or `us-east1` on a **standard** persistent disk of 30 GB or less. Pick any other region, or the default _balanced_ disk, and you are billed. The one thing Always Free does **not** cover is the external IPv4 address the tracker has to dial: since Feb 2024 that is **$0.005/hour ≈ $3.65/month**. The $300 / 90-day signup credit swallows it (~$11 over the whole trial), so budget the decision for the 90-day mark, not for now.
 
 US-region latency is irrelevant here — the device sends a small packet every 10–30 s.
 
@@ -119,13 +119,15 @@ sudo corepack enable
 git clone https://github.com/Code-Box-Studios/motorpool-management-system-web.git
 cd motorpool-management-system-web
 pnpm install --frozen-lockfile
-pnpm --filter @mms/gps-gateway build
+pnpm --filter @mms/gps-gateway... build
 
 cat > apps/gps-gateway/.env <<'EOF'
 GATEWAY_TCP_PORT=5013
 MMS_API_URL=https://YOUR-API.onrender.com
 GPS_DEVICE_API_KEY=THE-SECRET-FROM-STEP-0
 SPEED_UNIT=knots
+PACKET_LOG_DIR=/var/lib/mms-gps-gateway
+PACKET_LOG_MAX_BYTES=268435456
 EOF
 ```
 
@@ -144,6 +146,8 @@ Wants=network-online.target
 User=$USER
 WorkingDirectory=$HOME/motorpool-management-system-web/apps/gps-gateway
 ExecStart=/usr/bin/node dist/main.js
+StateDirectory=mms-gps-gateway
+Environment=PACKET_LOG_DIR=/var/lib/mms-gps-gateway
 Restart=always
 RestartSec=5
 
@@ -155,6 +159,21 @@ sudo systemctl enable --now mms-gps-gateway
 ```
 
 **✓ Verify:** `journalctl -u mms-gps-gateway -f` shows `GPS gateway listening on tcp/5013`.
+
+Apply the API packet-log migration and deploy API/frontend before updating the gateway.
+The dependency-inclusive build above generates `@mms/shared/dist` as well as the
+gateway. This service runs inside the built workspace; do not copy its `dist` folder
+alone. For a portable release, follow the gateway README and preserve the packaged
+`node_modules`. Configure `.env` separately; local environment files are excluded
+from the release.
+
+`StateDirectory` creates a persistent spool owned by the service user. Monitor
+`journalctl` for capacity/write or upload errors; the spool is bounded at 256 MiB
+and must survive source updates. Administrators can inspect received packets under
+**Tracker Devices → Tracker Logs**, including unregistered devices and invalid
+fixes. Logging starts only after this gateway version is running. Historical
+rejected traffic cannot be reconstructed. A disk failure is explicitly reported
+and cannot guarantee capture; no database retention deletion is enabled.
 
 ### 3.4 Smoke test from your laptop
 
@@ -168,12 +187,12 @@ pnpm --filter @mms/gps-gateway simulate 1234567890 VM_IP 5013
 
 Insert the SIM (has load + data, tested in a phone), power the device on 12 V. Default password `0000`; each accepted command replies **SET OK**.
 
-| Purpose | SMS | Notes |
-|---|---|---|
-| APN | `8030000 <apn>` | from your telco; with credentials: `8030000 <apn> <user> <pass>` |
-| Server | `8040000 VM_IP 5013` | space-separated |
-| Interval, ignition ON | `8050000 20` | seconds — default fine |
-| Interval, ignition OFF | `8090000 300` | seconds — default fine |
+| Purpose                | SMS                  | Notes                                                            |
+| ---------------------- | -------------------- | ---------------------------------------------------------------- |
+| APN                    | `8030000 <apn>`      | from your telco; with credentials: `8030000 <apn> <user> <pass>` |
+| Server                 | `8040000 VM_IP 5013` | space-separated                                                  |
+| Interval, ignition ON  | `8050000 20`         | seconds — default fine                                           |
+| Interval, ignition OFF | `8090000 300`        | seconds — default fine                                           |
 
 Take the tracker outdoors; first GPS fix can take minutes.
 
@@ -191,22 +210,32 @@ H02 trackers often send a device ID that is **not** the full IMEI — read it, d
 
 ## Troubleshooting
 
-| Workflow | Symptom | Fix |
-|---|---|---|
-| any | Ingest returns 500 `GPS_NOT_CONFIGURED` | `GPS_DEVICE_API_KEY` not set on Render |
-| any | Gateway logs "unregistered/unassigned" | Register the exact logged ID, then restart the gateway (5-min cache) |
-| any | Forwarder errors / retries | Check `MMS_API_URL`, the private gateway/API key, and API availability |
-| 3 | No SMS reply from tracker | SIM lacks load/SMS or device unpowered — test SIM in a phone |
-| 3 | SET OK but nothing reaches the VM | Wrong APN, no data plan, or no 2G coverage; re-test port with the simulator from a phone hotspot |
-| 3 | `systemd` unit fails instantly on GCP | The unit was written with a quoted heredoc, so `User=` is the literal `$USER`. Rewrite it with unquoted `EOF` (3.3) — your GCP login is not `ubuntu` |
-| 3 | Trackers stopped reporting after a VM restart | The VM took an ephemeral IP instead of the reserved one. Confirm with `gcloud compute addresses list`; if it says `RESERVED` rather than `IN_USE`, attach it and re-send the `8040000` SMS to every device |
-| 3 | Unexpected GCP charges | Wrong region (must be `us-west1`/`us-central1`/`us-east1`) or a *balanced* boot disk instead of `pd-standard`. The ~$3.65/month external-IP charge is expected and is not covered by Always Free |
-| 3 | `dropping void fix` forever | No GPS lock — outdoors, wait minutes |
-| 3 | Speeds ~2× off | Flip `SPEED_UNIT` between `knots` and `kmh`, restart |
-| 3 | Online dot flaps while device reports | Known quirk: last-seen refreshes only on cache misses (≤5-min lag). Trust the map |
+| Workflow | Symptom                                       | Fix                                                                                                                                                                                                        |
+| -------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| any      | Ingest returns 500 `GPS_NOT_CONFIGURED`       | `GPS_DEVICE_API_KEY` not set on Render                                                                                                                                                                     |
+| any      | Gateway logs "unregistered/unassigned"        | Register the exact logged ID, then restart the gateway (5-min cache)                                                                                                                                       |
+| any      | Forwarder errors / retries                    | Check `MMS_API_URL`, the private gateway/API key, and API availability                                                                                                                                     |
+| 3        | No SMS reply from tracker                     | SIM lacks load/SMS or device unpowered — test SIM in a phone                                                                                                                                               |
+| 3        | SET OK but nothing reaches the VM             | Wrong APN, no data plan, or no 2G coverage; re-test port with the simulator from a phone hotspot                                                                                                           |
+| 3        | `systemd` unit fails instantly on GCP         | The unit was written with a quoted heredoc, so `User=` is the literal `$USER`. Rewrite it with unquoted `EOF` (3.3) — your GCP login is not `ubuntu`                                                       |
+| 3        | Trackers stopped reporting after a VM restart | The VM took an ephemeral IP instead of the reserved one. Confirm with `gcloud compute addresses list`; if it says `RESERVED` rather than `IN_USE`, attach it and re-send the `8040000` SMS to every device |
+| 3        | Unexpected GCP charges                        | Wrong region (must be `us-west1`/`us-central1`/`us-east1`) or a _balanced_ boot disk instead of `pd-standard`. The ~$3.65/month external-IP charge is expected and is not covered by Always Free           |
+| 3        | `dropping void fix` forever                   | No GPS lock — outdoors, wait minutes                                                                                                                                                                       |
+| 3        | Speeds ~2× off                                | Flip `SPEED_UNIT` between `knots` and `kmh`, restart                                                                                                                                                       |
+| 3        | Online dot flaps while device reports         | Known quirk: last-seen refreshes only on cache misses (≤5-min lag). Trust the map                                                                                                                          |
 
 ## Ops
 
 - Logs: `journalctl -u mms-gps-gateway -f`
-- Update: `cd ~/motorpool-management-system-web && git pull && pnpm install --frozen-lockfile && pnpm --filter @mms/gps-gateway build && sudo systemctl restart mms-gps-gateway`
+- Update the existing gateway only after the matching API release is live. The updater builds a separate release, preserves the existing `.env` and source edits, installs persistent spool settings, and restores the previous service configuration if startup fails. It does not send simulated tracker traffic. Run this in Cloud Shell, replacing the SHA with the full verified release commit:
+
+  ```bash
+  MMS_RELEASE_SHA=<full-40-character-commit-SHA>
+  gcloud compute ssh mms-gps-gateway \
+    --project=um-mms-gps \
+    --zone=us-central1-a \
+    --command="bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Code-Box-Studios/motorpool-management-system-web/$MMS_RELEASE_SHA/apps/gps-gateway/deploy/update-existing.sh | bash -s -- $MMS_RELEASE_SHA'"
+  ```
+
+  The SSH user must be able to read the current gateway `.env` and use `sudo`. The script expects an active `mms-gps-gateway` service and Node 20 or later. A successful command confirms the service and listener; also verify that a new real tracker packet appears in MMS **Packet Logs**. Previous rejected traffic is unavailable. Closing Cloud Shell leaves the systemd service running.
 - Costs: everything free except SIM data (a few MB/day per tracker).

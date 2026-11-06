@@ -158,7 +158,7 @@ This restarts the shared service, so existing trackers may briefly reconnect as 
 
 1. Keep the tracker powered and allow up to three minutes for its next report.
 2. Refresh **Trackers**. Confirm the correct vehicle assignment, **Active** status, and a recent **Last Seen** value.
-3. Open **GPS Map** and select the vehicle. Confirm its position matches the car's actual location and its **Last update** timestamp advances.
+3. Open **GPS Map** and select the vehicle. Confirm its position matches the car's actual location. Check **Update age**, reported speed and ignition, and tracker connection in the main panel. Positions refresh every five seconds; the hardware must also send reports at the desired interval.
 4. Ask a passenger or helper to monitor a short movement test. Confirm that the marker follows the vehicle and reported speed changes.
 5. Compare ignition information with the car's ACC state. Have the installer check the ACC connection if it is wrong.
 
@@ -167,6 +167,16 @@ Missing telemetry is shown as **Unknown**. A measured speed of `0 km/h` and head
 The app displays timestamps in the viewer's browser timezone. An operator abroad may see a different clock time from an operator in the Philippines.
 
 If speed appears consistently scaled, ask the maintainer to check the gateway's `SPEED_UNIT`. That setting is shared by all connected trackers.
+
+### View a recorded route
+
+Select the vehicle, then choose **Route history**. Use a preset such as **Last hour**, or set **From** and **To** and press **Load route**. Each view covers up to 24 hours, including older dates. **Route start** and **Route end** identify the first and last reports in that period. Lines connect recorded reports; missing intervals remain gaps. The telemetry panel above continues to show the latest report, separate from the historical route.
+
+### Save the tracker's configuration
+
+Open **Trackers**, open the device, then choose **Update from RCONF**. Send `RCONF` by SMS to that device and paste its reply. Its device ID must match the tracker record. Saving records the reported model, firmware, APN, server, reporting intervals, timezone, and supported alarm settings with a date. Passwords, control numbers, and APN credentials are discarded.
+
+**Last confirmed configuration** is a dated snapshot. MMS does not automatically read hardware settings. Request and save a fresh reply after changing them. Saving a reply in MMS does not change the device.
 
 ## Closing browser tabs and keeping tracking running
 

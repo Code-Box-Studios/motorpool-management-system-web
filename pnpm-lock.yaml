@@ -105,6 +105,9 @@ importers:
 
   apps/gps-gateway:
     dependencies:
+      '@mms/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2

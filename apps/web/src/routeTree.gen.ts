@@ -13,6 +13,7 @@ import { Route as PublicRouteImport } from './routes/_public'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
+import { Route as AuthenticatedTrackerLogsRouteImport } from './routes/_authenticated/tracker-logs'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedOrganizationRouteImport } from './routes/_authenticated/organization'
@@ -62,6 +63,12 @@ const PublicLoginRoute = PublicLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => PublicRoute,
 } as any)
+const AuthenticatedTrackerLogsRoute =
+  AuthenticatedTrackerLogsRouteImport.update({
+    id: '/tracker-logs',
+    path: '/tracker-logs',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -243,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/organization': typeof AuthenticatedOrganizationRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/tracker-logs': typeof AuthenticatedTrackerLogsRoute
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/job-order/$id': typeof AuthenticatedJobOrderIdRoute
@@ -277,6 +285,7 @@ export interface FileRoutesByTo {
   '/organization': typeof AuthenticatedOrganizationRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/tracker-logs': typeof AuthenticatedTrackerLogsRoute
   '/login': typeof PublicLoginRoute
   '/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/job-order/$id': typeof AuthenticatedJobOrderIdRoute
@@ -314,6 +323,7 @@ export interface FileRoutesById {
   '/_authenticated/organization': typeof AuthenticatedOrganizationRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/tracker-logs': typeof AuthenticatedTrackerLogsRoute
   '/_public/login': typeof PublicLoginRoute
   '/_authenticated/drivers/$id': typeof AuthenticatedDriversIdRoute
   '/_authenticated/job-order/$id': typeof AuthenticatedJobOrderIdRoute
@@ -350,6 +360,7 @@ export interface FileRouteTypes {
     | '/organization'
     | '/profile'
     | '/reports'
+    | '/tracker-logs'
     | '/login'
     | '/drivers/$id'
     | '/job-order/$id'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/organization'
     | '/profile'
     | '/reports'
+    | '/tracker-logs'
     | '/login'
     | '/drivers/$id'
     | '/job-order/$id'
@@ -420,6 +432,7 @@ export interface FileRouteTypes {
     | '/_authenticated/organization'
     | '/_authenticated/profile'
     | '/_authenticated/reports'
+    | '/_authenticated/tracker-logs'
     | '/_public/login'
     | '/_authenticated/drivers/$id'
     | '/_authenticated/job-order/$id'
@@ -482,6 +495,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof PublicLoginRouteImport
       parentRoute: typeof PublicRoute
+    }
+    '/_authenticated/tracker-logs': {
+      id: '/_authenticated/tracker-logs'
+      path: '/tracker-logs'
+      fullPath: '/tracker-logs'
+      preLoaderRoute: typeof AuthenticatedTrackerLogsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/reports': {
       id: '/_authenticated/reports'
@@ -703,6 +723,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOrganizationRoute: typeof AuthenticatedOrganizationRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedTrackerLogsRoute: typeof AuthenticatedTrackerLogsRoute
   AuthenticatedDriversIdRoute: typeof AuthenticatedDriversIdRoute
   AuthenticatedJobOrderIdRoute: typeof AuthenticatedJobOrderIdRoute
   AuthenticatedMaintenanceIdRoute: typeof AuthenticatedMaintenanceIdRoute
@@ -736,6 +757,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOrganizationRoute: AuthenticatedOrganizationRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedTrackerLogsRoute: AuthenticatedTrackerLogsRoute,
   AuthenticatedDriversIdRoute: AuthenticatedDriversIdRoute,
   AuthenticatedJobOrderIdRoute: AuthenticatedJobOrderIdRoute,
   AuthenticatedMaintenanceIdRoute: AuthenticatedMaintenanceIdRoute,

@@ -1,14 +1,32 @@
 import { Router } from 'express';
-import { USER_ROLES, ingestGpsBodySchema } from '@mms/shared';
+import {
+  USER_ROLES,
+  ingestGpsBodySchema,
+  trackerPacketBodySchema
+} from '@mms/shared';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { requireDeviceKey } from '../../middleware/require-device-key.js';
 import { requireRole } from '../../middleware/require-role.js';
 import { validateBody } from '../../middleware/validate.js';
 import * as controller from './controller.js';
+import { listPacketLogs, uploadPacketLog } from './packet-logs.js';
 
 const ANALYTICS_ROLES = [USER_ROLES.admin, USER_ROLES.evp_operations] as const;
 
 export const gpsRouter = Router();
+
+gpsRouter.post(
+  '/packet-logs',
+  requireDeviceKey,
+  validateBody(trackerPacketBodySchema),
+  uploadPacketLog
+);
+gpsRouter.get(
+  '/packet-logs',
+  requireAuth,
+  requireRole(USER_ROLES.admin),
+  listPacketLogs
+);
 
 // Device-key auth, NOT requireAuth. Auth runs BEFORE body validation.
 gpsRouter.post(

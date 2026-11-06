@@ -17,6 +17,7 @@ export const gpsHistoryQuerySchema = z.object({
   tripId: z.string().uuid().optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
+  cursor: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(5000).default(500)
 });
 export type GpsHistoryQuery = z.infer<typeof gpsHistoryQuerySchema>;

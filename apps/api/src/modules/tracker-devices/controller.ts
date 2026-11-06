@@ -1,7 +1,8 @@
 import type { Request, Response } from 'express';
 import type {
   CreateTrackerDeviceBody,
-  UpdateTrackerDeviceBody
+  UpdateTrackerDeviceBody,
+  UpdateTrackerConfigurationBody
 } from '@mms/shared';
 import {
   resolveDeviceQuerySchema,
@@ -38,6 +39,10 @@ export async function update(req: Request, res: Response): Promise<void> {
       req.body as UpdateTrackerDeviceBody
     )
   );
+}
+
+export async function updateConfiguration(req: Request, res: Response): Promise<void> {
+  res.json(await service.updateConfiguration(requireIdParam(req), req.body as UpdateTrackerConfigurationBody));
 }
 
 export async function remove(req: Request, res: Response): Promise<void> {

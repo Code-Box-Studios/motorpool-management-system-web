@@ -3,9 +3,12 @@ import type {
   CreateTrackerDeviceBody,
   ResolveDeviceResponse,
   TrackerDevicesListQuery,
-  UpdateTrackerDeviceBody
+  UpdateTrackerDeviceBody,
+  UpdateTrackerConfigurationBody,
+  TrackerConfiguration
 } from '@mms/shared';
-import type { Prisma } from '@prisma/client';
+import { parseTrackerRconfReply } from '@mms/shared';
+import { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
@@ -98,7 +101,45 @@ export async function update(id: string, body: UpdateTrackerDeviceBody) {
   if (nextStatus === 'active' && nextVehicleId) {
     await assertVehicleFree(nextVehicleId, id);
   }
-  return prisma.trackerDevice.update({ where: { id }, data: body });
+  const saved = await prisma.trackerDevice.updateMany({
+    // Do not restore a replaced identifier over another unit's configuration.
+    where: { id, imei: existing.imei },
+    data: {
+      ...body,
+      // A changed identifier names a different unit; its old snapshot no longer applies.
+      ...(body.imei && body.imei !== existing.imei ? { configuration: Prisma.DbNull } : {})
+    }
+  });
+  if (!saved.count) {
+    throw new AppError(409, 'TRACKER_CHANGED', 'The tracker changed. Refresh its details before saving changes.');
+  }
+  return getById(id);
+}
+
+export async function updateConfiguration(id: string, body: UpdateTrackerConfigurationBody) {
+  const device = await getById(id);
+  let settings;
+  try {
+    settings = parseTrackerRconfReply(body.reply);
+  } catch {
+    throw new AppError(400, 'INVALID_TRACKER_CONFIGURATION', 'Paste a valid ST-901 RCONF reply with its device ID and settings.');
+  }
+  if (settings.deviceId !== device.imei) {
+    throw new AppError(400, 'TRACKER_ID_MISMATCH', 'The RCONF device ID does not match this registered tracker.');
+  }
+  const configuration: TrackerConfiguration = {
+    ...settings, source: 'rconf', recordedAt: new Date().toISOString()
+  };
+  // Match the identifier again at write time so a concurrent edit cannot attach
+  // one unit's report to a newly registered unit. Store no raw reply or secrets.
+  const saved = await prisma.trackerDevice.updateMany({
+    where: { id, imei: device.imei },
+    data: { configuration: { ...configuration } }
+  });
+  if (!saved.count) {
+    throw new AppError(409, 'TRACKER_CHANGED', 'The tracker changed. Refresh its details before saving configuration.');
+  }
+  return getById(id);
 }
 
 export async function remove(id: string): Promise<void> {

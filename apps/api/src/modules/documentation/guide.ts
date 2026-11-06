@@ -204,6 +204,12 @@ export const gpsGuide: DocumentationGuide = {
                 'The device appears under Trackers with the correct vehicle and Active status.'
             },
             {
+              title: 'Save the tracker’s reported settings.',
+              text: 'Open the tracker’s details and choose Update from RCONF. Send RCONF by SMS to that tracker, paste its reply, and save. The reply’s device ID must match this record.',
+              expected:
+                'Last confirmed configuration shows its model, server, reporting intervals, and the date the reply was saved. Passwords and personal control numbers are discarded. This does not change the tracker’s settings.'
+            },
+            {
               title: 'Ask support to refresh the server’s device lookup.',
               text: 'Support can restart the existing GPS service using the command in the technical chapter. Existing trackers may briefly reconnect as well.'
             }
@@ -240,7 +246,7 @@ export const gpsGuide: DocumentationGuide = {
             },
             {
               title: 'Check the actual location.',
-              text: 'Open GPS Map and select the vehicle. Compare the marker with the car’s real location. Watch the Last update time.',
+              text: 'Open GPS Map and select the vehicle. Compare the marker with the car’s real location. The main panel shows position, reported speed and ignition, tracker connection, and Update age. Positions refresh every 5 seconds while this view is open; the tracker must also send reports at the desired interval.',
               expected:
                 'The marker is in the right place and its update time advances.'
             },
@@ -253,6 +259,12 @@ export const gpsGuide: DocumentationGuide = {
             {
               title: 'Compare ignition information.',
               text: 'Compare the reported ignition state with the car’s actual ignition. If they disagree, ask the electrician to check the ACC, or ignition-sensing, connection.'
+            },
+            {
+              title: 'Review a recorded route.',
+              text: 'Choose Route history for the selected vehicle. Use Last hour or another preset, or choose From and To and press Load route. Each view covers up to 24 hours; you can select older dates. Route start and Route end show the first and last reports in that period.',
+              expected:
+                'The map shows recorded positions. Lines connect reports, and missing intervals remain gaps. The telemetry panel above still shows the latest report, separate from the historical route.'
             }
           ]
         },
@@ -270,7 +282,7 @@ export const gpsGuide: DocumentationGuide = {
             ],
             ['Last Seen', 'When MMS last heard from the tracker.'],
             [
-              'Last update / position time',
+              'Update age / position time',
               'When the displayed GPS position was recorded. An old position is not a current location.'
             ],
             [
@@ -290,6 +302,12 @@ export const gpsGuide: DocumentationGuide = {
         {
           kind: 'text',
           text: 'MMS shows timestamps in your browser’s timezone. An operator abroad may see a different clock time from an operator in the Philippines. The times can still refer to the same report.'
+        },
+        {
+          kind: 'callout',
+          tone: 'info',
+          title: 'Saved configuration is a dated record.',
+          text: 'The tracker does not send its full configuration with each position. Request a fresh RCONF reply and update its details after changing hardware settings. Online status and location reports do not confirm those settings.'
         },
         { kind: 'link', label: 'Open GPS Map', href: '/gps-map' }
       ]

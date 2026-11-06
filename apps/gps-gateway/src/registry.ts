@@ -25,21 +25,37 @@ export function createRegistry(config: GatewayConfig): Registry {
       const url = `${config.apiUrl}/api/tracker-devices/resolve?deviceId=${encodeURIComponent(deviceId)}`;
       let response: Response;
       try {
-        response = await fetch(url, { headers: { 'x-device-api-key': config.deviceApiKey } });
-      } catch {
-        return null; // network blip — do not cache
+        response = await fetch(url, {
+          headers: { 'x-device-api-key': config.deviceApiKey },
+          signal: AbortSignal.timeout(config.apiTimeoutMs)
+        });
+      } catch (error) {
+        throw new Error('Device resolution request failed', { cause: error });
       }
 
       if (response.status === 404) {
         // Unknown / inactive / unassigned: a stable "no" worth caching.
-        cache.set(deviceId, { vehicleId: null, expiresAt: Date.now() + config.registryCacheTtlMs });
+        cache.set(deviceId, {
+          vehicleId: null,
+          expiresAt: Date.now() + config.registryCacheTtlMs
+        });
         return null;
       }
-      if (!response.ok) return null; // 401/500 — misconfiguration or outage; do not cache
+      if (!response.ok) {
+        throw new Error(`Device resolution HTTP ${response.status}`);
+      }
 
       const body = (await response.json()) as { vehicleId?: unknown };
-      const vehicleId = typeof body.vehicleId === 'string' ? body.vehicleId : null;
-      cache.set(deviceId, { vehicleId, expiresAt: Date.now() + config.registryCacheTtlMs });
+      if (typeof body.vehicleId !== 'string' || !body.vehicleId) {
+        throw new Error(
+          'Device resolution returned an invalid vehicle assignment'
+        );
+      }
+      const vehicleId = body.vehicleId;
+      cache.set(deviceId, {
+        vehicleId,
+        expiresAt: Date.now() + config.registryCacheTtlMs
+      });
       return vehicleId;
     }
   };

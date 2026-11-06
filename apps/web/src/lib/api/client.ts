@@ -35,6 +35,7 @@ export class ApiError extends Error {
 }
 
 interface RequestOpts {
+  signal?: AbortSignal;
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   json?: unknown; // JSON body
   formData?: FormData; // multipart body (takes precedence over json)
@@ -112,6 +113,7 @@ async function raw(path: string, opts: RequestOpts): Promise<Response> {
     bodyInit = JSON.stringify(opts.json);
   }
   return fetch(buildUrl(path, opts.query), {
+    signal: opts.signal,
     method: opts.method ?? 'GET',
     credentials: 'include',
     headers,

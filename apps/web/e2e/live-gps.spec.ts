@@ -160,8 +160,9 @@ test('map tracker connection refreshes while the page stays open', async ({
   page
 }) => {
   await page.clock.install();
-  await servePoint(page);
   const old = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  // Keep the position old so only registry contact drives connection changes.
+  await servePoint(page, { createdAt: old });
   let offline = false;
   await page.route('**/api/tracker-devices?**', (route) =>
     route.fulfill({
@@ -234,7 +235,9 @@ test('a forbidden tracker read stays unknown without polling the denied endpoint
   page
 }) => {
   await page.clock.install();
-  await servePoint(page);
+  await servePoint(page, {
+    createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  });
   let calls = 0;
   await page.route('**/api/tracker-devices?**', (route) => {
     calls++;

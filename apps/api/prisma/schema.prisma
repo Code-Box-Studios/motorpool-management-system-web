@@ -734,6 +734,33 @@ model GpsSimulationCleanupBackup {
   @@map("gps_simulation_cleanup_backups")
 }
 
+// Observed identity and vehicle snapshots intentionally have no registry FKs.
+model TrackerPacketLog {
+  id           String   @id @db.Uuid
+  revision     Int      @db.SmallInt
+  receivedAt   DateTime @map("received_at") @db.Timestamptz(3)
+  storedAt     DateTime @default(now()) @map("stored_at") @db.Timestamptz(3)
+  connectionId String   @map("connection_id") @db.Uuid
+  peer         String   @db.VarChar(256)
+  deviceId     String?  @map("device_id") @db.VarChar(128)
+  vehicleId    String?  @map("vehicle_id") @db.Uuid
+  messageType  String?  @map("message_type") @db.VarChar(32)
+  kind         String   @db.VarChar(32)
+  outcome      String   @db.VarChar(32)
+  rawHex       String   @map("raw_hex") @db.VarChar(16384)
+  fixTime      DateTime? @map("fix_time") @db.Timestamptz(3)
+  latitude     Float?
+  longitude    Float?
+  speed        Float?
+  heading      Float?
+  ignition     Boolean?
+  reason       String?  @db.VarChar(2000)
+
+  @@index([receivedAt(sort: Desc), id(sort: Desc)])
+  @@index([deviceId, receivedAt(sort: Desc), id(sort: Desc)])
+  @@map("tracker_packet_logs")
+}
+
 model TrackerDevice {
   id         String              @id @default(uuid()) @db.Uuid
   imei       String              @unique
@@ -743,6 +770,7 @@ model TrackerDevice {
   status     TrackerDeviceStatus @default(active)
   lastSeenAt DateTime?           @map("last_seen_at")
   notes      String?
+  configuration Json?           @db.JsonB
   createdAt  DateTime            @default(now()) @map("created_at")
   updatedAt  DateTime            @updatedAt @map("updated_at")
 
