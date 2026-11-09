@@ -11,8 +11,11 @@ interface Features {
   downtimeHours?: number;
 }
 
-function priorityFor(rawScore: number): 'high' | 'medium' | 'low' {
-  if (rawScore >= RISK_THRESHOLDS.high) return 'high';
+function priorityFor(
+  rawScore: number,
+  highThreshold: number
+): 'high' | 'medium' | 'low' {
+  if (rawScore >= highThreshold) return 'high';
   if (rawScore >= RISK_THRESHOLDS.medium) return 'medium';
   return 'low';
 }
@@ -34,11 +37,28 @@ export function computeVehicleRisk(
     MAINT_FREQ_12M: f.maintFreq12m,
     downtime_hours: f.downtimeHours ?? 0
   });
-  const clamped = Math.min(Math.max(rawScore, 0), 1);
+  return buildVehicleRisk(rawScore);
+}
+
+/** Apply display bands to a genuine probability without substituting a score. */
+export function buildVehicleRisk(
+  rawScore: number,
+  highThreshold: number = RISK_THRESHOLDS.high
+) {
+  if (
+    !Number.isFinite(rawScore) ||
+    rawScore < 0 ||
+    rawScore > 1 ||
+    !Number.isFinite(highThreshold) ||
+    highThreshold <= 0 ||
+    highThreshold > 1
+  ) {
+    throw new Error('Invalid predictive probability or threshold');
+  }
   return {
     rawScore,
-    riskScore: Math.round(clamped * 100),
-    priority: priorityFor(rawScore),
+    riskScore: Math.round(rawScore * 100),
+    priority: priorityFor(rawScore, highThreshold),
     usedFallback: false
   };
 }

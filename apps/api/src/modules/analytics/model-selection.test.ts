@@ -1,15 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as forest from '../../lib/ml/random-forest.js';
 import * as decisionTree from '../../lib/ml/client-dt.js';
+import * as logisticRegression from '../../lib/ml/logistic-regression.js';
 import * as repo from './repository.js';
 import { computeVehicleRisk } from '../../lib/ml/risk.js';
 import { associationModel, predictiveMaintenance } from './service.js';
+
+const latestIncidents = vi.hoisted(() => vi.fn());
 
 // The repository opens Prisma connections. Keep inference and artifact loading real;
 // replace only the database boundary with the records those queries return.
 vi.mock('./repository.js', () => ({
   vehiclesWithMaintenance: vi.fn(),
   downtimeHoursByVehicle: vi.fn(),
+  latestIncidentDatesByVehicle: latestIncidents,
   jobOrdersWithSpareParts: vi.fn(),
   allSpareParts: vi.fn()
 }));
@@ -66,6 +70,12 @@ describe('selected maintenance models', () => {
       new Map([
         ['below', 0.5],
         ['above', 1]
+      ])
+    );
+    latestIncidents.mockResolvedValue(
+      new Map([
+        ['below', new Date('2026-10-01T00:00:00Z')],
+        ['above', new Date('2026-10-01T00:00:00Z')]
       ])
     );
     vi.mocked(repo.jobOrdersWithSpareParts).mockResolvedValue([]);
@@ -209,14 +219,83 @@ describe('selected maintenance models', () => {
     }
   );
 
-  it('does not substitute scores for Logistic Regression missing its scaler and feature order', async () => {
+  it('returns unavailable when the Logistic Regression asset cannot be loaded', async () => {
+    vi.spyOn(logisticRegression, 'loadLogisticRegressionModel').mockReturnValue(
+      null
+    );
     await expect(
       predictiveMaintenance(now, 'logistic_regression')
-    ).rejects.toMatchObject({
-      statusCode: 503,
-      code: 'MODEL_UNAVAILABLE',
-      message: expect.stringMatching(/scaler|pipeline/i)
+    ).rejects.toMatchObject({ statusCode: 503, code: 'MODEL_UNAVAILABLE' });
+  });
+
+  it('scores Logistic Regression using all six inputs and the supplied threshold', async () => {
+    const result = await predictiveMaintenance(now, 'logistic_regression');
+    expect(result).toMatchObject({
+      count: 2,
+      riskThreshold: 60,
+      unscoredVehicles: []
     });
+    expect(result.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          vehicleId: 'below',
+          riskScore: 83,
+          priority: 'high',
+          scoringMethod: 'logistic_regression',
+          usedFallback: false
+        }),
+        expect.objectContaining({
+          vehicleId: 'above',
+          riskScore: 83,
+          priority: 'high',
+          scoringMethod: 'logistic_regression',
+          usedFallback: false
+        })
+      ])
+    );
+  });
+
+  it('keeps vehicles with missing incident dates unscored instead of assuming a failure today', async () => {
+    latestIncidents.mockResolvedValue(new Map());
+    const result = await predictiveMaintenance(now, 'logistic_regression');
+    expect(result).toMatchObject({ data: [], count: 0, riskThreshold: 60 });
+    expect(result.unscoredVehicles).toHaveLength(2);
+    expect(result.unscoredVehicles?.map((row) => row.vehicleId).sort()).toEqual(
+      ['above', 'below']
+    );
+    expect(result.unscoredVehicles?.[0]?.reason).toMatch(/incident/i);
+  });
+
+  it('returns available scores alongside vehicles missing incident history', async () => {
+    latestIncidents.mockResolvedValue(
+      new Map([['above', new Date('2026-10-01T00:00:00Z')]])
+    );
+    const result = await predictiveMaintenance(now, 'logistic_regression');
+    expect(result.count).toBe(1);
+    expect(result.data[0]?.vehicleId).toBe('above');
+    expect(result.unscoredVehicles).toEqual([
+      expect.objectContaining({
+        vehicleId: 'below',
+        licensePlate: 'below',
+        reason: expect.stringMatching(/incident/i)
+      })
+    ]);
+  });
+
+  it('does not score invalid manufacture years or future incident dates', async () => {
+    vi.mocked(repo.vehiclesWithMaintenance).mockResolvedValue([
+      { ...vehicle('below'), year: 0 },
+      vehicle('above')
+    ]);
+    latestIncidents.mockResolvedValue(
+      new Map([
+        ['below', new Date('2026-10-01T00:00:00Z')],
+        ['above', new Date('2026-11-01T00:00:00Z')]
+      ])
+    );
+    const result = await predictiveMaintenance(now, 'logistic_regression');
+    expect(result.data).toEqual([]);
+    expect(result.unscoredVehicles).toHaveLength(2);
   });
 
   it('returns live Apriori metadata and an honest empty dataset', async () => {

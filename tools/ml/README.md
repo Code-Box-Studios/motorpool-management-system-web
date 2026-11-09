@@ -38,6 +38,39 @@ The converter accepts only the known pandas/NumPy object classes in these files,
 validates metrics, preserves full precision and rule direction, and records each
 source hash. The normal API build copies these assets into `dist/assets`.
 
+## Supplied Logistic Regression pipeline
+
+`mms_logistic_regression_model.pkl` is the complete supplied scikit-learn 1.8.0
+bundle. Its matching fitted scaler, nonnegative clip transform, six input names,
+and 60% threshold are exported to
+`apps/api/src/assets/logistic_regression_model.json`. The API scores in TypeScript;
+Python and pickle are not runtime dependencies.
+
+Use the pinned packages in `requirements-logreg.txt`, matching the source model:
+
+```sh
+python3 -m venv /tmp/mms-logreg-env
+/tmp/mms-logreg-env/bin/pip install -r tools/ml/requirements-logreg.txt
+/tmp/mms-logreg-env/bin/python tools/ml/export_logreg_json.py
+/tmp/mms-logreg-env/bin/python -m unittest tools/ml/test_export_logreg_json.py
+```
+
+Run pickle inspection/export only in an isolated, network-disabled environment
+with the original model and source mounted read-only. Install dependencies before
+that isolated run. The exporter restricts outer and nested object-array pickle
+globals, validates pipeline/scaler/model equivalence and input order, and records
+the original source hash. These restrictions do not make arbitrary pickle files
+safe to load in the application.
+
+The exporter also creates 2,361 genuine Python pipeline reference probabilities
+at `apps/api/src/lib/ml/fixtures/logistic-regression-parity.json`. API tests compare
+TypeScript output against those values, with float64 precision. Test vectors are
+numeric parity probes, not observed fleet records or accuracy validation.
+
+See `apps/api/src/assets/README.md` for the exact application input mappings,
+missing-history policy, threshold behavior and unresolved training definitions.
+No retraining, synthetic training data, or replacement model is introduced.
+
 ## Why this exists
 
 For a brand-new app with no operating history, training on an **external/borrowed

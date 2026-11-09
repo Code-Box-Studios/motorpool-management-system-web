@@ -76,8 +76,8 @@ export default function MaintenanceModelControls({
                   Random Forest (Default)
                 </SelectItem>
                 <SelectItem value="decision_tree">Decision Tree</SelectItem>
-                <SelectItem value="logistic_regression" disabled>
-                  Logistic Regression (Unavailable)
+                <SelectItem value="logistic_regression">
+                  Logistic Regression
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -131,10 +131,6 @@ export default function MaintenanceModelControls({
             {busy ? 'Running…' : 'Run Model'}
           </Button>
         </div>
-        <p className="text-muted-foreground text-xs">
-          Logistic Regression unavailable: Missing fitted pipeline, scaler, and
-          feature order.
-        </p>
         <p className="text-muted-foreground text-xs" aria-live="polite">
           {changed
             ? 'Run the model to apply your selections.'

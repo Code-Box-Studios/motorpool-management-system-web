@@ -202,6 +202,7 @@ interface PredictiveMaintenanceCardProps {
   priority: MaintenancePriority;
   reason: string;
   predictedDate?: string | null;
+  scoreMode?: 'risk' | 'model';
   kmSinceLastMaint?: number;
   avgDailyKm?: number;
 }
@@ -219,6 +220,7 @@ export const PredictiveMaintenanceCard = ({
   priority,
   reason,
   predictedDate,
+  scoreMode = 'risk',
   kmSinceLastMaint,
   avgDailyKm
 }: PredictiveMaintenanceCardProps) => (
@@ -230,7 +232,9 @@ export const PredictiveMaintenanceCard = ({
         plateNumber={plateNumber}
         badge={
           <Badge variant={PRIORITY[priority].badge}>
-            {PRIORITY[priority].riskLabel}
+            {scoreMode === 'model'
+              ? `${priority[0].toUpperCase()}${priority.slice(1)} score`
+              : PRIORITY[priority].riskLabel}
           </Badge>
         }
       />
@@ -238,7 +242,7 @@ export const PredictiveMaintenanceCard = ({
       <div className="space-y-1.5">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-muted-foreground truncate text-xs">
-            Risk score
+            {scoreMode === 'model' ? 'Model score' : 'Risk score'}
           </span>
           <span className="shrink-0 whitespace-nowrap">
             <span className="text-2xl leading-none font-semibold">
@@ -253,12 +257,14 @@ export const PredictiveMaintenanceCard = ({
       <p className="text-ink-soft text-sm">{reason}</p>
 
       <div className="border-border space-y-2 border-t pt-3">
-        <MaintenanceRow
-          icon={Calendar}
-          iconClassName="text-status-stop-fg"
-          label="Predicted Service"
-          value={formatMaintenanceDate(predictedDate)}
-        />
+        {predictedDate != null && (
+          <MaintenanceRow
+            icon={Calendar}
+            iconClassName="text-status-stop-fg"
+            label="Predicted Service"
+            value={formatMaintenanceDate(predictedDate)}
+          />
+        )}
         {kmSinceLastMaint !== undefined && (
           <MaintenanceRow
             icon={TrendingUp}

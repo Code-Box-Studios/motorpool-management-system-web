@@ -46,6 +46,72 @@ describe('analytics module', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
 
+  it('reads the latest dated incident per vehicle, excluding future and undated records', async () => {
+    const first = await vehicle('available');
+    const second = await vehicle('available');
+    for (const incidentDate of [
+      new Date('2026-09-01'),
+      new Date('2026-10-01'),
+      new Date('2027-01-01'),
+      null
+    ]) {
+      await prisma.jobOrder.create({
+        data: {
+          vehicleId: first.id,
+          branchId: first.branchId!,
+          status: 'pending',
+          incidentDate
+        }
+      });
+    }
+    await prisma.jobOrder.create({
+      data: {
+        vehicleId: second.id,
+        branchId: second.branchId!,
+        status: 'pending'
+      }
+    });
+    const incidents = await repo.latestIncidentDatesByVehicle(
+      new Date('2026-10-25T00:00:00Z')
+    );
+    expect(incidents.get(first.id)).toEqual(new Date('2026-10-01T00:00:00Z'));
+    expect(incidents.has(second.id)).toBe(false);
+  });
+
+  it('serves real Logistic Regression scores and lists vehicles without incident history separately', async () => {
+    const header = await adminHeader();
+    const scored = await vehicle('available', 0);
+    const unknown = await vehicle('available', 0);
+    await prisma.jobOrder.create({
+      data: {
+        vehicleId: scored.id,
+        branchId: scored.branchId!,
+        status: 'pending',
+        incidentDate: new Date()
+      }
+    });
+    const response = await request(app)
+      .get(
+        '/api/analytics/predictive-maintenance?algorithm=logistic_regression'
+      )
+      .set('Authorization', header);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ count: 1, riskThreshold: 60 });
+    expect(response.body.data[0]).toMatchObject({
+      vehicleId: scored.id,
+      scoringMethod: 'logistic_regression',
+      usedFallback: false
+    });
+    expect(response.body.data[0].riskScore).toBeGreaterThan(0);
+    expect(response.body.data[0].riskScore).toBeLessThan(100);
+    expect(response.body.unscoredVehicles).toEqual([
+      expect.objectContaining({
+        vehicleId: unknown.id,
+        reason: expect.stringMatching(/incident/i)
+      })
+    ]);
+  });
+
   it('GET /analytics/dashboard returns status buckets + completedTrips', async () => {
     const header = await adminHeader();
     await vehicle('available');

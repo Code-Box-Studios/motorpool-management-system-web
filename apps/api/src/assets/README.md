@@ -27,8 +27,9 @@ The endpoint accepts `algorithm=random_forest` (default), `decision_tree`, or
 `logistic_regression`. The selected available model drives the main `riskScore`
 and `priority`; `scoringMethod` records that selection and `usedFallback` is
 always false. Missing or invalid selected models return `503 MODEL_UNAVAILABLE`
-without substituting rules or another model. Logistic Regression returns that
-state until its complete fitted pipeline is supplied. Usage-based selection
+without substituting rules or another model. Logistic Regression now loads its
+supplied fitted pipeline export; vehicles with incomplete inputs are listed
+separately without a score. Usage-based selection
 and association algorithms are rejected by this endpoint. Preventive mileage
 and time schedules remain independent of predictive inference.
 
@@ -79,10 +80,47 @@ live computation's integer percentages. Saved results retain their original
 rules and hashes with `source=trained_artifact`. See `tools/ml/README.md` for
 regeneration and provenance checks.
 
-## Not here
+## `logistic_regression_model.json`
 
-The remaining `.pkl` file is archived outside this repo and not wired in:
+Exported from `tools/ml/mms_logistic_regression_model.pkl` (scikit-learn 1.8.0),
+SHA-256 `7c61e80ab26f3ca8fee9725db13e4b8ac240fa2a02687e4976fc397581f06cc2`.
+This new bundle supplies the classifier, matching fitted StandardScaler,
+preprocessing pipeline, ordered feature names, and a 60% score threshold.
+The older `motorpool_logreg_model.pkl` was only a classifier and remains unused.
 
-- `motorpool_logreg_model.pkl` — shipped with no `StandardScaler` and an empty
-  `feature_names_in_` (`n_features_in_` is 6), so the column order needed to
-  use it is unrecorded. Unusable until the client supplies both.
+Runtime inference applies nonnegative clipping, subtracts the saved scaler
+means, divides by its saved scales, then applies the learned binary logistic
+function. All coefficients and scaler parameters retain float64 precision;
+do not apply the Random Forest predictor's float32 conversion here.
+`logistic-regression-parity.json` contains 2,361 reference probabilities from
+actual Python `pipeline.predict_proba`, including clipping and threshold cases.
+Those probes verify numeric equivalence, not predictive accuracy.
+
+Input mappings in MMS are:
+
+| Training input | Application value |
+| --- | --- |
+| `KM_SINCE_LAST_MAINT` | Existing distance-since-service calculation and odometer handling |
+| `AVG_DAILY_KM` | Existing daily-usage calculation from dated service odometers |
+| `MAINT_FREQ_12M` | Count of nonfuture service records in the trailing year |
+| `V_AGE` | UTC reference year minus vehicle model year, clamped to zero |
+| `downtime_hours` | Existing cumulative hours recorded under maintenance in the status audit trail; no recorded hours means zero |
+| `last_failure_days_ago` | Whole elapsed days since the latest nonfuture job-order incident date |
+
+An incident date is a recorded-incident proxy, not confirmation of a mechanical
+failure. The creator has not confirmed these feature definitions/units, target
+class meanings, or the prediction horizon. Class-1 probability is displayed as
+**Model score**, not a dated failure prediction. Validate these definitions with
+the creator before treating scores as validated maintenance predictions.
+
+Vehicles without a usable incident date or model year, or with invalid numeric
+inputs, appear in `unscoredVehicles`. No zero/default incident date, fleet mean,
+or other model replaces unknown history. Available vehicles remain scored when
+other vehicles are unscored. The API includes `riskThreshold: 60`; high score
+starts at the saved 0.60 probability, medium starts at the existing 0.45 display
+boundary. Bands are computed before score rounding. Random Forest and Decision
+Tree retain their existing boundaries and response shapes.
+
+The runtime reads JSON only; loading/exporting pickle is an offline operation.
+The normal build copies this JSON into `dist/assets`. Use the pinned dependency
+set and exporter documented in `tools/ml/README.md` to regenerate it.

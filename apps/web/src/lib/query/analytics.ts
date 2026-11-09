@@ -5,7 +5,7 @@ import type {
 } from '@mms/shared';
 import {
   getDashboardMetrics,
-  getPredictiveMaintenanceData,
+  getPredictiveMaintenanceResult,
   getSparePartsAssociations,
   getSparePartsModel
 } from '@/lib/api/analytics';
@@ -15,17 +15,31 @@ import {
 // components/pages/dashboard/index.tsx).
 const DASHBOARD_QUERY_KEY = ['analytics', 'dashboard'];
 
-// Fetch predictive-maintenance risk assessments for every vehicle.
+// Both hooks cache the complete result; select only changes an observer's view.
+const predictiveMaintenanceOptions = (
+  algorithm: PredictiveMaintenanceAlgorithm,
+  refreshOnChange: boolean
+) => ({
+  queryKey: ['analytics', 'predictive-maintenance', algorithm],
+  queryFn: () => getPredictiveMaintenanceResult(algorithm),
+  staleTime: refreshOnChange ? 0 : 5 * 60 * 1000,
+  refetchOnWindowFocus: !refreshOnChange,
+  retry: refreshOnChange ? false : 3
+});
+
+export const usePredictiveMaintenanceResult = (
+  algorithm: PredictiveMaintenanceAlgorithm = 'random_forest',
+  refreshOnChange = false
+) => useQuery(predictiveMaintenanceOptions(algorithm, refreshOnChange));
+
+// Preserve the array view consumed outside the full model-results panel.
 export const usePredictiveMaintenanceData = (
   algorithm: PredictiveMaintenanceAlgorithm = 'random_forest',
   refreshOnChange = false
 ) => {
   return useQuery({
-    queryKey: ['analytics', 'predictive-maintenance', algorithm],
-    queryFn: () => getPredictiveMaintenanceData(algorithm),
-    staleTime: refreshOnChange ? 0 : 5 * 60 * 1000,
-    refetchOnWindowFocus: !refreshOnChange,
-    retry: refreshOnChange ? false : 3
+    ...predictiveMaintenanceOptions(algorithm, refreshOnChange),
+    select: (result) => result.data
   });
 };
 

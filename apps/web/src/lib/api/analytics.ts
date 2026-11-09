@@ -4,7 +4,7 @@ import type {
   AssociationRule,
   DashboardMetrics,
   PredictiveMaintenanceAlgorithm,
-  RiskAssessment,
+  PredictiveMaintenanceResult,
   SparePartsModelAlgorithm,
   SparePartsModelResult
 } from '@mms/shared';
@@ -18,16 +18,36 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   return api.get<DashboardMetrics>('/analytics/dashboard');
 }
 
-// Fetch predictive-maintenance risk assessments (server-sorted riskScore
-// desc), reshaped into the FE's richer VehicleRiskAssessment display shape.
-export async function getPredictiveMaintenanceData(
+export type PredictiveMaintenanceDisplayResult = Omit<
+  PredictiveMaintenanceResult,
+  'data' | 'unscoredVehicles'
+> & {
+  data: VehicleRiskAssessment[];
+  unscoredVehicles: NonNullable<
+    PredictiveMaintenanceResult['unscoredVehicles']
+  >;
+};
+
+// Keep model metadata alongside the assessments for the full results panel.
+export async function getPredictiveMaintenanceResult(
   algorithm: PredictiveMaintenanceAlgorithm = 'random_forest'
-): Promise<VehicleRiskAssessment[]> {
-  const res = await api.get<{ data: RiskAssessment[]; count: number }>(
+): Promise<PredictiveMaintenanceDisplayResult> {
+  const res = await api.get<PredictiveMaintenanceResult>(
     '/analytics/predictive-maintenance',
     algorithm === 'random_forest' ? undefined : { algorithm }
   );
-  return res.data.map(buildAssessmentFromApi);
+  return {
+    ...res,
+    data: res.data.map((row) => buildAssessmentFromApi(row, algorithm)),
+    unscoredVehicles: res.unscoredVehicles ?? []
+  };
+}
+
+// Preserve the array API used by preventive maintenance and vehicle insights.
+export async function getPredictiveMaintenanceData(
+  algorithm: PredictiveMaintenanceAlgorithm = 'random_forest'
+): Promise<VehicleRiskAssessment[]> {
+  return (await getPredictiveMaintenanceResult(algorithm)).data;
 }
 
 // Fetch spare-parts co-replacement association rules.

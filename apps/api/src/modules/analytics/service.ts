@@ -3,6 +3,7 @@ import type {
   AssociationRulesQuery,
   DashboardMetrics,
   PredictiveMaintenanceAlgorithm,
+  PredictiveMaintenanceResult,
   RiskAssessment,
   SparePartsModelAlgorithm,
   SparePartsModelResult
@@ -15,7 +16,12 @@ import {
 } from '../../lib/ml/client-dt.js';
 import { extractFeatures } from '../../lib/ml/features.js';
 import { assertValidModel, loadModel } from '../../lib/ml/random-forest.js';
-import { computeVehicleRisk } from '../../lib/ml/risk.js';
+import { buildVehicleRisk, computeVehicleRisk } from '../../lib/ml/risk.js';
+import {
+  assertValidLogisticRegressionModel,
+  loadLogisticRegressionModel,
+  predictLogisticRegression
+} from '../../lib/ml/logistic-regression.js';
 import { AppError } from '../../lib/errors.js';
 import * as repo from './repository.js';
 
@@ -82,23 +88,25 @@ export async function dashboard(): Promise<DashboardMetrics> {
 export async function predictiveMaintenance(
   now: Date,
   algorithm: PredictiveMaintenanceAlgorithm = 'random_forest'
-): Promise<{ data: RiskAssessment[]; count: number }> {
-  if (algorithm === 'logistic_regression') {
-    throw new AppError(
-      503,
-      'MODEL_UNAVAILABLE',
-      'Logistic Regression is unavailable: its fitted pipeline, matching scaler, and exact feature order have not been supplied.'
-    );
-  }
-  const model = algorithm === 'decision_tree' ? loadClientModel() : loadModel();
-  if (!model)
+): Promise<PredictiveMaintenanceResult> {
+  const logistic =
+    algorithm === 'logistic_regression' ? loadLogisticRegressionModel() : null;
+  const trees =
+    algorithm === 'logistic_regression'
+      ? null
+      : algorithm === 'decision_tree'
+        ? loadClientModel()
+        : loadModel();
+  if (!logistic && !trees) {
     throw new AppError(
       503,
       'MODEL_UNAVAILABLE',
       'The selected vehicle risk model is unavailable. No substitute score was generated.'
     );
+  }
   try {
-    assertValidModel(model);
+    if (logistic) assertValidLogisticRegressionModel(logistic);
+    else assertValidModel(trees!);
   } catch {
     throw new AppError(
       503,
@@ -106,13 +114,18 @@ export async function predictiveMaintenance(
       'The selected vehicle risk model is invalid. No substitute score was generated.'
     );
   }
-  // Downtime uses existing status-audit hours; its match with the model author's
-  // training definition remains unconfirmed. Vehicles without audits use zero.
-  const [vehicles, downtimeHoursByVehicle] = await Promise.all([
+  const [vehicles, downtimeHoursByVehicle, incidents] = await Promise.all([
     repo.vehiclesWithMaintenance(),
-    repo.downtimeHoursByVehicle(now)
+    repo.downtimeHoursByVehicle(now),
+    logistic
+      ? repo.latestIncidentDatesByVehicle(now)
+      : Promise.resolve(new Map<string, Date>())
   ]);
-  const data = vehicles.map((v) => {
+  const data: RiskAssessment[] = [];
+  const unscoredVehicles: NonNullable<
+    PredictiveMaintenanceResult['unscoredVehicles']
+  > = [];
+  for (const v of vehicles) {
     const downtimeHours = downtimeHoursByVehicle.get(v.id) ?? 0;
     const features = extractFeatures(
       { mileage: v.mileage },
@@ -121,27 +134,78 @@ export async function predictiveMaintenance(
       downtimeHours
     );
     let risk;
-    try {
-      risk = computeVehicleRisk(model, features);
-      if (
-        !Number.isFinite(risk.rawScore) ||
-        risk.rawScore < 0 ||
-        risk.rawScore > 1
+    if (logistic) {
+      const incident = incidents.get(v.id);
+      let reason: string | undefined;
+      if (!Number.isInteger(v.year) || v.year < 1886)
+        reason = 'A valid vehicle model year is needed.';
+      else if (
+        !incident ||
+        !Number.isFinite(incident.getTime()) ||
+        incident > now
       )
-        throw new Error('Invalid model probability');
-    } catch {
-      throw new AppError(
-        503,
-        'MODEL_UNAVAILABLE',
-        'The selected vehicle risk model could not be scored. No substitute score was generated.'
-      );
+        reason =
+          'No usable dated incident is recorded. Verify the vehicle incident history before scoring.';
+      else if (!Object.values(features).every(Number.isFinite))
+        reason =
+          'Recorded mileage or maintenance history cannot supply all model inputs.';
+      if (reason) {
+        unscoredVehicles.push({
+          vehicleId: v.id,
+          make: v.make,
+          model: v.model,
+          licensePlate: v.licensePlate,
+          reason
+        });
+        continue;
+      }
+      // Application mappings: model year → age in years, recorded incident →
+      // elapsed whole days. The creator has not supplied training definitions.
+      const inputs = {
+        KM_SINCE_LAST_MAINT: features.kmSinceLastMaint,
+        AVG_DAILY_KM: features.avgDailyKm,
+        MAINT_FREQ_12M: features.maintFreq12m,
+        V_AGE: Math.max(0, now.getUTCFullYear() - v.year),
+        downtime_hours: downtimeHours,
+        last_failure_days_ago: Math.floor(
+          (now.getTime() - incident!.getTime()) / 86_400_000
+        )
+      };
+      try {
+        risk = buildVehicleRisk(
+          predictLogisticRegression(logistic, inputs),
+          logistic.riskThreshold
+        );
+      } catch {
+        throw new AppError(
+          503,
+          'MODEL_UNAVAILABLE',
+          'The selected vehicle risk model could not be scored. No substitute score was generated.'
+        );
+      }
+    } else {
+      try {
+        risk = computeVehicleRisk(trees, features);
+        if (
+          !Number.isFinite(risk.rawScore) ||
+          risk.rawScore < 0 ||
+          risk.rawScore > 1
+        )
+          throw new Error('Invalid model probability');
+      } catch {
+        throw new AppError(
+          503,
+          'MODEL_UNAVAILABLE',
+          'The selected vehicle risk model could not be scored. No substitute score was generated.'
+        );
+      }
     }
     const crossCheckScore = clientCrossCheckScore({
       KM_SINCE_LAST_MAINT: features.kmSinceLastMaint,
       MAINT_FREQ_12M: features.maintFreq12m,
       downtime_hours: features.downtimeHours
     });
-    return {
+    data.push({
       vehicleId: v.id,
       make: v.make,
       model: v.model,
@@ -156,12 +220,17 @@ export async function predictiveMaintenance(
       scoringMethod: algorithm,
       crossCheckScore,
       crossCheckModel: CLIENT_CROSS_CHECK_MODEL
-    };
-  });
-  // Highest-risk first, matching the FE's computeFleetRiskAssessments (spec §11
-  // — the dashboard's high-risk list depends on this ordering).
+    });
+  }
   data.sort((a, b) => b.riskScore - a.riskScore);
-  return { data, count: data.length };
+  return logistic
+    ? {
+        data,
+        count: data.length,
+        unscoredVehicles,
+        riskThreshold: logistic.riskThreshold * 100
+      }
+    : { data, count: data.length };
 }
 
 export async function associationRules(

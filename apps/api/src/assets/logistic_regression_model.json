@@ -1,0 +1,49 @@
+{
+  "formatVersion": 1,
+  "algorithm": "logistic_regression",
+  "features": [
+    "KM_SINCE_LAST_MAINT",
+    "AVG_DAILY_KM",
+    "MAINT_FREQ_12M",
+    "V_AGE",
+    "downtime_hours",
+    "last_failure_days_ago"
+  ],
+  "classes": [
+    0,
+    1
+  ],
+  "coefficients": [
+    0.17804015930608086,
+    0.24392168359449068,
+    0.30371561908604605,
+    0.06303973906499749,
+    0.16695660933615597,
+    -0.24386483955968175
+  ],
+  "intercept": -0.0023306538403259237,
+  "scaler": {
+    "mean": [
+      35186.30182189652,
+      122.46964258621966,
+      2.048,
+      13.404,
+      5.434868433048971,
+      300.892
+    ],
+    "scale": [
+      48453.0455313737,
+      41.00666071366989,
+      2.077906638903683,
+      8.783665749560374,
+      10.021339995297348,
+      340.8634100867971
+    ]
+  },
+  "clipMin": 0,
+  "riskThreshold": 0.6,
+  "sourceFile": "mms_logistic_regression_model.pkl",
+  "sourceSha256": "7c61e80ab26f3ca8fee9725db13e4b8ac240fa2a02687e4976fc397581f06cc2",
+  "sklearnVersion": "1.8.0",
+  "trainingSamples": 250
+}

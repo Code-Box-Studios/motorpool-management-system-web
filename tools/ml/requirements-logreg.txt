@@ -1,0 +1,5 @@
+# Offline export only. The API loads JSON and does not require Python or pickle.
+numpy==2.5.4
+pandas==2.3.3
+scikit-learn==1.8.0
+joblib==1.5.3

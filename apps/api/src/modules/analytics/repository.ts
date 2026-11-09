@@ -92,3 +92,23 @@ export async function downtimeHoursByVehicle(
   `;
   return new Map(rows.map((r) => [r.vehicle_id, Number(r.downtime_hours)]));
 }
+
+// One grouped read for the fleet; undated and future incidents do not supply a
+// last-failure input. This is a recorded-incident proxy, not a claim that every
+// job order represents a confirmed mechanical failure.
+export async function latestIncidentDatesByVehicle(
+  now: Date
+): Promise<Map<string, Date>> {
+  const rows = await prisma.jobOrder.groupBy({
+    by: ['vehicleId'],
+    where: { incidentDate: { lte: now } },
+    _max: { incidentDate: true }
+  });
+  return new Map(
+    rows.flatMap((row) =>
+      row._max.incidentDate
+        ? [[row.vehicleId, row._max.incidentDate] as const]
+        : []
+    )
+  );
+}

@@ -8,7 +8,10 @@
  * display more than the API returns) and exposes small display helpers.
  */
 
-import type { RiskAssessment } from '@mms/shared';
+import type {
+  PredictiveMaintenanceAlgorithm,
+  RiskAssessment
+} from '@mms/shared';
 
 export interface VehicleRiskAssessment {
   vehicleId: string;
@@ -25,7 +28,7 @@ export interface VehicleRiskAssessment {
   // label a rule-based estimate honestly instead of passing it off as the model.
   usedFallback: boolean;
   lastMaintenanceDate: string | null;
-  predictedFailureDate: string;
+  predictedFailureDate: string | null;
   reason: string;
 }
 
@@ -65,10 +68,13 @@ function buildReason(
  * doesn't return raw maintenance history, so `lastMaintenanceDate` and
  * `predictedFailureDate` are estimates re-derived client-side from the same
  * daily-usage rate the API used to compute the risk score (not exact
- * historical/scheduled dates).
+ * historical/scheduled dates). Logistic Regression supplies no prediction
+ * horizon, so it must not inherit the usage-based service-date estimate.
  */
 export function buildAssessmentFromApi(
-  apiRow: RiskAssessment
+  apiRow: RiskAssessment,
+  algorithm: PredictiveMaintenanceAlgorithm = apiRow.scoringMethod ??
+    'random_forest'
 ): VehicleRiskAssessment {
   const { kmSinceLastMaint, avgDailyKm, maintFreq12m } = apiRow;
 
@@ -89,9 +95,12 @@ export function buildAssessmentFromApi(
   const remainingKm = Math.max(0, DEFAULT_MAINT_INTERVAL_KM - kmSinceLastMaint);
   const daysUntilDue =
     avgDailyKm > 0 ? Math.min(Math.ceil(remainingKm / avgDailyKm), 365) : 30;
-  const predictedFailureDate = new Date(Date.now() + daysUntilDue * MS_PER_DAY)
-    .toISOString()
-    .split('T')[0];
+  const predictedFailureDate =
+    algorithm === 'logistic_regression'
+      ? null
+      : new Date(Date.now() + daysUntilDue * MS_PER_DAY)
+          .toISOString()
+          .split('T')[0];
 
   return {
     vehicleId: apiRow.vehicleId,
@@ -106,7 +115,10 @@ export function buildAssessmentFromApi(
     usedFallback: apiRow.usedFallback,
     lastMaintenanceDate,
     predictedFailureDate,
-    reason: buildReason(kmSinceLastMaint, avgDailyKm, maintFreq12m)
+    reason:
+      algorithm === 'logistic_regression'
+        ? 'Model score from available vehicle history. Review records before planning maintenance.'
+        : buildReason(kmSinceLastMaint, avgDailyKm, maintFreq12m)
   };
 }
 

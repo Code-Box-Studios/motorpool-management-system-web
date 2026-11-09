@@ -41,6 +41,27 @@ export const riskAssessmentSchema = z.object({
 });
 export type RiskAssessment = z.infer<typeof riskAssessmentSchema>;
 
+export const predictiveMaintenanceResultSchema = z.object({
+  data: z.array(riskAssessmentSchema),
+  count: z.number().int().nonnegative(),
+  unscoredVehicles: z
+    .array(
+      z.object({
+        vehicleId: z.string().uuid(),
+        make: z.string(),
+        model: z.string(),
+        licensePlate: z.string(),
+        reason: z.string().min(1)
+      })
+    )
+    .optional(),
+  // Percentage on the same 0–100 scale as riskScore.
+  riskThreshold: z.number().finite().gt(0).lte(100).optional()
+});
+export type PredictiveMaintenanceResult = z.infer<
+  typeof predictiveMaintenanceResultSchema
+>;
+
 export const associationRuleSchema = z.object({
   partA: z.string(),
   partAId: z.string(),

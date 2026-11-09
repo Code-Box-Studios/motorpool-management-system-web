@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
 import {
-  usePredictiveMaintenanceData,
+  usePredictiveMaintenanceResult,
   useSparePartsModel
 } from '@/lib/query/analytics';
 import MaintenanceModelControls from './maintenance-model-controls';
@@ -63,12 +63,15 @@ const PredictiveMaintenance = ({
   const [appliedModels, setAppliedModels] = useState(
     DEFAULT_MAINTENANCE_MODELS
   );
-  const predictionsQuery = usePredictiveMaintenanceData(
+  const predictionsQuery = usePredictiveMaintenanceResult(
     appliedModels.risk,
     !showViewAll
   );
   const partsQuery = useSparePartsModel(appliedModels.parts, !showViewAll);
-  const predictions = predictionsQuery.data;
+  const predictions = predictionsQuery.data?.data;
+  const unscoredVehicles = predictionsQuery.data?.unscoredVehicles ?? [];
+  const riskThreshold = predictionsQuery.data?.riskThreshold;
+  const isLogisticRegression = appliedModels.risk === 'logistic_regression';
   const predictionsLoading = showViewAll
     ? predictionsQuery.isLoading
     : predictionsQuery.isFetching;
@@ -101,6 +104,9 @@ const PredictiveMaintenance = ({
     // `new Date()` as "Invalid Date", and it is only a sort key here anyway.
     lastMaintenance: v.lastMaintenanceDate,
     priority: v.priority,
+    priorityLabel: isLogisticRegression
+      ? `${v.priority[0].toUpperCase()}${v.priority.slice(1)} score`
+      : PRIORITY[v.priority].riskLabel,
     reason: v.reason,
     predictedDate: v.predictedFailureDate
   }));
@@ -122,7 +128,7 @@ const PredictiveMaintenance = ({
             vehicle.vehicleName,
             vehicle.plateNumber,
             vehicle.reason,
-            PRIORITY[vehicle.priority].riskLabel
+            vehicle.priorityLabel
           ])
       );
 
@@ -159,8 +165,9 @@ const PredictiveMaintenance = ({
                           Predictive Maintenance
                         </p>
                         <p className="text-xs">
-                          Uses the selected model's learned probabilities to
-                          assess maintenance risk.
+                          {isLogisticRegression
+                            ? 'Shows the supplied model score. What it predicts and over what period still needs confirmation.'
+                            : "Uses the selected model's learned probabilities to assess maintenance risk."}
                         </p>
                       </div>
                     </TooltipContent>
@@ -174,7 +181,9 @@ const PredictiveMaintenance = ({
                 variant={'p-sm'}
                 className="text-muted-foreground font-normal"
               >
-                Vehicles predicted to need maintenance based on data analysis
+                {isLogisticRegression
+                  ? 'Model scores from available vehicle history'
+                  : 'Vehicles predicted to need maintenance based on data analysis'}
               </Typography>
             </CardTitle>
             {showViewAll && (
@@ -185,6 +194,14 @@ const PredictiveMaintenance = ({
           </div>
         </CardHeader>
         <CardContent>
+          {isLogisticRegression &&
+            !predictionsLoading &&
+            !predictionsQuery.isError &&
+            riskThreshold !== undefined && (
+              <p className="text-muted-foreground mb-4 text-sm">
+                Model threshold: {riskThreshold}%
+              </p>
+            )}
           {!showViewAll && (
             <ListToolbar
               searchControl={
@@ -199,12 +216,14 @@ const PredictiveMaintenance = ({
                   filters={[
                     {
                       key: 'predictiveRisk',
-                      label: 'Risk',
+                      label: isLogisticRegression ? 'Score' : 'Risk',
                       options: (
                         ['high', 'medium', 'low'] as MaintenancePriority[]
                       ).map((priority) => ({
                         value: priority,
-                        label: PRIORITY[priority].riskLabel
+                        label: isLogisticRegression
+                          ? `${priority[0].toUpperCase()}${priority.slice(1)} score`
+                          : PRIORITY[priority].riskLabel
                       }))
                     }
                   ]}
@@ -239,7 +258,13 @@ const PredictiveMaintenance = ({
             </div>
           ) : displayedVehicles.length === 0 ? (
             <EmptyState
-              message="No vehicles currently at risk. All vehicles are well-maintained."
+              message={
+                unscoredVehicles.length > 0 && predictedVehicles.length === 0
+                  ? 'No vehicles could be scored with the available history.'
+                  : isLogisticRegression
+                    ? 'No vehicle model scores to display.'
+                    : 'No vehicles currently at risk. All vehicles are well-maintained.'
+              }
               search={!showViewAll ? search : undefined}
               onClearSearch={clearSearch}
               hasFilters={!showViewAll && hasFilters}
@@ -257,11 +282,40 @@ const PredictiveMaintenance = ({
                   priority={vehicle.priority}
                   reason={vehicle.reason}
                   predictedDate={vehicle.predictedDate}
+                  scoreMode={isLogisticRegression ? 'model' : 'risk'}
                   kmSinceLastMaint={vehicle.kmSinceLastMaint}
                   avgDailyKm={vehicle.avgDailyKm}
                 />
               ))}
             </div>
+          )}
+          {!predictionsLoading &&
+            !predictionsQuery.isError &&
+            unscoredVehicles.length > 0 && (
+              <section
+                aria-label="Unscored vehicles"
+                className="border-border mt-4 space-y-3 rounded-xl border p-4"
+              >
+                <h3 className="text-sm font-medium">
+                  Unable to score ({unscoredVehicles.length})
+                </h3>
+                <ul className="space-y-3 text-sm">
+                  {unscoredVehicles.map((vehicle) => (
+                    <li key={vehicle.vehicleId} className="space-y-1">
+                      <p className="font-medium">
+                        {vehicle.licensePlate} · {vehicle.make} {vehicle.model}
+                      </p>
+                      <p className="text-muted-foreground">{vehicle.reason}</p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          {isLogisticRegression && (
+            <p className="text-muted-foreground mt-4 text-xs">
+              What this score predicts and over what period still needs
+              confirmation. This model does not provide a service date.
+            </p>
           )}
           {appliedModels.risk === 'decision_tree' && (
             <p className="text-muted-foreground mt-4 text-xs">

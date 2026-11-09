@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { chooseFilter } from './filter-controls';
 import { login } from './helpers';
 
-test('defaults to live Apriori and shows unavailable Logistic Regression', async ({
+test('defaults to live Apriori and offers Logistic Regression', async ({
   page
 }) => {
   await login(page, 'admin');
@@ -25,15 +25,12 @@ test('defaults to live Apriori and shows unavailable Logistic Regression', async
   await risk.click();
   await expect(
     page.getByRole('option', {
-      name: 'Logistic Regression (Unavailable)',
+      name: 'Logistic Regression',
       exact: true
     })
-  ).toBeDisabled();
+  ).toBeEnabled();
   await page.keyboard.press('Escape');
   await expect(risk).toBeFocused();
-  await expect(controls).toContainText(
-    'Missing fitted pipeline, scaler, and feature order.'
-  );
   const parts = controls.getByRole('combobox', {
     name: 'Parts algorithm',
     exact: true
