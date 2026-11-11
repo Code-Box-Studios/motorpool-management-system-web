@@ -21,10 +21,16 @@ import {
 } from '@/components/ui/dialog';
 import { formatRef } from '@/lib/utils/reference';
 import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
+import { useListControls } from '@/hooks/use-list-controls';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TripHistoryList } from '../trip-history-list';
+import { driverTripHistory } from '@/lib/utils/trip-history';
 
 const timeOf = (value: string | null | undefined) =>
   value
-    ? new Date(value).toLocaleString(undefined, {
+    ? new Date(value).toLocaleString('en-PH', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
         day: 'numeric',
         month: 'short',
         hour: '2-digit',
@@ -46,6 +52,8 @@ const PAGE_DESCRIPTION =
  */
 const DriverDashboard = () => {
   const { user } = useAuth();
+  const { filters, setFilter } = useListControls(['tripTab']);
+  const tab = filters.tripTab === 'history' ? 'history' : 'active';
   const [qrTicketId, setQrTicketId] = useState<string | null>(null);
   const qrTrigger = useRef<HTMLElement | null>(null);
   const showQr = (ticketId: string) => {
@@ -55,7 +63,12 @@ const DriverDashboard = () => {
 
   useBreadcrumbLabel(PAGE_TITLE);
 
-  const { data: drivers, isLoading: driversLoading } = useAllDrivers();
+  const {
+    data: drivers,
+    isLoading: driversLoading,
+    error: driversError,
+    refetch: reloadDrivers
+  } = useAllDrivers();
   const { data: vehicles } = useAllVehicles();
 
   const currentDriver = useMemo(() => {
@@ -63,8 +76,24 @@ const DriverDashboard = () => {
     return drivers.find((d) => d.userId === user.id) ?? null;
   }, [user?.id, drivers]);
 
-  const { data: tripTicketsData, isLoading: ticketsLoading } =
-    useAllTripTickets(undefined, undefined, currentDriver?.id);
+  const {
+    data: tripTicketsData,
+    isLoading: ticketsLoading,
+    error: ticketsError,
+    refetch: reloadTickets
+  } = useAllTripTickets(undefined, undefined, currentDriver?.id);
+
+  const assignedTickets = useMemo(
+    () =>
+      (tripTicketsData ?? []).filter(
+        (ticket) => ticket.driver_id === currentDriver?.id
+      ),
+    [tripTicketsData, currentDriver?.id]
+  );
+  const history = useMemo(
+    () => driverTripHistory(assignedTickets, currentDriver?.id),
+    [assignedTickets, currentDriver?.id]
+  );
 
   const vehicleOf = (vehicleId: string | null | undefined) =>
     vehicleId ? vehicles?.find((v) => v.id === vehicleId) : undefined;
@@ -83,7 +112,7 @@ const DriverDashboard = () => {
   // cancelled, so without this outer filter their still-`scheduled` rows
   // would keep slipping back in.
   const pairs = useMemo(() => {
-    const openTickets = (tripTicketsData ?? []).filter(
+    const openTickets = assignedTickets.filter(
       (t) =>
         t.status !== TRIP_TICKET_STATUS.CANCELLED &&
         t.status !== TRIP_TICKET_STATUS.DISAPPROVED
@@ -106,13 +135,38 @@ const DriverDashboard = () => {
         new Date(a.date.start_ts).getTime() -
           new Date(b.date.start_ts).getTime()
     );
-  }, [tripTicketsData]);
+  }, [assignedTickets]);
 
   if (driversLoading || ticketsLoading) {
     return (
       <div className="w-full min-w-0">
         <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
         <Skeleton className="h-72 w-full rounded-[24px]" />
+      </div>
+    );
+  }
+
+  if (driversError || ticketsError) {
+    return (
+      <div className="w-full min-w-0">
+        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
+        <div
+          role="alert"
+          className="border-border bg-card space-y-3 rounded-2xl border p-5"
+        >
+          <p className="text-sm">
+            Unable to load your trips. {(driversError ?? ticketsError)?.message}
+          </p>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void reloadDrivers();
+              void reloadTickets();
+            }}
+          >
+            Try again
+          </Button>
+        </div>
       </div>
     );
   }
@@ -153,207 +207,268 @@ const DriverDashboard = () => {
   return (
     <div className="w-full min-w-0">
       <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
-
-      {!next ? (
-        <section className="bg-card border-border rounded-[20px] border p-6 sm:p-10">
-          <div className="bg-muted text-muted-foreground mb-4 flex size-12 items-center justify-center rounded-full">
-            <CalendarDays className="size-6" aria-hidden="true" />
-          </div>
-          <h2 className="text-lg font-semibold">No trips assigned right now</h2>
-          <p className="text-muted-foreground mt-2 max-w-lg text-sm leading-relaxed">
-            Your assigned trips will appear here with their schedule, gate QR
-            and odometer actions.
-          </p>
-        </section>
-      ) : (
-        <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-          <section
-            aria-label={nextLabel}
-            className="bg-card border-border min-w-0 rounded-[20px] border p-5 sm:p-6"
-          >
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-                {nextLabel}
-              </span>
-              <span className="text-muted-foreground font-mono text-xs">
-                {formatRef('TT', next.ticket.ticket_no)}
-              </span>
-            </div>
-            <StatusBadge status={next.ticket.status ?? ''} />
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight break-words sm:text-3xl">
-              {next.ticket.destination || 'Destination not recorded'}
-            </h2>
-            <p className="text-muted-foreground mt-2 text-sm leading-relaxed break-words">
-              {next.ticket.purpose || 'Purpose not recorded'}
-            </p>
-
-            <div className="border-border my-4 flex items-start gap-3 border-y py-3">
-              <CarFront
-                className="text-muted-foreground mt-0.5 size-5 shrink-0"
-                aria-hidden="true"
-              />
-              <div className="min-w-0">
-                <p className="text-muted-foreground text-xs font-medium">
-                  Assigned vehicle
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setFilter('tripTab', value)}
+        className="gap-5"
+      >
+        <TabsList className="h-auto">
+          <TabsTrigger value="active" className="h-11 px-4">
+            Active trips{pairs.length ? ` (${pairs.length})` : ''}
+          </TabsTrigger>
+          <TabsTrigger value="history" className="h-11 px-4">
+            History{history.length ? ` (${history.length})` : ''}
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent
+          value="active"
+          forceMount
+          className="data-[state=inactive]:hidden"
+        >
+          {!next ? (
+            <section className="bg-card border-border rounded-[20px] border p-6 sm:p-10">
+              <div className="bg-muted text-muted-foreground mb-4 flex size-12 items-center justify-center rounded-full">
+                <CalendarDays className="size-6" aria-hidden="true" />
+              </div>
+              <h2 className="text-lg font-semibold">
+                No trips assigned right now
+              </h2>
+              <p className="text-muted-foreground mt-2 max-w-lg text-sm leading-relaxed">
+                Your assigned trips will appear here with their schedule, gate
+                QR and odometer actions.
+              </p>
+            </section>
+          ) : (
+            <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+              <section
+                aria-label={nextLabel}
+                className="bg-card border-border min-w-0 rounded-[20px] border p-5 sm:p-6"
+              >
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+                    {nextLabel}
+                  </span>
+                  <span className="text-muted-foreground font-mono text-xs">
+                    {formatRef('TT', next.ticket.ticket_no)}
+                  </span>
+                </div>
+                <StatusBadge status={next.ticket.status ?? ''} />
+                <h2 className="mt-3 text-2xl font-semibold tracking-tight break-words sm:text-3xl">
+                  {next.ticket.destination || 'Destination not recorded'}
+                </h2>
+                <p className="text-muted-foreground mt-2 text-sm leading-relaxed break-words">
+                  {next.ticket.purpose || 'Purpose not recorded'}
                 </p>
-                <p className="mt-1 text-sm font-semibold break-words">
-                  {nextVehicle
-                    ? `${nextVehicle.make} ${nextVehicle.model}`
-                    : 'Not assigned'}
+
+                <div className="border-border my-4 flex items-start gap-3 border-y py-3">
+                  <CarFront
+                    className="text-muted-foreground mt-0.5 size-5 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-muted-foreground text-xs font-medium">
+                      Assigned vehicle
+                    </p>
+                    <p className="mt-1 text-sm font-semibold break-words">
+                      {nextVehicle
+                        ? `${nextVehicle.make} ${nextVehicle.model}`
+                        : 'Not assigned'}
+                    </p>
+                    {nextVehicle?.license_plate && (
+                      <p className="text-muted-foreground mt-1 font-mono text-sm break-all">
+                        {nextVehicle.license_plate}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <dl className="grid grid-cols-2 gap-4">
+                  {[
+                    { label: 'Departure', value: next.date.start_ts },
+                    { label: 'Expected return', value: next.date.end_ts }
+                  ].map(({ label, value }) => (
+                    <div key={label} className="min-w-0">
+                      <dt className="text-muted-foreground text-xs font-medium">
+                        {label}
+                      </dt>
+                      <dd className="mt-1 text-sm leading-relaxed font-medium">
+                        <time dateTime={value}>{timeOf(value)}</time>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+
+              <section
+                aria-label="Gate and odometer actions"
+                className="bg-card border-border min-w-0 rounded-[20px] border p-5 sm:p-6"
+              >
+                <h2 className="text-lg font-semibold tracking-tight">
+                  {nextIsComplete
+                    ? 'Complete your trip record'
+                    : 'Ready at the gate'}
+                </h2>
+                <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+                  {nextIsComplete
+                    ? 'This outing has returned. Record any missing readings below.'
+                    : !nextApproved
+                      ? 'Awaiting approval. The guard will confirm approval before releasing the vehicle.'
+                      : next.date.status === 'in_progress'
+                        ? 'Show your QR to the guard when you return.'
+                        : 'Show your QR to the guard when leaving and returning.'}
                 </p>
-                {nextVehicle?.license_plate && (
-                  <p className="text-muted-foreground mt-1 font-mono text-sm break-all">
-                    {nextVehicle.license_plate}
+                {!nextIsComplete && (
+                  <Button
+                    onClick={() => showQr(next.ticket.id)}
+                    className="mt-5 min-h-14 w-full rounded-[12px] px-3 py-3 text-base font-semibold whitespace-normal"
+                  >
+                    <QrCode className="size-5 shrink-0" />
+                    Show my QR at the gate
+                  </Button>
+                )}
+                <OdometerActions
+                  ticketId={next.ticket.id}
+                  date={next.date}
+                  approved={nextApproved}
+                />
+                {!nextApproved && (
+                  <p className="text-muted-foreground border-border mt-5 border-t pt-4 text-sm leading-relaxed">
+                    Odometer actions become available after the trip is
+                    approved.
                   </p>
                 )}
-              </div>
-            </div>
-
-            <dl className="grid grid-cols-2 gap-4">
-              {[
-                { label: 'Departure', value: next.date.start_ts },
-                { label: 'Expected return', value: next.date.end_ts }
-              ].map(({ label, value }) => (
-                <div key={label} className="min-w-0">
-                  <dt className="text-muted-foreground text-xs font-medium">
-                    {label}
-                  </dt>
-                  <dd className="mt-1 text-sm leading-relaxed font-medium">
-                    <time dateTime={value}>{timeOf(value)}</time>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-
-          <section
-            aria-label="Gate and odometer actions"
-            className="bg-card border-border min-w-0 rounded-[20px] border p-5 sm:p-6"
-          >
-            <h2 className="text-lg font-semibold tracking-tight">
-              {nextIsComplete
-                ? 'Complete your trip record'
-                : 'Ready at the gate'}
-            </h2>
-            <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-              {nextIsComplete
-                ? 'This outing has returned. Record any missing readings below.'
-                : !nextApproved
-                  ? 'Awaiting approval. The guard will confirm approval before releasing the vehicle.'
-                  : next.date.status === 'in_progress'
-                    ? 'Show your QR to the guard when you return.'
-                    : 'Show your QR to the guard when leaving and returning.'}
-            </p>
-            {!nextIsComplete && (
-              <Button
-                onClick={() => showQr(next.ticket.id)}
-                className="mt-5 min-h-14 w-full rounded-xl px-3 py-3 text-base font-semibold whitespace-normal"
-              >
-                <QrCode className="size-5 shrink-0" />
-                Show my QR at the gate
-              </Button>
-            )}
-            <OdometerActions
-              ticketId={next.ticket.id}
-              date={next.date}
-              approved={nextApproved}
-            />
-            {!nextApproved && (
-              <p className="text-muted-foreground border-border mt-5 border-t pt-4 text-sm leading-relaxed">
-                Odometer actions become available after the trip is approved.
-              </p>
-            )}
-            {nextIsComplete && (
-              <Button
-                variant="outline"
-                onClick={() => showQr(next.ticket.id)}
-                className="mt-4 h-12 w-full"
-              >
-                <QrCode className="size-5" />
-                Show trip QR
-              </Button>
-            )}
-            <Button variant="ghost" className="mt-3 h-12 w-full" asChild>
-              <Link
-                to="/trip-tickets/$id"
-                params={{ id: next.ticket.id }}
-                search={{ viewOnly: true }}
-              >
-                View trip details
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-          </section>
-
-          {later.length > 0 && (
-            <section
-              className="min-w-0 xl:col-span-2"
-              aria-label="Other assigned outings"
-            >
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-semibold">Other assigned outings</h2>
-                <span className="text-muted-foreground text-sm">
-                  {later.length} {later.length === 1 ? 'outing' : 'outings'}
-                </span>
-              </div>
-              <ul className="grid items-stretch gap-5 lg:grid-cols-2">
-                {later.map((pair) => (
-                  <li
-                    key={`${pair.ticket.id}:${pair.date.id}`}
-                    className="bg-card border-border min-w-0 rounded-[20px] border p-5"
+                <div
+                  role="group"
+                  aria-label="Trip actions"
+                  className="border-border mt-5 flex flex-wrap items-center justify-between gap-2 border-t pt-4"
+                >
+                  {nextIsComplete && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => showQr(next.ticket.id)}
+                      className="h-11 rounded-[10px] px-3"
+                    >
+                      <QrCode className="size-5" />
+                      Show trip QR
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    className="h-11 rounded-[10px] px-3"
+                    asChild
                   >
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-muted-foreground font-mono text-xs">
-                        {formatRef('TT', pair.ticket.ticket_no)}
-                      </span>
-                      <StatusBadge status={pair.ticket.status ?? ''} />
-                    </div>
-                    <h3 className="font-semibold break-words">
-                      {pair.ticket.destination || 'Destination not recorded'}
-                    </h3>
-                    <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-                      {pair.date.status === 'completed'
-                        ? 'Returned · '
-                        : pair.date.status === 'in_progress'
-                          ? 'On the road · '
-                          : ''}
-                      {timeOf(pair.date.start_ts)}
-                    </p>
-                    <OdometerActions
-                      ticketId={pair.ticket.id}
-                      date={pair.date}
-                      approved={[
-                        'approved',
-                        'in_progress',
-                        'completed'
-                      ].includes(pair.ticket.status ?? '')}
-                    />
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        className="h-12 px-2"
-                        onClick={() => showQr(pair.ticket.id)}
+                    <Link
+                      to="/trip-tickets/$id"
+                      params={{ id: next.ticket.id }}
+                      search={{ viewOnly: true }}
+                    >
+                      View trip details
+                      <ArrowRight className="size-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </section>
+
+              {later.length > 0 && (
+                <section
+                  className="min-w-0 xl:col-span-2"
+                  aria-label="Other assigned outings"
+                >
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="font-semibold">Other assigned outings</h2>
+                    <span className="text-muted-foreground text-sm">
+                      {later.length} {later.length === 1 ? 'outing' : 'outings'}
+                    </span>
+                  </div>
+                  <ul className="grid items-stretch gap-5 lg:grid-cols-2">
+                    {later.map((pair) => (
+                      <li
+                        key={`${pair.ticket.id}:${pair.date.id}`}
+                        className="bg-card border-border flex min-w-0 flex-col rounded-[20px] border p-5"
                       >
-                        <QrCode className="size-4 shrink-0" />
-                        Show QR
-                      </Button>
-                      <Button variant="ghost" className="h-12 px-2" asChild>
-                        <Link
-                          to="/trip-tickets/$id"
-                          params={{ id: pair.ticket.id }}
-                          search={{ viewOnly: true }}
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-muted-foreground font-mono text-xs">
+                            {formatRef('TT', pair.ticket.ticket_no)}
+                          </span>
+                          <StatusBadge status={pair.ticket.status ?? ''} />
+                        </div>
+                        <h3 className="font-semibold break-words">
+                          {pair.ticket.destination ||
+                            'Destination not recorded'}
+                        </h3>
+                        <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+                          {pair.date.status === 'completed'
+                            ? 'Returned · '
+                            : pair.date.status === 'in_progress'
+                              ? 'On the road · '
+                              : ''}
+                          {timeOf(pair.date.start_ts)}
+                        </p>
+                        <OdometerActions
+                          ticketId={pair.ticket.id}
+                          date={pair.date}
+                          approved={[
+                            'approved',
+                            'in_progress',
+                            'completed'
+                          ].includes(pair.ticket.status ?? '')}
+                        />
+                        <div
+                          role="group"
+                          aria-label="Trip actions"
+                          className="border-border mt-auto flex flex-wrap items-center justify-between gap-2 border-t pt-4"
                         >
-                          Trip details
-                        </Link>
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
+                          <Button
+                            variant="secondary"
+                            className="bg-accent text-accent-foreground hover:bg-accent/80 h-11 rounded-[10px] px-3"
+                            onClick={() => showQr(pair.ticket.id)}
+                          >
+                            <QrCode className="size-4 shrink-0" />
+                            Show QR
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="h-11 rounded-[10px] px-3"
+                            asChild
+                          >
+                            <Link
+                              to="/trip-tickets/$id"
+                              params={{ id: pair.ticket.id }}
+                              search={{ viewOnly: true }}
+                            >
+                              Trip details
+                              <ArrowRight
+                                aria-hidden="true"
+                                className="size-4"
+                              />
+                            </Link>
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </div>
           )}
-        </div>
-      )}
+        </TabsContent>
+        <TabsContent
+          value="history"
+          forceMount
+          className="data-[state=inactive]:hidden"
+        >
+          <TripHistoryList
+            entries={history}
+            mode="driver"
+            vehicleLabel={(id) => {
+              const vehicle = vehicleOf(id);
+              return vehicle
+                ? `${vehicle.make} ${vehicle.model} · ${vehicle.license_plate}`
+                : 'Vehicle not available';
+            }}
+          />
+        </TabsContent>
+      </Tabs>
 
       <Dialog
         open={!!qrTicketId}

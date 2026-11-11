@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { ApiError } from '@/lib/api/client';
 import {
   getTripTickets,
   getTripTicketById,
@@ -72,6 +73,19 @@ export const useTripTicket = (id: string) => {
     enabled: !!id
   });
 };
+
+export const useMyGateHistory = (userId?: string) =>
+  useQuery({
+    queryKey: ['trip_tickets', 'gate-history', userId],
+    queryFn: () =>
+      getAllTripTickets(undefined, undefined, undefined, undefined, {
+        scannedByMe: 'true'
+      }),
+    enabled: !!userId,
+    retry: (failureCount, error) =>
+      failureCount < 2 &&
+      !(error instanceof ApiError && error.status >= 400 && error.status < 500)
+  });
 
 // Complete employee roster across branches. Organization edits invalidate the
 // employees prefix, including this picker and the employee list.

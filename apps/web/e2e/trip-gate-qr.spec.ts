@@ -104,8 +104,10 @@ async function fixture(request: APIRequestContext) {
         endTs: new Date(now + 3600000).toISOString(),
         startMileage: null,
         endMileage: null,
-        preTripCheckedAt: null,
-        postTripCheckedAt: null
+        preTripCheckedAt: null as string | null,
+        postTripCheckedAt: null as string | null,
+        preTripCheckedById: null as string | null,
+        postTripCheckedById: null as string | null
       }
     ]
   };
@@ -116,6 +118,7 @@ test('real QR decoding allows confirm, sends one departure and one return, then 
   request
 }) => {
   const base = await fixture(request);
+  const guard = await apiLogin(request, CREDENTIALS.guard);
   const calls: string[] = [];
   await page.setViewportSize({ width: 375, height: 812 });
   await page.route('**/api/trip-tickets?*', (route) =>
@@ -131,6 +134,13 @@ test('real QR decoding allows confirm, sends one departure and one return, then 
       });
       base.status = departure ? 'in_progress' : 'completed';
       base.dates[0]!.status = base.status;
+      if (departure) {
+        base.dates[0]!.preTripCheckedById = guard.user.id;
+        base.dates[0]!.preTripCheckedAt = new Date().toISOString();
+      } else {
+        base.dates[0]!.postTripCheckedById = guard.user.id;
+        base.dates[0]!.postTripCheckedAt = new Date().toISOString();
+      }
       await route.fulfill({ json: base });
     }
   );
@@ -156,6 +166,14 @@ test('real QR decoding allows confirm, sends one departure and one return, then 
   await dialog.getByRole('button', { name: 'Time in', exact: true }).click();
   await expect(page.getByText('No trips waiting at the gate.')).toBeVisible();
   expect(calls).toEqual(['out', 'in']);
+  await page.getByRole('tab', { name: /^History/ }).click();
+  const history = page.getByRole('region', {
+    name: 'My scan history',
+    exact: true
+  });
+  await expect(history.getByRole('article')).toHaveCount(2);
+  await expect(history).toContainText('Departure confirmed');
+  await expect(history).toContainText('Return confirmed');
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth

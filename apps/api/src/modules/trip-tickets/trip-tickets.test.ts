@@ -82,6 +82,91 @@ describe('trip-tickets module', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
 
+  it('filters gate history by the signed-in confirmer across branches and excludes unconfirmed or other-actor stamps', async () => {
+    const s = await scaffold();
+    const guardBranch = await createTestBranch('Guard current branch');
+    const { user: guard } = await createTestUser({
+      email: 'history-guard@test.local',
+      role: 'security_guard',
+      branchId: guardBranch.id
+    });
+    const { user: other } = await createTestUser({
+      email: 'other-history-guard@test.local',
+      role: 'security_guard'
+    });
+    const at = new Date('2026-10-01T08:00:00Z');
+    const create = (
+      destination: string,
+      stamps: {
+        preTripCheckedById?: string;
+        preTripGuardId?: string;
+        preTripCheckedAt?: Date;
+        postTripCheckedById?: string;
+        postTripCheckedAt?: Date;
+      }
+    ) =>
+      prisma.tripTicket.create({
+        data: {
+          branchId: s.branch.id,
+          driverId: s.driver.id,
+          vehicleId: s.vehicle.id,
+          destination,
+          purpose: 'History',
+          dateRequested: at,
+          preparedBy: '',
+          status: 'completed',
+          dates: {
+            create: {
+              startTs: at,
+              endTs: new Date(at.getTime() + 3600000),
+              status: 'completed',
+              ...stamps
+            }
+          }
+        }
+      });
+    const departure = await create('My departure', {
+      preTripCheckedById: guard.id,
+      preTripCheckedAt: at
+    });
+    const returned = await create('My return', {
+      postTripCheckedById: guard.id,
+      postTripCheckedAt: at
+    });
+    const legacy = await create('Legacy confirmation', {
+      preTripGuardId: guard.id,
+      preTripCheckedAt: at
+    });
+    await create('Another guard', {
+      preTripCheckedById: other.id,
+      preTripCheckedAt: at
+    });
+    await create('No confirmation time', { preTripCheckedById: guard.id });
+    await create('Actual confirmer differs', {
+      preTripGuardId: guard.id,
+      preTripCheckedById: other.id,
+      preTripCheckedAt: at
+    });
+    const header = authHeader(
+      guard.id,
+      guard.email,
+      'security_guard',
+      guardBranch.id
+    );
+    const result = await request(app)
+      .get('/api/trip-tickets?scannedByMe=true')
+      .set('Authorization', header);
+    expect(result.status).toBe(200);
+    expect(result.body.count).toBe(3);
+    expect(
+      result.body.data.map((ticket: { id: string }) => ticket.id).sort()
+    ).toEqual([departure.id, returned.id, legacy.id].sort());
+    const spoofed = await request(app)
+      .get(`/api/trip-tickets?scannedByMe=${other.id}`)
+      .set('Authorization', header);
+    expect(spoofed.status).toBe(400);
+  });
+
   it('creates a ticket as pending_admin_approval and reads it back with embeds', async () => {
     const s = await scaffold();
     const { user } = await createTestUser({

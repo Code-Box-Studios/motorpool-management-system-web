@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { CheckCircle2, QrCode } from 'lucide-react';
 import { matchesSearch } from '@mms/shared';
-import { useAllTripTickets } from '@/lib/query/trip-tickets';
+import { useAllTripTickets, useMyGateHistory } from '@/lib/query/trip-tickets';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import { useAllDrivers } from '@/lib/query/drivers';
 import {
@@ -39,6 +39,9 @@ import TableFilters from '@/components/shared/table-filters';
 import TablePagination from '@/components/shared/table-pagination';
 import { formatRef } from '@/lib/utils/reference';
 import type { TripTicket } from '@/lib/types';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TripHistoryList } from '../trip-history-list';
+import { guardScanHistory } from '@/lib/utils/trip-history';
 
 const when = (value: string) =>
   new Date(value).toLocaleString('en-PH', {
@@ -65,7 +68,10 @@ export default function GuardConfirmationPage() {
   const checkOut = useCheckOutTripTicket();
   const checkIn = useCheckInTripTicket();
   const { search, setSearch, filters, setFilter, clearFilters, page, setPage } =
-    useListControls(['gateStatus']);
+    useListControls(['gateStatus', 'gateTab']);
+  const tab = filters.gateTab === 'history' ? 'history' : 'queue';
+  const scanHistory = useMyGateHistory(user?.id);
+  const history = guardScanHistory(scanHistory.data ?? [], user?.id);
   const [ticket, setTicket] = useState<TripTicket | null>(null);
   const [dateId, setDateId] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
@@ -130,234 +136,299 @@ export default function GuardConfirmationPage() {
     <div className="mx-auto w-full max-w-7xl min-w-0 space-y-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Next at gate</h1>
+          <h1 className="text-2xl font-semibold">
+            {tab === 'history' ? 'Gate history' : 'Next at gate'}
+          </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Scan the driver's ticket QR to record departure or return. Drivers
-            record odometers separately.
+            {tab === 'history'
+              ? 'Your confirmed ticket scans for departures and returns.'
+              : "Scan the driver's ticket QR to record departure or return. Drivers record odometers separately."}
           </p>
         </div>
         <dl className="grid grid-cols-2 gap-3 lg:min-w-72">
-          {[
-            [
-              'Ready to depart',
-              atGate.filter((item) => item.status === 'approved').length
-            ],
-            [
-              'Out on trip',
-              atGate.filter((item) => item.status === 'in_progress').length
-            ]
-          ].map(([label, count]) => (
+          {(tab === 'history'
+            ? [
+                [
+                  'Departures confirmed',
+                  history.filter((entry) => entry.status === 'departure').length
+                ],
+                [
+                  'Returns confirmed',
+                  history.filter((entry) => entry.status === 'return').length
+                ]
+              ]
+            : [
+                [
+                  'Ready to depart',
+                  atGate.filter((item) => item.status === 'approved').length
+                ],
+                [
+                  'Out on trip',
+                  atGate.filter((item) => item.status === 'in_progress').length
+                ]
+              ]
+          ).map(([label, count]) => (
             <div
               key={label}
               className="bg-card border-border rounded-2xl border px-4 py-3"
             >
               <dt className="text-muted-foreground text-xs">{label}</dt>
               <dd className="mt-1 text-2xl font-semibold tabular-nums">
-                {isLoading ? '—' : count}
+                {(
+                  tab === 'history'
+                    ? scanHistory.isLoading || scanHistory.isError
+                    : isLoading || !!error
+                )
+                  ? '—'
+                  : count}
               </dd>
             </div>
           ))}
         </dl>
       </div>
-      <Card className="min-w-0">
-        <CardContent className="min-w-0 space-y-4 px-4 sm:px-6 [&_[data-slot=list-toolbar]_button]:min-h-11 [&_[data-slot=list-toolbar]_input]:min-h-11 [&_[data-slot=table-container]]:max-w-full [&>div:last-child_button]:min-h-11">
-          <ListToolbar
-            searchControl={
-              <ListSearchInput
-                value={search}
-                onChange={setSearch}
-                label="Search trips"
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setFilter('gateTab', value)}
+        className="gap-5"
+      >
+        <TabsList className="h-auto">
+          <TabsTrigger value="queue" className="h-11 px-4">
+            At gate
+          </TabsTrigger>
+          <TabsTrigger value="history" className="h-11 px-4">
+            History{history.length ? ` (${history.length})` : ''}
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent
+          value="queue"
+          forceMount
+          className="data-[state=inactive]:hidden"
+        >
+          <Card className="min-w-0">
+            <CardContent className="min-w-0 space-y-4 px-4 sm:px-6 [&_[data-slot=list-toolbar]_button]:min-h-11 [&_[data-slot=list-toolbar]_input]:min-h-11 [&_[data-slot=table-container]]:max-w-full [&>div:last-child_button]:min-h-11">
+              <ListToolbar
+                searchControl={
+                  <ListSearchInput
+                    value={search}
+                    onChange={setSearch}
+                    label="Search trips"
+                  />
+                }
+                filterControl={
+                  <TableFilters
+                    filters={[
+                      {
+                        key: 'gateStatus',
+                        label: 'Gate status',
+                        options: [
+                          { value: 'approved', label: 'Ready to depart' },
+                          { value: 'in_progress', label: 'Out on trip' }
+                        ]
+                      }
+                    ]}
+                    values={filters}
+                    onChange={setFilter}
+                    onClear={clearFilters}
+                  />
+                }
               />
-            }
-            filterControl={
-              <TableFilters
-                filters={[
-                  {
-                    key: 'gateStatus',
-                    label: 'Gate status',
-                    options: [
-                      { value: 'approved', label: 'Ready to depart' },
-                      { value: 'in_progress', label: 'Out on trip' }
-                    ]
-                  }
-                ]}
-                values={filters}
-                onChange={setFilter}
-                onClear={clearFilters}
-              />
-            }
-          />
-          {isLoading ? (
-            <Skeleton className="h-56 w-full" />
-          ) : error ? (
-            <p role="alert">Unable to load gate trips. {error.message}</p>
-          ) : (
-            <>
-              <ul
-                aria-label="Gate trips"
-                className="grid min-w-0 gap-3 sm:grid-cols-2 lg:hidden"
-              >
-                {visibleTickets.map((item) => {
-                  const outing = outingOf(item);
-                  const vehicle = vehicleOf(item.vehicle_id);
-                  return (
-                    <li
-                      key={item.id}
-                      className="border-border bg-background flex min-w-0 flex-col gap-4 rounded-2xl border p-4"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h2 className="font-mono text-sm font-semibold">
-                          {formatRef('TT', item.ticket_no)}
-                        </h2>
-                        <span className="bg-primary/10 text-signal rounded-full px-3 py-1 text-xs font-medium">
-                          {gateLabel(item)}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold break-words">
-                          {vehicle?.license_plate ?? 'Vehicle not assigned'}
-                        </p>
-                        <p className="text-muted-foreground mt-1 text-sm break-words">
-                          {driverOf(item.driver_id)}
-                        </p>
-                      </div>
-                      <dl className="grid min-w-0 gap-3 text-sm">
-                        <div>
-                          <dt className="text-muted-foreground text-xs">
-                            Destination
-                          </dt>
-                          <dd className="mt-1 break-words">
-                            {item.destination}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground text-xs">
-                            Outing window
-                          </dt>
-                          <dd className="mt-1">
-                            {outing ? (
-                              <>
-                                {when(outing.start_ts)}
-                                <span className="text-muted-foreground mt-1 block">
-                                  Return {when(outing.end_ts)}
-                                </span>
-                              </>
-                            ) : (
-                              'No eligible outing today'
-                            )}
-                          </dd>
-                        </div>
-                      </dl>
-                      <Button
-                        className="mt-auto min-h-11 w-full"
-                        disabled={!outing}
-                        onClick={(event) => openScan(item, event.currentTarget)}
-                      >
-                        <QrCode aria-hidden="true" className="size-4" />
-                        {item.status === 'in_progress'
-                          ? 'Scan QR to time in'
-                          : 'Scan QR to time out'}
-                      </Button>
-                    </li>
-                  );
-                })}
-                {filtered.length === 0 && (
-                  <li className="text-muted-foreground col-span-full py-8 text-center text-sm">
-                    {atGate.length === 0
-                      ? 'No trips waiting at the gate.'
-                      : 'No matching trips at the gate.'}
-                  </li>
-                )}
-              </ul>
-              <div className="hidden min-w-0 lg:block">
-                <Table className="min-w-[1000px]">
-                  <TableHeader>
-                    <TableRow>
-                      {[
-                        'Trip ticket',
-                        'Outing window',
-                        'Driver',
-                        'Plate',
-                        'Destination',
-                        'Gate status',
-                        'QR action'
-                      ].map((heading) => (
-                        <TableHead key={heading}>{heading}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              {isLoading ? (
+                <Skeleton className="h-56 w-full" />
+              ) : error ? (
+                <p role="alert">Unable to load gate trips. {error.message}</p>
+              ) : (
+                <>
+                  <ul
+                    aria-label="Gate trips"
+                    className="grid min-w-0 gap-3 sm:grid-cols-2 lg:hidden"
+                  >
                     {visibleTickets.map((item) => {
                       const outing = outingOf(item);
+                      const vehicle = vehicleOf(item.vehicle_id);
                       return (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-mono text-xs">
-                            {formatRef('TT', item.ticket_no)}
-                          </TableCell>
-                          <TableCell>
-                            {outing ? (
-                              <>
-                                <div>{when(outing.start_ts)}</div>
-                                <div className="text-muted-foreground text-xs">
-                                  Return {when(outing.end_ts)}
-                                </div>
-                              </>
-                            ) : (
-                              'No eligible outing today'
-                            )}
-                          </TableCell>
-                          <TableCell>{driverOf(item.driver_id)}</TableCell>
-                          <TableCell>
-                            {vehicleOf(item.vehicle_id)?.license_plate ??
-                              'Not assigned'}
-                          </TableCell>
-                          <TableCell className="max-w-64 truncate">
-                            {item.destination}
-                          </TableCell>
-                          <TableCell>
+                        <li
+                          key={item.id}
+                          className="border-border bg-background flex min-w-0 flex-col gap-4 rounded-2xl border p-4"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h2 className="font-mono text-sm font-semibold">
+                              {formatRef('TT', item.ticket_no)}
+                            </h2>
                             <span className="bg-primary/10 text-signal rounded-full px-3 py-1 text-xs font-medium">
                               {gateLabel(item)}
                             </span>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              className="min-h-11"
-                              disabled={!outing}
-                              onClick={(event) =>
-                                openScan(item, event.currentTarget)
-                              }
-                            >
-                              <QrCode className="size-4" />
-                              {item.status === 'in_progress'
-                                ? 'Scan QR to time in'
-                                : 'Scan QR to time out'}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold break-words">
+                              {vehicle?.license_plate ?? 'Vehicle not assigned'}
+                            </p>
+                            <p className="text-muted-foreground mt-1 text-sm break-words">
+                              {driverOf(item.driver_id)}
+                            </p>
+                          </div>
+                          <dl className="grid min-w-0 gap-3 text-sm">
+                            <div>
+                              <dt className="text-muted-foreground text-xs">
+                                Destination
+                              </dt>
+                              <dd className="mt-1 break-words">
+                                {item.destination}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground text-xs">
+                                Outing window
+                              </dt>
+                              <dd className="mt-1">
+                                {outing ? (
+                                  <>
+                                    {when(outing.start_ts)}
+                                    <span className="text-muted-foreground mt-1 block">
+                                      Return {when(outing.end_ts)}
+                                    </span>
+                                  </>
+                                ) : (
+                                  'No eligible outing today'
+                                )}
+                              </dd>
+                            </div>
+                          </dl>
+                          <Button
+                            className="mt-auto min-h-11 w-full"
+                            disabled={!outing}
+                            onClick={(event) =>
+                              openScan(item, event.currentTarget)
+                            }
+                          >
+                            <QrCode aria-hidden="true" className="size-4" />
+                            {item.status === 'in_progress'
+                              ? 'Scan QR to time in'
+                              : 'Scan QR to time out'}
+                          </Button>
+                        </li>
                       );
                     })}
                     {filtered.length === 0 && (
-                      <TableRow>
-                        <TableCell
-                          colSpan={7}
-                          className="text-muted-foreground py-10 text-center"
-                        >
-                          No matching trips at the gate.
-                        </TableCell>
-                      </TableRow>
+                      <li className="text-muted-foreground col-span-full py-8 text-center text-sm">
+                        {atGate.length === 0
+                          ? 'No trips waiting at the gate.'
+                          : 'No matching trips at the gate.'}
+                      </li>
                     )}
-                  </TableBody>
-                </Table>
-              </div>
-              <TablePagination
-                page={currentPage}
-                totalPages={pages}
-                onPageChange={setPage}
-              />
-            </>
-          )}
-        </CardContent>
-      </Card>
+                  </ul>
+                  <div className="hidden min-w-0 lg:block">
+                    <Table className="min-w-[1000px]">
+                      <TableHeader>
+                        <TableRow>
+                          {[
+                            'Trip ticket',
+                            'Outing window',
+                            'Driver',
+                            'Plate',
+                            'Destination',
+                            'Gate status',
+                            'QR action'
+                          ].map((heading) => (
+                            <TableHead key={heading}>{heading}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {visibleTickets.map((item) => {
+                          const outing = outingOf(item);
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-mono text-xs">
+                                {formatRef('TT', item.ticket_no)}
+                              </TableCell>
+                              <TableCell>
+                                {outing ? (
+                                  <>
+                                    <div>{when(outing.start_ts)}</div>
+                                    <div className="text-muted-foreground text-xs">
+                                      Return {when(outing.end_ts)}
+                                    </div>
+                                  </>
+                                ) : (
+                                  'No eligible outing today'
+                                )}
+                              </TableCell>
+                              <TableCell>{driverOf(item.driver_id)}</TableCell>
+                              <TableCell>
+                                {vehicleOf(item.vehicle_id)?.license_plate ??
+                                  'Not assigned'}
+                              </TableCell>
+                              <TableCell className="max-w-64 truncate">
+                                {item.destination}
+                              </TableCell>
+                              <TableCell>
+                                <span className="bg-primary/10 text-signal rounded-full px-3 py-1 text-xs font-medium">
+                                  {gateLabel(item)}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  className="min-h-11"
+                                  disabled={!outing}
+                                  onClick={(event) =>
+                                    openScan(item, event.currentTarget)
+                                  }
+                                >
+                                  <QrCode className="size-4" />
+                                  {item.status === 'in_progress'
+                                    ? 'Scan QR to time in'
+                                    : 'Scan QR to time out'}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {filtered.length === 0 && (
+                          <TableRow>
+                            <TableCell
+                              colSpan={7}
+                              className="text-muted-foreground py-10 text-center"
+                            >
+                              No matching trips at the gate.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <TablePagination
+                    page={currentPage}
+                    totalPages={pages}
+                    onPageChange={setPage}
+                  />
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent
+          value="history"
+          forceMount
+          className="data-[state=inactive]:hidden"
+        >
+          <TripHistoryList
+            entries={history}
+            mode="guard"
+            vehicleLabel={(id) => {
+              const vehicle = vehicleOf(id);
+              return vehicle
+                ? `${vehicle.make} ${vehicle.model} · ${vehicle.license_plate}`
+                : 'Vehicle not available';
+            }}
+            driverLabel={driverOf}
+            loading={scanHistory.isLoading}
+            error={scanHistory.error}
+            onRetry={() => {
+              void scanHistory.refetch();
+            }}
+          />
+        </TabsContent>
+      </Tabs>
       <Dialog
         open={ticket !== null}
         onOpenChange={(open) => {

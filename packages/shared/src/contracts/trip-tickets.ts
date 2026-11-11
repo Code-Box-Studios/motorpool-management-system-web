@@ -183,6 +183,7 @@ export const tripTicketsListQuerySchema = paginationQuerySchema
     requestedBy: z.string().uuid().optional(),
     branchId: z.string().uuid().optional(),
     driverId: z.string().uuid().optional(),
+    scannedByMe: z.literal('true').optional(),
     status: z.nativeEnum(TRIP_TICKET_STATUS).optional()
   })
   .merge(sortQuerySchema(TRIP_TICKET_SORT_COLUMNS));

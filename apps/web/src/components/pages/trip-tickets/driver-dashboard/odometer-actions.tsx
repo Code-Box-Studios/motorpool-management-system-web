@@ -77,12 +77,37 @@ export function OdometerActions({
     Number.isSafeInteger(Number(value)) &&
     Number(value) >= 0;
   return (
-    <div className="border-border mt-5 border-t pt-5">
-      <h3 className="flex items-center gap-2 text-sm font-semibold">
-        <Gauge className="text-muted-foreground size-4" aria-hidden="true" />
-        Odometer readings
-      </h3>
-      <p className="text-muted-foreground mt-2 text-sm leading-relaxed tabular-nums">
+    <div className="border-border mt-4 mb-4 border-t pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <Gauge className="text-slate size-4" aria-hidden="true" />
+          Odometer readings
+        </h3>
+        <div className="flex flex-wrap items-center gap-2">
+          {(!date.pre_trip_checked_at || date.start_mileage === null) && (
+            <Button
+              variant="secondary"
+              className="h-11 rounded-[10px] px-3 text-xs"
+              aria-label="Before trip odometer"
+              onClick={() => open('before')}
+            >
+              {date.start_mileage === null ? 'Add before' : 'Edit before'}
+            </Button>
+          )}
+          {date.pre_trip_checked_at &&
+            (!date.post_trip_checked_at || date.end_mileage === null) && (
+              <Button
+                variant="secondary"
+                className="h-11 rounded-[10px] px-3 text-xs"
+                aria-label="After trip odometer"
+                onClick={() => open('after')}
+              >
+                {date.end_mileage === null ? 'Add after' : 'Edit after'}
+              </Button>
+            )}
+        </div>
+      </div>
+      <p className="text-slate mt-2 text-sm leading-relaxed tabular-nums">
         Before:{' '}
         {date.start_mileage === null
           ? 'Not recorded'
@@ -92,32 +117,11 @@ export function OdometerActions({
           ? 'Not recorded'
           : `${date.end_mileage.toLocaleString()} km`}
       </p>
-      <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+      <p className="text-slate mt-1 text-xs leading-relaxed">
         {date.start_mileage !== null && date.end_mileage !== null
           ? 'Both readings recorded.'
           : 'Missing readings do not prevent a gate scan.'}
       </p>
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        {(!date.pre_trip_checked_at || date.start_mileage === null) && (
-          <Button
-            variant="outline"
-            className="h-auto min-h-12 flex-1 px-3 py-3 text-sm whitespace-normal"
-            onClick={() => open('before')}
-          >
-            Before trip odometer
-          </Button>
-        )}
-        {date.pre_trip_checked_at &&
-          (!date.post_trip_checked_at || date.end_mileage === null) && (
-            <Button
-              variant="outline"
-              className="h-auto min-h-12 flex-1 px-3 py-3 text-sm whitespace-normal"
-              onClick={() => open('after')}
-            >
-              After trip odometer
-            </Button>
-          )}
-      </div>
       <Dialog
         open={phase !== null}
         onOpenChange={(open) => {
@@ -161,7 +165,7 @@ export function OdometerActions({
             className="flex min-h-0 flex-col gap-5"
           >
             <DialogBody className="space-y-4">
-              <p className="text-muted-foreground text-xs leading-relaxed">
+              <p className="text-slate text-xs leading-relaxed">
                 Outing:{' '}
                 {target &&
                   new Date(target.startTs).toLocaleString(undefined, {

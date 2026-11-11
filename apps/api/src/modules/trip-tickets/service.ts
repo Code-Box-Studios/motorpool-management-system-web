@@ -59,7 +59,33 @@ export async function list(
     ...(query.requestedBy ? { requestedById: query.requestedBy } : {}),
     ...(query.branchId ? { branchId: query.branchId } : {}),
     ...(query.driverId ? { driverId: query.driverId } : {}),
-    ...(query.status ? { status: query.status } : {})
+    ...(query.status ? { status: query.status } : {}),
+    // Identity comes from authentication, so history cannot be switched to
+    // another guard by supplying an actor id. Legacy guard stamps remain readable.
+    ...(query.scannedByMe
+      ? {
+          dates: {
+            some: {
+              OR: [
+                {
+                  preTripCheckedAt: { not: null },
+                  OR: [
+                    { preTripCheckedById: actor.id },
+                    { preTripCheckedById: null, preTripGuardId: actor.id }
+                  ]
+                },
+                {
+                  postTripCheckedAt: { not: null },
+                  OR: [
+                    { postTripCheckedById: actor.id },
+                    { postTripCheckedById: null, postTripGuardId: actor.id }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      : {})
   };
   const references =
     query.search && /\d/.test(query.search)

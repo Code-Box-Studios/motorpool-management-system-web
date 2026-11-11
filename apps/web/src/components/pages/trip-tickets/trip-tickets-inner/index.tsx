@@ -427,6 +427,11 @@ const TripTicketsInner = () => {
   // `prepared_by` is not a fallback here). A terminal ticket offers nothing.
   const isAdmin = userRole?.roles?.name?.toLowerCase() === 'admin';
   const isOwner = Boolean(user?.id && tripTicket.requested_by === user.id);
+  // Cancellation endpoints allow admins and requesters. Historical ownership
+  // alone does not grant cancellation rights after a user's role changes.
+  const canManageCancellations =
+    isAdmin ||
+    (isOwner && userRole?.roles?.name?.toLowerCase() === 'requester');
   const status = tripTicket.status || TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL;
   // More than one date row means there is no single "the" window — the
   // start_ts/end_ts fields below only ever show the derived span across all of
@@ -443,7 +448,7 @@ const TripTicketsInner = () => {
     (status === TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL ||
       status === TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL);
   const canCancel =
-    (isAdmin || isOwner) &&
+    canManageCancellations &&
     (status === TRIP_TICKET_STATUS.PENDING_ADMIN_APPROVAL ||
       status === TRIP_TICKET_STATUS.PENDING_FUEL_ALLOCATION_APPROVAL ||
       status === TRIP_TICKET_STATUS.APPROVED);
@@ -1439,7 +1444,7 @@ const TripTicketsInner = () => {
             ticketId={tripTicket.id}
             dates={tripTicket.dates}
             ticketStatus={status}
-            canManage={isAdmin || isOwner}
+            canManage={canManageCancellations}
             personName={personName}
           />
 
