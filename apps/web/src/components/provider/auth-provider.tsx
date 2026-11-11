@@ -43,7 +43,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   if (loading) {
-    return <Loading />;
+    return <Loading fullScreen />;
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
 import { BreadcrumbProvider } from '@/components/provider/breadcrumb-provider';
 import { USER_ROLES } from '@/lib/enums';
+import { Loading } from '@/components/ui/loader';
 
 // Roles whose entire job is a single screen. They get a focus shell (no rail)
 // and a header that names the screen they're actually on — rather than a
@@ -70,7 +71,7 @@ function AuthenticatedLayout() {
     }
   }, [session, denied, navigate]);
 
-  if (!session || denied) return <div>Loading...</div>;
+  if (!session || denied) return <Loading fullScreen />;
 
   // Guard and EVP get a focus shell: no rail, and a header that names the
   // screen they are actually looking at.

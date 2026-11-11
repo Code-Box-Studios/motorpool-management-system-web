@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react';
 
 const ThemeSwitcher = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
+    try {
+      return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
+    } catch {
+      return 'light';
     }
-    return 'light';
   });
 
   useEffect(() => {
@@ -17,7 +18,11 @@ const ThemeSwitcher = () => {
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('theme', theme);
+    try {
+      localStorage.setItem('theme', theme);
+    } catch {
+      // Theme switching still works when the browser blocks local storage.
+    }
   }, [theme]);
 
   const toggleTheme = () => {
@@ -25,7 +30,13 @@ const ThemeSwitcher = () => {
   };
 
   return (
-    <Button variant="ghost" size="icon" onClick={toggleTheme}>
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggleTheme}
+      aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+      title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+    >
       {theme === 'light' ? (
         <Moon className="h-4 w-4" />
       ) : (
