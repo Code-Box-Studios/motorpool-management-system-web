@@ -1,3 +1,4 @@
+import { fixtureGateDateId } from '../../test/trip-gate.js';
 import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
@@ -160,11 +161,11 @@ describe('repair note and trip resource concurrency', () => {
           .set('Authorization', s.header)
           .send({ assignedMechanicId: s.mechanic.id, spareParts: [] })
           .then((r) => r),
-      () =>
+      async () =>
         request(app)
           .post(`/api/trip-tickets/${ticket.id}/check-out`)
           .set('Authorization', s.header)
-          .send({ startMileage: 1000 })
+          .send({ dateId: await fixtureGateDateId(ticket.id), startMileage: 1000 })
           .then((r) => r)
     );
     expect(noted!.status).toBe(200);

@@ -162,6 +162,19 @@ const TripTicketsInner = () => {
   const [showReassignConfirm, setShowReassignConfirm] = useState(false);
 
   const form = useTripTicketUpdateForm();
+  const participantType = form.watch('participant_type');
+  const employeeParticipantIds = form.watch('participant_employee_ids');
+  const editGuideIds = form.watch('guide_ids');
+  const editEmployeeTrip = participantType === 'employees';
+  const editVehicleId = form.watch('vehicle_id');
+  const editSeats = vehicles?.find(
+    (vehicle) => vehicle.id === editVehicleId
+  )?.capacity;
+  const editParticipantCount = editEmployeeTrip
+    ? employeeParticipantIds.length
+    : participants.filter((name) => name.trim()).length;
+  const editPassengerCount = editParticipantCount + editGuideIds.length;
+  const editFull = editSeats !== undefined && editPassengerCount >= editSeats;
 
   useBreadcrumbLabel(
     tripTicket ? formatRef('TT', tripTicket.ticket_no) : undefined
@@ -173,7 +186,10 @@ const TripTicketsInner = () => {
     // Initialize participants from trip ticket
     if (tripTicket.participants && Array.isArray(tripTicket.participants)) {
       setParticipants(
-        tripTicket.participants.length > 0 ? tripTicket.participants : ['']
+        tripTicket.participant_type === 'students' &&
+          tripTicket.participants.length > 0
+          ? tripTicket.participants
+          : ['']
       );
     } else if (typeof tripTicket.participants === 'string') {
       const participantsList = (tripTicket.participants as string)
@@ -200,7 +216,13 @@ const TripTicketsInner = () => {
       remarks: tripTicket.remarks || '',
       cancellation_reason: tripTicket.cancellation_reason || '',
       disapproved_reason: tripTicket.disapproved_reason || '',
-      participants: tripTicket.participants ?? [],
+      participants:
+        tripTicket.participant_type === 'students'
+          ? (tripTicket.participants ?? [])
+          : [],
+      participant_type: tripTicket.participant_type,
+      participant_employee_ids: tripTicket.participant_employee_ids,
+      guide_ids: tripTicket.guides.map((guide) => guide.id),
       office_id: tripTicket.office_id || '',
       office_head_id: tripTicket.office_head_id || '',
       allocation_date: tripTicket.allocation_date || '',
@@ -218,6 +240,17 @@ const TripTicketsInner = () => {
   }, [resetFromTicket]);
 
   const onSubmit = (data: UpdateTripTicketFormData) => {
+    if (editSeats !== undefined && editPassengerCount > editSeats) {
+      form.setError(
+        data.participant_type === 'employees'
+          ? 'participant_employee_ids'
+          : 'participants',
+        {
+          message: `That vehicle seats ${editSeats}; this trip carries ${editPassengerCount} participants and guides`
+        }
+      );
+      return;
+    }
     setPendingData(data);
     setShowConfirm(true);
   };
@@ -227,9 +260,38 @@ const TripTicketsInner = () => {
       const updates = { ...pendingData } as Record<string, unknown>;
       if (pendingData.date_requested === tripTicket.date_requested.slice(0, 10))
         delete updates.date_requested;
-      if (pendingData.participants) {
+      const sameIds = (left: string[], right: string[]) =>
+        left.length === right.length && left.every((id) => right.includes(id));
+      const typeChanged =
+        pendingData.participant_type !== tripTicket.participant_type;
+      const rosterChanged = !sameIds(
+        pendingData.participant_employee_ids,
+        tripTicket.participant_employee_ids
+      );
+      if (!typeChanged) delete updates.participant_type;
+      if (pendingData.participant_type === 'employees') {
+        if (typeChanged || rosterChanged) {
+          updates.participants = [];
+          updates.participants_count =
+            pendingData.participant_employee_ids.length;
+        } else {
+          // Unrelated edits preserve historical roster assignments and name snapshots.
+          delete updates.participant_employee_ids;
+          delete updates.participants;
+        }
+      } else {
         updates.participants = pendingData.participants;
         updates.participants_count = pendingData.participants.length;
+        if (typeChanged) updates.participant_employee_ids = [];
+        else delete updates.participant_employee_ids;
+      }
+      if (
+        sameIds(
+          pendingData.guide_ids,
+          tripTicket.guides.map((guide) => guide.id)
+        )
+      ) {
+        delete updates.guide_ids;
       }
 
       // The start_ts/end_ts inputs on this form only ever show the ticket's
@@ -714,41 +776,161 @@ const TripTicketsInner = () => {
                 )}
 
                 <Controller
-                  name="participants"
+                  name="participant_type"
                   control={form.control}
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="participants">
-                        Participants
+                  render={({ field }) => (
+                    <Field>
+                      <FieldLabel htmlFor="participant_type">
+                        Participant type
                       </FieldLabel>
-                      <div className="space-y-2">
-                        {participants.map((participant, index) => (
-                          <div key={index} className="flex gap-2">
-                            <Input
-                              value={participant}
-                              onChange={(e) => {
-                                const newParticipants = [...participants];
-                                newParticipants[index] = e.target.value;
-                                setParticipants(newParticipants);
-                                // Preserve each participant name, including commas.
-                                field.onChange(
-                                  newParticipants
-                                    .map((p) => p.trim())
-                                    .filter(Boolean)
-                                );
-                              }}
-                              placeholder={`Participant ${index + 1} name`}
-                              disabled={!isEditing}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
+                      <Select
+                        value={field.value}
+                        onValueChange={(value: 'students' | 'employees') => {
+                          field.onChange(value);
+                          if (value === 'students')
+                            form.setValue(
+                              'participants',
+                              participants
+                                .map((name) => name.trim())
+                                .filter(Boolean)
+                            );
+                          form.clearErrors([
+                            'participants',
+                            'participant_employee_ids',
+                            'guide_ids'
+                          ]);
+                        }}
+                      >
+                        <SelectTrigger id="participant_type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="students">Students</SelectItem>
+                          <SelectItem value="employees">Employees</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </Field>
                   )}
                 />
+                <Field>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <FieldLabel>Participants *</FieldLabel>
+                    <span className="text-muted-foreground text-xs tabular-nums">
+                      {editSeats === undefined
+                        ? `${editPassengerCount} passengers`
+                        : `${editPassengerCount} of ${editSeats} seats`}{' '}
+                      ({editGuideIds.length}{' '}
+                      {editGuideIds.length === 1 ? 'guide' : 'guides'})
+                    </span>
+                  </div>
+                  {editEmployeeTrip ? (
+                    <>
+                      <GuidePicker
+                        kind="participants"
+                        guideIds={employeeParticipantIds}
+                        guides={guideOptions}
+                        guidesLoading={guidesLoading}
+                        currentGuides={tripTicket.participant_employees}
+                        onChange={(ids) =>
+                          form.setValue('participant_employee_ids', ids, {
+                            shouldValidate: form.formState.isSubmitted
+                          })
+                        }
+                        addDisabled={editFull}
+                      />
+                      <FieldError
+                        errors={[
+                          form.formState.errors.participant_employee_ids
+                        ]}
+                      />
+                    </>
+                  ) : (
+                    <Controller
+                      name="participants"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <>
+                          <div className="space-y-2">
+                            {participants.map((participant, index) => (
+                              <div key={index} className="flex gap-2">
+                                <Input
+                                  value={participant}
+                                  onChange={(event) => {
+                                    const next = participants.map(
+                                      (name, row) =>
+                                        row === index
+                                          ? event.target.value
+                                          : name
+                                    );
+                                    setParticipants(next);
+                                    field.onChange(
+                                      next
+                                        .map((name) => name.trim())
+                                        .filter(Boolean)
+                                    );
+                                  }}
+                                  placeholder={`Participant ${index + 1} name`}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`Remove participant ${index + 1}`}
+                                  disabled={participants.length === 1}
+                                  onClick={() => {
+                                    const next = participants.filter(
+                                      (_, row) => row !== index
+                                    );
+                                    setParticipants(next);
+                                    field.onChange(
+                                      next
+                                        .map((name) => name.trim())
+                                        .filter(Boolean)
+                                    );
+                                  }}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                          <div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={editFull}
+                              onClick={() =>
+                                setParticipants([...participants, ''])
+                              }
+                            >
+                              Add participant
+                            </Button>
+                          </div>
+                          <FieldError errors={[fieldState.error]} />
+                        </>
+                      )}
+                    />
+                  )}
+                </Field>
+                <Field data-invalid={!!form.formState.errors.guide_ids}>
+                  <FieldLabel>
+                    {editEmployeeTrip ? 'Guides (Optional)' : 'Guides *'}
+                  </FieldLabel>
+                  <GuidePicker
+                    guideIds={editGuideIds}
+                    guides={guideOptions}
+                    guidesLoading={guidesLoading}
+                    currentGuides={tripTicket.guides}
+                    onChange={(ids) =>
+                      form.setValue('guide_ids', ids, {
+                        shouldValidate: form.formState.isSubmitted
+                      })
+                    }
+                    addDisabled={editFull}
+                  />
+                  <FieldError errors={[form.formState.errors.guide_ids]} />
+                </Field>
 
                 <Controller
                   name="purpose"
@@ -1096,6 +1278,22 @@ const TripTicketsInner = () => {
             >
               <dl className="grid min-w-0 gap-5 sm:grid-cols-2">
                 <DetailItem
+                  label="Participant type"
+                  value={
+                    tripTicket.participant_type === 'employees'
+                      ? 'Employees'
+                      : 'Students'
+                  }
+                />
+                <DetailItem
+                  label="Participants"
+                  value={
+                    participantNames.length > 0 ? (
+                      <ParticipantsList names={participantNames} />
+                    ) : undefined
+                  }
+                />
+                <DetailItem
                   label="Guides"
                   value={
                     reassignOpen ? (
@@ -1115,12 +1313,29 @@ const TripTicketsInner = () => {
                           }
                           onChange={setReassignGuideIds}
                         />
+                        {tripTicket.participant_type === 'employees' &&
+                          reassignGuideIds.some((id) =>
+                            tripTicket.participant_employee_ids.includes(id)
+                          ) && (
+                            <p className="text-destructive text-sm">
+                              An employee cannot be both a participant and a
+                              guide
+                            </p>
+                          )}
                         <div className="flex gap-2">
                           <Button
                             type="button"
                             size="sm"
                             disabled={
-                              reassignGuideIds.filter(Boolean).length === 0 ||
+                              (tripTicket.participant_type === 'students' &&
+                                reassignGuideIds.filter(Boolean).length ===
+                                  0) ||
+                              (tripTicket.participant_type === 'employees' &&
+                                reassignGuideIds.some((id) =>
+                                  tripTicket.participant_employee_ids.includes(
+                                    id
+                                  )
+                                )) ||
                               reassignGuideIds
                                 .filter(Boolean)
                                 .some(
@@ -1175,14 +1390,8 @@ const TripTicketsInner = () => {
                           </Button>
                         )}
                       </div>
-                    ) : undefined
-                  }
-                />
-                <DetailItem
-                  label="Participants"
-                  value={
-                    participantNames.length > 0 ? (
-                      <ParticipantsList names={participantNames} />
+                    ) : tripTicket.participant_type === 'employees' ? (
+                      'None (optional)'
                     ) : undefined
                   }
                 />

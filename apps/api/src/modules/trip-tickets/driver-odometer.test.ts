@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { prisma } from '../../lib/prisma.js';
 import { truncateAll } from '../../test/db.js';
+import { fixtureGateDateId } from '../../test/trip-gate.js';
 import {
   authHeader,
   createTestBranch,
@@ -74,11 +75,11 @@ async function setup() {
       .post(`/api/trip-tickets/${ticket.id}/dates/${date.id}/odometer`)
       .set('Authorization', header)
       .send({ phase, mileage });
-  const scan = (phase: 'out' | 'in', header = guardAuth) =>
+  const scan = async (phase: 'out' | 'in', header = guardAuth) =>
     request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-${phase}`)
       .set('Authorization', header)
-      .send({});
+      .send({ dateId: await fixtureGateDateId(ticket.id) });
   return {
     branch,
     vehicle,

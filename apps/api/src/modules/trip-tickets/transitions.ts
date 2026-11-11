@@ -1,4 +1,4 @@
-import type { TripDate } from '@prisma/client';
+import type { Prisma, TripDate } from '@prisma/client';
 import type {
   ApproveTripTicketBody,
   CheckInBody,
@@ -21,6 +21,7 @@ import {
 } from '../vehicles/status.js';
 import * as events from '../notifications/events.js';
 import { findTripTicketById } from './repository.js';
+import { assertTripGuideRules } from './participants.js';
 import {
   recomputeTicketSpan,
   resolveOutingForCheckIn,
@@ -35,8 +36,12 @@ import {
 } from './guides.js';
 
 // Loads the ticket and asserts its current status is in the allowed-from set.
-async function loadInState(id: string, allowedFrom: string[]) {
-  const ticket = await prisma.tripTicket.findUnique({ where: { id } });
+async function loadInState(
+  id: string,
+  allowedFrom: string[],
+  client: Prisma.TransactionClient = prisma
+) {
+  const ticket = await client.tripTicket.findUnique({ where: { id } });
   if (!ticket) throw new AppError(404, 'NOT_FOUND', 'Trip ticket not found');
   if (!allowedFrom.includes(ticket.status)) {
     throw new AppError(
@@ -48,6 +53,36 @@ async function loadInState(id: string, allowedFrom: string[]) {
   return ticket;
 }
 
+// All ticket changes lock the ticket before its driver and vehicle. Holding this
+// row through status validation prevents a stale preflight from undoing a gate
+// event or approval/cancellation that committed in the meantime.
+async function lockTicket(tx: Prisma.TransactionClient, id: string) {
+  await tx.$queryRaw`SELECT id FROM trip_tickets WHERE id = ${id}::uuid FOR UPDATE`;
+}
+
+function assertTicketOwner(
+  ticket: { requestedById: string | null },
+  actor: AuthenticatedUser
+) {
+  if (actor.role !== 'admin' && ticket.requestedById !== actor.id) {
+    throw new AppError(
+      403,
+      'NOT_TICKET_OWNER',
+      'You may only cancel your own trip ticket'
+    );
+  }
+}
+
+function assertGateOuting(outing: TripDate, dateId: string) {
+  if (outing.id !== dateId) {
+    throw new AppError(
+      409,
+      'OUTING_CHANGED',
+      'The selected outing is no longer eligible; reload before confirming'
+    );
+  }
+}
+
 // admin approve → pending_fuel_allocation_approval; creates the fuel allocation
 // (copies vehicleId, backfills branchId, requestedById = approving admin,
 // status pending). One transaction.
@@ -56,8 +91,10 @@ export async function approve(
   actor: AuthenticatedUser,
   body: ApproveTripTicketBody
 ) {
-  const ticket = await loadInState(id, ['pending_admin_approval']);
+  let ticket = await loadInState(id, ['pending_admin_approval']);
   await prisma.$transaction(async (tx) => {
+    await lockTicket(tx, id);
+    ticket = await loadInState(id, ['pending_admin_approval'], tx);
     await tx.tripTicket.update({
       where: { id },
       data: {
@@ -86,9 +123,11 @@ export async function approve(
 
 // evp approve → approved; stamps the allocation.
 export async function approveEvp(id: string, actor: AuthenticatedUser) {
-  const ticket = await loadInState(id, ['pending_fuel_allocation_approval']);
+  let ticket = await loadInState(id, ['pending_fuel_allocation_approval']);
   const decidedAt = new Date();
   await prisma.$transaction(async (tx) => {
+    await lockTicket(tx, id);
+    ticket = await loadInState(id, ['pending_fuel_allocation_approval'], tx);
     await tx.tripTicket.update({ where: { id }, data: { status: 'approved' } });
     await tx.fuelAllocation.update({
       where: { tripTicketId: id },
@@ -118,9 +157,11 @@ export async function disapprove(
     actor.role === 'evp_operations'
       ? ['pending_fuel_allocation_approval']
       : ['pending_admin_approval', 'pending_fuel_allocation_approval'];
-  const ticket = await loadInState(id, allowedFrom);
+  let ticket = await loadInState(id, allowedFrom);
   const decidedAt = new Date();
   await prisma.$transaction(async (tx) => {
+    await lockTicket(tx, id);
+    ticket = await loadInState(id, allowedFrom, tx);
     await tx.tripTicket.update({
       where: { id },
       data: { status: 'disapproved', disapprovedReason: reason }
@@ -171,19 +212,17 @@ export async function cancel(
   actor: AuthenticatedUser,
   reason: string
 ) {
-  const ticket = await loadInState(id, [
+  const allowedFrom = [
     'pending_admin_approval',
     'pending_fuel_allocation_approval',
     'approved'
-  ]);
-  if (actor.role !== 'admin' && ticket.requestedById !== actor.id) {
-    throw new AppError(
-      403,
-      'NOT_TICKET_OWNER',
-      'You may only cancel your own trip ticket'
-    );
-  }
+  ];
+  let ticket = await loadInState(id, allowedFrom);
+  assertTicketOwner(ticket, actor);
   await prisma.$transaction(async (tx) => {
+    await lockTicket(tx, id);
+    ticket = await loadInState(id, allowedFrom, tx);
+    assertTicketOwner(ticket, actor);
     await tx.tripTicket.update({
       where: { id },
       data: { status: 'cancelled', cancellationReason: reason }
@@ -256,13 +295,7 @@ export async function cancelDate(
   reason: string
 ) {
   const ticket = await loadInState(ticketId, ['approved', 'in_progress']);
-  if (actor.role !== 'admin' && ticket.requestedById !== actor.id) {
-    throw new AppError(
-      403,
-      'NOT_TICKET_OWNER',
-      'You may only cancel your own trip ticket'
-    );
-  }
+  assertTicketOwner(ticket, actor);
 
   const outing = await prisma.tripDate.findFirst({
     where: { id: dateId, tripTicketId: ticketId }
@@ -278,6 +311,25 @@ export async function cancelDate(
 
   let ticketCancelled = false;
   await prisma.$transaction(async (tx) => {
+    await lockTicket(tx, ticketId);
+    const lockedTicket = await loadInState(
+      ticketId,
+      ['approved', 'in_progress'],
+      tx
+    );
+    assertTicketOwner(lockedTicket, actor);
+    const lockedOuting = await tx.tripDate.findFirst({
+      where: { id: dateId, tripTicketId: ticketId }
+    });
+    if (!lockedOuting)
+      throw new AppError(404, 'NOT_FOUND', 'Trip date not found');
+    if (lockedOuting.status !== 'scheduled') {
+      throw new AppError(
+        409,
+        'INVALID_TRANSITION',
+        `Not allowed from status ${lockedOuting.status}`
+      );
+    }
     await tx.tripDate.update({
       where: { id: dateId },
       data: { status: 'cancelled', cancellationReason: reason }
@@ -327,7 +379,7 @@ export async function cancelDate(
 export async function checkOut(
   id: string,
   actor: AuthenticatedUser,
-  _body: CheckOutBody
+  body: CheckOutBody
 ) {
   // Fix round 1: a two-date ticket IS `approved` again between outings
   // (syncTicketStatus drops it back once the first date's check-in leaves a
@@ -344,23 +396,17 @@ export async function checkOut(
   // ticket at `in_progress` forever. `['approved']` alone is correct: it
   // refuses with INVALID_TRANSITION ("check the van back in first") exactly
   // when a date is already out.
-  const ticket = await loadInState(id, ['approved']);
+  let ticket = await loadInState(id, ['approved']);
   assertGateBranch(ticket.branchId, actor);
   // Assigned inside the transaction, read after — the event only needs to name
   // which date, not the transaction's own client.
   let outing!: TripDate;
   await prisma.$transaction(async (tx) => {
+    await lockTicket(tx, id);
+    ticket = await loadInState(id, ['approved'], tx);
+    assertGateBranch(ticket.branchId, actor);
     await lockDrivers(tx, [ticket.driverId]);
     await lockVehicles(tx, [ticket.vehicleId]);
-    const lockedTicket = await tx.tripTicket.findUniqueOrThrow({
-      where: { id }
-    });
-    if (lockedTicket.status !== 'approved')
-      throw new AppError(
-        409,
-        'INVALID_TRANSITION',
-        'Trip is no longer ready for departure'
-      );
     const driver = await tx.driver.findUnique({
       where: { id: ticket.driverId }
     });
@@ -389,6 +435,7 @@ export async function checkOut(
       );
     }
     outing = await resolveOutingForCheckOut(tx, id);
+    assertGateOuting(outing, body.dateId);
     const gateAt = new Date();
     // A future outing's reading may have been entered before another trip
     // returned. Revalidate actual gate chronology before freezing that value.
@@ -490,9 +537,9 @@ export async function checkOut(
 export async function checkIn(
   id: string,
   actor: AuthenticatedUser,
-  _body: CheckInBody
+  body: CheckInBody
 ) {
-  const ticket = await loadInState(id, ['in_progress']);
+  let ticket = await loadInState(id, ['in_progress']);
   assertGateBranch(ticket.branchId, actor);
   let outing!: TripDate;
   // Whether THIS check-in settled the whole event, or just this outing — read
@@ -500,14 +547,13 @@ export async function checkIn(
   // deriveTicketStatus's rules here (see the note on events.tripCheckedIn).
   let ticketCompleted = false;
   await prisma.$transaction(async (tx) => {
+    await lockTicket(tx, id);
+    ticket = await loadInState(id, ['in_progress'], tx);
+    assertGateBranch(ticket.branchId, actor);
     await lockDrivers(tx, [ticket.driverId]);
     await lockVehicles(tx, [ticket.vehicleId]);
-    const lockedTicket = await tx.tripTicket.findUniqueOrThrow({
-      where: { id }
-    });
-    if (lockedTicket.status !== 'in_progress')
-      throw new AppError(409, 'INVALID_TRANSITION', 'Trip is no longer out');
     outing = await resolveOutingForCheckIn(tx, id);
+    assertGateOuting(outing, body.dateId);
     const vehicle = await tx.vehicle.findUniqueOrThrow({
       where: { id: ticket.vehicleId },
       select: { mileage: true }
@@ -582,31 +628,41 @@ export async function checkIn(
  * AuthenticatedUser and an events.* call like the rest.
  */
 export async function reassignGuides(id: string, guideIds: string[]) {
-  const ticket = await loadInState(id, [
-    'pending_fuel_allocation_approval',
-    'approved',
-    'in_progress'
-  ]);
   await assertGuideEmployeesActive(guideIds);
-
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id: ticket.vehicleId },
-    select: { capacity: true }
-  });
-  if (!vehicle) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
-  assertSeatsFit(
-    vehicle.capacity,
-    participantHeadcount(ticket.participants, ticket.participantsCount),
-    guideIds.length
-  );
-
-  // Deliberately NOT assertBookable: that would re-run the date rules too, and
-  // an approved two-date event whose first outing is already driven and closed
-  // would fail TRIP_IN_THE_PAST on a request that never touched its dates.
   await prisma.$transaction(async (tx) => {
-    // deleteMany + createMany must not half-apply — a failure between them
-    // would leave an approved trip with no guides at all.
-    await replaceTripTicketGuides(tx, id, guideIds);
+    await lockTicket(tx, id);
+    const ticket = await loadInState(
+      id,
+      ['pending_fuel_allocation_approval', 'approved', 'in_progress'],
+      tx
+    );
+    const participants = await tx.tripTicketParticipant.findMany({
+      where: { tripTicketId: id },
+      select: { employeeId: true }
+    });
+    assertTripGuideRules(
+      ticket.participantType,
+      guideIds,
+      participants.map((row) => row.employeeId)
+    );
+    await lockVehicles(tx, [ticket.vehicleId]);
+    const vehicle = await tx.vehicle.findUnique({
+      where: { id: ticket.vehicleId },
+      select: { capacity: true }
+    });
+    if (!vehicle) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
+    assertSeatsFit(
+      vehicle.capacity,
+      participantHeadcount(ticket.participants, ticket.participantsCount),
+      guideIds.length
+    );
+    // Re-staffing a later outing must not revalidate earlier planned dates.
+    await replaceTripTicketGuides(
+      tx,
+      id,
+      guideIds,
+      ticket.participantType === 'students'
+    );
   });
   return findTripTicketById(id);
 }
@@ -635,8 +691,7 @@ export async function recordOdometer(
   const initial = await prisma.tripTicket.findUnique({ where: { id } });
   if (!initial) throw new AppError(404, 'NOT_FOUND', 'Trip ticket not found');
   await prisma.$transaction(async (tx) => {
-    await lockDrivers(tx, [initial.driverId]);
-    await lockVehicles(tx, [initial.vehicleId]);
+    await lockTicket(tx, id);
     const ticket = await tx.tripTicket.findUniqueOrThrow({ where: { id } });
     if (
       ticket.driverId !== initial.driverId ||
@@ -648,6 +703,8 @@ export async function recordOdometer(
         'Trip assignment changed; reload before entering mileage'
       );
     }
+    await lockDrivers(tx, [ticket.driverId]);
+    await lockVehicles(tx, [ticket.vehicleId]);
     const driver = await tx.driver.findUniqueOrThrow({
       where: { id: ticket.driverId }
     });

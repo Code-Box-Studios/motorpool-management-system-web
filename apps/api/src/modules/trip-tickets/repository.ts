@@ -10,6 +10,14 @@ export const tripTicketInclude = {
   officeHead: true,
   fuelAllocation: true,
   dates: { orderBy: { startTs: 'asc' as const } },
+  participantEmployees: {
+    include: {
+      employee: {
+        select: { id: true, name: true, position: true, archivedAt: true }
+      }
+    },
+    orderBy: [{ createdAt: 'asc' as const }, { employeeId: 'asc' as const }]
+  },
   // Employee assignments remain readable, including archived names.
   // Historical user assignments expose only the identity and role needed to render a guide.
   guides: {

@@ -242,6 +242,46 @@ test('guard table has QR-only scan actions and restores focus on Escape without 
   await expect(scan).toBeFocused();
 });
 
+test('guard disables scan when no outing is eligible on desktop and mobile', async ({
+  page,
+  request
+}) => {
+  const { base } = await fixtures(request);
+  base.dates[0].startTs = new Date(Date.now() + 7 * 86400000).toISOString();
+  base.dates[0].endTs = new Date(
+    Date.now() + 7 * 86400000 + 3600000
+  ).toISOString();
+  base.dates.unshift({
+    ...base.dates[0],
+    id: '33333333-3333-4333-8333-333333333333',
+    startTs: new Date(Date.now() - 86400000).toISOString(),
+    endTs: new Date(Date.now() - 82800000).toISOString()
+  });
+  await page.route('**/api/trip-tickets?*', (route) =>
+    route.fulfill({ json: { data: [base], count: 1 } })
+  );
+  await login(page, 'guard');
+  for (const viewport of [
+    { width: 1280, height: 900 },
+    { width: 375, height: 812 }
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(
+      page
+        .getByText('No eligible outing today', { exact: true })
+        .filter({ visible: true })
+    ).toBeVisible();
+    const scan = page.getByRole('button', {
+      name: 'Scan QR to time out',
+      exact: true
+    });
+    await expect(scan).toHaveCount(1);
+    await expect(scan).toBeVisible();
+    await expect(scan).toBeDisabled();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  }
+});
+
 test('odometer draft keeps its outing through a query refresh and locks while saving', async ({
   page,
   request

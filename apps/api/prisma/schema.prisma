@@ -276,6 +276,7 @@ model Employee {
 
   branch      Branch               @relation(fields: [branchId], references: [id])
   tripTickets TripTicketEmployee[]
+  participantTrips TripTicketParticipant[]
 
   @@index([branchId])
   // NOTE: there is deliberately NO unique index on name here, unlike
@@ -380,6 +381,7 @@ model TripTicket {
   purpose             String
   dateRequested       DateTime         @map("date_requested") @db.Date
   participants        String[]         @default([])
+  participantType     TripParticipantType @default(students) @map("participant_type")
   participantsCount   Int?             @map("participants_count")
   preparedBy          String           @map("prepared_by")
   requestedById       String?          @map("requested_by") @db.Uuid
@@ -425,11 +427,30 @@ model TripTicket {
   geofenceViolations GeofenceViolation[]
   dates              TripDate[]
   guides             TripTicketEmployee[]
+  participantEmployees TripTicketParticipant[]
 
   @@index([status])
   @@index([branchId])
   @@index([driverId])
   @@map("trip_tickets")
+}
+
+enum TripParticipantType {
+  students
+  employees
+}
+
+model TripTicketParticipant {
+  tripTicketId String   @map("trip_ticket_id") @db.Uuid
+  employeeId   String   @map("employee_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tripTicket TripTicket @relation(fields: [tripTicketId], references: [id], onDelete: Cascade)
+  employee   Employee   @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@id([tripTicketId, employeeId])
+  @@index([employeeId])
+  @@map("trip_ticket_participants")
 }
 
 model TripTicketEmployee {

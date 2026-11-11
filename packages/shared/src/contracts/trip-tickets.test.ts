@@ -55,12 +55,8 @@ describe('normaliseTripDates', () => {
   });
 });
 
-// A guide is a real row with an id, unlike a participant, and every ticket
-// needs at least one. The interesting half is what `.partial()` does with the
-// `.min(1)`: it wraps the field in ZodOptional and does NOT reach inside to
-// strip the refinement, so ABSENT and EMPTY stay genuinely different cases on
-// PATCH — absent leaves the guides alone, empty is refused. An empty list must
-// never be mistaken for "no change".
+// Existing callers default to student trips. PATCH preserves absent fields and
+// lets the service apply the guide rule using the stored participant type.
 describe('guideIds on the trip-ticket bodies', () => {
   const ok = {
     branchId: '11111111-1111-4111-8111-111111111111',
@@ -72,7 +68,7 @@ describe('guideIds on the trip-ticket bodies', () => {
     guideIds: ['44444444-4444-4444-8444-444444444444']
   };
 
-  it('requires at least one guide on create', () => {
+  it('requires at least one guide on student create', () => {
     expect(createTripTicketBodySchema.safeParse(ok).success).toBe(true);
 
     const noGuides: Record<string, unknown> = { ...ok };
@@ -84,20 +80,17 @@ describe('guideIds on the trip-ticket bodies', () => {
     ).toBe(false);
   });
 
-  it('PATCH: absent means leave the guides alone, empty is refused', () => {
+  it('PATCH: absent leaves guides alone and empty reaches type-aware service validation', () => {
     const absent = updateTripTicketBodySchema.safeParse({
       destination: 'Site B'
     });
     expect(absent.success).toBe(true);
-    // Not merely undefined — the key is ABSENT from the parsed body, which is
-    // what lets service.update() tell "not editing guides" from "set guides to
-    // nothing". (No `.default([])` here, deliberately: that is what makes
-    // `dates` behave differently — see the NO_TRIP_DATES gate in service.ts.)
+    // Optional PATCH fields must not materialize their create defaults.
     expect(absent.success && 'guideIds' in absent.data).toBe(false);
 
-    expect(updateTripTicketBodySchema.safeParse({ guideIds: [] }).success).toBe(
-      false
-    );
+    expect(updateTripTicketBodySchema.parse({ guideIds: [] })).toEqual({
+      guideIds: []
+    });
     expect(
       updateTripTicketBodySchema.safeParse({
         guideIds: ['44444444-4444-4444-8444-444444444444']
@@ -107,12 +100,20 @@ describe('guideIds on the trip-ticket bodies', () => {
 });
 
 describe('QR-only gate contracts', () => {
-  it('accepts both gate scans without odometer fields', () => {
-    expect(checkOutBodySchema.safeParse({}).success).toBe(true);
-    expect(checkInBodySchema.safeParse({}).success).toBe(true);
+  const dateId = '44444444-4444-4444-8444-444444444444';
+  it('requires the selected outing UUID for both gate scans', () => {
+    for (const schema of [checkOutBodySchema, checkInBodySchema]) {
+      expect(schema.safeParse({ dateId }).success).toBe(true);
+      expect(schema.safeParse({}).success).toBe(false);
+      expect(schema.safeParse({ dateId: 'not-a-uuid' }).success).toBe(false);
+    }
   });
   it('does not accept guard mileage as a driver reading', () => {
-    expect(checkOutBodySchema.parse({ startMileage: 1234 })).toEqual({});
-    expect(checkInBodySchema.parse({ endMileage: 1250 })).toEqual({});
+    expect(checkOutBodySchema.parse({ dateId, startMileage: 1234 })).toEqual({
+      dateId
+    });
+    expect(checkInBodySchema.parse({ dateId, endMileage: 1250 })).toEqual({
+      dateId
+    });
   });
 });

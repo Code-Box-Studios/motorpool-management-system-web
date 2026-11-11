@@ -7,6 +7,7 @@ const TABLES = [
   'roles',
   'fuel_allocations',
   'trip_ticket_employees',
+  'trip_ticket_participants',
   'trip_tickets',
   'job_order_spare_parts',
   'job_orders',

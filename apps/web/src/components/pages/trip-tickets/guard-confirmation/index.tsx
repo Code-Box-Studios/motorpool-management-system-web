@@ -49,7 +49,7 @@ const when = (value: string) =>
     minute: '2-digit'
   });
 
-/** The guard verifies ticket identity; the server resolves and stamps its eligible outing. */
+/** The guard verifies ticket identity and confirms the outing selected when the dialog opened. */
 export default function GuardConfirmationPage() {
   const { user } = useAuth();
   const { data: role } = useUserRole();
@@ -67,6 +67,7 @@ export default function GuardConfirmationPage() {
   const { search, setSearch, filters, setFilter, clearFilters, page, setPage } =
     useListControls(['gateStatus']);
   const [ticket, setTicket] = useState<TripTicket | null>(null);
+  const [dateId, setDateId] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
   const [scanError, setScanError] = useState('');
   const [scannerKey, setScannerKey] = useState(0);
@@ -101,18 +102,22 @@ export default function GuardConfirmationPage() {
   const gateLabel = (item: TripTicket) =>
     item.status === 'in_progress' ? 'Out on trip' : 'Ready to depart';
   const openScan = (item: TripTicket, trigger: HTMLButtonElement) => {
+    const outing = outingOf(item);
+    if (!outing) return;
     actionButton.current = trigger;
+    setDateId(outing.id);
     setTicket(item);
     setVerified(false);
     setScanError('');
     submitting.current = false;
   };
   const confirm = () => {
-    if (!ticket || !verified || pending || submitting.current) return;
+    if (!ticket || !dateId || !verified || pending || submitting.current)
+      return;
     submitting.current = true;
     const mutation = ticket.status === 'in_progress' ? checkIn : checkOut;
     mutation.mutate(
-      { id: ticket.id },
+      { id: ticket.id, dateId },
       {
         onSuccess: () => setTicket(null),
         onSettled: () => {
@@ -245,6 +250,7 @@ export default function GuardConfirmationPage() {
                       </dl>
                       <Button
                         className="mt-auto min-h-11 w-full"
+                        disabled={!outing}
                         onClick={(event) => openScan(item, event.currentTarget)}
                       >
                         <QrCode aria-hidden="true" className="size-4" />
@@ -316,6 +322,7 @@ export default function GuardConfirmationPage() {
                           <TableCell>
                             <Button
                               className="min-h-11"
+                              disabled={!outing}
                               onClick={(event) =>
                                 openScan(item, event.currentTarget)
                               }

@@ -26,6 +26,8 @@ interface GuidePickerProps {
   onChange: (employeeIds: string[]) => void;
   rowError?: (index: number) => string | undefined;
   addDisabled?: boolean;
+  /** Accessible labels when reusing this employee picker for participants. */
+  kind?: 'guides' | 'participants';
 }
 
 export function GuidePicker({
@@ -35,8 +37,10 @@ export function GuidePicker({
   currentGuides = [],
   onChange,
   rowError,
-  addDisabled
+  addDisabled,
+  kind = 'guides'
 }: GuidePickerProps) {
+  const label = kind === 'participants' ? 'employee participants' : 'guides';
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
@@ -78,7 +82,7 @@ export function GuidePicker({
             ref={triggerRef}
             type="button"
             variant="outline"
-            aria-label="Select guides"
+            aria-label={`Select ${label}`}
             aria-controls={open ? panelId : undefined}
             aria-invalid={errors.length > 0}
             disabled={guidesLoading}
@@ -89,8 +93,8 @@ export function GuidePicker({
               {guidesLoading
                 ? 'Loading employees...'
                 : selectedIds.length
-                  ? 'Edit guides'
-                  : 'Choose guides'}
+                  ? `Edit ${label}`
+                  : `Choose ${label}`}
             </span>
             {selectedIds.length > 0 && (
               <span className="text-muted-foreground hidden text-xs tabular-nums sm:inline">
@@ -100,134 +104,145 @@ export function GuidePicker({
             <ChevronDownIcon className="text-muted-foreground size-4" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent
-          id={panelId}
-          aria-label="Choose guides"
-          align="start"
-          className="flex min-h-0 w-[var(--radix-popover-trigger-width)] min-w-[min(20rem,calc(100vw-2rem))] flex-col overflow-hidden p-0"
-          onOpenAutoFocus={(event) => {
-            event.preventDefault();
-            searchRef.current?.focus();
-          }}
-        >
-          <div className="border-border flex shrink-0 items-center gap-2 border-b px-4 py-2">
-            <SearchIcon
-              aria-hidden="true"
-              className="text-muted-foreground size-4 shrink-0"
-            />
-            <Input
-              ref={searchRef}
-              aria-label="Search employees"
-              placeholder="Search by name or position..."
-              autoComplete="off"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'ArrowDown') {
-                  event.preventDefault();
-                  resultsRef.current
-                    ?.querySelector<HTMLInputElement>('input:not(:disabled)')
-                    ?.focus();
-                } else if (event.key === 'Enter') {
-                  event.preventDefault();
-                  const first = matches.find(
-                    (guide) => selectedIds.includes(guide.id) || !addDisabled
-                  );
-                  if (first) toggle(first.id);
-                }
-              }}
-              className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-            />
-            {query && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Clear employee search"
-                onClick={() => {
-                  setQuery('');
-                  searchRef.current?.focus();
-                }}
-              >
-                <XIcon className="size-4" />
-              </Button>
-            )}
-          </div>
-          <div
-            ref={resultsRef}
-            className="max-h-72 min-h-0 flex-1 overflow-y-auto overscroll-contain p-2"
+        {/* Unmount on close so reopening during the exit animation restores focus. */}
+        {open && (
+          <PopoverContent
+            id={panelId}
+            aria-label={`Choose ${label}`}
+            align="start"
+            className="flex min-h-0 w-[var(--radix-popover-trigger-width)] min-w-[min(20rem,calc(100vw-2rem))] flex-col overflow-hidden p-0"
+            onOpenAutoFocus={(event) => {
+              event.preventDefault();
+              searchRef.current?.focus();
+            }}
           >
-            {matches.length ? (
-              matches.map((guide) => {
-                const checked = selectedIds.includes(guide.id);
-                const disabled = !checked && !!addDisabled;
-                return (
-                  <label
-                    key={guide.id}
-                    className="hover:bg-accent has-[:focus-visible]:bg-accent flex min-h-14 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
-                  >
-                    <input
-                      type="checkbox"
-                      aria-label={
-                        guide.position
-                          ? `${guide.name} — ${guide.position}`
-                          : guide.name
-                      }
-                      checked={checked}
-                      disabled={disabled}
-                      onChange={() => toggle(guide.id)}
-                      className="accent-primary size-4 shrink-0"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
-                        {guide.name}
-                      </span>
-                      {guide.position && (
-                        <span className="text-muted-foreground block truncate text-xs">
-                          {guide.position}
-                        </span>
-                      )}
-                    </span>
-                    {checked && (
-                      <CheckIcon
-                        aria-hidden="true"
-                        className="size-4 shrink-0"
-                      />
-                    )}
-                  </label>
-                );
-              })
-            ) : (
-              <p
-                role="status"
-                className="text-muted-foreground px-3 py-6 text-center text-sm"
-              >
-                {guides.length
-                  ? 'No employees found.'
-                  : 'No active employees available.'}
-              </p>
-            )}
-          </div>
-          <div className="border-border flex shrink-0 items-center justify-between gap-3 border-t px-4 py-3">
-            <div aria-live="polite" className="min-w-0 text-xs">
-              <p className="font-medium tabular-nums">
-                {selectedIds.length} selected
-              </p>
-              <p className="text-muted-foreground">
-                {addDisabled
-                  ? 'All passenger seats are filled.'
-                  : 'Select one or more employees.'}
-              </p>
+            <div className="border-border flex shrink-0 items-center gap-2 border-b px-4 py-2">
+              <SearchIcon
+                aria-hidden="true"
+                className="text-muted-foreground size-4 shrink-0"
+              />
+              <Input
+                ref={searchRef}
+                aria-label={
+                  kind === 'participants'
+                    ? 'Search participant employees'
+                    : 'Search employees'
+                }
+                placeholder="Search by name or position..."
+                autoComplete="off"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    resultsRef.current
+                      ?.querySelector<HTMLInputElement>('input:not(:disabled)')
+                      ?.focus();
+                  } else if (event.key === 'Enter') {
+                    event.preventDefault();
+                    const first = matches.find(
+                      (guide) => selectedIds.includes(guide.id) || !addDisabled
+                    );
+                    if (first) toggle(first.id);
+                  }
+                }}
+                className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+              />
+              {query && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={
+                    kind === 'participants'
+                      ? 'Clear participant employee search'
+                      : 'Clear employee search'
+                  }
+                  onClick={() => {
+                    setQuery('');
+                    searchRef.current?.focus();
+                  }}
+                >
+                  <XIcon className="size-4" />
+                </Button>
+              )}
             </div>
-            <Button type="button" size="sm" onClick={() => setOpen(false)}>
-              Done
-            </Button>
-          </div>
-        </PopoverContent>
+            <div
+              ref={resultsRef}
+              className="max-h-72 min-h-0 flex-1 overflow-y-auto overscroll-contain p-2"
+            >
+              {matches.length ? (
+                matches.map((guide) => {
+                  const checked = selectedIds.includes(guide.id);
+                  const disabled = !checked && !!addDisabled;
+                  return (
+                    <label
+                      key={guide.id}
+                      className="hover:bg-accent has-[:focus-visible]:bg-accent flex min-h-14 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                    >
+                      <input
+                        type="checkbox"
+                        aria-label={
+                          guide.position
+                            ? `${guide.name} — ${guide.position}`
+                            : guide.name
+                        }
+                        checked={checked}
+                        disabled={disabled}
+                        onChange={() => toggle(guide.id)}
+                        className="accent-primary size-4 shrink-0"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {guide.name}
+                        </span>
+                        {guide.position && (
+                          <span className="text-muted-foreground block truncate text-xs">
+                            {guide.position}
+                          </span>
+                        )}
+                      </span>
+                      {checked && (
+                        <CheckIcon
+                          aria-hidden="true"
+                          className="size-4 shrink-0"
+                        />
+                      )}
+                    </label>
+                  );
+                })
+              ) : (
+                <p
+                  role="status"
+                  className="text-muted-foreground px-3 py-6 text-center text-sm"
+                >
+                  {guides.length
+                    ? 'No employees found.'
+                    : 'No active employees available.'}
+                </p>
+              )}
+            </div>
+            <div className="border-border flex shrink-0 items-center justify-between gap-3 border-t px-4 py-3">
+              <div aria-live="polite" className="min-w-0 text-xs">
+                <p className="font-medium tabular-nums">
+                  {selectedIds.length} selected
+                </p>
+                <p className="text-muted-foreground">
+                  {addDisabled
+                    ? 'All passenger seats are filled.'
+                    : 'Select one or more employees.'}
+                </p>
+              </div>
+              <Button type="button" size="sm" onClick={() => setOpen(false)}>
+                Done
+              </Button>
+            </div>
+          </PopoverContent>
+        )}
       </Popover>
       {selectedIds.length > 0 && (
         <ul
-          aria-label="Selected guides"
+          aria-label={`Selected ${label}`}
           className="flex min-w-0 flex-col gap-2"
         >
           {selectedIds.map((id) => {

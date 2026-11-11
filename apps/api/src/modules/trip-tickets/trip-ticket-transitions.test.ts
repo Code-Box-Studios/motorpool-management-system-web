@@ -1,3 +1,4 @@
+import { fixtureGateDateId } from '../../test/trip-gate.js';
 import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
@@ -170,7 +171,7 @@ async function checkOut(
   const res = await request(app)
     .post(`/api/trip-tickets/${s.ticketId}/check-out`)
     .set('Authorization', header)
-    .send({ startMileage });
+    .send({ dateId: await fixtureGateDateId(s.ticketId), startMileage });
   if (res.status !== 200) {
     throw new Error(
       `checkOut(${s.ticketId}) failed: ${res.status} ${JSON.stringify(res.body)}`
@@ -189,7 +190,7 @@ async function checkIn(
   const res = await request(app)
     .post(`/api/trip-tickets/${s.ticketId}/check-in`)
     .set('Authorization', header)
-    .send({ endMileage });
+    .send({ dateId: await fixtureGateDateId(s.ticketId), endMileage });
   if (res.status !== 200) {
     throw new Error(
       `checkIn(${s.ticketId}) failed: ${res.status} ${JSON.stringify(res.body)}`

@@ -32,6 +32,8 @@ const tripTicketBodyFieldsSchema = z.object({
   destinationLongitude: z.number().min(-180).max(180).nullable().optional(),
   purpose: z.string().min(1),
   dateRequested: z.coerce.date(),
+  participantType: z.enum(['students', 'employees']).default('students'),
+  participantEmployeeIds: z.array(z.string().uuid()).default([]),
   participants: z.array(z.string()).default([]),
   participantsCount: z.coerce.number().int().min(1).nullable().optional(),
   preparedBy: z.string().default(''),
@@ -40,10 +42,9 @@ const tripTicketBodyFieldsSchema = z.object({
   startTs: z.coerce.date().nullable().optional(),
   endTs: z.coerce.date().nullable().optional(),
   dates: z.array(tripDateInputSchema).default([]),
-  // New guides are unarchived employees.
-  // An absent guideIds on PATCH preserves historical assignments; an empty
-  // list is rejected because each trip needs at least one guide.
-  guideIds: z.array(z.string().uuid()).min(1)
+  // Student trips need guides; employee trips may omit them. PATCH validates
+  // against the stored participant type in the service.
+  guideIds: z.array(z.string().uuid()).default([])
 });
 function validateDestinationCoordinates(
   body: {
@@ -68,7 +69,32 @@ function validateDestinationCoordinates(
 }
 
 export const createTripTicketBodySchema =
-  tripTicketBodyFieldsSchema.superRefine(validateDestinationCoordinates);
+  tripTicketBodyFieldsSchema.superRefine((body, ctx) => {
+    validateDestinationCoordinates(body, ctx);
+    if (body.participantType === 'students') {
+      if (body.guideIds.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['guideIds'],
+          message: 'Student trips require at least one guide'
+        });
+      }
+      if (body.participantEmployeeIds.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['participantEmployeeIds'],
+          message:
+            'Student participants use names instead of employee selections'
+        });
+      }
+    } else if (body.participantEmployeeIds.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['participantEmployeeIds'],
+        message: 'Select at least one employee participant'
+      });
+    }
+  });
 export type CreateTripTicketBody = z.infer<typeof createTripTicketBodySchema>;
 
 // PATCH is only legal while pending_admin_approval (service-enforced); status is
@@ -122,20 +148,17 @@ export type ReasonBody = z.infer<typeof reasonBodySchema>;
 // PATCH is frozen the moment a ticket leaves pending_admin_approval, and a
 // guide changing on the morning of the trip is the ordinary case.
 //
-// Deliberately NOT `.min(1)`, unlike the create body: `.min(1)` would have zod
-// answer an empty list with a generic 400 VALIDATION_ERROR, and on THIS
-// endpoint the empty case is the one that needs its own name —
-// replaceTripTicketGuides throws 400 NO_GUIDES for it. Same reason `dates` on
-// the create body is `.default([])` rather than `.min(1)`.
+// The service applies the stored ticket's participant type: students require
+// a guide, while an employee trip may clear its guides.
 export const reassignGuidesBodySchema = z.object({
   guideIds: z.array(z.string().uuid())
 });
 export type ReassignGuidesBody = z.infer<typeof reassignGuidesBodySchema>;
 
 // Gate scans record guard stamps only; odometer entry belongs to the assigned driver.
-export const checkOutBodySchema = z.object({});
+export const checkOutBodySchema = z.object({ dateId: z.string().uuid() });
 export type CheckOutBody = z.infer<typeof checkOutBodySchema>;
-export const checkInBodySchema = z.object({});
+export const checkInBodySchema = z.object({ dateId: z.string().uuid() });
 export type CheckInBody = z.infer<typeof checkInBodySchema>;
 
 export const driverOdometerBodySchema = z.object({

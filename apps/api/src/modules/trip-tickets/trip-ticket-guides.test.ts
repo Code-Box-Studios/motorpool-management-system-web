@@ -215,7 +215,9 @@ describe('trip-ticket guides: PATCH', () => {
     // A 200 that changed nothing would be the worst outcome here: the caller
     // asked for zero guides and would be told it worked.
     expect(patched.status).toBe(400);
-    expect(patched.body.error.code).toBe('VALIDATION_ERROR');
+    // PATCH must validate against the stored participant type. Employees may
+    // have no guides, but this default student ticket still requires one.
+    expect(patched.body.error.code).toBe('NO_GUIDES');
     expect(
       await prisma.tripTicketEmployee.count({
         where: { tripTicketId: created.body.id }

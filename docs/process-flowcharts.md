@@ -63,10 +63,10 @@ stateDiagram-v2
 
 Side effects along the way:
 
-- **Create** — server enforces: valid time window, vehicle not out of service, headcount within vehicle capacity, driver active, no double-booking of vehicle *or* driver against other live trips.
+- **Create** — server enforces: valid time window, vehicle not out of service, headcount within vehicle capacity, driver active, no double-booking of vehicle _or_ driver against other live trips.
 - **Admin approve** — creates the companion **fuel allocation** (pending), which is what the EVP actually signs off.
-- **Guard check-out** — hard-claims the vehicle `available → on_trip` (any other vehicle state is refused at the gate) and advances the odometer.
-- **Guard check-in** — completes the trip, advances the odometer (distance can never be negative), and frees the vehicle `on_trip → available` (softly — a mid-trip workshop pull wins).
+- **Guard check-out** — requires the selected outing’s `dateId`, records its departure, and hard-claims the vehicle `available → on_trip` (any other vehicle state is refused at the gate). Driver odometer readings are optional and recorded separately.
+- **Guard check-in** — requires the outing’s `dateId`, completes that outing, consumes any driver reading, and frees the vehicle `on_trip → available` (softly — a mid-trip workshop pull wins). The ticket returns to `approved` while outings remain; otherwise it becomes `completed`. Stale confirmations cannot act on a later outing.
 - Editing is only possible while pending admin approval; deletion only by admin in that same state. Everything later must exit via cancel/disapprove so the record and reason survive.
 
 ---
@@ -197,7 +197,7 @@ Inactive or role-stripped accounts are rejected at login, refresh, and `/auth/me
 4. **Completing scheduled maintenance wouldn't reset the risk model anyway** — tracking completion writes neither the odometer nor a service-history row; only job-order repairs count as "service" to the predictor.
 5. **Requester's dashboard calls admin-only analytics** — they get silently zeroed metric tiles and an empty GPS map (403s under the hood).
 6. **Approvals don't re-check reality.** Admin/EVP approval never re-runs the booking validation — a vehicle can go out of service between request and approval, and the ticket sails through until the gate refuses it.
-7. **Driver status is decorative.** `on_trip` for a *driver* is only ever set by hand; trips flip the vehicle but never the driver. Vehicle status `unavailable` is likewise an orphan no process produces.
+7. **Driver status is decorative.** `on_trip` for a _driver_ is only ever set by hand; trips flip the vehicle but never the driver. Vehicle status `unavailable` is likewise an orphan no process produces.
 8. **Client-side route guards only cover index pages.** Any authenticated role can deep-link into detail/add pages (forms render, then 403 at submit). The API is the real gate — but the UI over-promises.
 9. **Several API capabilities have no UI at all:** trip-ticket editing and deletion, job-order edit/delete, driver creation, all delete buttons for fleet assets, GPS history/trails.
 10. **GPS wrinkles:** a freshly registered device can be ignored for up to 5 minutes (negative resolve cache); the online indicator can flap "Offline" while a device is actively streaming (last-seen only refreshes on cache misses). The browser reads GPS data only; ingest credentials belong to the gateway and API.

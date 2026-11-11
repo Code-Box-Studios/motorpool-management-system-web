@@ -1,3 +1,4 @@
+import { fixtureGateDateId } from '../../test/trip-gate.js';
 import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
@@ -94,7 +95,7 @@ describe('trip-ticket guard transitions', () => {
     const res = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-out`)
       .set('Authorization', header)
-      .send({ startMileage: START_KM });
+      .send({ dateId: await fixtureGateDateId(ticket.id), startMileage: START_KM });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('in_progress');
     // Task 5: the pre-trip guard, timestamp and starting odometer now live on
@@ -128,7 +129,7 @@ describe('trip-ticket guard transitions', () => {
     const res = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-out`)
       .set('Authorization', header)
-      .send({ startMileage: START_KM });
+      .send({ dateId: await fixtureGateDateId(ticket.id), startMileage: START_KM });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('VEHICLE_NOT_AVAILABLE');
     expect(
@@ -152,7 +153,7 @@ describe('trip-ticket guard transitions', () => {
     const res = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-out`)
       .set('Authorization', header)
-      .send({ startMileage: START_KM });
+      .send({ dateId: await fixtureGateDateId(ticket.id), startMileage: START_KM });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('VEHICLE_NOT_AVAILABLE');
   });
@@ -164,11 +165,11 @@ describe('trip-ticket guard transitions', () => {
     await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-out`)
       .set('Authorization', header)
-      .send({ startMileage: START_KM });
+      .send({ dateId: await fixtureGateDateId(ticket.id), startMileage: START_KM });
     const res = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-in`)
       .set('Authorization', header)
-      .send({ endMileage: START_KM + 250 });
+      .send({ dateId: await fixtureGateDateId(ticket.id), endMileage: START_KM + 250 });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('completed');
     // Task 5: the post-trip guard and closing odometer now live on the
@@ -195,7 +196,7 @@ describe('trip-ticket guard transitions', () => {
     const res = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-out`)
       .set('Authorization', header)
-      .send({ startMileage: START_KM - 1 });
+      .send({ dateId: await fixtureGateDateId(ticket.id), startMileage: START_KM - 1 });
     expect(res.status).toBe(200);
     expect((await prisma.tripDate.findFirstOrThrow({ where: { tripTicketId: ticket.id } })).startMileage).toBeNull();
     expect(
@@ -210,7 +211,7 @@ describe('trip-ticket guard transitions', () => {
     const res = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-out`)
       .set('Authorization', header)
-      .send({});
+      .send({ dateId: await fixtureGateDateId(ticket.id) });
     expect(res.status).toBe(200);
   });
 
@@ -225,14 +226,14 @@ describe('trip-ticket guard transitions', () => {
     const forbidden = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-out`)
       .set('Authorization', authHeader(req.id, req.email, 'requester'))
-      .send({ startMileage: START_KM });
+      .send({ dateId: await fixtureGateDateId(ticket.id), startMileage: START_KM });
     expect(forbidden.status).toBe(403);
 
     const { header } = await guardHeader();
     const badState = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-in`)
       .set('Authorization', header)
-      .send({ endMileage: START_KM });
+      .send({ dateId: await fixtureGateDateId(ticket.id), endMileage: START_KM });
     expect(badState.status).toBe(409); // still 'approved', not 'in_progress'
   });
 
@@ -252,7 +253,7 @@ describe('trip-ticket guard transitions', () => {
     const out = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-out`)
       .set('Authorization', adminH)
-      .send({ startMileage: START_KM });
+      .send({ dateId: await fixtureGateDateId(ticket.id), startMileage: START_KM });
     expect(out.status).toBe(200);
     expect(out.body.status).toBe('in_progress');
     // Task 5: guard/mileage stamps now live on the TripDate row.
@@ -268,7 +269,7 @@ describe('trip-ticket guard transitions', () => {
     const back = await request(app)
       .post(`/api/trip-tickets/${ticket.id}/check-in`)
       .set('Authorization', adminH)
-      .send({ endMileage: START_KM + 120 });
+      .send({ dateId: await fixtureGateDateId(ticket.id), endMileage: START_KM + 120 });
     expect(back.status).toBe(200);
     expect(back.body.status).toBe('completed');
     const backDate = await prisma.tripDate.findFirstOrThrow({
@@ -447,7 +448,7 @@ describe('trip-ticket guard transitions', () => {
     return request(app)
       .post(`/api/trip-tickets/${s.ticketId}/check-out`)
       .set('Authorization', header)
-      .send({ startMileage });
+      .send({ dateId: await fixtureGateDateId(s.ticketId), startMileage });
   }
 
   async function checkOut(s: { ticketId: string }, startMileage: number) {
@@ -466,7 +467,7 @@ describe('trip-ticket guard transitions', () => {
     return request(app)
       .post(`/api/trip-tickets/${s.ticketId}/check-in`)
       .set('Authorization', header)
-      .send({ endMileage });
+      .send({ dateId: await fixtureGateDateId(s.ticketId), endMileage });
   }
 
   async function checkIn(s: { ticketId: string }, endMileage: number) {
@@ -701,11 +702,11 @@ describe('driver gate claims', () => {
       include: { dates: true }
     });
     const { header } = await guardHeader();
-    const depart = (id: string) =>
+    const depart = async (id: string) =>
       request(app)
         .post(`/api/trip-tickets/${id}/check-out`)
         .set('Authorization', header)
-        .send({ startMileage: START_KM });
+        .send({ dateId: await fixtureGateDateId(id), startMileage: START_KM });
     return { first, second, secondVehicle, header, depart };
   }
 
@@ -743,7 +744,7 @@ describe('driver gate claims', () => {
         await request(app)
           .post(`/api/trip-tickets/${s.first.ticket.id}/check-in`)
           .set('Authorization', s.header)
-          .send({ endMileage: START_KM + 50 })
+          .send({ dateId: await fixtureGateDateId(s.first.ticket.id), endMileage: START_KM + 50 })
       ).status
     ).toBe(200);
     expect((await s.depart(s.second.id)).status).toBe(200);

@@ -120,16 +120,20 @@ export function officeHeadBlockers(id: string): Promise<Blocker[]> {
   ]);
 }
 
-// An employee is referenced by exactly one thing: the trip tickets they guide
-// (TripTicketEmployee). Counting TICKETS rather than join rows keeps the
-// `tripTickets` resource name honest — the composite PK means the two numbers
-// agree today, but only the ticket count is what the dialog claims to show.
+// Live trips hold their employees whether they ride as participants or guides.
+// Count tickets once, even if historical data references both roles.
 export function employeeBlockers(id: string): Promise<Blocker[]> {
   return collect([
     {
       resource: 'tripTickets',
       count: prisma.tripTicket.count({
-        where: { guides: { some: { employeeId: id } }, status: liveTicket }
+        where: {
+          status: liveTicket,
+          OR: [
+            { guides: { some: { employeeId: id } } },
+            { participantEmployees: { some: { employeeId: id } } }
+          ]
+        }
       })
     }
   ]);

@@ -1,3 +1,4 @@
+import { fixtureGateDateId } from '../../test/trip-gate.js';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
@@ -285,7 +286,7 @@ describe('per-outing notifications', () => {
       }
     });
 
-    await checkOut(ticket1.id, guardActor, { startMileage: 1000 });
+    await checkOut(ticket1.id, guardActor, { dateId: await fixtureGateDateId(ticket1.id) });
     const outRow = only(
       await prisma.notification.findMany({
         where: {
@@ -300,7 +301,7 @@ describe('per-outing notifications', () => {
     // test below for that), just that one is named at all.
     expect(outRow.body).toMatch(/\(\d{4}-\d{2}-\d{2}\)/);
 
-    await checkIn(ticket1.id, guardActor, { endMileage: 1100 });
+    await checkIn(ticket1.id, guardActor, { dateId: await fixtureGateDateId(ticket1.id) });
     const inRow1 = only(
       await prisma.notification.findMany({
         where: {
@@ -351,8 +352,8 @@ describe('per-outing notifications', () => {
       ]
     });
 
-    await checkOut(ticket2.id, guardActor, { startMileage: 1000 });
-    await checkIn(ticket2.id, guardActor, { endMileage: 1100 });
+    await checkOut(ticket2.id, guardActor, { dateId: await fixtureGateDateId(ticket2.id) });
+    await checkIn(ticket2.id, guardActor, { dateId: await fixtureGateDateId(ticket2.id) });
     const inRow2 = only(
       await prisma.notification.findMany({
         where: {

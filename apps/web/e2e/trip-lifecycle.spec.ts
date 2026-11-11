@@ -146,7 +146,7 @@ test('trip lifecycle: requester → admin → EVP (UI) → guard → completed',
     request,
     `/api/trip-tickets/${tripId}/check-out`,
     guard.token,
-    {}
+    { dateId }
   );
   expect(checkOut.ok, 'guard check-out').toBeTruthy();
   expect(await tripStatus(request, tripId, admin.token)).toBe('in_progress');
@@ -165,7 +165,7 @@ test('trip lifecycle: requester → admin → EVP (UI) → guard → completed',
     request,
     `/api/trip-tickets/${tripId}/check-in`,
     guard.token,
-    {}
+    { dateId }
   );
   expect(checkIn.ok, 'guard check-in').toBeTruthy();
   expect(await tripStatus(request, tripId, admin.token)).toBe('completed');

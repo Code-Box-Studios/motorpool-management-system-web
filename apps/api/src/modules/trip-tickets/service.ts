@@ -22,6 +22,12 @@ import {
 } from './repository.js';
 import { replaceTripDates } from './dates.js';
 import {
+  assertTripGuideRules,
+  replaceTripParticipants,
+  resolveTripParticipants,
+  sameEmployeeIds
+} from './participants.js';
+import {
   assertGuideEmployeesActive,
   assertSeatsFit,
   participantHeadcount,
@@ -309,16 +315,20 @@ export async function create(
   // compiles clean and throws PrismaClientValidationError at runtime, on the
   // create path only. Same idiom as `const { requestedById, ...editable }` in
   // update() below.
-  const { guideIds, ...ticketData } = body;
+  const { guideIds, participantEmployeeIds, ...ticketData } = body;
   const ticket = await prisma.$transaction(async (tx) => {
     await lockDrivers(tx, [body.driverId]);
     await lockVehicles(tx, [body.vehicleId]);
-    await assertBookable(tx, body);
+    const { employeeIds, replaceMembership, ...partyData } =
+      await resolveTripParticipants(tx, body);
+    assertTripGuideRules(partyData.participantType, guideIds, employeeIds);
+    await assertBookable(tx, { ...body, ...partyData });
     const created = await tx.tripTicket.create({
       // The legacy pair is still written, but only as the seed of the derived
       // span — replaceTripDates recomputes it from the rows immediately after.
       data: {
         ...ticketData,
+        ...partyData,
         // `dates` on the body is the validated request list, not Prisma's `dates`
         // relation (added in Task 1) — those are shaped differently. Keep it out
         // of the ticket write; replaceTripDates below wires it into the
@@ -333,7 +343,14 @@ export async function create(
     // Inside the SAME transaction: a ticket that committed without its guides
     // would be a booking nobody is staffing, and there is no later write that
     // would notice.
-    await replaceTripTicketGuides(tx, created.id, guideIds);
+    await replaceTripTicketGuides(
+      tx,
+      created.id,
+      guideIds,
+      partyData.participantType === 'students'
+    );
+    if (replaceMembership)
+      await replaceTripParticipants(tx, created.id, employeeIds);
     return created;
   });
   const full = await findTripTicketById(ticket.id);
@@ -352,7 +369,6 @@ export async function update(
     officeId: body.officeId,
     officeHeadId: body.officeHeadId
   });
-  if (body.guideIds !== undefined) await assertGuideEmployeesActive(body.guideIds);
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM trip_tickets WHERE id = ${id}::uuid FOR UPDATE`;
     const existing = await tx.tripTicket.findUnique({
@@ -383,6 +399,17 @@ export async function update(
       existing.vehicleId,
       body.vehicleId ?? existing.vehicleId
     ]);
+    const currentGuideIds = existing.guides.map(
+      (guide) => guide.userId ?? guide.employeeId!
+    );
+    const nextGuideIds = body.guideIds ?? currentGuideIds;
+    const guidesChanged =
+      body.guideIds !== undefined &&
+      !sameEmployeeIds(body.guideIds, currentGuideIds);
+    if (guidesChanged) await assertGuideEmployeesActive(nextGuideIds);
+    const { employeeIds, replaceMembership, ...partyData } =
+      await resolveTripParticipants(tx, body, existing);
+    assertTripGuideRules(partyData.participantType, nextGuideIds, employeeIds);
     // An edit can move the trip onto another vehicle, another driver, other hours,
     // or a bigger party, so it has to clear the same bar a new booking does.
     //
@@ -433,22 +460,21 @@ export async function update(
       {
         vehicleId: body.vehicleId ?? existing.vehicleId,
         driverId: body.driverId ?? existing.driverId,
-        participants: body.participants ?? existing.participants,
-        participantsCount: body.participantsCount ?? existing.participantsCount,
+        participants: partyData.participants,
+        participantsCount: partyData.participantsCount,
         // Same fallback shape as the fields above it: a PATCH that adds two
         // participants without touching the guides must still be sized against
         // the guides the ticket already has, or an edit could quietly push the
         // party past the van's capacity.
-        guideIds:
-          body.guideIds ??
-          existing.guides.map((g) => g.userId ?? g.employeeId!),
+        guideIds: nextGuideIds,
         dates: proposedDates
       },
       id
     );
     // An edit cannot hand the ticket to someone else — that is the same
     // client-controlled attribution hole as on create, via the back door.
-    const { requestedById, guideIds, ...editable } = body;
+    const { requestedById, guideIds, participantEmployeeIds, ...editable } =
+      body;
     // A text-only destination edit no longer refers to the stored map pin.
     if (
       body.destination !== undefined &&
@@ -474,6 +500,7 @@ export async function update(
       actor.role === 'admin' && requestedById
         ? {
             ...editable,
+            ...partyData,
             dates: undefined,
             startTs: undefined,
             endTs: undefined,
@@ -481,6 +508,7 @@ export async function update(
           }
         : {
             ...editable,
+            ...partyData,
             dates: undefined,
             startTs: undefined,
             endTs: undefined
@@ -497,18 +525,14 @@ export async function update(
     if (sentDates) {
       await replaceTripDates(tx, id, normaliseTripDates(body));
     }
-    // The same rule for the guide rows, one case simpler: there is no legacy
-    // pair to fold in, so ABSENT is the only "leave them alone" spelling.
-    //
-    // There is deliberately no empty-list gate here to match the NO_TRIP_DATES
-    // one at :349 — it would be unreachable. `.partial()` wraps `guideIds` in
-    // ZodOptional without stripping its `.min(1)`, so `{ guideIds: [] }` is
-    // refused by zod before this controller ever runs. If that `.min(1)` is
-    // ever dropped, replaceTripTicketGuides still answers an empty list with
-    // 400 NO_GUIDES rather than deleting every row.
-    if (guideIds !== undefined) {
-      await replaceTripTicketGuides(tx, id, guideIds);
-    }
+    if (guidesChanged)
+      await replaceTripTicketGuides(
+        tx,
+        id,
+        nextGuideIds,
+        partyData.participantType === 'students'
+      );
+    if (replaceMembership) await replaceTripParticipants(tx, id, employeeIds);
   });
   return findTripTicketById(id);
 }
@@ -529,7 +553,19 @@ export async function remove(id: string): Promise<void> {
       `Cannot delete a trip ticket that is ${existing.status} — cancel it instead`
     );
   }
-  await prisma.tripTicket.delete({ where: { id } }); // fuel_allocation cascades (schema onDelete: Cascade)
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM trip_tickets WHERE id = ${id}::uuid FOR UPDATE`;
+    const locked = await tx.tripTicket.findUnique({ where: { id } });
+    if (!locked) throw new AppError(404, 'NOT_FOUND', 'Trip ticket not found');
+    if (locked.status !== 'pending_admin_approval') {
+      throw new AppError(
+        409,
+        'INVALID_TRANSITION',
+        `Cannot delete a trip ticket that is ${locked.status} — cancel it instead`
+      );
+    }
+    await tx.tripTicket.delete({ where: { id } });
+  });
 }
 
 export { scopeFor };

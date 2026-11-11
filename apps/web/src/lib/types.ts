@@ -100,23 +100,28 @@ export type UpdateTool = TablesUpdate<'tools'>;
 export type TripTicket = Tables<'trip_tickets'> & {
   dates: TripDateRow[];
   guides: TripGuideRow[];
+  participant_type: 'students' | 'employees';
+  participant_employee_ids: string[];
+  participant_employees: TripGuideRow[];
   destination_latitude: number | null;
   destination_longitude: number | null;
 };
 export type NewTripTicket = TablesInsert<'trip_tickets'> & {
+  participantType?: 'students' | 'employees';
+  participantEmployeeIds?: string[];
   destination_latitude?: number | null;
   destination_longitude?: number | null;
   /** Outgoing create/update shape: already camelCase, passed straight through
    *  to the request body (see mapCreateBody/mapUpdateBody). Optional — the
    *  legacy start_ts/end_ts pair below still works on its own. */
   dates?: { startTs: string; endTs: string }[];
-  /** The unarchived employees guiding the trip, as employee ids — same convention as
-   *  `dates`: already camelCase, passed straight through. REQUIRED by
-   *  createTripTicketBodySchema (.min(1)). Not optional like `dates` —
-   *  there is no legacy fallback path for guides. */
+  /** Employee guide IDs. Student trips require at least one guide. */
   guideIds: string[];
 };
 export type UpdateTripTicket = TablesUpdate<'trip_tickets'> & {
+  participant_type?: 'students' | 'employees';
+  participant_employee_ids?: string[];
+  guide_ids?: string[];
   destination_latitude?: number | null;
   destination_longitude?: number | null;
 };

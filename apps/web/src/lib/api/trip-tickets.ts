@@ -80,6 +80,7 @@ export interface TripGuideRow {
   id: string;
   name: string;
   position: string | null;
+  archivedAt?: string | null;
 }
 
 interface TripGuideApiResponse {
@@ -152,6 +153,8 @@ interface TripTicketApiResponse {
   purpose: string;
   dateRequested: string;
   participants: string[];
+  participantType?: 'students' | 'employees';
+  participantEmployees?: { employeeId: string; employee: { id: string; name: string; position: string | null; archivedAt: string | null } }[];
   participantsCount: number | null;
   guides: TripGuideApiResponse[];
   preparedBy: string;
@@ -192,6 +195,9 @@ function toSnake(t: TripTicketApiResponse): TripTicket {
     purpose: t.purpose,
     date_requested: t.dateRequested.slice(0, 10), // @db.Date -> YYYY-MM-DD for <input type="date">/display
     participants: t.participants ?? [],
+    participant_type: t.participantType ?? 'students',
+    participant_employee_ids: (t.participantEmployees ?? []).map((row) => row.employeeId),
+    participant_employees: (t.participantEmployees ?? []).map((row) => row.employee),
     participants_count: t.participantsCount ?? null,
     // `?? []` for the same reason participants above has it: if
     // tripTicketInclude is ever missing the guides embed, a ticket renders with
@@ -255,6 +261,8 @@ interface TripTicketRequestBody {
   purpose?: string;
   dateRequested?: string;
   participants?: string[];
+  participantType?: 'students' | 'employees';
+  participantEmployeeIds?: string[];
   participantsCount?: number | null;
   guideIds?: string[];
   preparedBy?: string;
@@ -282,6 +290,8 @@ function mapCreateBody(t: NewTripTicket): TripTicketRequestBody {
     purpose: t.purpose,
     dateRequested: t.date_requested,
     participants: t.participants ?? undefined,
+    participantType: t.participantType,
+    participantEmployeeIds: t.participantEmployeeIds,
     participantsCount: t.participants_count ?? undefined,
     guideIds: t.guideIds ?? undefined,
     preparedBy: t.prepared_by,
@@ -301,6 +311,10 @@ function mapCreateBody(t: NewTripTicket): TripTicketRequestBody {
 // Supabase adapter's `!== undefined` guards) so a partial edit stays partial.
 function mapUpdateBody(u: Record<string, unknown>): TripTicketRequestBody {
   const body: TripTicketRequestBody = {};
+  if (u.participant_type !== undefined)
+    body.participantType = u.participant_type as 'students' | 'employees';
+  if (u.participant_employee_ids !== undefined)
+    body.participantEmployeeIds = u.participant_employee_ids as string[];
   if (u.driver_id !== undefined)
     body.driverId = (u.driver_id as string) || undefined;
   if (u.vehicle_id !== undefined)
@@ -334,10 +348,8 @@ function mapUpdateBody(u: Record<string, unknown>): TripTicketRequestBody {
     // Guides are IDS. There is deliberately no comma-string branch like the
     // one `participants` needs above: nothing joins or splits a guide, so an
     // employee named "Cruz, Juan" cannot silently become two people. An empty
-    // array is forwarded AS an empty array, not folded to undefined —
-    // absent means "leave the guides alone", present-but-empty is a 400
-    // VALIDATION_ERROR, the same rule the server applies to `dates` (design
-    // §5.3).
+    // array stays empty: employee trips may clear their guides, while absent
+    // means "leave the guides alone". The API enforces the student guide rule.
     body.guideIds = u.guide_ids as string[];
   }
   if (u.requested_by !== undefined)
@@ -517,15 +529,15 @@ export async function reassignTripTicketGuides(
 }
 
 // Guard scans only stamp departure/return; readings belong to the assigned driver.
-export async function checkOutTripTicket(id: string): Promise<TripTicket> {
+export async function checkOutTripTicket(id: string, dateId: string): Promise<TripTicket> {
   return toSnake(
-    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-out`, {})
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-out`, { dateId })
   );
 }
 
-export async function checkInTripTicket(id: string): Promise<TripTicket> {
+export async function checkInTripTicket(id: string, dateId: string): Promise<TripTicket> {
   return toSnake(
-    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-in`, {})
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-in`, { dateId })
   );
 }
 

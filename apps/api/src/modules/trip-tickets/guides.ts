@@ -86,9 +86,10 @@ export async function assertGuideEmployeesActive(
 export async function replaceTripTicketGuides(
   tx: Prisma.TransactionClient,
   tripTicketId: string,
-  employeeIds: string[]
+  employeeIds: string[],
+  requireGuide = true
 ): Promise<void> {
-  if (employeeIds.length === 0) {
+  if (requireGuide && employeeIds.length === 0) {
     throw new AppError(
       400,
       'NO_GUIDES',
@@ -96,7 +97,9 @@ export async function replaceTripTicketGuides(
     );
   }
   await tx.tripTicketEmployee.deleteMany({ where: { tripTicketId } });
-  await tx.tripTicketEmployee.createMany({
-    data: employeeIds.map((employeeId) => ({ tripTicketId, employeeId }))
-  });
+  if (employeeIds.length) {
+    await tx.tripTicketEmployee.createMany({
+      data: employeeIds.map((employeeId) => ({ tripTicketId, employeeId }))
+    });
+  }
 }

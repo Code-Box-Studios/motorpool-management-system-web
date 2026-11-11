@@ -1,3 +1,4 @@
+import { fixtureGateDateId } from '../../test/trip-gate.js';
 import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
@@ -934,11 +935,11 @@ describe('trip-ticket concurrency', () => {
 
     // Fire both at the same instant. A read-then-write let BOTH read `available`
     // before either committed, and two trips went in_progress on one van.
-    const fire = (id: string) =>
+    const fire = async (id: string) =>
       request(app)
         .post(`/api/trip-tickets/${id}/check-out`)
         .set('Authorization', guardH)
-        .send({ startMileage: 1000 });
+        .send({ dateId: await fixtureGateDateId(id), startMileage: 1000 });
     const [ra, rb] = await Promise.all([fire(a), fire(b)]);
 
     const codes = [ra.status, rb.status].sort();
