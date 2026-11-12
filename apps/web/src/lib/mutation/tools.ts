@@ -15,6 +15,9 @@ export const useCreateTool = () => {
     }) => createTool(tool, file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tools'] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to create tool: ${error.message}`);
     }
   });
 };
@@ -35,6 +38,10 @@ export const useUpdateTool = () => {
     }) => updateTool(id, updates, file, removeImage),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tools'] });
+      queryClient.invalidateQueries({ queryKey: ['tool'] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update tool: ${error.message}`);
     }
   });
 };

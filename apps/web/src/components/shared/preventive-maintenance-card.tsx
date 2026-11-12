@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { cn } from '@/lib/utils';
+import { PREVENTIVE_STATUS } from '@/lib/utils/predictive-maintenance';
+import type { RiskAssessment } from '@mms/shared';
 import {
   METER_TONE,
   PRIORITY,
@@ -122,10 +124,12 @@ interface PreventiveMaintenanceCardProps {
   plateNumber: string;
   vehicleName: string;
   mileage: number;
-  maintenanceDue: number;
+  maintenanceDue: number | null;
   lastMaintenance: string | null | undefined;
-  priority: MaintenancePriority;
   reason: string;
+  status: NonNullable<RiskAssessment['preventiveStatus']>;
+  nextDueDate: string | null;
+  progress: number | null;
 }
 
 /** How far this vehicle is from its next scheduled service. */
@@ -136,11 +140,11 @@ export const PreventiveMaintenanceCard = ({
   mileage,
   maintenanceDue,
   lastMaintenance,
-  priority,
-  reason
+  reason,
+  status,
+  nextDueDate,
+  progress
 }: PreventiveMaintenanceCardProps) => {
-  const progress = maintenanceDue > 0 ? (mileage / maintenanceDue) * 100 : 0;
-
   return (
     <Card className="h-full">
       <CardContent className="space-y-4">
@@ -149,8 +153,8 @@ export const PreventiveMaintenanceCard = ({
           vehicleName={vehicleName}
           plateNumber={plateNumber}
           badge={
-            <Badge variant={PRIORITY[priority].badge}>
-              {PRIORITY[priority].priorityLabel}
+            <Badge variant={PREVENTIVE_STATUS[status].badge}>
+              {PREVENTIVE_STATUS[status].label}
             </Badge>
           }
         />
@@ -165,8 +169,19 @@ export const PreventiveMaintenanceCard = ({
             icon={AlertTriangle}
             iconClassName="text-status-wait-fg"
             label="Maintenance Due"
-            value={`${maintenanceDue.toLocaleString()} km`}
+            value={
+              maintenanceDue === null
+                ? 'Not set'
+                : `${maintenanceDue.toLocaleString()} km`
+            }
           />
+          {nextDueDate && (
+            <MaintenanceRow
+              icon={Calendar}
+              label="Service Due Date"
+              value={formatMaintenanceDate(nextDueDate)}
+            />
+          )}
           <MaintenanceRow
             icon={Calendar}
             label="Last Service"
@@ -174,17 +189,19 @@ export const PreventiveMaintenanceCard = ({
           />
         </div>
 
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="text-muted-foreground truncate">
-              Mileage progress
-            </span>
-            <span className="text-muted-foreground shrink-0 whitespace-nowrap">
-              {Math.round(Math.min(progress, 100))}%
-            </span>
+        {progress !== null && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="text-muted-foreground truncate">
+                Mileage progress
+              </span>
+              <span className="text-muted-foreground shrink-0 whitespace-nowrap">
+                {Math.round(Math.min(progress, 100))}%
+              </span>
+            </div>
+            <MaintenanceMeter value={progress} tone={meterTone(progress)} />
           </div>
-          <MaintenanceMeter value={progress} tone={meterTone(progress)} />
-        </div>
+        )}
 
         <p className="text-muted-foreground border-border border-t pt-3 text-sm italic">
           {reason}

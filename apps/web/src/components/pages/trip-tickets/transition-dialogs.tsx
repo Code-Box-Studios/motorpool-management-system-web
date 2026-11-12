@@ -172,9 +172,17 @@ export function FuelAllocationDialog({
   //
   // Falls back to today when the ticket has no start_ts, so the required `date`
   // is never sent empty (the server rejects '').
-  const date = ticket?.start_ts
-    ? ticket.start_ts.split('T')[0]
-    : new Date().toISOString().split('T')[0];
+  const dateParts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+      .formatToParts(new Date(ticket?.start_ts || Date.now()))
+      .map(({ type, value }) => [type, value])
+  );
+  const date = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
   const tripTo = ticket?.destination || '';
   const purpose = ticket?.purpose || '';
   const vehicle = vehicles?.find((v) => v.id === ticket?.vehicle_id);

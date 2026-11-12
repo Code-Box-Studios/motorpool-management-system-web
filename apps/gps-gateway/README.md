@@ -4,6 +4,20 @@ A standalone TCP service that receives H02 frames from SinoTrack ST-901 trackers
 resolves each reported device ID to a vehicle, and forwards positions to the MMS API's
 `POST /api/gps/ingest`. It never touches the database.
 
+Position requests include the H02 `deviceId`, `protocol: 'h02'`, and receipt.
+The API locks the registered tracker row and resolves its current active vehicle
+assignment before writing. The gateway's cached vehicle ID is only a hint:
+reassignment takes effect at ingest, and inactive/unassigned devices cannot add
+positions. The GPS point and final saved packet attribution commit together;
+their shared receipt UUID also deduplicates an ingest retry after a lost response.
+The API returns the authoritative vehicle ID for the gateway's final log.
+
+Deploy the updated API before restarting this gateway. The identity-free,
+device-key-authenticated ingest contract remains for trusted direct integrations;
+older gateways use that legacy contract and must be upgraded for these assignment
+checks. Historical saved points/receipts keep their original assignment when a
+tracker is subsequently moved or deactivated.
+
 ## Packet logs in MMS
 
 Administrators can open **Tracker Devices → Packet Logs**, or **View packet logs**

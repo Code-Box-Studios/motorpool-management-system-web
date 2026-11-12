@@ -1,8 +1,10 @@
 import express from 'express';
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { USER_ROLES } from '@mms/shared';
-import { signAccessToken } from '../lib/jwt.js';
+import { prisma } from '../lib/prisma.js';
+import { authHeader, createTestUser } from '../test/factories.js';
+import { truncateAll } from '../test/db.js';
 import { errorHandler } from './error-handler.js';
 import { requireAuth } from './require-auth.js';
 import { requireRole } from './require-role.js';
@@ -20,34 +22,32 @@ function buildApp() {
   return app;
 }
 
-function tokenFor(role: string): string {
-  return signAccessToken({
-    sub: '11111111-1111-4111-8111-111111111111',
-    email: `${role}@test.local`,
-    role,
-    branchId: null
-  });
+async function headerFor(role: string): Promise<string> {
+  const { user } = await createTestUser({ email: `${role}@test.local`, role });
+  return authHeader(user.id, user.email, role);
 }
 
 describe('requireRole', () => {
+  beforeEach(truncateAll);
+  afterAll(() => prisma.$disconnect());
   it('admits an allowed role', async () => {
     const res = await request(buildApp())
       .get('/admin-only')
-      .set('Authorization', `Bearer ${tokenFor('admin')}`);
+      .set('Authorization', await headerFor('admin'));
     expect(res.status).toBe(200);
   });
 
   it('admits the second allowed role', async () => {
     const res = await request(buildApp())
       .get('/admin-only')
-      .set('Authorization', `Bearer ${tokenFor('evp_operations')}`);
+      .set('Authorization', await headerFor('evp_operations'));
     expect(res.status).toBe(200);
   });
 
   it('rejects a disallowed role with 403 FORBIDDEN', async () => {
     const res = await request(buildApp())
       .get('/admin-only')
-      .set('Authorization', `Bearer ${tokenFor('driver')}`);
+      .set('Authorization', await headerFor('driver'));
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('FORBIDDEN');
   });

@@ -518,6 +518,48 @@ describe('job-order spare-part stock', () => {
     return authHeader(user.id, user.email, 'admin');
   };
 
+  it('aggregates duplicate lines into one issued row and restores the total on deletion', async () => {
+    const { mechanic, part, order } = await scaffold();
+    const header = await adminOf();
+    const noted = await request(app)
+      .post(`/api/job-orders/${order.id}/note`)
+      .set('Authorization', header)
+      .send({
+        assignedMechanicId: mechanic.id,
+        spareParts: [
+          { sparePartId: part.id, quantity: 2 },
+          { sparePartId: part.id, quantity: 3 }
+        ]
+      });
+    expect(noted.status).toBe(200);
+    expect(
+      await prisma.jobOrderSparePart.findMany({
+        where: { jobOrderId: order.id }
+      })
+    ).toMatchObject([{ sparePartId: part.id, quantity: 5 }]);
+    const issued = await prisma.sparePart.findUniqueOrThrow({
+      where: { id: part.id }
+    });
+    expect(issued.quantity).toBe(5);
+    expect(issued.updatedAt.getTime()).toBeGreaterThan(
+      part.updatedAt.getTime()
+    );
+    expect(
+      (
+        await request(app)
+          .delete(`/api/job-orders/${order.id}`)
+          .set('Authorization', header)
+      ).status
+    ).toBe(204);
+    const restored = await prisma.sparePart.findUniqueOrThrow({
+      where: { id: part.id }
+    });
+    expect(restored.quantity).toBe(10);
+    expect(restored.updatedAt.getTime()).toBeGreaterThan(
+      issued.updatedAt.getTime()
+    );
+  });
+
   it('refuses to note more of a part than is on the shelf', async () => {
     const { mechanic, part, order } = await scaffold('available');
     const adminH = await adminOf();

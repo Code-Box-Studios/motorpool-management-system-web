@@ -169,7 +169,7 @@ export function TripResourcePicker({
           <DialogTitle>Choose a {kind}</DialogTitle>
           <DialogDescription className="[@media(max-height:500px)]:hidden">
             {kind === 'vehicle'
-              ? 'Available vehicles, with your branch first. Check the plate and seats before choosing.'
+              ? 'Bookable vehicles, with your branch first. Availability is checked for your requested dates.'
               : 'Active drivers, with your branch first. Check the branch before choosing.'}
           </DialogDescription>
         </DialogHeader>
@@ -262,7 +262,9 @@ export function TripResourcePicker({
           ref={resultsRef}
           id={resultsId}
           role="listbox"
-          aria-label={`Available ${plural}`}
+          aria-label={
+            kind === 'vehicle' ? 'Bookable vehicles' : `Available ${plural}`
+          }
           className="space-y-2"
           onKeyDown={(event) => {
             const index = optionRefs.current.indexOf(
@@ -340,7 +342,7 @@ export function TripResourcePicker({
                 {options.length
                   ? `No ${plural} match your search.`
                   : kind === 'vehicle'
-                    ? 'No vehicles are free.'
+                    ? 'No bookable vehicles.'
                     : 'No active drivers.'}
               </p>
               {options.length > 0 && (

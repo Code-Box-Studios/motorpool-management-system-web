@@ -1,4 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { ImageUpload } from '@/components/shared/image-upload';
+import { toImageFileList } from '@/components/shared/image-upload-files';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Controller } from 'react-hook-form';
 import { useNavigate } from '@tanstack/react-router';
 import { USER_ROLES } from '@mms/shared';
@@ -80,7 +82,6 @@ const UserInner = ({ userId }: { userId: string }) => {
   const form = useUserUpdateForm();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [showUpdate, setShowUpdate] = useState(false);
   const [pendingData, setPendingData] = useState<UpdateUserFormData | null>(
     null
@@ -95,7 +96,7 @@ const UserInner = ({ userId }: { userId: string }) => {
   const isAdmin = currentUser?.role === USER_ROLES.admin;
   const isSelf = currentUser?.user_id === userId;
 
-  useEffect(() => {
+  const resetFromRecord = useCallback(() => {
     if (user && roles && branches) {
       form.reset({
         fullName: user.full_name || '',
@@ -105,6 +106,10 @@ const UserInner = ({ userId }: { userId: string }) => {
       });
     }
   }, [user, roles, branches, form]);
+
+  useEffect(() => {
+    if (!isEditing) resetFromRecord();
+  }, [resetFromRecord, isEditing]);
 
   const onSubmit = (data: UpdateUserFormData) => {
     setPendingData(data);
@@ -125,7 +130,6 @@ const UserInner = ({ userId }: { userId: string }) => {
       {
         onSuccess: () => {
           setIsEditing(false);
-          setAvatarPreview(null);
           navigate({ to: '/user-management' });
         },
         onSettled: () => {
@@ -179,7 +183,15 @@ const UserInner = ({ userId }: { userId: string }) => {
         backLabel="User Management"
         actions={
           !isEditing && isAdmin ? (
-            <Button onClick={() => setIsEditing(true)}>Edit</Button>
+            <Button
+              disabled={!roles || !branches}
+              onClick={() => {
+                resetFromRecord();
+                setIsEditing(true);
+              }}
+            >
+              Edit
+            </Button>
           ) : undefined
         }
       />
@@ -192,53 +204,36 @@ const UserInner = ({ userId }: { userId: string }) => {
               description="Who this account belongs to, and what it is allowed to do."
             >
               <div className="flex flex-col gap-5">
-                <div className="flex flex-wrap items-center gap-5">
-                  <Avatar className="size-20">
-                    <AvatarImage
-                      src={avatarPreview ?? user.avatar_url ?? undefined}
-                      alt=""
-                      className="object-cover"
-                    />
-                    <AvatarFallback>
-                      <span className="text-primary-foreground text-lg font-semibold">
-                        {initialsFor(user.full_name, user.email)}
-                      </span>
-                    </AvatarFallback>
-                  </Avatar>
-                  <Controller
-                    name="avatar"
-                    control={form.control}
-                    render={({ field: { onChange, ...field }, fieldState }) => (
-                      <Field
-                        data-invalid={fieldState.invalid}
-                        className="flex-1"
-                      >
-                        <FieldLabel htmlFor="user-avatar">
-                          Profile photo
-                        </FieldLabel>
-                        <Input
-                          {...field}
-                          id="user-avatar"
-                          type="file"
-                          accept="image/*"
-                          value={undefined}
-                          onChange={(e) => {
-                            const files = e.target.files;
-                            onChange(files ?? undefined);
-                            const file = files?.[0];
-                            setAvatarPreview(
-                              file ? URL.createObjectURL(file) : null
-                            );
-                          }}
-                          aria-invalid={fieldState.invalid}
-                        />
-                        {fieldState.invalid && (
-                          <FieldError errors={[fieldState.error]} />
-                        )}
-                      </Field>
-                    )}
-                  />
-                </div>
+                <Controller
+                  name="avatar"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="user-avatar">
+                        Profile photo
+                      </FieldLabel>
+                      <ImageUpload
+                        id="user-avatar"
+                        name={field.name}
+                        inputRef={field.ref}
+                        onBlur={field.onBlur}
+                        files={Array.from(field.value ?? [])}
+                        onFilesChange={(files) =>
+                          field.onChange(toImageFileList(files))
+                        }
+                        currentImage={user.avatar_url}
+                        currentImageAlt={
+                          user.full_name || 'Current profile photo'
+                        }
+                        disabled={updateUser.isPending}
+                        invalid={fieldState.invalid}
+                      />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
 
                 <FormRow>
                   <Controller
@@ -361,8 +356,10 @@ const UserInner = ({ userId }: { userId: string }) => {
                 type="button"
                 variant="outline"
                 onClick={() => {
+                  resetFromRecord();
                   setIsEditing(false);
-                  setAvatarPreview(null);
+                  setShowUpdate(false);
+                  setPendingData(null);
                 }}
               >
                 Cancel

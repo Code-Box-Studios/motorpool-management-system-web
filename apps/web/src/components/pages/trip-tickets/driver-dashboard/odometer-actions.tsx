@@ -6,6 +6,7 @@ import { recordTripOdometer, type TripDateRow } from '@/lib/api/trip-tickets';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { historyTime } from '@/lib/utils/trip-history';
 import {
   Dialog,
   DialogContent,
@@ -166,15 +167,7 @@ export function OdometerActions({
           >
             <DialogBody className="space-y-4">
               <p className="text-slate text-xs leading-relaxed">
-                Outing:{' '}
-                {target &&
-                  new Date(target.startTs).toLocaleString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit'
-                  })}
+                Outing: {target && historyTime(target.startTs)}
               </p>
               <div className="space-y-2">
                 <Label htmlFor={`odometer-${target?.dateId ?? date.id}`}>

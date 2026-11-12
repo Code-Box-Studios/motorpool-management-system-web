@@ -11,6 +11,7 @@ import type {
   UpdateOfficeHeadBody
 } from '@mms/shared';
 import { USER_ROLES } from '@mms/shared';
+import { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
@@ -24,6 +25,31 @@ import {
   officeHeadBlockers
 } from './guard.js';
 import * as repo from './repository.js';
+
+// Head assignments and office moves read each other's rows. Serializable
+// isolation protects that relationship across manual writes and CSV imports,
+// including a new head that is not present in an office move's snapshot yet.
+async function writeOrganization<T>(
+  work: (tx: Prisma.TransactionClient) => Promise<T>
+): Promise<T> {
+  try {
+    return await prisma.$transaction(work, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2034'
+    ) {
+      throw new AppError(
+        409,
+        'ORGANIZATION_CHANGED',
+        'Organization data changed. Refresh the record and try again.'
+      );
+    }
+    throw error;
+  }
+}
 
 // Case-insensitive, and it spans archived rows on purpose: restoring an
 // archived "North Branch" must not collide with one created since, and reusing
@@ -90,9 +116,10 @@ export async function restoreBranch(id: string) {
 async function assertOfficeNameFree(
   name: string,
   branchId: string | null | undefined,
-  excludeId?: string
+  excludeId?: string,
+  client: Prisma.TransactionClient = prisma
 ) {
-  const clash = await prisma.departmentOffice.findFirst({
+  const clash = await client.departmentOffice.findFirst({
     where: {
       name: { equals: name, mode: 'insensitive' },
       branchId: branchId ?? null,
@@ -108,8 +135,11 @@ async function assertOfficeNameFree(
     );
 }
 
-async function loadOffice(id: string) {
-  const office = await prisma.departmentOffice.findUnique({ where: { id } });
+async function loadOffice(
+  id: string,
+  client: Prisma.TransactionClient = prisma
+) {
+  const office = await client.departmentOffice.findUnique({ where: { id } });
   if (!office) throw new AppError(404, 'NOT_FOUND', 'Office not found');
   return office;
 }
@@ -128,26 +158,42 @@ export async function createOffice(body: CreateOfficeBody) {
 }
 
 export async function updateOffice(id: string, body: UpdateOfficeBody) {
-  const existing = await loadOffice(id);
-  await assertOrgRefsActive({
-    branchId: body.branchId,
-    officeHeadId: body.headId
+  return writeOrganization(async (tx) => {
+    const existing = await loadOffice(id, tx);
+    await assertOrgRefsActive(
+      {
+        branchId: body.branchId,
+        officeHeadId: body.headId
+      },
+      tx
+    );
+    // Check the effective pair for partial edits. NULL branches need an
+    // explicit check because PostgreSQL unique indexes treat NULL as distinct.
+    const name = body.name ?? existing.name;
+    const branchId =
+      body.branchId === undefined ? existing.branchId : body.branchId;
+    if (body.name !== undefined || body.branchId !== undefined)
+      await assertOfficeNameFree(name, branchId, id, tx);
+    if (branchId !== existing.branchId) {
+      const mismatchedHead = await tx.officeHead.findFirst({
+        where: {
+          officeId: id,
+          ...(branchId === null
+            ? { branchId: { not: null } }
+            : { OR: [{ branchId: null }, { branchId: { not: branchId } }] })
+        },
+        select: { id: true }
+      });
+      if (mismatchedHead) {
+        throw new AppError(
+          400,
+          'OFFICE_BRANCH_MISMATCH',
+          'Move or clear the attached office heads before changing this office branch'
+        );
+      }
+    }
+    return tx.departmentOffice.update({ where: { id }, data: body });
   });
-  // A PATCH that changes only the name must be checked against the branch the
-  // office is ALREADY in; a PATCH that changes only the branch must be
-  // checked against the name it ALREADY has. Re-checking on either change
-  // (not just a name change) matters because the DB index can't always catch
-  // it: a branch-only move to a colliding branch surfaces as a generic
-  // Prisma P2002 -> 409 CONFLICT instead of 409 DUPLICATE_NAME, and a move to
-  // branchId: null is invisible to the index entirely (NULL is distinct from
-  // NULL in Postgres uniqueness), so two branchless "Ops" rows would silently
-  // coexist.
-  const name = body.name ?? existing.name;
-  const branchId =
-    body.branchId === undefined ? existing.branchId : body.branchId;
-  if (body.name !== undefined || body.branchId !== undefined)
-    await assertOfficeNameFree(name, branchId, id);
-  return prisma.departmentOffice.update({ where: { id }, data: body });
 }
 
 export async function archiveOffice(id: string) {
@@ -190,8 +236,11 @@ export async function restoreOffice(id: string) {
 
 // Office heads have NO name uniqueness — they are people, and two employees
 // named Juan Cruz is not an error (§4.2).
-async function loadOfficeHead(id: string) {
-  const head = await prisma.officeHead.findUnique({ where: { id } });
+async function loadOfficeHead(
+  id: string,
+  client: Prisma.TransactionClient = prisma
+) {
+  const head = await client.officeHead.findUnique({ where: { id } });
   if (!head) throw new AppError(404, 'NOT_FOUND', 'Office head not found');
   return head;
 }
@@ -200,21 +249,58 @@ export function listOfficeHeads(query: OrganizationListQuery) {
   return repo.listOfficeHeads(toSkipTake(query), query.includeArchived);
 }
 
-export async function createOfficeHead(body: CreateOfficeHeadBody) {
-  await assertOrgRefsActive({
-    branchId: body.branchId,
-    officeId: body.officeId
+async function assertOfficeBranch(
+  branchId: string | null | undefined,
+  officeId: string | null | undefined,
+  client: Prisma.TransactionClient = prisma
+) {
+  if (!officeId) return;
+  const office = await client.departmentOffice.findUnique({
+    where: { id: officeId },
+    select: { branchId: true }
   });
-  return prisma.officeHead.create({ data: body });
+  if (office && office.branchId !== (branchId ?? null)) {
+    throw new AppError(
+      400,
+      'OFFICE_BRANCH_MISMATCH',
+      'The selected office belongs to another branch'
+    );
+  }
+}
+
+export async function createOfficeHead(body: CreateOfficeHeadBody) {
+  return writeOrganization(async (tx) => {
+    await assertOrgRefsActive(
+      {
+        branchId: body.branchId,
+        officeId: body.officeId
+      },
+      tx
+    );
+    await assertOfficeBranch(body.branchId, body.officeId, tx);
+    return tx.officeHead.create({ data: body });
+  });
 }
 
 export async function updateOfficeHead(id: string, body: UpdateOfficeHeadBody) {
-  await loadOfficeHead(id);
-  await assertOrgRefsActive({
-    branchId: body.branchId,
-    officeId: body.officeId
+  return writeOrganization(async (tx) => {
+    const existing = await loadOfficeHead(id, tx);
+    await assertOrgRefsActive(
+      {
+        branchId: body.branchId,
+        officeId: body.officeId
+      },
+      tx
+    );
+    if (body.branchId !== undefined || body.officeId !== undefined) {
+      await assertOfficeBranch(
+        body.branchId === undefined ? existing.branchId : body.branchId,
+        body.officeId === undefined ? existing.officeId : body.officeId,
+        tx
+      );
+    }
+    return tx.officeHead.update({ where: { id }, data: body });
   });
-  return prisma.officeHead.update({ where: { id }, data: body });
 }
 
 export async function archiveOfficeHead(id: string) {

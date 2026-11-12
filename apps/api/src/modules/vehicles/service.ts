@@ -81,7 +81,7 @@ export async function update(
   const { status, removedImages: _removed, ...rest } = body;
 
   return prisma.$transaction(async (tx) => {
-    if (status !== undefined && status !== existing.status) {
+    if (status !== undefined) {
       await changeVehicleStatus(tx, id, status, {
         changedBy: actor.id,
         source: 'manual_edit'

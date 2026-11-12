@@ -32,6 +32,7 @@ import {
 import { BorrowedBadge } from '@/components/shared/borrowed-badge';
 import { GuidePicker } from '@/components/pages/trip-tickets/guide-picker';
 import { isBorrowed } from '@/lib/borrowed';
+import { resolveStatus } from '@/lib/status';
 import {
   FormLayout,
   FormSection,
@@ -65,16 +66,16 @@ import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
 import { formatRef } from '@/lib/utils/reference';
 import { FUEL_TYPE, TRIP_TICKET_STATUS } from '@/lib/enums';
 
-// A date-only column ('YYYY-MM-DD') parses as UTC midnight, which renders as the
-// previous day west of Greenwich — pin it to local time before formatting.
+// Preserve date-only values and render trip instants in the fleet's timezone.
 const dateOf = (value: string | null | undefined) => {
   if (!value) return undefined;
   const date = new Date(
-    /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00` : value
+    /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00+08:00` : value
   );
   return Number.isNaN(date.getTime())
     ? undefined
     : date.toLocaleDateString(undefined, {
+        timeZone: 'Asia/Manila',
         day: 'numeric',
         month: 'short',
         year: 'numeric'
@@ -87,6 +88,7 @@ const dateTimeOf = (value: string | null | undefined) => {
   return Number.isNaN(date.getTime())
     ? undefined
     : date.toLocaleString(undefined, {
+        timeZone: 'Asia/Manila',
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -95,14 +97,12 @@ const dateTimeOf = (value: string | null | undefined) => {
       });
 };
 
-// datetime-local has no timezone. Display the user's wall clock and convert
-// changed inputs back to explicit ISO instants before submission.
-const localDateTime = (value: string | null | undefined) => {
+// datetime-local has no timezone. Display the fleet's Manila wall clock;
+// changed inputs use the same +08:00 offset as new outing bookings.
+const manilaDateTime = (value: string | null | undefined) => {
   if (!value) return '';
   const date = new Date(value);
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
-    .toISOString()
-    .slice(0, 16);
+  return new Date(date.getTime() + 8 * 60 * 60_000).toISOString().slice(0, 16);
 };
 
 const sentenceCase = (value: string | null | undefined) =>
@@ -199,8 +199,8 @@ const TripTicketsInner = () => {
       setParticipants(participantsList.length > 0 ? participantsList : ['']);
     }
 
-    const startDateTime = localDateTime(tripTicket.start_ts);
-    const endDateTime = localDateTime(tripTicket.end_ts);
+    const startDateTime = manilaDateTime(tripTicket.start_ts);
+    const endDateTime = manilaDateTime(tripTicket.end_ts);
 
     form.reset({
       vehicle_id: tripTicket.vehicle_id,
@@ -307,14 +307,16 @@ const TripTicketsInner = () => {
       // ticket sends the pair only when the user actually changes its schedule,
       // preserving date identities and exact instants during unrelated edits.
       const scheduleChanged =
-        pendingData.start_ts !== localDateTime(tripTicket.start_ts) ||
-        pendingData.end_ts !== localDateTime(tripTicket.end_ts);
+        pendingData.start_ts !== manilaDateTime(tripTicket.start_ts) ||
+        pendingData.end_ts !== manilaDateTime(tripTicket.end_ts);
       if (tripTicket.dates.length > 1 || !scheduleChanged) {
         delete updates.start_ts;
         delete updates.end_ts;
       } else {
-        updates.start_ts = new Date(pendingData.start_ts).toISOString();
-        updates.end_ts = new Date(pendingData.end_ts).toISOString();
+        updates.start_ts = new Date(
+          `${pendingData.start_ts}+08:00`
+        ).toISOString();
+        updates.end_ts = new Date(`${pendingData.end_ts}+08:00`).toISOString();
       }
 
       updateTripTicket.mutate(
@@ -563,17 +565,22 @@ const TripTicketsInner = () => {
                               vehicles
                                 ?.filter(
                                   (v) =>
-                                    v.status === 'available' ||
+                                    v.status !== 'out_of_service' ||
                                     v.id === tripTicket.vehicle_id
                                 )
                                 .map((v) => (
                                   <SelectItem key={v.id} value={v.id}>
                                     {v.make} {v.model} - {v.license_plate}
+                                    {' · Current status: '}
+                                    {resolveStatus(v.status).label}
                                   </SelectItem>
                                 ))
                             )}
                           </SelectContent>
                         </Select>
+                        <p className="text-muted-foreground text-xs">
+                          Availability is checked for your requested dates.
+                        </p>
                         {fieldState.invalid && (
                           <FieldError errors={[fieldState.error]} />
                         )}

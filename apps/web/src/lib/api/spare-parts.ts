@@ -95,6 +95,9 @@ export async function updateSparePart(
   removeImage: boolean = false
 ): Promise<SparePart> {
   const fd = sparePartFormData(updates, file);
+  if (updates.quantity !== undefined && updates.expectedUpdatedAt) {
+    fd.append('expectedUpdatedAt', updates.expectedUpdatedAt);
+  }
   if (removeImage) fd.append('removeImage', 'true');
   return toSnake(
     await api.patchForm<SparePartApiResponse>(`/spare-parts/${id}`, fd)

@@ -119,19 +119,41 @@ describe('assigned driver odometer rules', () => {
       )
     ).toThrow(/current/i);
   });
-  it('allows correction before departure while retaining monotonic vehicle mileage', () => {
+  it('allows correction before departure above the confirmed vehicle mileage', () => {
     expect(() =>
       validateDriverReading(
         { ...outing, startMileage: 1100 },
         'before',
         1050,
-        1100,
+        1000,
         1000,
         null,
         false
       )
     ).not.toThrow();
   });
+  it.each(['before', 'after'] as const)(
+    'rejects a provisional %s correction below confirmed vehicle mileage',
+    (phase) => {
+      expect(() =>
+        validateDriverReading(
+          {
+            ...outing,
+            status: phase === 'before' ? 'scheduled' : 'in_progress',
+            startMileage: phase === 'before' ? 1400 : null,
+            endMileage: phase === 'after' ? 1400 : null,
+            preTripCheckedAt: phase === 'after' ? new Date() : null
+          },
+          phase,
+          1249,
+          1250,
+          null,
+          null,
+          false
+        )
+      ).toThrow(/current/i);
+    }
+  );
   it('rejects a new departure reading below the current vehicle mileage', () => {
     expect(() =>
       validateDriverReading(outing, 'before', 999, 1000, null, null, false)

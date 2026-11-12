@@ -37,7 +37,17 @@ export const riskAssessmentSchema = z.object({
   scoringMethod: predictiveMaintenanceAlgorithmSchema.optional(),
   // Informational Decision Tree probability; main score uses scoringMethod.
   crossCheckScore: z.number().nullable(),
-  crossCheckModel: z.string()
+  crossCheckModel: z.string(),
+  lastMaintenanceDate: z.string().nullable().optional(),
+  lastMaintenanceMileage: z.number().nonnegative().nullable().optional(),
+  nextMaintenanceDueMileage: z.number().nonnegative().nullable().optional(),
+  nextMaintenanceDueDate: z.string().nullable().optional(),
+  preventiveStatus: z
+    .enum(['overdue', 'due_soon', 'on_schedule', 'unknown'])
+    .optional(),
+  preventiveSource: z
+    .enum(['configured_schedule', 'service_history', 'unknown'])
+    .optional()
 });
 export type RiskAssessment = z.infer<typeof riskAssessmentSchema>;
 

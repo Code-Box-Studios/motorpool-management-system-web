@@ -28,6 +28,11 @@ export interface VehicleRiskAssessment {
   // label a rule-based estimate honestly instead of passing it off as the model.
   usedFallback: boolean;
   lastMaintenanceDate: string | null;
+  lastMaintenanceMileage: number | null;
+  nextMaintenanceDueMileage: number | null;
+  nextMaintenanceDueDate: string | null;
+  preventiveStatus: NonNullable<RiskAssessment['preventiveStatus']>;
+  preventiveSource: NonNullable<RiskAssessment['preventiveSource']>;
   predictedFailureDate: string | null;
   reason: string;
 }
@@ -64,12 +69,9 @@ function buildReason(
 }
 
 /**
- * Adapt the API's RiskAssessment into the FE's VehicleRiskAssessment. The API
- * doesn't return raw maintenance history, so `lastMaintenanceDate` and
- * `predictedFailureDate` are estimates re-derived client-side from the same
- * daily-usage rate the API used to compute the risk score (not exact
- * historical/scheduled dates). Logistic Regression supplies no prediction
- * horizon, so it must not inherit the usage-based service-date estimate.
+ * Adapt risk scores and recorded preventive deadlines for display. Historical
+ * service dates come from the API. Only predictedFailureDate is a usage-based
+ * estimate; Logistic Regression does not supply that prediction horizon.
  */
 export function buildAssessmentFromApi(
   apiRow: RiskAssessment,
@@ -78,19 +80,8 @@ export function buildAssessmentFromApi(
 ): VehicleRiskAssessment {
   const { kmSinceLastMaint, avgDailyKm, maintFreq12m } = apiRow;
 
-  // These are usage-rate ESTIMATES (the API returns no raw dates). Clamp them to
-  // a plausible service window so a very-low-usage vehicle (tiny avgDailyKm) can't
-  // surface an absurd date like a ~20-year-old "Last Service".
-  const daysSinceLastMaint =
-    avgDailyKm > 0
-      ? Math.min(Math.round(kmSinceLastMaint / avgDailyKm), 730)
-      : null;
-  const lastMaintenanceDate =
-    daysSinceLastMaint !== null
-      ? new Date(Date.now() - daysSinceLastMaint * MS_PER_DAY)
-          .toISOString()
-          .split('T')[0]
-      : null;
+  // A historical service date must come from a recorded service, not usage.
+  const lastMaintenanceDate = apiRow.lastMaintenanceDate ?? null;
 
   const remainingKm = Math.max(0, DEFAULT_MAINT_INTERVAL_KM - kmSinceLastMaint);
   const daysUntilDue =
@@ -114,6 +105,11 @@ export function buildAssessmentFromApi(
     priority: apiRow.priority,
     usedFallback: apiRow.usedFallback,
     lastMaintenanceDate,
+    lastMaintenanceMileage: apiRow.lastMaintenanceMileage ?? null,
+    nextMaintenanceDueMileage: apiRow.nextMaintenanceDueMileage ?? null,
+    nextMaintenanceDueDate: apiRow.nextMaintenanceDueDate ?? null,
+    preventiveStatus: apiRow.preventiveStatus ?? 'unknown',
+    preventiveSource: apiRow.preventiveSource ?? 'unknown',
     predictedFailureDate,
     reason:
       algorithm === 'logistic_regression'
@@ -122,13 +118,52 @@ export function buildAssessmentFromApi(
   };
 }
 
-/**
- * Get the next maintenance due mileage for a vehicle
- * based on standard intervals.
- */
-export function getNextMaintenanceDueMileage(currentMileage: number): number {
-  return (
-    Math.ceil(currentMileage / DEFAULT_MAINT_INTERVAL_KM) *
-    DEFAULT_MAINT_INTERVAL_KM
-  );
+export const PREVENTIVE_STATUS = {
+  overdue: { label: 'Overdue', badge: 'stop' },
+  due_soon: { label: 'Due Soon', badge: 'wait' },
+  on_schedule: { label: 'On Schedule', badge: 'neutral' },
+  unknown: { label: 'Unknown', badge: 'neutral' }
+} as const;
+
+/** Shared presentation of recorded preventive deadlines, independent of ML risk. */
+export function preventiveSummary(assessment: VehicleRiskAssessment) {
+  const due = assessment.nextMaintenanceDueMileage;
+  const remaining = due === null ? null : due - assessment.mileage;
+  const status = assessment.preventiveStatus;
+  const priority =
+    status === 'overdue' ? 'high' : status === 'due_soon' ? 'medium' : 'low';
+  const reason =
+    status === 'unknown'
+      ? 'A recorded service mileage or configured deadline is needed.'
+      : remaining !== null && remaining <= 0
+        ? `Overdue for ${due!.toLocaleString()} km service`
+        : status === 'overdue' && assessment.nextMaintenanceDueDate
+          ? `Service date ${assessment.nextMaintenanceDueDate} is overdue`
+          : remaining !== null
+            ? remaining <= 500
+              ? `Approaching ${due!.toLocaleString()} km service interval`
+              : `${remaining.toLocaleString()} km until next scheduled service`
+            : `Next service date: ${assessment.nextMaintenanceDueDate}`;
+  const baseline = assessment.lastMaintenanceMileage;
+  const progress =
+    assessment.preventiveSource === 'service_history' &&
+    baseline !== null &&
+    due !== null &&
+    due > baseline
+      ? Math.max(
+          0,
+          Math.min(
+            100,
+            ((assessment.mileage - baseline) / (due - baseline)) * 100
+          )
+        )
+      : null;
+  return {
+    due,
+    remaining,
+    status,
+    priority: priority as 'high' | 'medium' | 'low',
+    reason,
+    progress
+  };
 }

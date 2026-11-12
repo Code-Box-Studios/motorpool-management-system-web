@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ import { useAllSpareParts } from '@/lib/query/spare-parts';
 
 interface NoteJobOrderModalProps {
   drivers: Array<{ id: string; full_name: string }> | undefined;
-  onSubmit: (data: NoteJobOrderData) => void;
+  onSubmit: (data: NoteJobOrderData) => Promise<void>;
   isLoading: boolean;
   currentSparePartsUsed?: string[];
 }
@@ -67,6 +67,9 @@ export function NoteJobOrderModal({
 }: NoteJobOrderModalProps) {
   const { data: spareParts } = useAllSpareParts();
   const [open, setOpen] = useState(false);
+  const submitting = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isBusy = isLoading || isSubmitting;
   const [formData, setFormData] = useState<NoteJobOrderFormState>(() =>
     buildInitialState(currentSparePartsUsed || [])
   );
@@ -109,23 +112,36 @@ export function NoteJobOrderModal({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (!validateForm()) return;
-    onSubmit({
-      assignedMechanicId: formData.assignedMechanicId,
-      dateOfRequest: formData.dateOfRequest,
-      targetDate: formData.targetDate,
-      spareParts: formData.selectedSpareParts.map((sparePartId) => ({
-        sparePartId,
-        quantity: formData.quantities[sparePartId] ?? 1
-      }))
-    });
-    setOpen(false);
+  const handleSubmit = async () => {
+    if (submitting.current || isLoading || !validateForm()) return;
+    // React can batch two clicks before the loading state renders.
+    submitting.current = true;
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
+        assignedMechanicId: formData.assignedMechanicId,
+        dateOfRequest: formData.dateOfRequest,
+        targetDate: formData.targetDate,
+        spareParts: formData.selectedSpareParts.map((sparePartId) => ({
+          sparePartId,
+          quantity: formData.quantities[sparePartId] ?? 1
+        }))
+      });
+      setOpen(false);
+      setFormData(buildInitialState(currentSparePartsUsed || []));
+      setErrors({});
+    } catch {
+      // The mutation hook reports the error; preserve the draft for a retry.
+    } finally {
+      submitting.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   const handleOpenChange = (newOpen: boolean) => {
+    if (submitting.current || isLoading) return;
     setOpen(newOpen);
-    // Reset (or re-populate the current spare parts) every time the dialog toggles.
+    // Opening a new attempt or cancelling it discards the previous draft.
     setFormData(buildInitialState(currentSparePartsUsed || []));
     setErrors({});
   };
@@ -170,7 +186,10 @@ export function NoteJobOrderModal({
         </AlertDialogHeader>
 
         {/* One column on phones — a half-width datetime-local clips its value. */}
-        <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
+        <fieldset
+          disabled={isBusy}
+          className="grid min-w-0 grid-cols-1 gap-4 py-4 sm:grid-cols-2"
+        >
           {/* Vehicle Date Accepted */}
           <Field data-invalid={!!errors.dateOfRequest}>
             <FieldLabel htmlFor="date_of_request">
@@ -243,6 +262,7 @@ export function NoteJobOrderModal({
           <Field className="sm:col-span-2">
             <FieldLabel htmlFor="spare_parts_used">Spare Parts Used</FieldLabel>
             <MultiSelect
+              disabled={isBusy}
               options={
                 // The shelf count rides in the label. Noting more of a part than
                 // exists is refused server-side (409 INSUFFICIENT_STOCK) because
@@ -309,12 +329,12 @@ export function NoteJobOrderModal({
               </div>
             </Field>
           )}
-        </div>
+        </fieldset>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-          <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? 'Submitting...' : 'Submit'}
+          <AlertDialogCancel disabled={isBusy}>Cancel</AlertDialogCancel>
+          <Button onClick={handleSubmit} disabled={isBusy}>
+            {isBusy ? 'Submitting...' : 'Submit'}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

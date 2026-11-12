@@ -4,7 +4,11 @@ import type { TrackerPacketBody } from '@mms/shared';
 import type { GatewayConfig } from './config.js';
 import { decodeFrame } from './h02.js';
 import { createRegistry, type Registry } from './registry.js';
-import { createForwarder, type Forwarder } from './forwarder.js';
+import {
+  createForwarder,
+  DeviceUnavailableError,
+  type Forwarder
+} from './forwarder.js';
 import { createPacketLogger, type PacketLogger } from './packet-log.js';
 import { startTcpServer } from './tcp-server.js';
 import type { FragmentReason } from './framing.js';
@@ -130,10 +134,15 @@ export async function startGateway(
         }
         if (vehicleId && frame.kind === 'position') {
           try {
-            await forwarder.send(vehicleId, frame);
+            const saved = await forwarder.send(vehicleId, frame, packet);
+            result.vehicleId = saved?.vehicleId ?? vehicleId;
             result.outcome = 'saved';
           } catch (error) {
-            result.outcome = 'forward_error';
+            result.vehicleId = null;
+            result.outcome =
+              error instanceof DeviceUnavailableError
+                ? 'device_unavailable'
+                : 'forward_error';
             result.reason =
               error instanceof Error
                 ? error.message.slice(0, 2000)

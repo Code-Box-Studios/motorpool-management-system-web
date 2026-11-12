@@ -1,10 +1,11 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { operationalDriverSelect } from '../drivers/projection.js';
 
 // Relations the FE renders (spec §6.1 read contract). The FE flattens
 // fuelAllocation into allocation_* names in Plan 7.
 export const tripTicketInclude = {
-  driver: true,
+  driver: { select: operationalDriverSelect },
   vehicle: true,
   office: true,
   officeHead: true,
@@ -18,11 +19,14 @@ export const tripTicketInclude = {
     },
     orderBy: [{ createdAt: 'asc' as const }, { employeeId: 'asc' as const }]
   },
+  // Ticket readers need guide identity, never private roster contact details.
   // Employee assignments remain readable, including archived names.
   // Historical user assignments expose only the identity and role needed to render a guide.
   guides: {
     include: {
-      employee: true,
+      employee: {
+        select: { id: true, name: true, position: true, archivedAt: true }
+      },
       user: {
         select: {
           id: true,

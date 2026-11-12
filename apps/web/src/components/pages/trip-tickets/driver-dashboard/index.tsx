@@ -25,6 +25,19 @@ import { useListControls } from '@/hooks/use-list-controls';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TripHistoryList } from '../trip-history-list';
 import { driverTripHistory } from '@/lib/utils/trip-history';
+import type { TripDateRow } from '@/lib/api/trip-tickets';
+
+const missedOuting = (date: TripDateRow, now = Date.now()) =>
+  date.status === 'scheduled' && new Date(date.end_ts).getTime() < now;
+
+const outingPriority = (date: TripDateRow, now: number) =>
+  date.status === 'in_progress'
+    ? 0
+    : date.status === 'completed'
+      ? 3
+      : missedOuting(date, now)
+        ? 2
+        : 1;
 
 const timeOf = (value: string | null | undefined) =>
   value
@@ -98,40 +111,27 @@ const DriverDashboard = () => {
   const vehicleOf = (vehicleId: string | null | undefined) =>
     vehicleId ? vehicles?.find((v) => v.id === vehicleId) : undefined;
 
-  // A ticket can cover several non-consecutive outings now, each with its own
-  // gate cycle — so "next trip" has to be the next OUTING, not the ticket's
-  // earliest date. Once the first date of a two-date event is done, the
-  // driver's next trip is the second date, which the ticket's own start_ts
-  // (its overall span) no longer points at.
-  //
-  // Flatten every open ticket to one { ticket, date } pair per live outing —
-  // a date is "live" while it is neither cancelled nor already completed — and
-  // sort those pairs by the DATE's own start, soonest first. A whole
-  // cancelled/disapproved ticket is excluded up front: cancelling or
-  // disapproving the ticket does not retroactively mark its date rows
-  // cancelled, so without this outer filter their still-`scheduled` rows
-  // would keep slipping back in.
+  // Prioritize the outing currently on the road, then upcoming assignments,
+  // missed outings and returned outings awaiting readings. Completed dates
+  // remain recoverable when the parent ticket's remaining dates are cancelled.
   const pairs = useMemo(() => {
-    const openTickets = assignedTickets.filter(
-      (t) =>
-        t.status !== TRIP_TICKET_STATUS.CANCELLED &&
-        t.status !== TRIP_TICKET_STATUS.DISAPPROVED
+    const tickets = assignedTickets.filter(
+      (ticket) => ticket.status !== TRIP_TICKET_STATUS.DISAPPROVED
     );
-    const list = openTickets.flatMap((ticket) =>
+    const list = tickets.flatMap((ticket) =>
       ticket.dates
-        .filter(
-          (d) =>
-            d.status !== 'cancelled' &&
-            (d.status !== 'completed' ||
-              d.start_mileage === null ||
-              d.end_mileage === null)
+        .filter((date) =>
+          date.status === 'completed'
+            ? date.start_mileage === null || date.end_mileage === null
+            : ticket.status !== TRIP_TICKET_STATUS.CANCELLED &&
+              date.status !== 'cancelled'
         )
         .map((date) => ({ ticket, date }))
     );
+    const now = Date.now();
     return list.sort(
       (a, b) =>
-        Number(a.date.status === 'completed') -
-          Number(b.date.status === 'completed') ||
+        outingPriority(a.date, now) - outingPriority(b.date, now) ||
         new Date(a.date.start_ts).getTime() -
           new Date(b.date.start_ts).getTime()
     );
@@ -193,7 +193,8 @@ const DriverDashboard = () => {
 
   const nextVehicle = next ? vehicleOf(next.ticket.vehicle_id) : undefined;
   const nextApproved = next
-    ? ['approved', 'in_progress', 'completed'].includes(
+    ? next.date.status === 'completed' ||
+      ['approved', 'in_progress', 'completed'].includes(
         next.ticket.status ?? ''
       )
     : false;
@@ -202,7 +203,9 @@ const DriverDashboard = () => {
     ? 'Finish trip readings'
     : next?.date.status === 'in_progress'
       ? 'Current trip'
-      : 'Next trip';
+      : next && missedOuting(next.date)
+        ? 'Missed outing'
+        : 'Next trip';
 
   return (
     <div className="w-full min-w-0">
@@ -401,17 +404,20 @@ const DriverDashboard = () => {
                             ? 'Returned · '
                             : pair.date.status === 'in_progress'
                               ? 'On the road · '
-                              : ''}
+                              : missedOuting(pair.date)
+                                ? 'Missed · '
+                                : ''}
                           {timeOf(pair.date.start_ts)}
                         </p>
                         <OdometerActions
                           ticketId={pair.ticket.id}
                           date={pair.date}
-                          approved={[
-                            'approved',
-                            'in_progress',
-                            'completed'
-                          ].includes(pair.ticket.status ?? '')}
+                          approved={
+                            pair.date.status === 'completed' ||
+                            ['approved', 'in_progress', 'completed'].includes(
+                              pair.ticket.status ?? ''
+                            )
+                          }
                         />
                         <div
                           role="group"
@@ -460,6 +466,9 @@ const DriverDashboard = () => {
           <TripHistoryList
             entries={history}
             mode="driver"
+            renderRecovery={({ ticket, date }) => (
+              <OdometerActions ticketId={ticket.id} date={date} approved />
+            )}
             vehicleLabel={(id) => {
               const vehicle = vehicleOf(id);
               return vehicle

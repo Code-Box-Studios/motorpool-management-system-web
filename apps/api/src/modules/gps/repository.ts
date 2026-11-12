@@ -1,13 +1,78 @@
 import type { Prisma } from '@prisma/client';
 import type { IngestGpsBody } from '@mms/shared';
 import { prisma } from '../../lib/prisma.js';
+import { AppError } from '../../lib/errors.js';
+import { persistPacketLog } from './packet-logs.js';
 
 // Insert the point and update the vehicle's denormalized latest position, atomically.
 export async function ingest(body: IngestGpsBody) {
   return prisma.$transaction(async (tx) => {
+    let vehicleId = body.vehicleId;
+    if (body.deviceId) {
+      // Tracker edits/deletion take this same row lock. Re-read AFTER waiting:
+      // cached gateway vehicle IDs are hints, never assignment authority.
+      await tx.$queryRaw`SELECT id FROM tracker_devices WHERE imei = ${body.deviceId} FOR UPDATE`;
+      if (body.packet) {
+        const prior = await tx.gpsData.findUnique({
+          where: { id: body.packet.id }
+        });
+        if (prior) {
+          const receipt = await tx.trackerPacketLog.findUnique({
+            where: { id: body.packet.id }
+          });
+          if (
+            !receipt ||
+            receipt.revision !== 1 ||
+            receipt.outcome !== 'saved'
+          ) {
+            throw new AppError(
+              409,
+              'PACKET_IDENTITY_CONFLICT',
+              'Packet has no matching saved position receipt'
+            );
+          }
+          await persistPacketLog(
+            {
+              ...body.packet,
+              revision: 1,
+              outcome: 'saved',
+              vehicleId: prior.vehicleId,
+              reason: null
+            },
+            tx
+          );
+          return prior; // Lost HTTP responses may be retried after reassignment.
+        }
+      }
+      const device = await tx.trackerDevice.findUnique({
+        where: { imei: body.deviceId }
+      });
+      if (!device || device.status !== 'active') {
+        throw new AppError(
+          404,
+          'DEVICE_NOT_FOUND',
+          'Unknown or inactive device'
+        );
+      }
+      if (!device.vehicleId) {
+        throw new AppError(
+          404,
+          'NO_VEHICLE_ASSIGNED',
+          'Device is not assigned to a vehicle'
+        );
+      }
+      vehicleId = device.vehicleId;
+      await tx.trackerDevice.update({
+        where: { id: device.id },
+        data: { lastSeenAt: new Date() }
+      });
+    }
+    // The identity-free contract is retained for trusted, device-key-authenticated
+    // direct integrations. H02 gateway packets always take the identity path.
     const point = await tx.gpsData.create({
       data: {
-        vehicleId: body.vehicleId,
+        ...(body.packet ? { id: body.packet.id } : {}),
+        vehicleId,
         tripId: body.tripId ?? null,
         latitude: body.latitude,
         longitude: body.longitude,
@@ -17,13 +82,32 @@ export async function ingest(body: IngestGpsBody) {
       }
     });
     await tx.vehicle.update({
-      where: { id: body.vehicleId },
+      where: { id: vehicleId },
       data: {
         latitude: body.latitude,
         longitude: body.longitude,
         lastLocationUpdate: new Date()
       }
     });
+    if (body.packet) {
+      const logged = await persistPacketLog(
+        {
+          ...body.packet,
+          revision: 1,
+          outcome: 'saved',
+          vehicleId,
+          reason: null
+        },
+        tx
+      );
+      if (logged.vehicleId !== vehicleId || logged.outcome !== 'saved') {
+        throw new AppError(
+          409,
+          'PACKET_IDENTITY_CONFLICT',
+          'Packet already has a different final outcome'
+        );
+      }
+    }
     return point;
   });
 }
@@ -74,7 +158,11 @@ export function latestPerVehicle() {
   `;
 }
 
-export async function history(where: Prisma.GpsDataWhereInput, take: number, cursor?: string) {
+export async function history(
+  where: Prisma.GpsDataWhereInput,
+  take: number,
+  cursor?: string
+) {
   const [data, count] = await Promise.all([
     prisma.gpsData.findMany({
       where,

@@ -12,6 +12,7 @@ import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
+import { toOperationalDriver } from './projection.js';
 import {
   findDriverByEmail,
   findDriverById,
@@ -32,10 +33,19 @@ export async function list(query: DriversListQuery, actor: AuthenticatedUser) {
     },
     { updatedAt: 'desc' }
   );
-  return listDrivers(toSkipTake(query), onlyUserId, orderBy, {
+  const result = await listDrivers(toSkipTake(query), onlyUserId, orderBy, {
     ...driverSearch(query.search),
     ...(query.status ? { status: query.status } : {})
   });
+  return {
+    ...result,
+    data: result.data.map((driver) =>
+      actor.role === USER_ROLES.admin ||
+      (actor.role === USER_ROLES.driver && driver.userId === actor.id)
+        ? driver
+        : toOperationalDriver(driver)
+    )
+  };
 }
 
 export async function getById(id: string, actor: AuthenticatedUser) {
@@ -47,7 +57,10 @@ export async function getById(id: string, actor: AuthenticatedUser) {
   ) {
     throw new AppError(404, 'NOT_FOUND', 'Driver not found');
   }
-  return driver;
+  return actor.role === USER_ROLES.admin ||
+    (actor.role === USER_ROLES.driver && driver.userId === actor.id)
+    ? driver
+    : toOperationalDriver(driver);
 }
 
 // Admin-only paths skip the driver-role scoping.

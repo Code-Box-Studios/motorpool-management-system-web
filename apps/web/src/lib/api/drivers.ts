@@ -12,20 +12,21 @@ interface DriverApiResponse {
   email: string;
   fullName: string;
   phone: string | null;
-  address: string | null;
-  dateOfBirth: string | null;
+  // Personnel fields are returned only to admins and the linked driver.
+  address?: string | null;
+  dateOfBirth?: string | null;
   licenseNumber: string | null;
   licenseType: string | null;
   licenseExpiry: string | null;
   status: DriverStatusDb;
   assignedVehicleId: string | null;
   branchId: string | null;
-  sssNumber: string | null;
-  tin: string | null;
-  hireDate: string | null;
-  emergencyContactName: string | null;
-  emergencyContactPhone: string | null;
-  notes: string | null;
+  sssNumber?: string | null;
+  tin?: string | null;
+  hireDate?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  notes?: string | null;
   photo: string | null;
   createdAt: string;
   updatedAt: string;
@@ -40,7 +41,7 @@ function toSnakeDriver(d: DriverApiResponse): Driver {
     email: d.email,
     full_name: d.fullName,
     phone: d.phone,
-    address: d.address,
+    address: d.address ?? null,
     date_of_birth: d.dateOfBirth ? d.dateOfBirth.slice(0, 10) : null, // @db.Date -> YYYY-MM-DD for <input type="date">
     license_number: d.licenseNumber,
     license_type: d.licenseType,
@@ -48,12 +49,12 @@ function toSnakeDriver(d: DriverApiResponse): Driver {
     status: d.status,
     assigned_vehicle_id: d.assignedVehicleId,
     branch_id: d.branchId,
-    sss_number: d.sssNumber,
-    tin: d.tin,
+    sss_number: d.sssNumber ?? null,
+    tin: d.tin ?? null,
     hire_date: d.hireDate ? d.hireDate.slice(0, 10) : null,
-    emergency_contact_name: d.emergencyContactName,
-    emergency_contact_phone: d.emergencyContactPhone,
-    notes: d.notes,
+    emergency_contact_name: d.emergencyContactName ?? null,
+    emergency_contact_phone: d.emergencyContactPhone ?? null,
+    notes: d.notes ?? null,
     // Stored relative (/uploads/drivers/x.jpg) but served by the API, not the
     // web dev server — absolute for <img src>.
     photo: toAssetUrl(d.photo),

@@ -2,6 +2,18 @@ const BASE_URL =
   (import.meta.env.VITE_API_URL as string) ?? 'http://localhost:3001';
 
 let accessToken: string | null = null;
+let sessionRequests = new AbortController();
+
+// Each identity owns its requests. A response from an ended session must never
+// refresh its token, notify the next session, or reach a private query cache.
+export function resetAuthSession(): AbortSignal {
+  accessToken = null;
+  sessionRequests.abort();
+  sessionRequests = new AbortController();
+  refreshPromise = null;
+  return sessionRequests.signal;
+}
+
 export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
@@ -10,8 +22,11 @@ export function getAccessToken(): string | null {
 }
 
 let authFailureCb: (() => void) | null = null;
-export function onAuthFailure(cb: () => void): void {
+export function onAuthFailure(cb: () => void): () => void {
   authFailureCb = cb;
+  return () => {
+    if (authFailureCb === cb) authFailureCb = null;
+  };
 }
 
 export class ApiError extends Error {
@@ -65,14 +80,17 @@ let refreshPromise: Promise<boolean> | null = null;
 
 async function refreshOnce(): Promise<boolean> {
   if (!refreshPromise) {
-    refreshPromise = (async () => {
+    const signal = sessionRequests.signal;
+    const pending = (async () => {
       try {
         const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
           method: 'POST',
-          credentials: 'include'
+          credentials: 'include',
+          signal
         });
         if (!res.ok) return false;
         const body = (await res.json()) as { accessToken?: string };
+        signal.throwIfAborted();
         if (body.accessToken) {
           setAccessToken(body.accessToken);
           return true;
@@ -80,11 +98,15 @@ async function refreshOnce(): Promise<boolean> {
         return false;
       } catch {
         return false;
-      } finally {
-        // Clear after the microtask so all awaiters observe the same result.
-        setTimeout(() => (refreshPromise = null), 0);
       }
     })();
+    refreshPromise = pending;
+    void pending.finally(() => {
+      // An old refresh must not clear a newer session's single-flight promise.
+      setTimeout(() => {
+        if (refreshPromise === pending) refreshPromise = null;
+      }, 0);
+    });
   }
   return refreshPromise;
 }
@@ -127,7 +149,16 @@ export async function apiRequest<T>(
   path: string,
   opts: RequestOpts = {}
 ): Promise<T> {
+  const sessionSignal = sessionRequests.signal;
+  const requestSignal = opts.signal
+    ? AbortSignal.any([opts.signal, sessionSignal])
+    : sessionSignal;
+  opts = {
+    ...opts,
+    signal: requestSignal
+  };
   let res = await raw(path, opts);
+  requestSignal.throwIfAborted();
 
   // A 401 here means "no valid access token" — either it expired, or (on
   // boot, after a hard refresh) we never had one in memory to begin with.
@@ -136,8 +167,10 @@ export async function apiRequest<T>(
   // masked as "Session expired".
   if (res.status === 401 && !opts.skipRefresh) {
     const ok = await refreshOnce();
+    requestSignal.throwIfAborted();
     if (ok) {
       res = await raw(path, opts); // retry once with the new token
+      requestSignal.throwIfAborted();
     } else {
       authFailureCb?.();
       throw new ApiError(401, 'UNAUTHORIZED', 'Session expired');
@@ -147,6 +180,7 @@ export async function apiRequest<T>(
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
+  requestSignal.throwIfAborted();
   const parsed = text ? JSON.parse(text) : undefined;
 
   if (!res.ok) {

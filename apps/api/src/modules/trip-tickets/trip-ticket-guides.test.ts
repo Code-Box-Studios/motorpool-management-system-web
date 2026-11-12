@@ -325,6 +325,47 @@ describe('trip-ticket guides: reads', () => {
     expect(list.body.data[0].guides[0].employee.name).toBe('Ana Guide');
   });
 
+  it('omits private employee fields from requester create, detail, list and edit responses', async () => {
+    const s = await scaffold();
+    await prisma.employee.update({
+      where: { id: s.guideA.id },
+      data: { phone: 'SYNTHETIC-PRIVATE-PHONE', position: 'Trip guide' }
+    });
+    const created = await request(app)
+      .post('/api/trip-tickets')
+      .set('Authorization', s.requesterHeader)
+      .send(body(s));
+    expect(created.status).toBe(201);
+
+    const detail = await request(app)
+      .get(`/api/trip-tickets/${created.body.id}`)
+      .set('Authorization', s.requesterHeader);
+    const list = await request(app)
+      .get('/api/trip-tickets')
+      .set('Authorization', s.requesterHeader);
+    const edited = await request(app)
+      .patch(`/api/trip-tickets/${created.body.id}`)
+      .set('Authorization', s.requesterHeader)
+      .send({ purpose: 'Updated purpose' });
+    expect(detail.status).toBe(200);
+    expect(list.status).toBe(200);
+    expect(edited.status).toBe(200);
+
+    for (const ticket of [
+      created.body,
+      detail.body,
+      list.body.data[0],
+      edited.body
+    ]) {
+      expect(ticket.guides[0].employee).toEqual({
+        id: s.guideA.id,
+        name: 'Ana Guide',
+        position: 'Trip guide',
+        archivedAt: null
+      });
+    }
+  });
+
   it('keeps rendering an archived employee’s name on a ticket they already guided', async () => {
     const s = await scaffold();
     const created = await post(s, { guideIds: [s.guideA.id] });

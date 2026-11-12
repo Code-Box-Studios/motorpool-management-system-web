@@ -27,7 +27,7 @@ const SectionLabel = ({ children }: { children: React.ReactNode }) => (
  * what it says while a full History tab sits next to it.
  */
 export default function EvpApprovalPage() {
-  const [pending, setPending] = useState(0);
+  const [pending, setPending] = useState<number | null>(null);
   const { filters, setFilter } = useListControls(['approvalTab']);
   const tab = filters.approvalTab === 'history' ? 'history' : 'queue';
 
@@ -36,9 +36,11 @@ export default function EvpApprovalPage() {
       <SectionLabel>Awaiting your sign-off</SectionLabel>
 
       <h1 className="text-3xl font-medium tracking-tight md:text-4xl">
-        {pending === 0
-          ? 'Nothing needs you'
-          : `${pending} thing${pending === 1 ? '' : 's'} need${pending === 1 ? 's' : ''} you`}
+        {pending === null
+          ? 'Review pending approvals'
+          : pending === 0
+            ? 'Nothing needs you'
+            : `${pending} thing${pending === 1 ? '' : 's'} need${pending === 1 ? 's' : ''} you`}
       </h1>
       <p className="text-slate mt-2 text-base">
         Fuel budgets and repair sign-offs. Declining always asks for a reason.
@@ -53,7 +55,7 @@ export default function EvpApprovalPage() {
       >
         <TabsList>
           <TabsTrigger value="queue" className={ACTIVE_TAB}>
-            Needs you{pending > 0 ? ` (${pending})` : ''}
+            Needs you{pending !== null && pending > 0 ? ` (${pending})` : ''}
           </TabsTrigger>
           <TabsTrigger value="history" className={ACTIVE_TAB}>
             History

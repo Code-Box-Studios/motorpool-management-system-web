@@ -208,7 +208,13 @@ test('maintenance filters match priority badges and confidence without changing 
             maintFreq12m: 1,
             riskScore: 90,
             priority: 'high',
-            usedFallback: true
+            usedFallback: true,
+            lastMaintenanceDate: '2026-10-01',
+            lastMaintenanceMileage: 4000,
+            nextMaintenanceDueMileage: 9000,
+            nextMaintenanceDueDate: null,
+            preventiveStatus: 'overdue',
+            preventiveSource: 'service_history'
           },
           {
             vehicleId: 'low',
@@ -221,7 +227,13 @@ test('maintenance filters match priority badges and confidence without changing 
             maintFreq12m: 3,
             riskScore: 10,
             priority: 'low',
-            usedFallback: true
+            usedFallback: true,
+            lastMaintenanceDate: '2026-10-01',
+            lastMaintenanceMileage: 0,
+            nextMaintenanceDueMileage: 5000,
+            nextMaintenanceDueDate: null,
+            preventiveStatus: 'on_schedule',
+            preventiveSource: 'service_history'
           }
         ],
         count: 2

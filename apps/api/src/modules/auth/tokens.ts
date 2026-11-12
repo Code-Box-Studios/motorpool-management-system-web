@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -8,9 +9,12 @@ export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-export async function issueRefreshToken(userId: string): Promise<string> {
+export async function issueRefreshToken(
+  userId: string,
+  client: Pick<Prisma.TransactionClient, 'refreshToken'> = prisma
+): Promise<string> {
   const token = randomBytes(32).toString('hex');
-  await prisma.refreshToken.create({
+  await client.refreshToken.create({
     data: {
       userId,
       tokenHash: hashToken(token),

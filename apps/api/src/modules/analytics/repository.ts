@@ -15,7 +15,10 @@ export function completedTripsCount() {
 
 export function vehiclesWithMaintenance() {
   return prisma.vehicle.findMany({
-    include: { maintenances: { orderBy: { date: 'desc' } } }
+    include: {
+      maintenances: { orderBy: { date: 'desc' } },
+      maintenanceTracking: { include: { scheduleItem: true } }
+    }
   });
 }
 

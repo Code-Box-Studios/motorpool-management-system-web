@@ -51,7 +51,7 @@ export const useUpdateSparePart = () => {
     },
     onError: (error) => {
       console.error('Error updating spare part:', error);
-      toast.error('Failed to update spare part');
+      toast.error(`Failed to update spare part: ${error.message}`);
     }
   });
 };

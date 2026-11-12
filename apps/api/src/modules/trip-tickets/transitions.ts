@@ -434,12 +434,29 @@ export async function checkOut(
         'This driver is already out on a trip'
       );
     }
+    // Outing rows are the physical claim, even if a legacy status override
+    // incorrectly made this vehicle available. The vehicle lock serializes
+    // claims across different tickets and drivers.
+    const vehicleOuting = await tx.tripDate.findFirst({
+      where: {
+        status: 'in_progress',
+        tripTicket: { vehicleId: ticket.vehicleId }
+      },
+      select: { id: true }
+    });
+    if (vehicleOuting) {
+      throw new AppError(
+        409,
+        'VEHICLE_NOT_AVAILABLE',
+        'This vehicle is already out on a trip'
+      );
+    }
     outing = await resolveOutingForCheckOut(tx, id);
     assertGateOuting(outing, body.dateId);
     const gateAt = new Date();
     // A future outing's reading may have been entered before another trip
     // returned. Revalidate actual gate chronology before freezing that value.
-    const [previousStarts, previousEnds] = await Promise.all([
+    const [previousStarts, previousEnds, currentVehicle] = await Promise.all([
       tx.tripDate.aggregate({
         where: {
           id: { not: outing.id },
@@ -455,6 +472,10 @@ export async function checkOut(
           postTripCheckedAt: { lte: gateAt }
         },
         _max: { endMileage: true }
+      }),
+      tx.vehicle.findUniqueOrThrow({
+        where: { id: ticket.vehicleId },
+        select: { mileage: true }
       })
     ]);
     const priorReadings = [
@@ -466,7 +487,7 @@ export async function checkOut(
       : null;
     const startingMileage = gateStartingMileage(
       outing.startMileage,
-      precedingGateMileage
+      Math.max(currentVehicle.mileage, precedingGateMileage ?? 0)
     );
     const invalidatedStart =
       outing.startMileage !== null && startingMileage === null;
@@ -486,7 +507,8 @@ export async function checkOut(
               mileage: outing.startMileage,
               recordedById: outing.startMileageRecordedById,
               recordedAt: outing.startMileageRecordedAt,
-              precedingGateMileage
+              precedingGateMileage,
+              currentVehicleMileage: currentVehicle.mileage
             })
           : undefined,
         code: 'VEHICLE_NOT_AVAILABLE',
@@ -715,20 +737,20 @@ export async function recordOdometer(
         'Only the assigned driver can enter odometer readings'
       );
     }
-    if (
-      driver.status !== 'active' ||
-      !['approved', 'in_progress', 'completed'].includes(ticket.status)
-    ) {
+    const outing = await tx.tripDate.findFirst({
+      where: { id: dateId, tripTicketId: id }
+    });
+    if (!outing) throw new AppError(404, 'NOT_FOUND', 'Trip date not found');
+    const canRecord =
+      ['approved', 'in_progress', 'completed'].includes(ticket.status) ||
+      (ticket.status === 'cancelled' && outing.status === 'completed');
+    if (driver.status !== 'active' || !canRecord) {
       throw new AppError(
         409,
         'INVALID_TRANSITION',
         'An active, approved assignment is required'
       );
     }
-    const outing = await tx.tripDate.findFirst({
-      where: { id: dateId, tripTicketId: id }
-    });
-    if (!outing) throw new AppError(404, 'NOT_FOUND', 'Trip date not found');
     const vehicle = await tx.vehicle.findUniqueOrThrow({
       where: { id: ticket.vehicleId }
     });
@@ -798,12 +820,20 @@ export async function recordOdometer(
               endMileageRecordedAt: recordedAt
             }
     });
-    await advanceOdometer(
-      tx,
-      ticket.vehicleId,
-      Math.max(vehicle.mileage, body.mileage),
-      vehicle.mileage
-    );
+    // A driver may correct a provisional reading until its own gate event.
+    // Only confirmed gate chronology advances the shared maintenance floor.
+    const gateConfirmed =
+      body.phase === 'before'
+        ? outing.preTripCheckedAt !== null
+        : outing.postTripCheckedAt !== null;
+    if (gateConfirmed) {
+      await advanceOdometer(
+        tx,
+        ticket.vehicleId,
+        Math.max(vehicle.mileage, body.mileage),
+        vehicle.mileage
+      );
+    }
   });
   return findTripTicketById(id);
 }

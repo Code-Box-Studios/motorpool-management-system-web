@@ -193,10 +193,11 @@ const JobOrdersPage = () => {
     return driver?.full_name || 'Unknown';
   };
 
-  const handleNoteJobOrder = (orderId: string, data: NoteJobOrderData) => {
-    noteJobOrder.mutateAsync({ id: orderId, ...data }).catch((error) => {
-      console.error('Error noting job order:', error);
-    });
+  const handleNoteJobOrder = async (
+    orderId: string,
+    data: NoteJobOrderData
+  ) => {
+    await noteJobOrder.mutateAsync({ id: orderId, ...data });
   };
 
   const handleApproveJobOrder = (orderId: string) => {
@@ -205,20 +206,19 @@ const JobOrdersPage = () => {
     });
   };
 
-  const handleCompleteRepair = (orderId: string, data: CompleteRepairData) => {
-    completeRepair
-      .mutateAsync({
-        id: orderId,
-        repairDone: data.repairDone,
-        completedMileage: Number(data.completedMileage),
-        maintenanceType: data.maintenanceType || null,
-        serviceLocation: data.serviceLocation || null,
-        remarks: data.remarks || undefined,
-        actualDateOfRelease: data.actualDateOfRelease || undefined
-      })
-      .catch((error) => {
-        console.error('Error completing repair:', error);
-      });
+  const handleCompleteRepair = async (
+    orderId: string,
+    data: CompleteRepairData
+  ) => {
+    await completeRepair.mutateAsync({
+      id: orderId,
+      repairDone: data.repairDone,
+      completedMileage: Number(data.completedMileage),
+      maintenanceType: data.maintenanceType || null,
+      serviceLocation: data.serviceLocation || null,
+      remarks: data.remarks || undefined,
+      actualDateOfRelease: data.actualDateOfRelease || undefined
+    });
   };
 
   return (

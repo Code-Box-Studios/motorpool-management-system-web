@@ -24,6 +24,7 @@ import {
 } from '../../lib/ml/logistic-regression.js';
 import { AppError } from '../../lib/errors.js';
 import * as repo from './repository.js';
+import { preventiveStatus } from './preventive-status.js';
 
 // The optional cross-check retains its identity when another model is selected.
 const CLIENT_CROSS_CHECK_MODEL = 'client_decision_tree_v1';
@@ -211,6 +212,7 @@ export async function predictiveMaintenance(
       model: v.model,
       licensePlate: v.licensePlate,
       mileage: v.mileage,
+      ...preventiveStatus(v, v.maintenances, v.maintenanceTracking, now),
       kmSinceLastMaint: features.kmSinceLastMaint,
       avgDailyKm: features.avgDailyKm,
       maintFreq12m: features.maintFreq12m,

@@ -672,10 +672,17 @@ describe('record list column filters', () => {
       { kind: 'fuel', outcome: 'declined', search: 'ExclusiveApproved' },
       []
     );
+    const { user: requester } = await createTestUser({
+      role: 'requester',
+      email: 'approval-reader@test.local'
+    });
     const forbidden = await request(app)
       .get('/api/approvals/history')
       .query({ outcome: 'approved' })
-      .set('Authorization', authHeader(user.id, user.email, 'requester'));
+      .set(
+        'Authorization',
+        authHeader(requester.id, requester.email, 'requester')
+      );
     expect(forbidden.status).toBe(403);
   });
 

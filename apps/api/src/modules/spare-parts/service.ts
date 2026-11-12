@@ -9,6 +9,7 @@ import { AppError } from '../../lib/errors.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
+import { lockSpareParts } from '../../lib/resource-locks.js';
 import { findSparePartById, listSpareParts } from './repository.js';
 
 export async function list(query: SparePartsListQuery) {
@@ -56,14 +57,35 @@ export async function update(
   body: UpdateSparePartBody,
   newImagePath: string | null
 ) {
-  const existing = await findSparePartById(id);
-  if (!existing) throw new AppError(404, 'NOT_FOUND', 'Spare part not found');
-  const { removeImage, ...rest } = body;
+  const { removeImage, expectedUpdatedAt, ...rest } = body;
   // Image field: a new upload wins; else removeImage clears it; else untouched.
   const image = newImagePath ? newImagePath : removeImage ? null : undefined;
-  return prisma.sparePart.update({
-    where: { id },
-    data: { ...rest, ...(image !== undefined ? { image } : {}) }
+  return prisma.$transaction(async (tx) => {
+    await lockSpareParts(tx, [id]);
+    const existing = await tx.sparePart.findUnique({ where: { id } });
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Spare part not found');
+    if (
+      rest.quantity !== undefined &&
+      (!expectedUpdatedAt ||
+        new Date(expectedUpdatedAt).getTime() !== existing.updatedAt.getTime())
+    ) {
+      throw new AppError(
+        409,
+        'STOCK_REVISION_CONFLICT',
+        'Stock changed. Refresh this spare part before adjusting its quantity.'
+      );
+    }
+    return tx.sparePart.update({
+      where: { id },
+      data: {
+        ...rest,
+        ...(image !== undefined ? { image } : {}),
+        // Date revisions must advance even for two writes within one millisecond.
+        updatedAt: new Date(
+          Math.max(Date.now(), existing.updatedAt.getTime() + 1)
+        )
+      }
+    });
   });
 }
 

@@ -13,6 +13,8 @@ interface CacheEntry {
  * IMEI -> vehicleId, via the API's device-key-authenticated resolve endpoint.
  * Positive AND negative results are cached (an unregistered device shouldn't
  * hammer the API on every frame). Transient failures are NOT cached.
+ * This cache only gates forwarding. Identified ingest rechecks assignment under
+ * the tracker row lock; cached positive entries cannot authorize stale writes.
  */
 export function createRegistry(config: GatewayConfig): Registry {
   const cache = new Map<string, CacheEntry>();

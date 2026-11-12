@@ -23,7 +23,7 @@ async function openLargeRoster(page: Page) {
       )?.branchId;
       expect(other, 'Fixture needs two branches').toBeTruthy();
       const vehicles = path.endsWith('/vehicles');
-      const data = Array.from({ length: 181 }, (_, index) => ({
+      const data = Array.from({ length: vehicles ? 182 : 181 }, (_, index) => ({
         ...templates[0],
         id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
         branchId: index < 90 ? main : other,
@@ -33,7 +33,12 @@ async function openLargeRoster(page: Page) {
               model: `Van ${String(index).padStart(3, '0')}`,
               licensePlate: `TEST-${index}`,
               capacity: 40,
-              status: index === 180 ? 'maintenance' : 'available'
+              status:
+                index === 180
+                  ? 'under_maintenance'
+                  : index === 181
+                    ? 'out_of_service'
+                    : 'available'
             }
           : {
               fullName: `Roster Driver ${String(index).padStart(3, '0')}`,
@@ -77,11 +82,11 @@ test('large vehicle and driver rosters support search, paging, selection and dis
   const search = picker.getByRole('searchbox', { name: 'Search vehicles' });
   await expect(search).toBeFocused();
   await expect(picker.getByRole('option')).toHaveCount(10);
-  await expect(picker.getByRole('status')).toContainText('180 vehicles');
+  await expect(picker.getByRole('status')).toContainText('181 vehicles');
   await picker.getByRole('button', { name: /This branch/ }).click();
   await expect(picker.getByRole('status')).toContainText('90 vehicles');
   await picker.getByRole('button', { name: /Other branches/ }).click();
-  await expect(picker.getByRole('status')).toContainText('90 vehicles');
+  await expect(picker.getByRole('status')).toContainText('91 vehicles');
   await expect(picker.getByRole('option').first()).toContainText('Borrow');
   await picker.getByRole('button', { name: /^All / }).click();
   await search.press('ArrowDown');
@@ -90,7 +95,7 @@ test('large vehicle and driver rosters support search, paging, selection and dis
   await page.keyboard.press('Home');
   await expect(picker.getByRole('option').first()).toBeFocused();
   await picker.getByRole('button', { name: 'Next page', exact: true }).click();
-  await expect(picker.getByText('Page 2 of 18', { exact: true })).toBeVisible();
+  await expect(picker.getByText('Page 2 of 19', { exact: true })).toBeVisible();
   await search.fill('test-179');
   await expect(picker.getByRole('option')).toHaveCount(1);
   await expect(picker.getByText('Page 1 of 1', { exact: true })).toBeVisible();
@@ -100,6 +105,9 @@ test('large vehicle and driver rosters support search, paging, selection and dis
   await expect(vehicle).toContainText('Fleet Van 179');
   await vehicle.press('Enter');
   await search.fill('test-180');
+  await expect(picker.getByRole('option')).toHaveCount(1);
+  await expect(picker.getByRole('option')).toContainText('In the shop');
+  await search.fill('test-181');
   await expect(picker.getByRole('option')).toHaveCount(0);
   await picker.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(vehicle).toBeFocused();

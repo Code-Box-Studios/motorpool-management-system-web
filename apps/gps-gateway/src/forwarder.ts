@@ -1,11 +1,18 @@
 import type { GatewayConfig } from './config.js';
 import type { DecodedFrame } from './h02.js';
+import type { TrackerPacketBody } from '@mms/shared';
 
 export type PositionFrame = Extract<DecodedFrame, { kind: 'position' }>;
 
 export interface Forwarder {
-  send(vehicleId: string, frame: PositionFrame): Promise<void>;
+  send(
+    vehicleId: string,
+    frame: PositionFrame,
+    packet?: TrackerPacketBody
+  ): Promise<{ vehicleId: string } | void>;
 }
+
+export class DeviceUnavailableError extends Error {}
 
 const MAX_ATTEMPTS = 3;
 const BASE_DELAY_MS = 200;
@@ -16,6 +23,9 @@ const sleep = (ms: number): Promise<void> =>
 // The API's ingest contract. `engineStatus` is free text; we send 'on'/'off'.
 interface IngestBody {
   vehicleId: string;
+  deviceId: string;
+  protocol: 'h02';
+  packet?: TrackerPacketBody;
   latitude: number;
   longitude: number;
   speed?: number;
@@ -23,9 +33,16 @@ interface IngestBody {
   engineStatus?: string;
 }
 
-function toIngestBody(vehicleId: string, frame: PositionFrame): IngestBody {
+function toIngestBody(
+  vehicleId: string,
+  frame: PositionFrame,
+  packet?: TrackerPacketBody
+): IngestBody {
   const body: IngestBody = {
     vehicleId,
+    deviceId: frame.deviceId,
+    protocol: 'h02',
+    ...(packet ? { packet } : {}),
     latitude: frame.latitude,
     longitude: frame.longitude
   };
@@ -41,8 +58,12 @@ export function createForwarder(config: GatewayConfig): Forwarder {
   const url = `${config.apiUrl}/api/gps/ingest`;
 
   return {
-    async send(vehicleId: string, frame: PositionFrame): Promise<void> {
-      const body = JSON.stringify(toIngestBody(vehicleId, frame));
+    async send(
+      vehicleId: string,
+      frame: PositionFrame,
+      packet?: TrackerPacketBody
+    ) {
+      const body = JSON.stringify(toIngestBody(vehicleId, frame, packet));
 
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
         try {
@@ -55,8 +76,32 @@ export function createForwarder(config: GatewayConfig): Forwarder {
             body,
             signal: AbortSignal.timeout(config.apiTimeoutMs)
           });
-          if (response.ok) return;
-        } catch {
+          if (response.ok) {
+            const result = (await response.json()) as { vehicleId?: unknown };
+            if (typeof result.vehicleId !== 'string' || !result.vehicleId) {
+              throw new Error(
+                'Ingest response has no authoritative vehicle assignment'
+              );
+            }
+            return { vehicleId: result.vehicleId };
+          }
+          if (response.status === 404) {
+            const result = (await response.json()) as {
+              error?: { code?: string; message?: string };
+            };
+            if (
+              ['DEVICE_NOT_FOUND', 'NO_VEHICLE_ASSIGNED'].includes(
+                result.error?.code ?? ''
+              )
+            ) {
+              throw new DeviceUnavailableError(
+                result.error?.message ??
+                  'Device has no active vehicle assignment'
+              );
+            }
+          }
+        } catch (error) {
+          if (error instanceof DeviceUnavailableError) throw error;
           // fall through to the retry/backoff below
         }
         if (attempt < MAX_ATTEMPTS)

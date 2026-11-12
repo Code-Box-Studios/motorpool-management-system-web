@@ -48,7 +48,7 @@ const SectionLabel = ({ children }: { children: React.ReactNode }) => (
 export default function ApprovalQueue({
   onCountChange
 }: {
-  onCountChange: (count: number) => void;
+  onCountChange: (count: number | null) => void;
 }) {
   const approveEvpTripTicket = useApproveEvpTripTicket();
   const disapproveTripTicket = useDisapproveTripTicket();
@@ -63,9 +63,20 @@ export default function ApprovalQueue({
   );
   const [disapprovedReason, setDisapprovedReason] = useState('');
 
-  const { data: tripTicketsData, isLoading } = useAllTripTickets();
-  const { data: jobOrdersData, isLoading: jobOrdersLoading } =
-    useAllJobOrders();
+  const {
+    data: tripTicketsData,
+    isLoading: tripTicketsLoading,
+    isSuccess: tripTicketsSuccess,
+    error: tripTicketsError,
+    refetch: reloadTripTickets
+  } = useAllTripTickets();
+  const {
+    data: jobOrdersData,
+    isLoading: jobOrdersLoading,
+    isSuccess: jobOrdersSuccess,
+    error: jobOrdersError,
+    refetch: reloadJobOrders
+  } = useAllJobOrders();
   // People and vehicles are shown by name and plate — never by database id.
   const { data: drivers } = useAllDrivers();
   const { data: vehicles } = useAllVehicles();
@@ -155,11 +166,12 @@ export default function ApprovalQueue({
       ])
   );
 
-  const loading = isLoading || jobOrdersLoading;
+  const loading = tripTicketsLoading && jobOrdersLoading;
+  const complete = tripTicketsSuccess && jobOrdersSuccess;
   const total = allPendingTickets.length + allPendingJobOrders.length;
   useEffect(() => {
-    onCountChange(loading ? 0 : total);
-  }, [loading, total, onCountChange]);
+    onCountChange(complete ? total : null);
+  }, [complete, total, onCountChange]);
 
   return (
     <>
@@ -196,6 +208,25 @@ export default function ApprovalQueue({
         </div>
       ) : (
         <>
+          {tripTicketsLoading && (
+            <Skeleton className="mt-6 h-40 w-full rounded-[20px]" />
+          )}
+          {tripTicketsError && (
+            <div
+              role="alert"
+              className="bg-card border-border mt-6 space-y-3 rounded-[20px] border p-5"
+            >
+              <p className="text-sm">
+                Unable to load fuel sign-offs. {tripTicketsError.message}
+              </p>
+              <Button
+                variant="secondary"
+                onClick={() => void reloadTripTickets()}
+              >
+                Retry fuel sign-offs
+              </Button>
+            </div>
+          )}
           {/* ---------- Fuel sign-off ---------- */}
           {pendingTickets.length > 0 && (
             <section className="mt-6">
@@ -282,6 +313,25 @@ export default function ApprovalQueue({
           )}
 
           {/* ---------- Repair sign-off ---------- */}
+          {jobOrdersLoading && (
+            <Skeleton className="mt-6 h-40 w-full rounded-[20px]" />
+          )}
+          {jobOrdersError && (
+            <div
+              role="alert"
+              className="bg-card border-border mt-6 space-y-3 rounded-[20px] border p-5"
+            >
+              <p className="text-sm">
+                Unable to load repair sign-offs. {jobOrdersError.message}
+              </p>
+              <Button
+                variant="secondary"
+                onClick={() => void reloadJobOrders()}
+              >
+                Retry repair sign-offs
+              </Button>
+            </div>
+          )}
           {pendingJobOrders.length > 0 && (
             <section className="mt-6">
               <SectionLabel>
@@ -346,7 +396,8 @@ export default function ApprovalQueue({
             </section>
           )}
 
-          {total > 0 &&
+          {complete &&
+            total > 0 &&
             pendingTickets.length === 0 &&
             pendingJobOrders.length === 0 && (
               <div className="mt-6">
@@ -359,7 +410,7 @@ export default function ApprovalQueue({
                 />
               </div>
             )}
-          {total === 0 && (
+          {complete && total === 0 && (
             <div className="border-border text-muted-foreground mt-10 rounded-[20px] border border-dashed py-16 text-center">
               You&apos;re all caught up. Nothing is waiting on your sign-off.
             </div>

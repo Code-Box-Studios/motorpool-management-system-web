@@ -5,6 +5,7 @@ import { loadConfig } from './config.js';
 import { startGateway } from './gateway.js';
 import type { TrackerPacketBody } from '@mms/shared';
 import type { GatewayDeps } from './gateway.js';
+import { DeviceUnavailableError } from './forwarder.js';
 
 let server: net.Server | null = null;
 
@@ -48,6 +49,36 @@ async function sendToGateway(
 }
 
 describe('gateway', () => {
+  it.each([false, true])(
+    'records authoritative reassignment or inactive rejection (inactive=%s)',
+    async (inactive) => {
+      const packets: TrackerPacketBody[] = [];
+      server = await startTestGateway({
+        registry: { resolve: async () => 'cached-A' },
+        forwarder: {
+          send: async (_vehicle, _frame, receipt) => {
+            expect(receipt?.deviceId).toBe('imei-1');
+            expect(receipt?.revision).toBe(0);
+            if (inactive)
+              throw new DeviceUnavailableError('Unknown or inactive device');
+            return { vehicleId: 'current-B' };
+          }
+        },
+        packetLogger: {
+          record: async (packet) => {
+            packets.push(packet);
+          },
+          close: async () => {}
+        }
+      });
+      await sendToGateway((server.address() as AddressInfo).port, VALID);
+      expect(packets.at(-1)).toMatchObject({
+        vehicleId: inactive ? null : 'current-B',
+        outcome: inactive ? 'device_unavailable' : 'saved'
+      });
+    }
+  );
+
   it('decodes a valid frame, resolves the device, and forwards it', async () => {
     const resolve = vi.fn().mockResolvedValue('veh-1');
     const send = vi.fn().mockResolvedValue(undefined);

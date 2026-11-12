@@ -55,7 +55,6 @@ export function validateDriverReading(
   )
     refuse('Reading contradicts neighboring gate readings');
   if (
-    existing === null &&
     (!outing.preTripCheckedAt ||
       (phase === 'after' && !outing.postTripCheckedAt && !laterDeparture)) &&
     mileage < currentMileage

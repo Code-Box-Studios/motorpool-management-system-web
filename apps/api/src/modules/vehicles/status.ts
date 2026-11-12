@@ -50,6 +50,9 @@ export async function claimVehicleStatus(
   if (!from.includes(vehicle.status)) {
     throw new AppError(409, opts.code, opts.message(vehicle.status));
   }
+  if (to === 'on_trip') {
+    await requireNoActiveRepair(client, vehicleId, opts.code);
+  }
 
   const claimed = await client.vehicle.updateMany({
     where: { id: vehicleId, status: { in: from } },
@@ -73,6 +76,28 @@ export async function claimVehicleStatus(
     });
   }
   return { mileage: vehicle.mileage };
+}
+
+// Call only while holding the vehicle lock, shared by note/delete/completion.
+async function requireNoActiveRepair(
+  client: Prisma.TransactionClient,
+  vehicleId: string,
+  code: string
+) {
+  const repair = await client.jobOrder.findFirst({
+    where: {
+      vehicleId,
+      status: { in: ['assigned_mechanic', 'ongoing_repair'] }
+    },
+    select: { id: true }
+  });
+  if (repair) {
+    throw new AppError(
+      409,
+      code,
+      'This vehicle has an active repair; complete or delete the repair before releasing it'
+    );
+  }
 }
 
 // A hard precondition on the vehicle's CURRENT status.
@@ -146,6 +171,20 @@ export async function changeVehicleStatus(
       ? opts.expectedFrom
       : [opts.expectedFrom];
     if (!allowed.includes(vehicle.status)) return false; // skip-and-log
+  }
+  if (newStatus === 'available' && opts.source === 'manual_edit') {
+    await requireNoActiveRepair(client, vehicleId, 'VEHICLE_UNDER_REPAIR');
+    const openOuting = await client.tripDate.findFirst({
+      where: { status: 'in_progress', tripTicket: { vehicleId } },
+      select: { id: true }
+    });
+    if (openOuting) {
+      throw new AppError(
+        409,
+        'VEHICLE_ON_TRIP',
+        'This vehicle is already out on a trip; check it in before marking it available'
+      );
+    }
   }
   if (vehicle.status === newStatus) return false;
   await client.vehicle.update({

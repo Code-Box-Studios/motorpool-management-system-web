@@ -59,8 +59,10 @@ export const updateDriverBodySchema = createDriverBodySchema.partial().extend({
 });
 export type UpdateDriverBody = z.infer<typeof updateDriverBodySchema>;
 
-// Response type is intentionally loose (Prisma row serialized to JSON);
-// the FE consumes it via the shared type, not runtime validation.
+// Operational fields are available to authenticated booking/dispatch readers.
+// Personnel fields are present only for admins and the linked driver reading
+// their own personnel record. Trip and repair embeds always use safe fields.
+// The FE consumes the shared type without runtime validation.
 export const driverResponseSchema = z
   .object({
     id: z.string().uuid(),

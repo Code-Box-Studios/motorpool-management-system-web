@@ -123,6 +123,7 @@ model User {
   id           String     @id @default(uuid()) @db.Uuid
   email        String     @unique
   passwordHash String     @map("password_hash")
+  authVersion  Int        @default(0) @map("auth_version")
   fullName     String     @map("full_name")
   avatarUrl    String?    @map("avatar_url")
   phone        String?

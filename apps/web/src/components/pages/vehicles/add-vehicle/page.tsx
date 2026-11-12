@@ -1,3 +1,4 @@
+import { ImageUpload } from '@/components/shared/image-upload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -65,6 +66,35 @@ export function AddVehicle() {
 
       <form id="add-vehicle-form" onSubmit={form.handleSubmit(onSubmit)}>
         <FormLayout>
+          <FormSection
+            title="Photos"
+            description="Add vehicle photos before filling out its details."
+          >
+            <Controller
+              name="images"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="images">Vehicle photos</FieldLabel>
+                  <ImageUpload
+                    id="images"
+                    name={field.name}
+                    files={field.value ?? []}
+                    onFilesChange={field.onChange}
+                    onBlur={field.onBlur}
+                    inputRef={field.ref}
+                    multiple
+                    maxFiles={10}
+                    disabled={addVehicleAction.isLoading}
+                    invalid={fieldState.invalid}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+          </FormSection>
           <FormSection
             title="The vehicle"
             description="Make, model and specification."
@@ -364,31 +394,6 @@ export function AddVehicle() {
                 )}
               />
             </FormRow>
-          </FormSection>
-
-          <FormSection title="Photos">
-            <Controller
-              name="images"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="images">Images</FieldLabel>
-                  <Input
-                    id="images"
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={(e) =>
-                      field.onChange(Array.from(e.target.files || []))
-                    }
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
           </FormSection>
 
           <FormActions>

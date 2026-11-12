@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
 import { usePredictiveMaintenanceData } from '@/lib/query/analytics';
-import { getNextMaintenanceDueMileage } from '@/lib/utils/predictive-maintenance';
+import { preventiveSummary } from '@/lib/utils/predictive-maintenance';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface PreventiveMaintenanceProps {
@@ -48,7 +48,12 @@ const PreventiveMaintenance = ({
   const { filters, setFilter, clearFilters, hasFilters } = useListControls([
     'preventivePriority'
   ]);
-  const { data: predictions, isLoading } = usePredictiveMaintenanceData();
+  const {
+    data: predictions,
+    isLoading,
+    error,
+    refetch
+  } = usePredictiveMaintenanceData();
   const { search, setSearch } = useScopedListSearch('preventiveSearch');
   const clearSearch = () => setSearch('');
 
@@ -59,39 +64,30 @@ const PreventiveMaintenance = ({
     });
   };
 
-  // Map predictions to preventive maintenance view:
-  // show vehicles approaching their next maintenance due mileage
   const vehiclesDueForMaintenance = (predictions ?? []).map((v) => {
-    const maintenanceDue = getNextMaintenanceDueMileage(v.mileage);
-    const kmRemaining = maintenanceDue - v.mileage;
-    let reason: string;
-    if (kmRemaining <= 0) {
-      reason = `Overdue for ${maintenanceDue.toLocaleString()} km service`;
-    } else if (kmRemaining <= 500) {
-      reason = `Approaching ${maintenanceDue.toLocaleString()} km service interval`;
-    } else {
-      reason = `${kmRemaining.toLocaleString()} km until next scheduled service`;
-    }
-
+    const summary = preventiveSummary(v);
     return {
       id: v.vehicleId,
       plateNumber: v.licensePlate,
       vehicleName: v.vehicleName,
       mileage: v.mileage,
-      maintenanceDue,
-      // Kept null rather than coerced to 'N/A': the card renders "No records"
-      // for a vehicle that has never been serviced, and any placeholder string
-      // here would reach `new Date()` as "Invalid Date".
+      maintenanceDue: summary.due,
       lastMaintenance: v.lastMaintenanceDate,
-      priority: v.priority,
-      reason
+      priority: summary.priority,
+      reason: summary.reason,
+      status: summary.status,
+      nextDueDate: v.nextMaintenanceDueDate,
+      progress: summary.progress
     };
   });
-
+  const unknownCount = vehiclesDueForMaintenance.filter(
+    (v) => v.status === 'unknown'
+  ).length;
   const highPriorityByOldest = [...vehiclesDueForMaintenance]
-    .filter((v) => v.priority === 'high')
+    .filter((v) => v.status === 'overdue' || v.status === 'due_soon')
     .sort(
       (a, b) =>
+        Number(a.priority !== 'high') - Number(b.priority !== 'high') ||
         lastServiceTime(a.lastMaintenance) - lastServiceTime(b.lastMaintenance)
     );
 
@@ -190,7 +186,23 @@ const PreventiveMaintenance = ({
             }
           />
         )}
-        {isLoading ? (
+        {!isLoading && !error && unknownCount > 0 && (
+          <p className="text-slate mb-4 text-sm" role="status">
+            {unknownCount} vehicle(s) need service history or a maintenance
+            deadline before due status can be confirmed.
+          </p>
+        )}
+        {error ? (
+          <div
+            role="alert"
+            className="border-border space-y-3 rounded-2xl border p-5"
+          >
+            <p>Unable to load preventive maintenance. {error.message}</p>
+            <Button variant="secondary" onClick={() => void refetch()}>
+              Try again
+            </Button>
+          </div>
+        ) : isLoading ? (
           <div className={showViewAll ? 'grid grid-cols-1 gap-4' : CARD_GRID}>
             {Array.from({ length: showViewAll ? 2 : 3 }).map((_, i) => (
               <Skeleton key={i} className="h-64 w-full rounded-xl" />
@@ -198,7 +210,11 @@ const PreventiveMaintenance = ({
           </div>
         ) : displayedVehicles.length === 0 ? (
           <EmptyState
-            message="No vehicles currently due for preventive maintenance."
+            message={
+              unknownCount > 0
+                ? 'Service deadlines cannot be confirmed for every vehicle.'
+                : 'No vehicles currently due for preventive maintenance.'
+            }
             search={!showViewAll ? search : undefined}
             onClearSearch={clearSearch}
             hasFilters={!showViewAll && hasFilters}
@@ -215,8 +231,10 @@ const PreventiveMaintenance = ({
                 mileage={vehicle.mileage}
                 maintenanceDue={vehicle.maintenanceDue}
                 lastMaintenance={vehicle.lastMaintenance}
-                priority={vehicle.priority}
                 reason={vehicle.reason}
+                status={vehicle.status}
+                nextDueDate={vehicle.nextDueDate}
+                progress={vehicle.progress}
               />
             ))}
           </div>

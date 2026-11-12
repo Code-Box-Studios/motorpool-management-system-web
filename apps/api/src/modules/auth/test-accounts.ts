@@ -45,6 +45,7 @@ export const switchTestAccountSchema = z
 
 interface Grant {
   originId: string;
+  originAuthVersion: number;
   currentId: string;
   refreshHash: string;
   exp: number;
@@ -86,6 +87,8 @@ function readGrant(token: string | undefined): Grant | null {
       typeof decoded === 'string' ||
       decoded.purpose !== AUDIENCE ||
       typeof decoded.originId !== 'string' ||
+      !Number.isSafeInteger(decoded.originAuthVersion) ||
+      decoded.originAuthVersion < 0 ||
       typeof decoded.currentId !== 'string' ||
       typeof decoded.refreshHash !== 'string' ||
       typeof decoded.exp !== 'number'
@@ -93,6 +96,7 @@ function readGrant(token: string | undefined): Grant | null {
       return null;
     return {
       originId: decoded.originId,
+      originAuthVersion: decoded.originAuthVersion,
       currentId: decoded.currentId,
       refreshHash: decoded.refreshHash,
       exp: decoded.exp
@@ -152,6 +156,7 @@ export async function validatedTestAccountGrant(
   return session &&
     admin &&
     admin.id === grant.originId &&
+    admin.authVersion === grant.originAuthVersion &&
     session.userId === grant.currentId
     ? grant
     : null;
@@ -192,6 +197,7 @@ export async function listTestAccounts(
     ) {
       grant = {
         originId: admin.id,
+        originAuthVersion: admin.authVersion,
         currentId: admin.id,
         refreshHash: session.tokenHash,
         exp: Math.floor(Date.now() / 1000) + TTL_SECONDS
@@ -263,7 +269,12 @@ export async function switchTestAccount(
       'TEST_ACCOUNT_FORBIDDEN',
       'Test account session has ended'
     );
-  const result = await issuePair(user, account.role);
+  // Enforce the originating admin's credential generation again under the
+  // issuance locks: a reset between grant validation and issuance must win.
+  const result = await issuePair(user, account.role, {
+    id: grant.originId,
+    authVersion: grant.originAuthVersion
+  });
   // Refresh cookie uses the same cross-site settings as regular login.
   res.cookie('mms_refresh', result.refreshToken, {
     ...cookieOptions(),

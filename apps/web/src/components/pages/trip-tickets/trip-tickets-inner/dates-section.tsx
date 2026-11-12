@@ -28,6 +28,7 @@ import { TRIP_TICKET_STATUS } from '@/lib/enums';
 
 const dayOf = (value: string) =>
   new Date(value).toLocaleDateString(undefined, {
+    timeZone: 'Asia/Manila',
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -36,12 +37,13 @@ const dayOf = (value: string) =>
 
 const timeOf = (value: string) =>
   new Date(value).toLocaleTimeString(undefined, {
+    timeZone: 'Asia/Manila',
     hour: '2-digit',
     minute: '2-digit'
   });
 
 const windowOf = (start: string, end: string) =>
-  `${timeOf(start)} – ${new Date(start).toDateString() !== new Date(end).toDateString() ? dayOf(end) + ', ' : ''}${timeOf(end)}`;
+  `${timeOf(start)} – ${dayOf(start) !== dayOf(end) ? dayOf(end) + ', ' : ''}${timeOf(end)}`;
 
 const odometerOf = (value: number | null) =>
   value === null ? (

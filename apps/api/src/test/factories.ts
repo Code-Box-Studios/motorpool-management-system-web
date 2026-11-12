@@ -41,14 +41,16 @@ export async function createTestUser(opts: CreateTestUserOptions = {}) {
   return { user: { id: user.id, email: user.email }, password };
 }
 
-// Bearer header for an arbitrary identity — no login round-trip needed.
+// Sign a test bearer. requireAuth still resolves role/branch from the stored
+// user; claim arguments cannot impersonate a different authority.
 export function authHeader(
   userId: string,
   email: string,
   role: string,
-  branchId: string | null = null
+  branchId: string | null = null,
+  authVersion = 0
 ): string {
-  return `Bearer ${signAccessToken({ sub: userId, email, role, branchId })}`;
+  return `Bearer ${signAccessToken({ sub: userId, email, role, branchId, authVersion })}`;
 }
 
 // Create a test branch for integration tests.

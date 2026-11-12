@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type QueryClient
+} from '@tanstack/react-query';
 import {
   createMaintenance,
   updateMaintenance,
@@ -7,12 +11,20 @@ import {
 import type { NewMaintenance, UpdateMaintenance } from '../types';
 import { toast } from 'sonner';
 
+async function refreshMaintenanceResults(queryClient: QueryClient, id: string) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['maintenances'] }),
+    queryClient.invalidateQueries({ queryKey: ['maintenance', id] }),
+    queryClient.invalidateQueries({ queryKey: ['analytics'] })
+  ]);
+}
+
 export const useCreateMaintenance = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (maintenance: NewMaintenance) => createMaintenance(maintenance),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenances'] });
+    onSuccess: async (maintenance) => {
+      await refreshMaintenanceResults(queryClient, maintenance.id);
       toast.success('Maintenance record created successfully!');
     },
     onError: (error: Error) => {
@@ -26,8 +38,8 @@ export const useUpdateMaintenance = () => {
   return useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: UpdateMaintenance }) =>
       updateMaintenance(id, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenances'] });
+    onSuccess: async (maintenance) => {
+      await refreshMaintenanceResults(queryClient, maintenance.id);
       toast.success('Maintenance record updated successfully!');
     },
     onError: (error: Error) => {
@@ -40,8 +52,8 @@ export const useDeleteMaintenance = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteMaintenance(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenances'] });
+    onSuccess: async (_result, id) => {
+      await refreshMaintenanceResults(queryClient, id);
       toast.success('Maintenance record deleted successfully!');
     },
     onError: (error: Error) => {

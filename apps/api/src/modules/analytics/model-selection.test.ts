@@ -43,6 +43,7 @@ const vehicle = (id: string): VehicleWithMaintenance => ({
   lastLocationUpdate: null,
   createdAt: now,
   updatedAt: now,
+  maintenanceTracking: [],
   maintenances: [
     {
       id: `maintenance-${id}`,

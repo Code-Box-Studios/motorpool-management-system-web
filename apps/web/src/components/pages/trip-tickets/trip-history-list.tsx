@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ArrowDownLeft, ArrowRight, ArrowUpRight, History } from 'lucide-react';
 import { matchesSearch } from '@mms/shared';
@@ -19,7 +19,8 @@ export function TripHistoryList({
   driverLabel,
   loading,
   error,
-  onRetry
+  onRetry,
+  renderRecovery
 }: {
   entries: TripHistoryEntry[];
   mode: 'driver' | 'guard';
@@ -28,6 +29,7 @@ export function TripHistoryList({
   loading?: boolean;
   error?: Error | null;
   onRetry?: () => void;
+  renderRecovery?: (entry: TripHistoryEntry) => ReactNode;
 }) {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
@@ -208,11 +210,12 @@ export function TripHistoryList({
                     entry.status === 'completed' &&
                     (date.start_mileage === null ||
                       date.end_mileage === null) && (
-                      <p className="text-status-wait-fg mt-3 text-xs">
-                        Odometer readings are incomplete.
-                        {ticket.status !== 'cancelled' &&
-                          ' You can finish them in Active trips.'}
-                      </p>
+                      <div>
+                        <p className="text-status-wait-fg mt-3 text-xs">
+                          Odometer readings are incomplete.
+                        </p>
+                        {renderRecovery?.(entry)}
+                      </div>
                     )}
                   <div className="mt-3 flex justify-end">
                     <Button

@@ -1,4 +1,4 @@
-import { TrashIcon } from 'lucide-react';
+import { ImageUpload } from '@/components/shared/image-upload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,8 +8,7 @@ import { useUpdateDriver } from '@/lib/mutation/drivers';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Controller } from 'react-hook-form';
 import { useDriverForm, type DriverFormData } from '../add-driver/action';
-import { toast } from 'sonner';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FormSkeleton } from '@/components/shared/skeleton/form-skeleton';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import {
@@ -45,19 +44,11 @@ export function DriverDetails({ id }: { id: string }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingData, setPendingData] = useState<DriverFormData | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
 
   useBreadcrumbLabel(driver?.full_name);
 
-  // The preview is an object URL; leaking it holds the whole image in memory.
-  useEffect(() => {
-    return () => {
-      if (photoPreview) URL.revokeObjectURL(photoPreview);
-    };
-  }, [photoPreview]);
-
-  useEffect(() => {
+  const resetFromRecord = useCallback(() => {
     if (driver) {
       form.reset({
         full_name: driver.full_name || '',
@@ -79,6 +70,10 @@ export function DriverDetails({ id }: { id: string }) {
     }
   }, [driver, form]);
 
+  useEffect(() => {
+    if (!isEditing) resetFromRecord();
+  }, [resetFromRecord, isEditing]);
+
   const onSubmit = (data: DriverFormData) => {
     setPendingData(data);
     setShowConfirm(true);
@@ -86,7 +81,6 @@ export function DriverDetails({ id }: { id: string }) {
 
   const resetPhotoState = () => {
     setPhotoFile(null);
-    setPhotoPreview(null);
     setRemovePhoto(false);
   };
 
@@ -116,8 +110,7 @@ export function DriverDetails({ id }: { id: string }) {
           setPendingData(null);
           resetPhotoState();
         },
-        onError: (error) => {
-          toast.error(`Failed to update driver: ${error.message}`);
+        onError: () => {
           setShowConfirm(false);
         }
       }
@@ -158,46 +151,22 @@ export function DriverDetails({ id }: { id: string }) {
               title="Photo"
               description="A head-and-shoulders photo the guard can match at the gate."
             >
-              <div className="flex flex-wrap items-start gap-5">
-                <div className="relative w-full max-w-[180px] shrink-0">
-                  <EntityImage
-                    src={removePhoto ? null : (photoPreview ?? driver.photo)}
-                    alt={driver.full_name}
-                    className="border-border aspect-square w-full rounded-[20px] border"
-                  />
-                  {driver.photo && !removePhoto && !photoPreview && (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon-sm"
-                      aria-label="Remove photo"
-                      className="absolute top-2 right-2"
-                      onClick={() => setRemovePhoto(true)}
-                    >
-                      <TrashIcon className="size-4" />
-                    </Button>
-                  )}
-                </div>
-
-                <Field className="flex-1">
-                  <FieldLabel htmlFor="driver_photo">
-                    {driver.photo && !removePhoto
-                      ? 'Replace photo'
-                      : 'Add photo'}
-                  </FieldLabel>
-                  <Input
-                    id="driver_photo"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] ?? null;
-                      setPhotoFile(file);
-                      setPhotoPreview(file ? URL.createObjectURL(file) : null);
-                      if (file) setRemovePhoto(false);
-                    }}
-                  />
-                </Field>
-              </div>
+              <Field>
+                <FieldLabel htmlFor="driver_photo">Driver photo</FieldLabel>
+                <ImageUpload
+                  id="driver_photo"
+                  name="photo"
+                  files={photoFile ? [photoFile] : []}
+                  onFilesChange={(files) => {
+                    setPhotoFile(files[0] ?? null);
+                    if (files.length > 0) setRemovePhoto(false);
+                  }}
+                  currentImage={removePhoto ? null : driver.photo}
+                  currentImageAlt={driver.full_name}
+                  onRemoveCurrent={() => setRemovePhoto(true)}
+                  disabled={updateDriver.isPending}
+                />
+              </Field>
             </FormSection>
 
             <FormSection title="Personnel">
@@ -432,8 +401,11 @@ export function DriverDetails({ id }: { id: string }) {
                 type="button"
                 variant="outline"
                 onClick={() => {
+                  resetFromRecord();
                   setIsEditing(false);
                   resetPhotoState();
+                  setShowConfirm(false);
+                  setPendingData(null);
                 }}
                 disabled={updateDriver.isPending}
               >

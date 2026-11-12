@@ -6,7 +6,7 @@ import type {
   UpdateJobOrderBody
 } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
-import { lockVehicles } from '../../lib/resource-locks.js';
+import { lockSpareParts, lockVehicles } from '../../lib/resource-locks.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
@@ -147,7 +147,25 @@ export async function update(id: string, body: UpdateJobOrderBody) {
       'Job order can only be edited while pending'
     );
   }
-  await prisma.jobOrder.update({ where: { id }, data: body });
+  await prisma.$transaction(async (tx) => {
+    await lockVehicles(tx, [
+      existing.vehicleId,
+      ...(body.vehicleId ? [body.vehicleId] : [])
+    ]);
+    // A note may have committed while this pending edit was waiting. Never move
+    // a newly assigned repair away from the vehicle that was taken into service.
+    const updated = await tx.jobOrder.updateMany({
+      where: { id, status: 'pending', vehicleId: existing.vehicleId },
+      data: body
+    });
+    if (!updated.count) {
+      throw new AppError(
+        409,
+        'INVALID_TRANSITION',
+        'Job order changed; refresh it before editing'
+      );
+    }
+  });
   return findJobOrderById(id);
 }
 
@@ -178,6 +196,16 @@ export async function remove(id: string): Promise<void> {
       include: { spareParts: true }
     });
     if (!order) throw new AppError(404, 'NOT_FOUND', 'Job order not found');
+    if (order.vehicleId !== existing.vehicleId) {
+      // Only the preflight vehicle is locked. A pending edit may have moved the
+      // order while we waited; deleting now could race a Note on its new vehicle
+      // and cascade newly issued parts without restoring them.
+      throw new AppError(
+        409,
+        'INVALID_TRANSITION',
+        'Job order changed; refresh it before deleting'
+      );
+    }
     if (order.status === 'repaired') {
       throw new AppError(
         409,
@@ -188,10 +216,22 @@ export async function remove(id: string): Promise<void> {
     // Parts are issued at `note`. Abandoning the job puts them back on the shelf
     // — without this, reserving them at note would simply lose them: the join
     // rows cascade away on delete and the stock never returns.
+    await lockSpareParts(
+      tx,
+      order.spareParts.map((line) => line.sparePartId)
+    );
     for (const line of order.spareParts) {
+      const part = await tx.sparePart.findUniqueOrThrow({
+        where: { id: line.sparePartId }
+      });
       await tx.sparePart.update({
         where: { id: line.sparePartId },
-        data: { quantity: { increment: line.quantity } }
+        data: {
+          quantity: { increment: line.quantity },
+          updatedAt: new Date(
+            Math.max(Date.now(), part.updatedAt.getTime() + 1)
+          )
+        }
       });
     }
     await tx.jobOrder.delete({ where: { id } }); // job_order_spare_parts cascade (schema)

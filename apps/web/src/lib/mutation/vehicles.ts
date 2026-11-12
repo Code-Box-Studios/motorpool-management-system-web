@@ -20,6 +20,9 @@ export const useCreateVehicle = () => {
     }) => createVehicle(vehicle, files),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to create vehicle: ${error.message}`);
     }
   });
 };
@@ -40,6 +43,10 @@ export const useUpdateVehicle = () => {
     }) => updateVehicle(id, updates, files, removedImages),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicle'] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update vehicle: ${error.message}`);
     }
   });
 };

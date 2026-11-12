@@ -22,10 +22,13 @@ function serialize(row: PacketRow): TrackerPacketLog {
   };
 }
 
-async function persist(body: TrackerPacketBody): Promise<TrackerPacketLog> {
+export async function persistPacketLog(
+  body: TrackerPacketBody,
+  client: Prisma.TransactionClient = prisma
+): Promise<TrackerPacketLog> {
   // ON CONFLICT locks the receipt row. Identity checks and revision comparisons
   // happen under that lock, including when several workers create it together.
-  const rows = await prisma.$queryRaw<PacketRow[]>`
+  const rows = await client.$queryRaw<PacketRow[]>`
     INSERT INTO tracker_packet_logs AS existing (
       id, revision, received_at, connection_id, peer, device_id, vehicle_id,
       message_type, kind, outcome, raw_hex, fix_time, latitude, longitude,
@@ -119,7 +122,7 @@ export async function uploadPacketLog(
   req: Request,
   res: Response
 ): Promise<void> {
-  res.status(201).json(await persist(req.body as TrackerPacketBody));
+  res.status(201).json(await persistPacketLog(req.body as TrackerPacketBody));
 }
 
 export async function listPacketLogs(

@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import PageHeader from '@/components/shared/page-header';
+import { ImageUpload } from '@/components/shared/image-upload';
 import {
   FormLayout,
   FormSection,
@@ -154,15 +155,15 @@ export function AddSparePart() {
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="image">Image</FieldLabel>
-                    <Input
+                    <ImageUpload
                       id="image"
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        field.onChange(file);
-                      }}
-                      aria-invalid={fieldState.invalid}
+                      files={field.value ? [field.value] : []}
+                      onFilesChange={(files) => field.onChange(files[0])}
+                      onBlur={field.onBlur}
+                      inputRef={field.ref}
+                      name={field.name}
+                      disabled={addSparePartAction.isLoading}
+                      invalid={fieldState.invalid}
                     />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />

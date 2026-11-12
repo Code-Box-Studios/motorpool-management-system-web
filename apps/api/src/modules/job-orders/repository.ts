@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { operationalDriverSelect } from '../drivers/projection.js';
 
 // Embeds the FE renders: vehicle summary, the spare-parts join (+ each part),
 // and the assigned mechanic. noted/approved/requested users are resolved
@@ -9,7 +10,7 @@ export const jobOrderInclude = {
     select: { id: true, make: true, model: true, licensePlate: true }
   },
   spareParts: { include: { sparePart: true } },
-  assignedMechanic: true
+  assignedMechanic: { select: operationalDriverSelect }
 } satisfies Prisma.JobOrderInclude;
 
 type SkipTake = { skip: number; take: number } | Record<string, never>;

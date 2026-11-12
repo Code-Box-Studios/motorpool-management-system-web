@@ -93,8 +93,8 @@ export function MaintenanceInner() {
     if (!pendingData) return;
     const transformedData = {
       ...pendingData,
-      cost: pendingData.cost === '' ? null : Number(pendingData.cost),
-      mileage: pendingData.mileage === '' ? null : Number(pendingData.mileage),
+      cost: pendingData.cost ? Number(pendingData.cost) : null,
+      mileage: pendingData.mileage ? Number(pendingData.mileage) : null,
       next_due: pendingData.next_due === '' ? null : pendingData.next_due
     };
     updateMaintenanceAction

@@ -55,6 +55,8 @@ export const useDeleteJobOrder = () => {
       queryClient.invalidateQueries({ queryKey: ['job_orders'] });
       queryClient.invalidateQueries({ queryKey: ['all_job_orders'] });
       toast.success('Job order deleted successfully!');
+      queryClient.invalidateQueries({ queryKey: ['spare_parts'] });
+      queryClient.invalidateQueries({ queryKey: ['spare_part'] });
     },
     onError: (error: ApiError) => {
       toast.error(`Failed to delete job order: ${error.message}`);
@@ -77,6 +79,7 @@ const invalidateJobOrder = (
   queryClient.invalidateQueries({ queryKey: ['vehicles'] });
   queryClient.invalidateQueries({ queryKey: ['maintenances'] });
   queryClient.invalidateQueries({ queryKey: ['spare_parts'] });
+  queryClient.invalidateQueries({ queryKey: ['spare_part'] });
   queryClient.invalidateQueries({ queryKey: ['analytics'] });
 };
 

@@ -17,7 +17,11 @@ export const formatMaintenanceDate = (
 ): string => {
   if (!value) return fallback;
 
-  const parsed = new Date(value);
+  // A date-only value is a calendar day, not midnight UTC. Keep that day
+  // when a browser west of UTC formats it in its local timezone.
+  const parsed = new Date(
+    /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value
+  );
   return Number.isNaN(parsed.getTime())
     ? fallback
     : parsed.toLocaleDateString();

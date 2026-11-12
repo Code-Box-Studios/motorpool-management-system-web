@@ -34,6 +34,7 @@ import { DetailGrid, DetailItem } from '@/components/shared/detail-view';
 import { GuidePicker } from '@/components/pages/trip-tickets/guide-picker';
 import { BorrowedBadge } from '@/components/shared/borrowed-badge';
 import { isBorrowed } from '@/lib/borrowed';
+import { resolveStatus } from '@/lib/status';
 import {
   FormLayout,
   FormSection,
@@ -121,9 +122,9 @@ interface TripTicketFormProps {
 
 export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // The WHOLE fleet and roster, not a page of them. Both lists below are
-  // filtered down here on the client — free vehicles, active drivers — so a
+  // filtered down here on the client — bookable vehicles, active drivers — so a
   // capped fetch filters what it happened to be sent, not what exists: a page
-  // full of vans that are all out on trips leaves the picker empty while free
+  // full of out-of-service vans leaves the picker empty while bookable
   // ones sit past the cap. The server orders by updatedAt, so which records
   // fall inside a cap also shifts as they are edited.
   const { data: drivers, isLoading: driversLoading } = useAllDrivers();
@@ -246,11 +247,15 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   // The vans it owns are the default and come first; another branch's are
   // reachable, but under their own heading and tagged with whose they are — a
   // borrow should be a decision, not something you do by not noticing.
-  const freeVehicles = (vehicles ?? []).filter((v) => v.status === 'available');
-  const ownVehicles = freeVehicles.filter(
+  // Current trips and repairs do not decide future reservations. The API checks
+  // the requested windows and refuses out-of-service vehicles outright.
+  const bookableVehicles = (vehicles ?? []).filter(
+    (v) => v.status !== 'out_of_service'
+  );
+  const ownVehicles = bookableVehicles.filter(
     (v) => !isBorrowed(tripBranchId, v.branch)
   );
-  const borrowableVehicles = freeVehicles.filter((v) =>
+  const borrowableVehicles = bookableVehicles.filter((v) =>
     isBorrowed(tripBranchId, v.branch)
   );
 
@@ -545,7 +550,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
 
           <FormSection
             title="The trip"
-            description="Free vehicles and active drivers. The branch's own come first; another branch's can be borrowed."
+            description="Bookable vehicles and active drivers. The branch's own come first; another branch's can be borrowed."
             className={step === 1 ? undefined : 'hidden'}
           >
             <div className="flex flex-col gap-5">
@@ -588,7 +593,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                           (vehicle) => ({
                             id: vehicle.id,
                             name: `${vehicle.make} ${vehicle.model}`,
-                            detail: `${vehicle.license_plate} · ${vehicle.capacity} ${vehicle.capacity === 1 ? 'seat' : 'seats'}`,
+                            detail: `${vehicle.license_plate} · ${vehicle.capacity} ${vehicle.capacity === 1 ? 'seat' : 'seats'} · Current status: ${resolveStatus(vehicle.status).label}`,
                             branchName:
                               branches?.find(
                                 (branch) => branch.id === vehicle.branch

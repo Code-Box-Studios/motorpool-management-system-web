@@ -11,6 +11,12 @@ const predictions = {
       licensePlate: 'MMS-HIGH',
       mileage: 12000,
       kmSinceLastMaint: 6000,
+      lastMaintenanceDate: '2026-10-01',
+      lastMaintenanceMileage: 6000,
+      nextMaintenanceDueMileage: 11000,
+      nextMaintenanceDueDate: null,
+      preventiveStatus: 'overdue',
+      preventiveSource: 'service_history',
       avgDailyKm: 40,
       maintFreq12m: 1,
       riskScore: 90,
@@ -27,6 +33,12 @@ const predictions = {
       licensePlate: 'MMS-LOW',
       mileage: 1000,
       kmSinceLastMaint: 1000,
+      lastMaintenanceDate: '2026-10-01',
+      lastMaintenanceMileage: 0,
+      nextMaintenanceDueMileage: 5000,
+      nextMaintenanceDueDate: null,
+      preventiveStatus: 'on_schedule',
+      preventiveSource: 'service_history',
       avgDailyKm: 20,
       maintFreq12m: 3,
       riskScore: 10,
@@ -111,15 +123,39 @@ test('preventive and predictive searches are independent and combine with filter
   await expect(search).toHaveValue('toyota MMS-HIGH');
 });
 
-test('parts search combines names and confidence and clears without changing the applied model', async ({
+test('parts search combines names and confidence and clears without changing explicitly applied FP-Growth', async ({
   page
 }) => {
   await login(page, 'admin');
   await page.goto('/maintenance?tab=predictive');
+  const controls = page.getByRole('region', {
+    name: 'Maintenance model selection',
+    exact: true
+  });
   const results = page.getByRole('region', {
     name: 'Spare parts model results',
     exact: true
   });
+  await expect(
+    controls.getByRole('combobox', { name: 'Parts algorithm', exact: true })
+  ).toContainText('Apriori (Default)');
+  await expect(
+    results.getByText('Apriori results', { exact: true })
+  ).toBeVisible();
+  await controls
+    .getByRole('combobox', { name: 'Parts algorithm', exact: true })
+    .click();
+  await page.getByRole('option', { name: 'FP-Growth', exact: true }).click();
+  const [modelResponse] = await Promise.all([
+    page.waitForResponse((response) =>
+      response
+        .url()
+        .includes('/analytics/association-models?algorithm=fp_growth')
+    ),
+    controls.getByRole('button', { name: 'Run Model', exact: true }).click()
+  ]);
+  expect((await modelResponse.json()).algorithm).toBe('fp_growth');
+  await expect(results).toHaveAttribute('aria-busy', 'false');
   const search = results.getByRole('searchbox', {
     name: 'Search parts recommendations',
     exact: true
@@ -138,6 +174,9 @@ test('parts search combines names and confidence and clears without changing the
   await expect(results.getByRole('row')).toHaveCount(4);
   await expect(
     results.getByText('FP-Growth results', { exact: true })
+  ).toBeVisible();
+  await expect(
+    controls.getByText('Applied: Random Forest · FP-Growth', { exact: true })
   ).toBeVisible();
 });
 

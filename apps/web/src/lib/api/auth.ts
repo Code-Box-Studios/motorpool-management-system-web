@@ -1,5 +1,11 @@
 import type { AuthUser } from '@mms/shared';
-import { api, apiRequest, setAccessToken, toAssetUrl } from './client.js';
+import {
+  api,
+  apiRequest,
+  resetAuthSession,
+  setAccessToken,
+  toAssetUrl
+} from './client.js';
 import type { AppUser } from '../types';
 
 // Maps the API's AuthUser (camelCase) into the FE's AppUser shape so
@@ -29,19 +35,21 @@ export async function signIn(
   email: string,
   password: string
 ): Promise<AppUser> {
+  const sessionSignal = resetAuthSession();
   const res = await apiRequest<LoginResponse>('/auth/login', {
     method: 'POST',
     json: { email, password },
     skipRefresh: true
   });
+  sessionSignal.throwIfAborted();
   setAccessToken(res.accessToken);
   return toAppUser(res.user);
 }
 
 // Logs out server-side (clears the refresh cookie) and drops the in-memory token.
 export async function signOut(): Promise<void> {
-  await api.post('/auth/logout');
-  setAccessToken(null);
+  resetAuthSession();
+  await apiRequest('/auth/logout', { method: 'POST', skipRefresh: true });
 }
 
 // Boot path: the client silently refreshes on 401, so a returning user with a

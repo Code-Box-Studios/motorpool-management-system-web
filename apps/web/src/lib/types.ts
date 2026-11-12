@@ -86,7 +86,9 @@ export type UpdateMaintenanceStandard = TablesUpdate<'maintenance_standards'>;
 
 export type SparePart = Tables<'spare_parts'>;
 export type NewSparePart = TablesInsert<'spare_parts'>;
-export type UpdateSparePart = TablesUpdate<'spare_parts'>;
+export type UpdateSparePart = TablesUpdate<'spare_parts'> & {
+  expectedUpdatedAt?: string;
+};
 
 export type Tool = Tables<'tools'>;
 export type NewTool = TablesInsert<'tools'>;

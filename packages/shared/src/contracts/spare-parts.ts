@@ -33,6 +33,7 @@ export type CreateSparePartBody = z.infer<typeof createSparePartBodySchema>;
 export const updateSparePartBodySchema = createSparePartBodySchema
   .partial()
   .extend({
+    expectedUpdatedAt: z.string().datetime().optional(),
     removeImage: booleanFromString.optional()
   });
 export type UpdateSparePartBody = z.infer<typeof updateSparePartBodySchema>;

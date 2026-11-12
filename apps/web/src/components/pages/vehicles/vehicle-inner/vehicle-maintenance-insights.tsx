@@ -6,6 +6,7 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   AlertTriangle,
   Calendar,
@@ -32,7 +33,10 @@ import {
   priorityMeterTone
 } from '@/lib/maintenance-format';
 import { usePredictiveMaintenanceData } from '@/lib/query/analytics';
-import { getNextMaintenanceDueMileage } from '@/lib/utils/predictive-maintenance';
+import {
+  PREVENTIVE_STATUS,
+  preventiveSummary
+} from '@/lib/utils/predictive-maintenance';
 
 interface VehicleMaintenanceInsightsProps {
   vehicleId: string;
@@ -53,7 +57,12 @@ const RISK_BADGE = {
 export const VehicleMaintenanceInsights = ({
   vehicleId
 }: VehicleMaintenanceInsightsProps) => {
-  const { data: allPredictions, isLoading } = usePredictiveMaintenanceData();
+  const {
+    data: allPredictions,
+    isLoading,
+    error,
+    refetch
+  } = usePredictiveMaintenanceData();
 
   const prediction = allPredictions?.find((p) => p.vehicleId === vehicleId);
 
@@ -69,24 +78,26 @@ export const VehicleMaintenanceInsights = ({
     );
   }
 
+  if (error) {
+    return (
+      <div
+        role="alert"
+        className="border-border mt-8 space-y-3 rounded-2xl border p-5"
+      >
+        <p>Unable to load maintenance insights. {error.message}</p>
+        <Button variant="secondary" onClick={() => void refetch()}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
   if (!prediction) {
     return null;
   }
 
-  const maintenanceDue = getNextMaintenanceDueMileage(prediction.mileage);
-  const kmRemaining = maintenanceDue - prediction.mileage;
-  // A vehicle at 0 km has a next-service mileage of 0 too; guard the divide.
-  const mileageProgress =
-    maintenanceDue > 0
-      ? Math.min((prediction.mileage / maintenanceDue) * 100, 100)
-      : 0;
-
-  const preventiveReason =
-    kmRemaining <= 0
-      ? `Overdue for ${maintenanceDue.toLocaleString()} km service`
-      : kmRemaining <= 500
-        ? `Approaching ${maintenanceDue.toLocaleString()} km service interval`
-        : `${kmRemaining.toLocaleString()} km until next scheduled service`;
+  const preventive = preventiveSummary(prediction);
+  const preventiveLabel = PREVENTIVE_STATUS[preventive.status];
 
   // Be honest about where the risk score came from: when the API used its
   // rule-based fallback (the ML model wasn't loaded), don't dress it up as the
@@ -133,20 +144,8 @@ export const VehicleMaintenanceInsights = ({
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground text-sm">Status</span>
-              <Badge
-                variant={
-                  kmRemaining <= 0
-                    ? 'stop'
-                    : kmRemaining <= 500
-                      ? 'wait'
-                      : 'neutral'
-                }
-              >
-                {kmRemaining <= 0
-                  ? 'Overdue'
-                  : kmRemaining <= 500
-                    ? 'Due Soon'
-                    : 'On Schedule'}
+              <Badge variant={preventiveLabel.badge}>
+                {preventiveLabel.label}
               </Badge>
             </div>
 
@@ -160,8 +159,21 @@ export const VehicleMaintenanceInsights = ({
                 icon={AlertTriangle}
                 iconClassName="text-status-wait-fg"
                 label="Next Service At"
-                value={`${maintenanceDue.toLocaleString()} km`}
+                value={
+                  preventive.due === null
+                    ? 'Not set'
+                    : `${preventive.due.toLocaleString()} km`
+                }
               />
+              {prediction.nextMaintenanceDueDate && (
+                <MaintenanceRow
+                  icon={Calendar}
+                  label="Service Due Date"
+                  value={formatMaintenanceDate(
+                    prediction.nextMaintenanceDueDate
+                  )}
+                />
+              )}
               <MaintenanceRow
                 icon={Calendar}
                 label="Last Service"
@@ -172,23 +184,25 @@ export const VehicleMaintenanceInsights = ({
               />
             </div>
 
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="text-muted-foreground truncate">
-                  Mileage progress
-                </span>
-                <span className="text-muted-foreground shrink-0 whitespace-nowrap">
-                  {Math.round(mileageProgress)}%
-                </span>
+            {preventive.progress !== null && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-muted-foreground truncate">
+                    Mileage progress
+                  </span>
+                  <span className="text-muted-foreground shrink-0 whitespace-nowrap">
+                    {Math.round(preventive.progress)}%
+                  </span>
+                </div>
+                <MaintenanceMeter
+                  value={preventive.progress}
+                  tone={meterTone(preventive.progress)}
+                />
               </div>
-              <MaintenanceMeter
-                value={mileageProgress}
-                tone={meterTone(mileageProgress)}
-              />
-            </div>
+            )}
 
             <p className="text-muted-foreground text-sm italic">
-              {preventiveReason}
+              {preventive.reason}
             </p>
           </CardContent>
         </Card>

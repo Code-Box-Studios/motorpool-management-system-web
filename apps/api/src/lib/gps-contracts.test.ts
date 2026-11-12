@@ -2,6 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { gpsHistoryQuerySchema, ingestGpsBodySchema } from '@mms/shared';
 
 describe('gps contracts', () => {
+  it('retains identified device authority and rejects partial device/protocol identification', () => {
+    const point = {
+      vehicleId: '00000000-0000-4000-8000-000000000001',
+      latitude: 7.07,
+      longitude: 125.6
+    };
+    expect(
+      ingestGpsBodySchema.parse({
+        ...point,
+        deviceId: 'imei-1',
+        protocol: 'h02'
+      })
+    ).toMatchObject({ deviceId: 'imei-1', protocol: 'h02' });
+    expect(
+      ingestGpsBodySchema.safeParse({ ...point, deviceId: 'imei-1' }).success
+    ).toBe(false);
+    expect(
+      ingestGpsBodySchema.safeParse({ ...point, protocol: 'h02' }).success
+    ).toBe(false);
+  });
+
   it('accepts a valid ingest payload and coerces numbers', () => {
     const parsed = ingestGpsBodySchema.parse({
       vehicleId: '00000000-0000-4000-8000-000000000001',

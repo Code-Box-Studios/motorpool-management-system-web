@@ -38,13 +38,59 @@ describe('spare-parts module', () => {
     const updated = await request(app)
       .patch(`/api/spare-parts/${id}`)
       .set('Authorization', header)
-      .field('quantity', '10');
+      .field('quantity', '10')
+      .field('expectedUpdatedAt', created.body.updatedAt);
     expect(updated.body.quantity).toBe(10);
 
     const removed = await request(app)
       .delete(`/api/spare-parts/${id}`)
       .set('Authorization', header);
     expect(removed.status).toBe(204);
+  });
+
+  it('rejects missing and stale stock revisions while allowing metadata updates and current stock adjustments', async () => {
+    const header = await adminHeader();
+    const part = await prisma.sparePart.create({
+      data: { name: 'Pad', quantity: 10 }
+    });
+    const patch = (body: Record<string, unknown>) =>
+      request(app)
+        .patch(`/api/spare-parts/${part.id}`)
+        .set('Authorization', header)
+        .send(body);
+    const missing = await patch({ quantity: 10, description: 'Stale form' });
+    expect(missing.status).toBe(409);
+    expect(missing.body.error.code).toBe('STOCK_REVISION_CONFLICT');
+    await prisma.sparePart.update({
+      where: { id: part.id },
+      data: { quantity: { decrement: 2 } }
+    });
+    const stale = await patch({
+      quantity: 10,
+      expectedUpdatedAt: part.updatedAt.toISOString()
+    });
+    expect(stale.status).toBe(409);
+    expect(stale.body.error.code).toBe('STOCK_REVISION_CONFLICT');
+    const metadata = await patch({ description: 'New label' });
+    expect(metadata.status).toBe(200);
+    expect(metadata.body).toMatchObject({
+      quantity: 8,
+      description: 'New label'
+    });
+    const adjusted = await patch({
+      quantity: 15,
+      expectedUpdatedAt: metadata.body.updatedAt
+    });
+    expect(adjusted.status).toBe(200);
+    expect(adjusted.body.quantity).toBe(15);
+    const conflicts = await Promise.all(
+      [0, 1].map(() =>
+        patch({ quantity: 20, expectedUpdatedAt: adjusted.body.updatedAt })
+      )
+    );
+    expect(conflicts.map((response) => response.status).sort()).toEqual([
+      200, 409
+    ]);
   });
 
   it('defaults quantity to 0 and lists newest-first with a total count', async () => {

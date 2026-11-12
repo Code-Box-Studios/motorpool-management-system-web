@@ -197,7 +197,15 @@ test('photos can be viewed and removing a photo stays local until an edit is sav
       .getByRole('button', { name: 'View vehicle photo 1', exact: true })
       .locator('img')
   ).toHaveAttribute('src', /photo-2\.svg$/);
-  await expect(page.getByLabel('Add New Images')).toBeVisible();
+  await expect(page.getByLabel('Add vehicle photos')).toHaveAttribute(
+    'type',
+    'file'
+  );
+  await expect(
+    page
+      .getByRole('region', { name: 'Vehicle overview' })
+      .getByRole('button', { name: 'Add photos', exact: true })
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'View vehicle photo 2', exact: true })

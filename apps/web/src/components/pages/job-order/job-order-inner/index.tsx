@@ -181,10 +181,8 @@ export const JobOrderInner = () => {
 
   // Same handlers the list page uses — the transition is the same transition
   // whether it is fired from a row or from the record itself.
-  const handleNoteJobOrder = (data: NoteJobOrderData) => {
-    noteJobOrder.mutateAsync({ id: jobOrderId, ...data }).catch((error) => {
-      console.error('Error noting job order:', error);
-    });
+  const handleNoteJobOrder = async (data: NoteJobOrderData) => {
+    await noteJobOrder.mutateAsync({ id: jobOrderId, ...data });
   };
 
   const handleApproveJobOrder = () => {
@@ -193,20 +191,16 @@ export const JobOrderInner = () => {
     });
   };
 
-  const handleCompleteRepair = (data: CompleteRepairData) => {
-    completeRepair
-      .mutateAsync({
-        id: jobOrderId,
-        repairDone: data.repairDone,
-        completedMileage: Number(data.completedMileage),
-        maintenanceType: data.maintenanceType || null,
-        serviceLocation: data.serviceLocation || null,
-        remarks: data.remarks || undefined,
-        actualDateOfRelease: data.actualDateOfRelease || undefined
-      })
-      .catch((error) => {
-        console.error('Error completing repair:', error);
-      });
+  const handleCompleteRepair = async (data: CompleteRepairData) => {
+    await completeRepair.mutateAsync({
+      id: jobOrderId,
+      repairDone: data.repairDone,
+      completedMileage: Number(data.completedMileage),
+      maintenanceType: data.maintenanceType || null,
+      serviceLocation: data.serviceLocation || null,
+      remarks: data.remarks || undefined,
+      actualDateOfRelease: data.actualDateOfRelease || undefined
+    });
   };
 
   if (

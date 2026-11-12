@@ -151,6 +151,17 @@ export async function update(
     throw new AppError(400, 'INVALID_ROLE', 'Unknown role');
   const updated = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${id}::uuid FOR NO KEY UPDATE`;
+    // Compare under the same lock as token issuance so concurrent edits cannot
+    // miss an authority change or leave a newly issued refresh session alive.
+    const current = await tx.user.findUnique({
+      where: { id },
+      include: userInclude
+    });
+    if (!current) throw new AppError(404, 'NOT_FOUND', 'User not found');
+    const authorityChanged =
+      (body.roleId !== undefined && body.roleId !== current.userRole?.roleId) ||
+      (body.status !== undefined && body.status !== current.status) ||
+      (body.branchId !== undefined && body.branchId !== current.branchId);
     if (body.roleId) {
       // upsert: a role-less user (403 NO_ROLE on login) must be repairable here
       await tx.userRole.upsert({
@@ -167,10 +178,17 @@ export async function update(
         branchId: body.branchId,
         phone: body.phone,
         address: body.address,
+        ...(authorityChanged ? { authVersion: { increment: 1 } } : {}),
         ...(avatarPath ? { avatarUrl: avatarPath } : {})
       },
       include: userInclude
     });
+    if (authorityChanged) {
+      await tx.refreshToken.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: new Date() }
+      });
+    }
     if (role?.name === USER_ROLES.driver) await ensureDriverIdentity(tx, user);
     return user;
   });
@@ -262,14 +280,35 @@ export async function changePassword(
     }
   }
   const passwordHash = await hashPassword(body.newPassword);
-  await prisma.$transaction([
-    prisma.user.update({ where: { id: targetId }, data: { passwordHash } }),
+  await prisma.$transaction(async (tx) => {
+    const changed = await tx.user.updateMany({
+      // A self-change may have verified the previous password before an admin
+      // reset committed. PostgreSQL rechecks this predicate after row waits.
+      // An admin reset of another user intentionally needs no old credential.
+      where: {
+        id: targetId,
+        ...(actor.id === targetId
+          ? {
+              authVersion: target.authVersion,
+              passwordHash: target.passwordHash
+            }
+          : {})
+      },
+      data: { passwordHash, authVersion: { increment: 1 } }
+    });
+    if (changed.count !== 1) {
+      throw new AppError(
+        401,
+        'UNAUTHORIZED',
+        'Session is no longer valid; sign in again'
+      );
+    }
     // Force re-login everywhere: a changed password invalidates all sessions.
-    prisma.refreshToken.updateMany({
+    await tx.refreshToken.updateMany({
       where: { userId: targetId, revokedAt: null },
       data: { revokedAt: new Date() }
-    })
-  ]);
+    });
+  });
 }
 
 // Deletes a user; admins cannot delete their own account, and users

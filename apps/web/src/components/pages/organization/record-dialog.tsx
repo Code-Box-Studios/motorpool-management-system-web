@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -282,6 +282,9 @@ export function RecordDialog({ resource, state, onClose }: RecordDialogProps) {
     resolver: zodResolver(schemaFor(resource)),
     defaultValues: defaultsFor(null, resource)
   });
+  const selectedBranchId = idOrNull(
+    useWatch({ control: form.control, name: 'branchId' })
+  );
 
   // Hydrate from the record being edited (or blank, for create) each time the
   // dialog opens. Keyed on the id rather than the record object, so a
@@ -368,7 +371,11 @@ export function RecordDialog({ resource, state, onClose }: RecordDialogProps) {
             key: 'officeId',
             label: 'Office',
             kind: 'select',
-            options: withCurrent(activeOffices, record?.officeId, offices ?? [])
+            options: withCurrent(
+              activeOffices.filter((o) => o.branchId === selectedBranchId),
+              record?.officeId,
+              (offices ?? []).filter((o) => o.branchId === selectedBranchId)
+            )
           }
         ];
       case 'employees':
@@ -431,7 +438,29 @@ export function RecordDialog({ resource, state, onClose }: RecordDialogProps) {
                         />
                       ) : (
                         <Select
-                          onValueChange={field.onChange}
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            if (
+                              resource === 'office-heads' &&
+                              f.key === 'branchId'
+                            ) {
+                              const officeId = idOrNull(
+                                form.getValues('officeId')
+                              );
+                              const office = offices?.find(
+                                (o) => o.id === officeId
+                              );
+                              if (
+                                office &&
+                                office.branchId !== idOrNull(value)
+                              ) {
+                                form.setValue('officeId', NONE, {
+                                  shouldDirty: true,
+                                  shouldValidate: true
+                                });
+                              }
+                            }
+                          }}
                           value={field.value}
                         >
                           {/* id must match the FieldLabel's htmlFor above, or

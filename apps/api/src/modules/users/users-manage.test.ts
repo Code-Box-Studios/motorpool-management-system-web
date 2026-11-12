@@ -169,7 +169,7 @@ describe('PATCH /api/users/:id/password', () => {
       role: 'driver'
     });
     // create a live refresh token via a real login
-    await request(app)
+    const login = await request(app)
       .post('/api/auth/login')
       .send({ email: user.email, password });
     expect(
@@ -184,6 +184,17 @@ describe('PATCH /api/users/:id/password', () => {
     expect(
       await prisma.refreshToken.count({ where: { revokedAt: null } })
     ).toBe(0);
+    const oldAccess = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${login.body.accessToken as string}`);
+    expect(oldAccess.status).toBe(401);
+    const oldCookie = (
+      login.headers['set-cookie'] as unknown as string[]
+    )[0]!.split(';')[0]!;
+    expect(
+      (await request(app).post('/api/auth/refresh').set('Cookie', oldCookie))
+        .status
+    ).toBe(401);
 
     const relogin = await request(app)
       .post('/api/auth/login')

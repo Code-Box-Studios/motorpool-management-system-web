@@ -24,3 +24,17 @@ export async function lockVehicles(
     ORDER BY id FOR NO KEY UPDATE
   `);
 }
+
+// Repairs lock the vehicle before inventory; all inventory sets use ID order.
+// NO KEY UPDATE permits join-table foreign-key checks while serializing stock.
+export async function lockSpareParts(
+  tx: Prisma.TransactionClient,
+  ids: string[]
+) {
+  if (ids.length === 0) return;
+  await tx.$queryRaw(Prisma.sql`
+    SELECT id FROM spare_parts
+    WHERE id IN (${Prisma.join([...new Set(ids)].map((id) => Prisma.sql`${id}::uuid`))})
+    ORDER BY id FOR NO KEY UPDATE
+  `);
+}

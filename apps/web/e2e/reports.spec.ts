@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import ExcelJS from 'exceljs';
 import type { ReportResult } from '@mms/shared';
-import { login } from './helpers';
+import { API_URL, login } from './helpers';
 const fuelFixture: ReportResult = {
   type: 'fuel',
   title: 'GPS-based fuel requirement report',
@@ -95,9 +95,7 @@ test('report API-backed tables generate all five report types without page overf
       () => document.documentElement.scrollWidth <= window.innerWidth
     )
   ).toBe(true);
-  const response = await page.request.get(
-    'http://localhost:3001/api/reports?type=trips'
-  );
+  const response = await page.request.get(`${API_URL}/api/reports?type=trips`);
   // Browser requests without an Authorization bearer cannot read reports.
   expect(response.status()).toBe(401);
 });

@@ -1,6 +1,6 @@
 import type { CompleteRepairBody, NoteJobOrderBody } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
-import { lockVehicles } from '../../lib/resource-locks.js';
+import { lockSpareParts, lockVehicles } from '../../lib/resource-locks.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import {
@@ -33,6 +33,26 @@ export async function note(
 ) {
   const order = await loadInState(id, ['pending']);
   await prisma.$transaction(async (tx) => {
+    await lockVehicles(tx, [order.vehicleId]);
+    // The preflight can go stale while another note holds this vehicle. Claim
+    // the pending order under the same vehicle-first lock as deletion/completion.
+    const claimed = await tx.jobOrder.updateMany({
+      where: { id, status: 'pending', vehicleId: order.vehicleId },
+      data: {
+        status: 'assigned_mechanic',
+        notedById: actor.id,
+        dateOfRequest: body.dateOfRequest ?? null,
+        targetDate: body.targetDate ?? null,
+        assignedMechanicId: body.assignedMechanicId
+      }
+    });
+    if (!claimed.count) {
+      throw new AppError(
+        409,
+        'INVALID_TRANSITION',
+        'Job order changed; refresh it before noting the repair'
+      );
+    }
     // A van that is out on a trip is not in the workshop. This used to be a soft
     // `expectedFrom: 'available'`, so noting a job order on a vehicle that was on
     // the road silently skipped the flip — and when the guard later checked that
@@ -53,16 +73,6 @@ export async function note(
           `Vehicle is ${current}; it cannot be taken into the workshop until it is back`
       }
     );
-    await tx.jobOrder.update({
-      where: { id },
-      data: {
-        status: 'assigned_mechanic',
-        notedById: actor.id,
-        dateOfRequest: body.dateOfRequest ?? null,
-        targetDate: body.targetDate ?? null,
-        assignedMechanicId: body.assignedMechanicId
-      }
-    });
     // Parts come off the shelf HERE, when they are committed to this repair —
     // not at complete-repair, which is only the paperwork closing. Issuing them
     // at the point of commitment is what makes the check below possible at all:
@@ -77,6 +87,8 @@ export async function note(
         (wanted.get(line.sparePartId) ?? 0) + line.quantity
       );
     }
+
+    await lockSpareParts(tx, [...wanted.keys()]);
 
     for (const [sparePartId, quantity] of wanted) {
       const part = await tx.sparePart.findUnique({
@@ -95,19 +107,27 @@ export async function note(
 
     // Replace any existing join rows with the noted set.
     await tx.jobOrderSparePart.deleteMany({ where: { jobOrderId: id } });
-    if (body.spareParts.length > 0) {
+    if (wanted.size > 0) {
       await tx.jobOrderSparePart.createMany({
-        data: body.spareParts.map((p) => ({
+        data: [...wanted].map(([sparePartId, quantity]) => ({
           jobOrderId: id,
-          sparePartId: p.sparePartId,
-          quantity: p.quantity
+          sparePartId,
+          quantity
         }))
       });
     }
     for (const [sparePartId, quantity] of wanted) {
+      const part = await tx.sparePart.findUniqueOrThrow({
+        where: { id: sparePartId }
+      });
       await tx.sparePart.update({
         where: { id: sparePartId },
-        data: { quantity: { decrement: quantity } }
+        data: {
+          quantity: { decrement: quantity },
+          updatedAt: new Date(
+            Math.max(Date.now(), part.updatedAt.getTime() + 1)
+          )
+        }
       });
     }
   });
@@ -118,12 +138,24 @@ export async function note(
 // evp approve → ongoing_repair (admin too, as the stand-in when no EVP is on).
 export async function approve(id: string, actor: AuthenticatedUser) {
   const order = await loadInState(id, ['assigned_mechanic']);
-  await prisma.jobOrder.update({
-    where: { id },
-    data: {
-      status: 'ongoing_repair',
-      approvedById: actor.id,
-      dateApproved: new Date()
+  await prisma.$transaction(async (tx) => {
+    // Match note, completion and deletion's vehicle-first lock. The preflight
+    // snapshot may be stale by the time this approval can claim the order.
+    await lockVehicles(tx, [order.vehicleId]);
+    const claimed = await tx.jobOrder.updateMany({
+      where: { id, status: 'assigned_mechanic', vehicleId: order.vehicleId },
+      data: {
+        status: 'ongoing_repair',
+        approvedById: actor.id,
+        dateApproved: new Date()
+      }
+    });
+    if (!claimed.count) {
+      throw new AppError(
+        409,
+        'INVALID_TRANSITION',
+        'Job order changed; refresh it before approving the repair'
+      );
     }
   });
   await events.jobOrderApproved(order, actor);

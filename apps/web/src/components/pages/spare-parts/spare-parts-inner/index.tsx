@@ -1,8 +1,7 @@
 import { RecordError } from '@/components/shared/record-error';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { useNavigate } from '@tanstack/react-router';
-import { TrashIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -10,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loading } from '@/components/ui/loader';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import EntityImage from '@/components/shared/entity-image';
+import { ImageUpload } from '@/components/shared/image-upload';
 import {
   RecordHeader,
   DetailSection,
@@ -35,6 +35,8 @@ import {
 } from '@/lib/mutation/spare-parts';
 import { USER_ROLES } from '@/lib/enums';
 import { cn } from '@/lib/utils';
+import { ApiError } from '@/lib/api/client';
+import type { UpdateSparePart } from '@/lib/types';
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return undefined;
@@ -54,6 +56,7 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
     data: sparePart,
     isLoading: recordLoading,
     error: recordError,
+    isFetching,
     refetch
   } = useSparePart(sparePartId);
   const { data: userRole } = useUserRole();
@@ -64,6 +67,9 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
   const [removeImage, setRemoveImage] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [editRevision, setEditRevision] = useState<string>();
+  const [stockConflict, setStockConflict] = useState(false);
+  const [refreshedStock, setRefreshedStock] = useState<number | null>(null);
   const [pendingData, setPendingData] =
     useState<UpdateSparePartFormData | null>(null);
 
@@ -72,10 +78,11 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
   const isAdmin = userRole?.roles?.name === USER_ROLES.admin;
 
   const form = useSparePartUpdateForm();
+  const { dirtyFields } = form.formState;
 
   useBreadcrumbLabel(sparePart?.name);
 
-  useEffect(() => {
+  const resetFromRecord = useCallback(() => {
     if (sparePart) {
       form.reset({
         name: sparePart.name,
@@ -86,6 +93,10 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
     }
   }, [sparePart, form]);
 
+  useEffect(() => {
+    if (!isEditing) resetFromRecord();
+  }, [resetFromRecord, isEditing]);
+
   const onSubmit = (data: UpdateSparePartFormData) => {
     setPendingData(data);
     setShowConfirm(true);
@@ -93,7 +104,17 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
 
   const handleConfirmUpdate = () => {
     if (sparePart && pendingData) {
-      const { newImage, ...updates } = pendingData;
+      const { newImage } = pendingData;
+      const updates: UpdateSparePart = {
+        ...(dirtyFields.name ? { name: pendingData.name } : {}),
+        ...(dirtyFields.brand ? { brand: pendingData.brand } : {}),
+        ...(dirtyFields.description
+          ? { description: pendingData.description }
+          : {}),
+        ...(dirtyFields.quantity
+          ? { quantity: pendingData.quantity, expectedUpdatedAt: editRevision }
+          : {})
+      };
       updateSparePart.mutate(
         {
           id: sparePart.id,
@@ -108,6 +129,17 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
             setShowConfirm(false);
             setPendingData(null);
             navigate({ to: '/spare-parts' });
+          },
+          onError: (error) => {
+            setShowConfirm(false);
+            setPendingData(null);
+            if (
+              error instanceof ApiError &&
+              error.code === 'STOCK_REVISION_CONFLICT'
+            ) {
+              setStockConflict(true);
+              setRefreshedStock(null);
+            }
           }
         }
       );
@@ -126,8 +158,21 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
   };
 
   const cancelEditing = () => {
+    resetFromRecord();
     setIsEditing(false);
     setRemoveImage(false);
+    setPendingData(null);
+    setShowConfirm(false);
+    setStockConflict(false);
+    setRefreshedStock(null);
+  };
+
+  const refreshStock = async () => {
+    const result = await refetch();
+    if (!result.isSuccess) return;
+    setEditRevision(result.data.updated_at ?? undefined);
+    setRefreshedStock(result.data.quantity);
+    setStockConflict(false);
   };
 
   if (recordError || (!recordLoading && !sparePart))
@@ -155,13 +200,47 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
         backLabel="Spare Parts"
         actions={
           isEditing ? undefined : (
-            <Button onClick={() => setIsEditing(true)}>Edit</Button>
+            <Button
+              onClick={() => {
+                resetFromRecord();
+                setEditRevision(sparePart.updated_at ?? undefined);
+                setIsEditing(true);
+              }}
+            >
+              Edit
+            </Button>
           )
         }
       />
 
       {isEditing ? (
         <form id="edit-spare-part-form" onSubmit={form.handleSubmit(onSubmit)}>
+          {stockConflict && (
+            <div
+              role="alert"
+              className="border-destructive text-destructive mb-5 rounded-lg border p-4"
+            >
+              <p>
+                Stock changed. Refresh the current stock, review your draft
+                quantity, then save again.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3"
+                disabled={isFetching}
+                onClick={() => void refreshStock()}
+              >
+                Refresh stock and keep draft
+              </Button>
+            </div>
+          )}
+          {refreshedStock !== null && (
+            <p role="status" className="text-muted-foreground mb-5 text-sm">
+              Current stock: {refreshedStock}. Your draft is preserved. Review
+              the quantity before saving again.
+            </p>
+          )}
           <FormLayout>
             <FormSection title="Part">
               <div className="flex flex-col gap-5">
@@ -254,24 +333,6 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
 
             <FormSection title="Photo">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-                {sparePart.image && !removeImage && (
-                  <div className="relative w-full max-w-[220px] shrink-0">
-                    <img
-                      src={sparePart.image}
-                      alt={sparePart.name}
-                      className="border-border bg-muted aspect-square w-full rounded-[20px] border object-contain"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2 rounded-full p-1"
-                      onClick={() => setRemoveImage(true)}
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
                 <Controller
                   name="newImage"
                   control={form.control}
@@ -282,15 +343,18 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
                           ? 'Add Image'
                           : 'Replace Image'}
                       </FieldLabel>
-                      <Input
+                      <ImageUpload
                         id="newImage"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          field.onChange(file);
-                        }}
-                        aria-invalid={fieldState.invalid}
+                        files={field.value ? [field.value] : []}
+                        onFilesChange={(files) => field.onChange(files[0])}
+                        currentImage={removeImage ? null : sparePart.image}
+                        currentImageAlt={sparePart.name}
+                        onRemoveCurrent={() => setRemoveImage(true)}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        name={field.name}
+                        disabled={updateSparePart.isPending}
+                        invalid={fieldState.invalid}
                       />
                       {fieldState.invalid && (
                         <FieldError errors={[fieldState.error]} />

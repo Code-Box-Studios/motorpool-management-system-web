@@ -25,6 +25,10 @@ async function setup() {
     email: 'gate@test.local',
     branchId: branch.id
   });
+  const { user: admin } = await createTestUser({
+    role: 'admin',
+    email: 'admin@test.local'
+  });
   const driver = await prisma.driver.create({
     data: {
       userId: driverUser.id,
@@ -88,6 +92,7 @@ async function setup() {
     driverUser,
     driverAuth,
     guardAuth,
+    adminAuth: authHeader(admin.id, admin.email, 'admin'),
     read,
     scan
   };
@@ -138,6 +143,150 @@ describe('driver readings with QR-only gate transitions', () => {
         .mileage
     ).toBe(1100);
   });
+  it('keeps a starting typo provisional so a correction does not poison ending mileage', async () => {
+    const s = await setup();
+    expect((await s.read('before', 11000)).status).toBe(200);
+    expect(
+      (await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } }))
+        .mileage
+    ).toBe(1000);
+    expect((await s.read('before', 1100)).status).toBe(200);
+    expect((await s.scan('out')).status).toBe(200);
+    expect(
+      (await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } }))
+        .mileage
+    ).toBe(1100);
+    expect((await s.read('before', 1150)).status).toBe(409);
+    expect((await s.read('after', 1200)).status).toBe(200);
+    expect((await s.scan('in')).status).toBe(200);
+    expect(
+      (await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } }))
+        .mileage
+    ).toBe(1200);
+  });
+  it('keeps ending readings provisional until return so an unfrozen typo can be corrected', async () => {
+    const s = await setup();
+    expect((await s.read('before', 1100)).status).toBe(200);
+    expect((await s.scan('out')).status).toBe(200);
+    expect((await s.read('after', 12000)).status).toBe(200);
+    expect(
+      (await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } }))
+        .mileage
+    ).toBe(1100);
+    expect((await s.read('after', 1200)).status).toBe(200);
+    expect((await s.scan('in')).status).toBe(200);
+    expect((await s.read('after', 1250)).status).toBe(409);
+    expect(
+      (await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } }))
+        .mileage
+    ).toBe(1200);
+  });
+  it('does not let a future provisional reading raise the current outing mileage floor', async () => {
+    const s = await setup();
+    const future = await prisma.tripDate.create({
+      data: {
+        tripTicketId: s.ticket.id,
+        startTs: new Date(Date.now() + 86400000),
+        endTs: new Date(Date.now() + 90000000)
+      }
+    });
+    expect(
+      (
+        await request(app)
+          .post(`/api/trip-tickets/${s.ticket.id}/dates/${future.id}/odometer`)
+          .set('Authorization', s.driverAuth)
+          .send({ phase: 'before', mileage: 11000 })
+      ).status
+    ).toBe(200);
+    expect((await s.read('before', 1100)).status).toBe(200);
+    expect((await s.scan('out')).status).toBe(200);
+    expect((await s.read('after', 1200)).status).toBe(200);
+    expect((await s.scan('in')).status).toBe(200);
+    expect(
+      (await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } }))
+        .mileage
+    ).toBe(1200);
+  });
+  it('rejects manual availability while an outing is open, including an already-corrupted available status', async () => {
+    const s = await setup();
+    expect((await s.scan('out')).status).toBe(200);
+    const setAvailable = () =>
+      request(app)
+        .patch(`/api/vehicles/${s.vehicle.id}`)
+        .set('Authorization', s.adminAuth)
+        .field('status', 'available');
+    const blocked = await setAvailable();
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.error.code).toBe('VEHICLE_ON_TRIP');
+    expect(
+      (await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } }))
+        .status
+    ).toBe('on_trip');
+    expect(
+      await prisma.vehicleStatusAudit.count({
+        where: { vehicleId: s.vehicle.id, changeSource: 'manual_edit' }
+      })
+    ).toBe(0);
+    await prisma.vehicle.update({
+      where: { id: s.vehicle.id },
+      data: { status: 'available' }
+    });
+    expect((await setAvailable()).status).toBe(409);
+  });
+  it('refuses a second driver checkout when a legacy available status contradicts an open vehicle outing', async () => {
+    const s = await setup();
+    expect((await s.scan('out')).status).toBe(200);
+    // The first planned window has elapsed, but the physical outing is open.
+    await prisma.tripDate.update({
+      where: { id: s.date.id },
+      data: { endTs: new Date(Date.now() - 1000) }
+    });
+    const otherDriver = await prisma.driver.create({
+      data: {
+        fullName: 'Other Driver',
+        email: 'other-claim@test.local',
+        status: 'active',
+        branchId: s.branch.id
+      }
+    });
+    const otherTicket = await prisma.tripTicket.create({
+      data: {
+        branchId: s.branch.id,
+        vehicleId: s.vehicle.id,
+        driverId: otherDriver.id,
+        status: 'approved',
+        preparedBy: '',
+        destination: 'Campus',
+        purpose: 'Later trip',
+        dateRequested: new Date(),
+        dates: {
+          create: {
+            startTs: new Date(),
+            endTs: new Date(Date.now() + 3600000)
+          }
+        }
+      },
+      include: { dates: true }
+    });
+    await prisma.vehicle.update({
+      where: { id: s.vehicle.id },
+      data: { status: 'available' }
+    });
+    const second = await request(app)
+      .post(`/api/trip-tickets/${otherTicket.id}/check-out`)
+      .set('Authorization', s.guardAuth)
+      .send({ dateId: otherTicket.dates[0]!.id });
+    expect(second.status).toBe(409);
+    expect(second.body.error.code).toBe('VEHICLE_NOT_AVAILABLE');
+    expect(
+      await prisma.tripDate.count({
+        where: {
+          status: 'in_progress',
+          tripTicket: { vehicleId: s.vehicle.id }
+        }
+      })
+    ).toBe(1);
+  });
   it('allows late missing values after completed gate scans and freezes existing values', async () => {
     const s = await setup();
     await s.scan('out');
@@ -150,6 +299,104 @@ describe('driver readings with QR-only gate transitions', () => {
       (await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } }))
         .mileage
     ).toBe(1200);
+  });
+  it('preserves the completed outing late-reading path when the remaining dates are cancelled', async () => {
+    const s = await setup();
+    const future = await prisma.tripDate.create({
+      data: {
+        tripTicketId: s.ticket.id,
+        startTs: new Date(Date.now() + 86400000),
+        endTs: new Date(Date.now() + 90000000)
+      }
+    });
+    expect((await s.scan('out')).status).toBe(200);
+    expect((await s.scan('in')).status).toBe(200);
+    const cancel = await request(app)
+      .post(`/api/trip-tickets/${s.ticket.id}/cancel`)
+      .set('Authorization', s.adminAuth)
+      .send({ reason: 'Remaining outing cancelled' });
+    expect(cancel.status).toBe(200);
+    expect(cancel.body.status).toBe('cancelled');
+    expect((await s.read('before', 1100)).status).toBe(200);
+    expect((await s.read('after', 1200)).status).toBe(200);
+    expect((await s.read('before', 1150)).status).toBe(409);
+    expect((await s.read('after', 1250)).status).toBe(409);
+    const cancelledReading = await request(app)
+      .post(`/api/trip-tickets/${s.ticket.id}/dates/${future.id}/odometer`)
+      .set('Authorization', s.driverAuth)
+      .send({ phase: 'before', mileage: 1300 });
+    expect(cancelledReading.status).toBe(409);
+    expect(
+      await prisma.tripDate.findUniqueOrThrow({ where: { id: future.id } })
+    ).toMatchObject({ status: 'cancelled', startMileage: null });
+    expect(
+      await prisma.tripDate.findUniqueOrThrow({ where: { id: s.date.id } })
+    ).toMatchObject({
+      status: 'completed',
+      startMileage: 1100,
+      endMileage: 1200
+    });
+    expect(
+      await prisma.tripTicket.findUniqueOrThrow({ where: { id: s.ticket.id } })
+    ).toMatchObject({ status: 'cancelled' });
+  });
+  it('does not let a provisional correction lower a separately confirmed mileage floor', async () => {
+    const s = await setup();
+    expect((await s.read('before', 1400)).status).toBe(200);
+    await prisma.vehicle.update({
+      where: { id: s.vehicle.id },
+      data: { mileage: 1300 }
+    });
+    expect((await s.read('before', 1299)).status).toBe(409);
+    expect((await s.read('before', 1350)).status).toBe(200);
+    expect(
+      (await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } }))
+        .mileage
+    ).toBe(1300);
+    expect((await s.scan('out')).status).toBe(200);
+    expect((await s.read('after', 1500)).status).toBe(200);
+    expect((await s.read('after', 1299)).status).toBe(409);
+    expect((await s.read('after', 1400)).status).toBe(200);
+    expect((await s.scan('in')).status).toBe(200);
+    expect(
+      (await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } }))
+        .mileage
+    ).toBe(1400);
+  });
+  it('invalidates a provisional start below mileage confirmed outside the trip gate history', async () => {
+    const s = await setup();
+    expect((await s.read('before', 1100)).status).toBe(200);
+    await prisma.vehicle.update({
+      where: { id: s.vehicle.id },
+      data: { mileage: 1200 }
+    });
+    expect((await s.scan('out')).status).toBe(200);
+    expect(
+      await prisma.tripDate.findUniqueOrThrow({ where: { id: s.date.id } })
+    ).toMatchObject({
+      startMileage: null,
+      startMileageRecordedById: null,
+      startMileageRecordedAt: null
+    });
+    expect((await s.read('before', 1250)).status).toBe(200);
+    expect(
+      (await prisma.vehicle.findUniqueOrThrow({ where: { id: s.vehicle.id } }))
+        .mileage
+    ).toBe(1250);
+    const audit = await prisma.vehicleStatusAudit.findFirstOrThrow({
+      where: {
+        vehicleId: s.vehicle.id,
+        changeSource: 'trip_check_out',
+        reason: { not: null }
+      }
+    });
+    expect(JSON.parse(audit.reason!)).toMatchObject({
+      action: 'invalidate_stale_driver_start',
+      tripDateId: s.date.id,
+      mileage: 1100,
+      recordedById: s.driverUser.id,
+      currentVehicleMileage: 1200
+    });
   });
   it('rejects another driver, guards, and unapproved or inactive assignments', async () => {
     const s = await setup();

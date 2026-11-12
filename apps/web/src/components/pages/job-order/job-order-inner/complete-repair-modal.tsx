@@ -1,5 +1,5 @@
 import { ServiceMetadataFields } from '../service-metadata-fields';
-import { useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ import {
 import { REPAIR_DONE_TYPE } from '@/lib/enums';
 
 interface CompleteRepairModalProps {
-  onSubmit: (data: CompleteRepairData) => void;
+  onSubmit: (data: CompleteRepairData) => Promise<void>;
   isLoading: boolean;
   /** The odometer already on record — the reading can never be below it. */
   currentMileage: number;
@@ -47,6 +47,21 @@ export interface CompleteRepairData {
   serviceLocation: string;
 }
 
+function buildInitialState(
+  maintenanceType?: string | null,
+  serviceLocation?: string | null,
+  actualDateOfRelease = ''
+): CompleteRepairData {
+  return {
+    actualDateOfRelease,
+    repairDone: '',
+    completedMileage: '',
+    maintenanceType: maintenanceType ?? '',
+    serviceLocation: serviceLocation ?? '',
+    remarks: ''
+  };
+}
+
 export function CompleteRepairModal({
   onSubmit,
   isLoading,
@@ -55,35 +70,15 @@ export function CompleteRepairModal({
   currentServiceLocation
 }: CompleteRepairModalProps) {
   const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState<CompleteRepairData>({
-    actualDateOfRelease: '',
-    repairDone: '',
-    completedMileage: '',
-    maintenanceType: currentMaintenanceType ?? '',
-    serviceLocation: currentServiceLocation ?? '',
-    remarks: ''
-  });
+  const submitting = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isBusy = isLoading || isSubmitting;
+  const [formData, setFormData] = useState<CompleteRepairData>(() =>
+    buildInitialState(currentMaintenanceType, currentServiceLocation)
+  );
   const [errors, setErrors] = useState<
     Partial<Record<keyof CompleteRepairData, string>>
   >({});
-
-  // Set default date to current date/time when modal opens
-  useEffect(() => {
-    if (open) {
-      const now = new Date();
-      const localDateTime = new Date(
-        now.getTime() - now.getTimezoneOffset() * 60000
-      )
-        .toISOString()
-        .slice(0, 16);
-      setFormData((prev) => ({
-        ...prev,
-        actualDateOfRelease: localDateTime,
-        maintenanceType: currentMaintenanceType ?? '',
-        serviceLocation: currentServiceLocation ?? ''
-      }));
-    }
-  }, [open, currentMaintenanceType, currentServiceLocation]);
 
   const validateForm = () => {
     const newErrors: Partial<Record<keyof CompleteRepairData, string>> = {};
@@ -106,27 +101,44 @@ export function CompleteRepairModal({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (validateForm()) {
-      onSubmit(formData);
+  const handleSubmit = async () => {
+    if (submitting.current || isLoading || !validateForm()) return;
+    // React can batch two clicks before the loading state renders.
+    submitting.current = true;
+    setIsSubmitting(true);
+    try {
+      await onSubmit(formData);
       setOpen(false);
+      setFormData(
+        buildInitialState(currentMaintenanceType, currentServiceLocation)
+      );
+      setErrors({});
+    } catch {
+      // The mutation hook reports the error; preserve the draft for a retry.
+    } finally {
+      submitting.current = false;
+      setIsSubmitting(false);
     }
   };
 
   const handleOpenChange = (newOpen: boolean) => {
+    if (submitting.current || isLoading) return;
+    const now = new Date();
+    const localDateTime = new Date(
+      now.getTime() - now.getTimezoneOffset() * 60000
+    )
+      .toISOString()
+      .slice(0, 16);
+    // Defaults belong to a new attempt, never a failed retry or a refetch.
+    setFormData(
+      buildInitialState(
+        currentMaintenanceType,
+        currentServiceLocation,
+        newOpen ? localDateTime : ''
+      )
+    );
+    setErrors({});
     setOpen(newOpen);
-    if (!newOpen) {
-      // Reset form when closing
-      setFormData({
-        actualDateOfRelease: '',
-        repairDone: '',
-        completedMileage: '',
-        maintenanceType: currentMaintenanceType ?? '',
-        serviceLocation: currentServiceLocation ?? '',
-        remarks: ''
-      });
-      setErrors({});
-    }
   };
 
   return (
@@ -146,7 +158,7 @@ export function CompleteRepairModal({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <fieldset disabled={isBusy} className="grid min-w-0 gap-4 py-4">
           {/* Vehicle Date of Release */}
           <Field data-invalid={!!errors.actualDateOfRelease}>
             <FieldLabel htmlFor="actual_date_of_release">
@@ -246,12 +258,12 @@ export function CompleteRepairModal({
               rows={3}
             />
           </Field>
-        </div>
+        </fieldset>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-          <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? 'Submitting...' : 'Submit'}
+          <AlertDialogCancel disabled={isBusy}>Cancel</AlertDialogCancel>
+          <Button onClick={handleSubmit} disabled={isBusy}>
+            {isBusy ? 'Submitting...' : 'Submit'}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

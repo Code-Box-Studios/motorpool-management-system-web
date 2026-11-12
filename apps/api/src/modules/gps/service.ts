@@ -4,7 +4,7 @@ import * as repo from './repository.js';
 
 export async function ingest(body: IngestGpsBody) {
   const point = await repo.ingest(body);
-  return { success: true, gpsId: point.id };
+  return { success: true, gpsId: point.id, vehicleId: point.vehicleId };
 }
 
 export async function latest() {

@@ -46,6 +46,27 @@ describe('deriveTrackingStatus (spec-faithful port of computeTrackingStatus)', (
     ).toBe('overdue');
   });
 
+  it('uses the Philippine calendar day for date-only deadlines before UTC midnight', () => {
+    const deadline = {
+      status: 'completed',
+      nextDueDate: new Date('2026-11-12'),
+      nextDueMileage: null
+    };
+    expect(
+      deriveTrackingStatus(deadline, new Date('2026-11-11T15:59:59Z'), 0)
+    ).toBe('due_soon');
+    expect(
+      deriveTrackingStatus(deadline, new Date('2026-11-11T16:00:00Z'), 0)
+    ).toBe('overdue');
+    expect(
+      deriveTrackingStatus(
+        { ...deadline, status: 'pending' },
+        new Date('2026-11-11T16:00:00Z'),
+        0
+      )
+    ).toBe('overdue');
+  });
+
   it('completed + within 30 days OR within 500km -> due_soon', () => {
     expect(
       deriveTrackingStatus(

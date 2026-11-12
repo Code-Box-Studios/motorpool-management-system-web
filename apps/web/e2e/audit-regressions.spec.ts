@@ -35,6 +35,7 @@ const toolIds: string[] = [];
 let branchId: string;
 let requesterId: string;
 let linkedDriverId: string;
+let guideEmployeeId: string;
 let originalEmail: string;
 
 const group = (scope: Locator, name: string) =>
@@ -68,6 +69,7 @@ async function fixtureTrip(
       purpose: 'Audit browser regression',
       participants: ['Dela Cruz, Juan'],
       participantsCount: 1,
+      guides: { create: { employeeId: guideEmployeeId } },
       status,
       startTs: day,
       endTs: new Date(+day + 3600000),
@@ -116,6 +118,11 @@ test.describe('audit regressions', () => {
       }
     });
     vehicleIds.push(vehicle.id);
+    const employee = await db.employee.create({
+      data: { name: `${marker} guide`, branchId }
+    });
+    guideEmployeeId = employee.id;
+    employeeIds.push(employee.id);
   });
   test.afterAll(async () => {
     try {
@@ -136,6 +143,9 @@ test.describe('audit regressions', () => {
         where: { incidentDetails: { startsWith: marker } }
       });
       await db.tool.deleteMany({ where: { id: { in: toolIds } } });
+      await db.trackerDevice.deleteMany({
+        where: { vehicleId: { in: vehicleIds } }
+      });
       await db.gpsData.deleteMany({ where: { vehicleId: { in: vehicleIds } } });
       await db.employee.deleteMany({ where: { id: { in: employeeIds } } });
       await db.driver.deleteMany({ where: { id: { in: driverIds } } });
@@ -146,11 +156,40 @@ test.describe('audit regressions', () => {
   });
 
   test('F01 valid GPS points keep dashboard and map stable', async ({
-    page
+    page,
+    request
   }) => {
     await db.gpsData.create({
       data: { vehicleId: vehicleIds[0], latitude: 7.0731, longitude: 125.6128 }
     });
+    const actor = await apiLogin(request, CREDENTIALS.admin);
+    expect(
+      listData(await apiGet(request, '/api/gps/latest', actor.token)).some(
+        (row) => row.vehicleId === vehicleIds[0]
+      )
+    ).toBe(false);
+    await db.trackerDevice.create({
+      data: {
+        imei: `Replay-${randomUUID()}`,
+        vehicleId: vehicleIds[0],
+        label: marker,
+        status: 'active',
+        lastSeenAt: new Date()
+      }
+    });
+    // The live feed intentionally ignores samples predating tracker registration.
+    await db.gpsData.create({
+      data: { vehicleId: vehicleIds[0], latitude: 7.0731, longitude: 125.6128 }
+    });
+    expect(
+      listData(await apiGet(request, '/api/gps/latest', actor.token))
+    ).toContainEqual(
+      expect.objectContaining({
+        vehicleId: vehicleIds[0],
+        latitude: 7.0731,
+        longitude: 125.6128
+      })
+    );
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') errors.push(msg.text());
@@ -162,6 +201,16 @@ test.describe('audit regressions', () => {
       await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible();
       await page.waitForTimeout(500);
       expect(errors.filter((e) => /Maximum update depth/.test(e))).toEqual([]);
+      await page.screenshot({
+        path: test
+          .info()
+          .outputPath(
+            path === '/dashboard'
+              ? 'tracked-dashboard.png'
+              : 'tracked-gps-map.png'
+          ),
+        fullPage: true
+      });
     }
   });
 
@@ -409,10 +458,21 @@ test.describe('audit regressions', () => {
         ).toBeVisible();
       if (role === 'requester') {
         await expect(
+          page.getByText(`${marker} terminal 0`, { exact: true })
+        ).toHaveCount(0);
+        await page.getByRole('tab', { name: 'History', exact: true }).click();
+        await expect(
           page.getByRole('button', { name: 'Next page' })
         ).toHaveCount(1);
         await page.getByRole('button', { name: 'Next page' }).click();
         await expect(page.getByText(/^2 of \d+$/)).toBeVisible();
+        await expect(
+          page.getByText(new RegExp(`${marker} terminal [0-9]+`)).first()
+        ).toBeVisible();
+        await page.screenshot({
+          path: test.info().outputPath('requester-history-page-2.png'),
+          fullPage: true
+        });
       }
     }
     const gate = await fixtureTrip(
@@ -433,7 +493,15 @@ test.describe('audit regressions', () => {
     });
     await page.context().clearCookies();
     await login(page, 'guard');
-    await expect(page.getByText(`${marker} gate action`).first()).toBeVisible();
+    const gateRow = page
+      .getByRole('row')
+      .filter({ hasText: `${marker} gate action` });
+    await expect(
+      gateRow.getByRole('cell', { name: `${marker} gate action`, exact: true })
+    ).toBeVisible();
+    await expect(
+      gateRow.getByRole('button', { name: 'Scan QR to time out', exact: true })
+    ).toBeEnabled();
   });
 
   test('F13 pending owner and admin edit preserves comma; frozen tickets cannot edit', async ({
@@ -444,6 +512,28 @@ test.describe('audit regressions', () => {
       linkedDriverId,
       `${marker} pending edit`
     );
+    // Reproduce the original fixture omission before supplying a valid Student guide.
+    await db.tripTicketEmployee.deleteMany({
+      where: { tripTicketId: pending.id }
+    });
+    await login(page, 'requester');
+    await page.goto(`/trip-tickets/${pending.id}`);
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.locator('#purpose').fill('Invalid fixture guide probe');
+    await page
+      .getByRole('button', { name: 'Update Trip Ticket', exact: true })
+      .click();
+    await expect(
+      page.getByText('Student trips need at least one guide', { exact: true })
+    ).toBeVisible();
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    await page.screenshot({
+      path: test.info().outputPath('missing-guide-validation.png'),
+      fullPage: true
+    });
+    await db.tripTicketEmployee.create({
+      data: { tripTicketId: pending.id, employeeId: guideEmployeeId }
+    });
     const originalDates = await db.tripDate.findMany({
       where: { tripTicketId: pending.id }
     });
@@ -471,6 +561,8 @@ test.describe('audit regressions', () => {
       expect(response.request().postDataJSON()).not.toHaveProperty(
         'dateRequested'
       );
+      expect(response.request().postDataJSON()).not.toHaveProperty('startTs');
+      expect(response.request().postDataJSON()).not.toHaveProperty('endTs');
       expect(
         (await db.tripTicket.findUniqueOrThrow({ where: { id: pending.id } }))
           .participants
@@ -485,9 +577,13 @@ test.describe('audit regressions', () => {
       if (role === 'requester') {
         await page.waitForURL(/\/dashboard$/);
         await page
-          .locator('li')
+          .getByRole('article')
           .filter({ hasText: `${marker} pending edit` })
-          .getByRole('link', { name: 'View request details' })
+          .getByRole('link', {
+            name: new RegExp(
+              `View details for TT-[0-9]+: ${marker} pending edit`
+            )
+          })
           .click();
         await expect(
           page.getByText('Edited by requester', { exact: true })
@@ -510,7 +606,12 @@ test.describe('audit regressions', () => {
       .getByRole('alertdialog')
       .getByRole('button', { name: 'Update Trip Ticket' })
       .click();
-    expect((await rescheduled).status()).toBe(200);
+    const scheduledResponse = await rescheduled;
+    expect(scheduledResponse.status()).toBe(200);
+    expect(scheduledResponse.request().postDataJSON()).toMatchObject({
+      startTs: '2034-06-15T01:00:00.000Z',
+      endTs: '2034-06-15T09:00:00.000Z'
+    });
     const updatedDate = await db.tripDate.findFirstOrThrow({
       where: { tripTicketId: pending.id }
     });

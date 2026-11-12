@@ -8,7 +8,8 @@ const payload = {
   sub: '11111111-1111-4111-8111-111111111111',
   email: 'admin@mms.local',
   role: 'admin',
-  branchId: null
+  branchId: null,
+  authVersion: 0
 };
 
 describe('access tokens', () => {
@@ -35,4 +36,29 @@ describe('access tokens', () => {
     );
     expect(() => verifyAccessToken(expired)).toThrowError(AppError);
   });
+
+  it('treats a legacy token without an authVersion as version zero', () => {
+    const { sub, authVersion: _version, ...claims } = payload;
+    const legacy = jwt.sign(claims, config.jwtSecret, { subject: sub });
+    expect(verifyAccessToken(legacy)).toEqual(payload);
+  });
+
+  it('round-trips a current nonzero credential version', () => {
+    expect(
+      verifyAccessToken(signAccessToken({ ...payload, authVersion: 3 }))
+    ).toEqual({
+      ...payload,
+      authVersion: 3
+    });
+  });
+
+  for (const authVersion of [-1, 0.5, '1', null]) {
+    it(`rejects malformed credential version ${JSON.stringify(authVersion)}`, () => {
+      const { sub, ...claims } = payload;
+      const token = jwt.sign({ ...claims, authVersion }, config.jwtSecret, {
+        subject: sub
+      });
+      expect(() => verifyAccessToken(token)).toThrowError(AppError);
+    });
+  }
 });

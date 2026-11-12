@@ -1,3 +1,5 @@
+import { ImageUpload } from '@/components/shared/image-upload';
+import { toImageFileList } from '@/components/shared/image-upload-files';
 import { useEffect, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -63,7 +65,6 @@ const Profile = () => {
   const passwordForm = usePasswordForm();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [showSave, setShowSave] = useState(false);
   const [pendingData, setPendingData] = useState<ProfileFormData | null>(null);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -103,7 +104,6 @@ const Profile = () => {
       {
         onSuccess: () => {
           setIsEditing(false);
-          setAvatarPreview(null);
         },
         onSettled: () => {
           setShowSave(false);
@@ -179,53 +179,36 @@ const Profile = () => {
               description="The name, photo and contact details other people see."
             >
               <div className="flex flex-col gap-5">
-                <div className="flex flex-wrap items-center gap-5">
-                  <Avatar className="size-20">
-                    <AvatarImage
-                      src={avatarPreview ?? profile.avatarUrl ?? undefined}
-                      alt=""
-                      className="object-cover"
-                    />
-                    <AvatarFallback>
-                      <span className="text-primary-foreground text-lg font-semibold">
-                        {initialsFor(profile.fullName, profile.email)}
-                      </span>
-                    </AvatarFallback>
-                  </Avatar>
-                  <Controller
-                    name="avatar"
-                    control={form.control}
-                    render={({ field: { onChange, ...field }, fieldState }) => (
-                      <Field
-                        data-invalid={fieldState.invalid}
-                        className="flex-1"
-                      >
-                        <FieldLabel htmlFor="profile-avatar">
-                          Profile photo
-                        </FieldLabel>
-                        <Input
-                          {...field}
-                          id="profile-avatar"
-                          type="file"
-                          accept="image/*"
-                          value={undefined}
-                          onChange={(e) => {
-                            const files = e.target.files;
-                            onChange(files ?? undefined);
-                            const file = files?.[0];
-                            setAvatarPreview(
-                              file ? URL.createObjectURL(file) : null
-                            );
-                          }}
-                          aria-invalid={fieldState.invalid}
-                        />
-                        {fieldState.invalid && (
-                          <FieldError errors={[fieldState.error]} />
-                        )}
-                      </Field>
-                    )}
-                  />
-                </div>
+                <Controller
+                  name="avatar"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="profile-avatar">
+                        Profile photo
+                      </FieldLabel>
+                      <ImageUpload
+                        id="profile-avatar"
+                        name={field.name}
+                        inputRef={field.ref}
+                        onBlur={field.onBlur}
+                        files={Array.from(field.value ?? [])}
+                        onFilesChange={(files) =>
+                          field.onChange(toImageFileList(files))
+                        }
+                        currentImage={profile.avatarUrl}
+                        currentImageAlt={
+                          profile.fullName || 'Current profile photo'
+                        }
+                        disabled={updateProfile.isPending}
+                        invalid={fieldState.invalid}
+                      />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
 
                 <FormRow>
                   <Controller
@@ -316,7 +299,6 @@ const Profile = () => {
                 variant="outline"
                 onClick={() => {
                   setIsEditing(false);
-                  setAvatarPreview(null);
                 }}
               >
                 Cancel

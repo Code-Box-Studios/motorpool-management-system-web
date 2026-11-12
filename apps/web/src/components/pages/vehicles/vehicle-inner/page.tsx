@@ -1,5 +1,6 @@
+import { ImageUpload } from '@/components/shared/image-upload';
 import { RecordError } from '@/components/shared/record-error';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -74,7 +75,7 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
 
   useBreadcrumbLabel(vehicle?.license_plate);
 
-  useEffect(() => {
+  const resetFromRecord = useCallback(() => {
     if (vehicle && branches) {
       form.reset({
         make: vehicle.make,
@@ -93,6 +94,10 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
       });
     }
   }, [vehicle, branches, form]);
+
+  useEffect(() => {
+    if (!isEditing) resetFromRecord();
+  }, [resetFromRecord, isEditing]);
 
   const onSubmit = (data: UpdateVehicleFormData) => {
     setPendingData(data);
@@ -171,10 +176,42 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
         images={images}
         isEditing={isEditing}
         onEdit={() => {
+          resetFromRecord();
           setIsEditing(!isEditing);
           if (isEditing) setRemovedImages([]);
         }}
         onRemovePhoto={(url) => setRemovedImages((prev) => [...prev, url])}
+        photoUpload={
+          isEditing ? (
+            <Controller
+              name="newImages"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="newImages">
+                    Add vehicle photos
+                  </FieldLabel>
+                  <ImageUpload
+                    id="newImages"
+                    form="edit-vehicle-form"
+                    name={field.name}
+                    files={field.value ?? []}
+                    onFilesChange={field.onChange}
+                    onBlur={field.onBlur}
+                    inputRef={field.ref}
+                    multiple
+                    maxFiles={10}
+                    disabled={updateVehicle.isPending}
+                    invalid={fieldState.invalid}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+          ) : undefined
+        }
       />
 
       {isEditing ? (
@@ -463,34 +500,6 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
               </div>
             </FormSection>
 
-            <FormSection
-              title="Photos"
-              description="Uploads are added to the existing photos; use the bin on a photo above to drop it."
-            >
-              <Controller
-                name="newImages"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="newImages">Add New Images</FieldLabel>
-                    <Input
-                      id="newImages"
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={(e) =>
-                        field.onChange(Array.from(e.target.files || []))
-                      }
-                      aria-invalid={fieldState.invalid}
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-            </FormSection>
-
             <FormActions>
               <Button
                 type="submit"
@@ -582,7 +591,9 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
         onConfirm={handleConfirmDelete}
       />
 
-      <VehicleMaintenanceInsights vehicleId={vehicleId} />
+      {(isAdmin || userRole?.roles?.name === USER_ROLES.evp_operations) && (
+        <VehicleMaintenanceInsights vehicleId={vehicleId} />
+      )}
       <VehicleTrackerSummary vehicleId={vehicleId} />
 
       {!isEditing && isAdmin && (

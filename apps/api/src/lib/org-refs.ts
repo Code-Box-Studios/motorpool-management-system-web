@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { AppError } from './errors.js';
 import { prisma } from './prisma.js';
 
@@ -18,12 +19,15 @@ export interface OrgRefs {
 // Only the keys actually present are checked, so a PATCH that does not touch
 // branchId does not re-validate it — a record already pointing at a branch
 // that was later archived stays exactly as it is.
-export async function assertOrgRefsActive(refs: OrgRefs): Promise<void> {
+export async function assertOrgRefsActive(
+  refs: OrgRefs,
+  client: Prisma.TransactionClient = prisma
+): Promise<void> {
   const checks: Promise<string | null>[] = [];
 
   if (refs.branchId) {
     checks.push(
-      prisma.branch
+      client.branch
         .findUnique({
           where: { id: refs.branchId },
           select: { archivedAt: true }
@@ -33,7 +37,7 @@ export async function assertOrgRefsActive(refs: OrgRefs): Promise<void> {
   }
   if (refs.officeId) {
     checks.push(
-      prisma.departmentOffice
+      client.departmentOffice
         .findUnique({
           where: { id: refs.officeId },
           select: { archivedAt: true }
@@ -43,7 +47,7 @@ export async function assertOrgRefsActive(refs: OrgRefs): Promise<void> {
   }
   if (refs.officeHeadId) {
     checks.push(
-      prisma.officeHead
+      client.officeHead
         .findUnique({
           where: { id: refs.officeHeadId },
           select: { archivedAt: true }
@@ -57,7 +61,7 @@ export async function assertOrgRefsActive(refs: OrgRefs): Promise<void> {
     // ticket and only needs to know whether ANY of them is archived. An empty
     // list falls through to the NO_GUIDES check in the trip-ticket service.
     checks.push(
-      prisma.employee
+      client.employee
         .count({
           where: { id: { in: refs.employeeIds }, archivedAt: { not: null } }
         })

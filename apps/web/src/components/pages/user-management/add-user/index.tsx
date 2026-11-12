@@ -1,3 +1,5 @@
+import { ImageUpload } from '@/components/shared/image-upload';
+import { toImageFileList } from '@/components/shared/image-upload-files';
 // src/components/pages/user-management/add-user/index.tsx
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +17,6 @@ import { useSignUp } from '@/lib/mutation/user-management';
 import { useRoles } from '@/lib/query/roles';
 import { useBranches } from '@/lib/query/shared';
 import { useState } from 'react';
-import { TrashIcon } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { cn } from '@/lib/utils';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
@@ -33,7 +34,6 @@ export function AddUser() {
   const form = useSignupForm();
   const { data: roles } = useRoles();
   const { data: branches } = useBranches();
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingData, setPendingData] = useState<SignupFormData | null>(null);
 
@@ -204,62 +204,30 @@ export function AddUser() {
           </FormSection>
 
           <FormSection title="Avatar" description="Optional.">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-              {avatarPreview && (
-                <div className="relative w-32 shrink-0">
-                  <img
-                    src={avatarPreview}
-                    alt="Avatar preview"
-                    className="border-border bg-card aspect-square w-full rounded-[20px] border object-cover"
+            <Controller
+              name="avatar"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="signup-avatar">Profile photo</FieldLabel>
+                  <ImageUpload
+                    id="signup-avatar"
+                    name={field.name}
+                    inputRef={field.ref}
+                    onBlur={field.onBlur}
+                    files={Array.from(field.value ?? [])}
+                    onFilesChange={(files) =>
+                      field.onChange(toImageFileList(files))
+                    }
+                    disabled={signUp.isPending}
+                    invalid={fieldState.invalid}
                   />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-2 right-2 rounded-full p-1"
-                    onClick={() => {
-                      setAvatarPreview(null);
-                      form.setValue('avatar', undefined);
-                    }}
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </Button>
-                </div>
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
               )}
-              <Controller
-                name="avatar"
-                control={form.control}
-                render={({ field: { onChange, ...field }, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid} className="flex-1">
-                    <FieldLabel htmlFor="signup-avatar">
-                      Profile photo
-                    </FieldLabel>
-                    <Input
-                      {...field}
-                      id="signup-avatar"
-                      type="file"
-                      accept="image/*"
-                      value={undefined}
-                      onChange={(e) => {
-                        const files = e.target.files;
-                        if (files && files.length > 0) {
-                          onChange(files);
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setAvatarPreview(reader.result as string);
-                          };
-                          reader.readAsDataURL(files[0]);
-                        }
-                      }}
-                      aria-invalid={fieldState.invalid}
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-            </div>
+            />
           </FormSection>
 
           <FormActions>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -214,7 +214,8 @@ export const VehicleOverview = ({
   images,
   isEditing,
   onEdit,
-  onRemovePhoto
+  onRemovePhoto,
+  photoUpload
 }: {
   vehicle: Vehicle;
   title: string;
@@ -224,6 +225,7 @@ export const VehicleOverview = ({
   isEditing: boolean;
   onEdit: () => void;
   onRemovePhoto: (url: string) => void;
+  photoUpload?: ReactNode;
 }) => (
   <section
     aria-label="Vehicle overview"
@@ -288,5 +290,8 @@ export const VehicleOverview = ({
         </dl>
       </div>
     </div>
+    {photoUpload && (
+      <div className="border-border mt-5 border-t pt-5">{photoUpload}</div>
+    )}
   </section>
 );

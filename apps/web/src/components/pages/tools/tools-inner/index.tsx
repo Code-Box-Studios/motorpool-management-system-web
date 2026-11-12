@@ -1,8 +1,7 @@
 import { RecordError } from '@/components/shared/record-error';
-import { useEffect, useState } from 'react';
-import { Controller } from 'react-hook-form';
+import { useCallback, useEffect, useState } from 'react';
+import { Controller, useWatch } from 'react-hook-form';
 import { useNavigate } from '@tanstack/react-router';
-import { TrashIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -18,6 +17,7 @@ import { Loading } from '@/components/ui/loader';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
 import StatusBadge from '@/components/shared/status-badge';
 import EntityImage from '@/components/shared/entity-image';
+import { ImageUpload } from '@/components/shared/image-upload';
 import {
   RecordHeader,
   DetailSection,
@@ -115,11 +115,17 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
   const isAdmin = userRole?.roles?.name === USER_ROLES.admin;
 
   const form = useToolUpdateForm();
+  const selectedBorrower = useWatch({
+    control: form.control,
+    name: 'borrowed_by'
+  });
+  const selectedStatus = useWatch({ control: form.control, name: 'status' });
+  const isReturning = selectedBorrower === RETURN_TOOL_VALUE;
 
   useBreadcrumbLabel(tool?.name);
 
-  useEffect(() => {
-    if (tool && drivers) {
+  const resetFromRecord = useCallback(() => {
+    if (tool) {
       form.reset({
         name: tool.name,
         description: tool.description || '',
@@ -129,7 +135,11 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
         estimated_return_date: tool.estimated_return_date || ''
       });
     }
-  }, [tool, drivers, form]);
+  }, [tool, form]);
+
+  useEffect(() => {
+    if (!isEditing) resetFromRecord();
+  }, [resetFromRecord, isEditing]);
 
   const onSubmit = (data: UpdateToolFormData) => {
     setPendingData(data);
@@ -180,8 +190,11 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
   };
 
   const cancelEditing = () => {
+    resetFromRecord();
     setIsEditing(false);
     setRemoveImage(false);
+    setPendingData(null);
+    setShowConfirm(false);
   };
 
   if (recordError || (!recordLoading && !tool))
@@ -279,11 +292,17 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
                             <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.values(TOOL_STATUS).map((toolStatus) => (
-                              <SelectItem key={toolStatus} value={toolStatus}>
-                                {resolveStatus(toolStatus).label}
-                              </SelectItem>
-                            ))}
+                            {Object.values(TOOL_STATUS)
+                              .filter(
+                                (toolStatus) =>
+                                  !isReturning ||
+                                  toolStatus !== TOOL_STATUS.BORROWED
+                              )
+                              .map((toolStatus) => (
+                                <SelectItem key={toolStatus} value={toolStatus}>
+                                  {resolveStatus(toolStatus).label}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                         {fieldState.invalid && (
@@ -317,24 +336,6 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
 
             <FormSection title="Photo">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-                {tool.image && !removeImage && (
-                  <div className="relative w-full max-w-[220px] shrink-0">
-                    <img
-                      src={tool.image}
-                      alt={tool.name}
-                      className="border-border bg-muted aspect-square w-full rounded-[20px] border object-contain"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2 rounded-full p-1"
-                      onClick={() => setRemoveImage(true)}
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
                 <Controller
                   name="newImage"
                   control={form.control}
@@ -345,15 +346,18 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
                           ? 'Add Image'
                           : 'Replace Image'}
                       </FieldLabel>
-                      <Input
+                      <ImageUpload
                         id="newImage"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          field.onChange(file);
-                        }}
-                        aria-invalid={fieldState.invalid}
+                        files={field.value ? [field.value] : []}
+                        onFilesChange={(files) => field.onChange(files[0])}
+                        currentImage={removeImage ? null : tool.image}
+                        currentImageAlt={tool.name}
+                        onRemoveCurrent={() => setRemoveImage(true)}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        name={field.name}
+                        disabled={updateTool.isPending}
+                        invalid={fieldState.invalid}
                       />
                       {fieldState.invalid && (
                         <FieldError errors={[fieldState.error]} />
@@ -366,7 +370,7 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
 
             <FormSection
               title="Borrowing"
-              description="Signing a tool out records who has it and when it is due back. Clearing these fields returns it."
+              description="Signing a tool out records who has it and when it is due back. Choose None (returned) to end the loan, then review the tool's condition in Status."
             >
               <div className="flex flex-col gap-5">
                 <FormRow>
@@ -379,7 +383,28 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
                           Borrowed By
                         </FieldLabel>
                         <Select
-                          onValueChange={field.onChange}
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            if (value === RETURN_TOOL_VALUE) {
+                              form.setValue('borrowed_date', '', {
+                                shouldDirty: true
+                              });
+                              form.setValue('estimated_return_date', '', {
+                                shouldDirty: true
+                              });
+                              // A normal return releases a borrowed tool. A
+                              // condition already chosen by the admin stays.
+                              if (
+                                form.getValues('status') ===
+                                TOOL_STATUS.BORROWED
+                              ) {
+                                form.setValue('status', TOOL_STATUS.AVAILABLE, {
+                                  shouldDirty: true,
+                                  shouldValidate: true
+                                });
+                              }
+                            }
+                          }}
                           value={field.value}
                         >
                           <SelectTrigger>
@@ -396,6 +421,16 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
                             ))}
                           </SelectContent>
                         </Select>
+                        {isReturning && (
+                          <p
+                            className="text-muted-foreground text-sm"
+                            role="status"
+                          >
+                            Returned as {resolveStatus(selectedStatus).label}.
+                            Change Status if the tool needs maintenance or is
+                            out of service.
+                          </p>
+                        )}
                         {fieldState.invalid && (
                           <FieldError errors={[fieldState.error]} />
                         )}
