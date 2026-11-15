@@ -1,3 +1,4 @@
+import { manilaDateString } from '@mms/shared';
 import { RecordError } from '@/components/shared/record-error';
 import { useCallback, useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
@@ -76,17 +77,6 @@ const formatDateTime = (value?: string | null) => {
 // an empty-string item value and this way the item stays shown as selected
 // once chosen instead of reverting to the placeholder.
 const RETURN_TOOL_VALUE = '__return_tool__';
-
-// Today in the same YYYY-MM-DD shape the API stores, so a due date can be
-// compared as a plain string without a timezone shifting it across midnight.
-const localToday = () => {
-  const now = new Date();
-  return [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0')
-  ].join('-');
-};
 
 const ToolsInner = ({ toolId }: { toolId: string }) => {
   const {
@@ -220,7 +210,8 @@ const ToolsInner = ({ toolId }: { toolId: string }) => {
       status === TOOL_STATUS.BORROWED
   );
   const overdue = Boolean(
-    tool.estimated_return_date && tool.estimated_return_date < localToday()
+    tool.estimated_return_date &&
+      tool.estimated_return_date < manilaDateString()
   );
 
   const dueBack = tool.estimated_return_date ? (

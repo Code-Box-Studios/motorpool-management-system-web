@@ -16,6 +16,7 @@ import { AppError } from '../../lib/errors.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { prisma } from '../../lib/prisma.js';
+import { lockEmployees } from '../../lib/employee-locks.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import {
   assertArchivable,
@@ -39,7 +40,8 @@ async function writeOrganization<T>(
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2034'
+      (error.code === 'P2034' ||
+        (error.code === 'P2010' && error.meta?.code === '40001'))
     ) {
       throw new AppError(
         409,
@@ -70,8 +72,11 @@ async function assertBranchNameFree(name: string, excludeId?: string) {
     );
 }
 
-async function loadBranch(id: string) {
-  const branch = await prisma.branch.findUnique({ where: { id } });
+async function loadBranch(
+  id: string,
+  client: Prisma.TransactionClient = prisma
+) {
+  const branch = await client.branch.findUnique({ where: { id } });
   if (!branch) throw new AppError(404, 'NOT_FOUND', 'Branch not found');
   return branch;
 }
@@ -93,13 +98,18 @@ export async function updateBranch(id: string, body: UpdateBranchBody) {
 }
 
 export async function archiveBranch(id: string) {
-  const branch = await loadBranch(id);
-  if (branch.archivedAt)
-    throw new AppError(409, 'ALREADY_ARCHIVED', 'Branch is already archived');
-  assertArchivable(branch.name, await branchBlockers(id));
-  return prisma.branch.update({
-    where: { id },
-    data: { archivedAt: new Date() }
+  return prisma.$transaction(async (tx) => {
+    // Relationship writers hold SHARE until commit. Count only after this
+    // conflicting lock succeeds so a writer that won is visible to blockers.
+    await tx.$queryRaw`SELECT id FROM branches WHERE id = ${id}::uuid FOR NO KEY UPDATE`;
+    const branch = await loadBranch(id, tx);
+    if (branch.archivedAt)
+      throw new AppError(409, 'ALREADY_ARCHIVED', 'Branch is already archived');
+    assertArchivable(branch.name, await branchBlockers(id, tx));
+    return tx.branch.update({
+      where: { id },
+      data: { archivedAt: new Date() }
+    });
   });
 }
 
@@ -149,12 +159,14 @@ export function listOffices(query: OrganizationListQuery) {
 }
 
 export async function createOffice(body: CreateOfficeBody) {
-  await assertOrgRefsActive({
-    branchId: body.branchId,
-    officeHeadId: body.headId
+  return prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive(
+      { branchId: body.branchId, officeHeadId: body.headId },
+      tx
+    );
+    await assertOfficeNameFree(body.name, body.branchId, undefined, tx);
+    return tx.departmentOffice.create({ data: body });
   });
-  await assertOfficeNameFree(body.name, body.branchId);
-  return prisma.departmentOffice.create({ data: body });
 }
 
 export async function updateOffice(id: string, body: UpdateOfficeBody) {
@@ -208,29 +220,39 @@ export async function archiveOffice(id: string) {
 }
 
 export async function restoreOffice(id: string) {
-  const office = await loadOffice(id);
-  if (!office.archivedAt)
-    throw new AppError(409, 'ALREADY_ARCHIVED', 'Office is not archived');
-  // Restoring under an archived parent would recreate the very state the
-  // branch guard exists to prevent.
-  //
-  // branchId ONLY — the office's own headId is deliberately NOT checked here,
-  // unlike createOffice/updateOffice above and restoreOfficeHead below, which
-  // check both of their refs. The asymmetry is load-bearing, not an oversight:
-  // office O and head H reference each other (O.headId = H, H.officeId = O), so
-  // adding `officeHeadId: office.headId` would make an archived pair
-  // permanently unrestorable — restoring O would demand H be active, restoring
-  // H already demands O be active, and neither can go first.
-  //
-  // A branch has no such cycle (nothing points a branch at an office or a
-  // head), which is why checking it here is safe and checking headId is not.
-  // The cost is that a restored office may briefly name an archived head; that
-  // is the same tolerated state as any record whose parent was archived after
-  // the fact (see lib/org-refs.ts), and the admin can restore the head next.
-  await assertOrgRefsActive({ branchId: office.branchId });
-  return prisma.departmentOffice.update({
-    where: { id },
-    data: { archivedAt: null }
+  const snapshot = await loadOffice(id);
+  return prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive({ branchId: snapshot.branchId }, tx);
+    await tx.$queryRaw`SELECT id FROM department_offices WHERE id = ${id}::uuid FOR NO KEY UPDATE`;
+    const office = await loadOffice(id, tx);
+    if (office.branchId !== snapshot.branchId)
+      throw new AppError(
+        409,
+        'ORGANIZATION_CHANGED',
+        'Office branch changed. Refresh and try again.'
+      );
+    if (!office.archivedAt)
+      throw new AppError(409, 'ALREADY_ARCHIVED', 'Office is not archived');
+    // Restoring under an archived parent would recreate the very state the
+    // branch guard exists to prevent.
+    //
+    // branchId ONLY — the office's own headId is deliberately NOT checked here,
+    // unlike createOffice/updateOffice above and restoreOfficeHead below, which
+    // check both of their refs. The asymmetry is load-bearing, not an oversight:
+    // office O and head H reference each other (O.headId = H, H.officeId = O), so
+    // adding `officeHeadId: office.headId` would make an archived pair
+    // permanently unrestorable — restoring O would demand H be active, restoring
+    // H already demands O be active, and neither can go first.
+    //
+    // A branch has no such cycle (nothing points a branch at an office or a
+    // head), which is why checking it here is safe and checking headId is not.
+    // The cost is that a restored office may briefly name an archived head; that
+    // is the same tolerated state as any record whose parent was archived after
+    // the fact (see lib/org-refs.ts), and the admin can restore the head next.
+    return tx.departmentOffice.update({
+      where: { id },
+      data: { archivedAt: null }
+    });
   });
 }
 
@@ -319,24 +341,44 @@ export async function archiveOfficeHead(id: string) {
 }
 
 export async function restoreOfficeHead(id: string) {
-  const head = await loadOfficeHead(id);
-  if (!head.archivedAt)
-    throw new AppError(409, 'ALREADY_ARCHIVED', 'Office head is not archived');
-  await assertOrgRefsActive({
-    branchId: head.branchId,
-    officeId: head.officeId
-  });
-  return prisma.officeHead.update({
-    where: { id },
-    data: { archivedAt: null }
+  const snapshot = await loadOfficeHead(id);
+  return prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive({ branchId: snapshot.branchId }, tx);
+    await tx.$queryRaw`SELECT id FROM office_heads WHERE id = ${id}::uuid FOR NO KEY UPDATE`;
+    const head = await loadOfficeHead(id, tx);
+    if (head.branchId !== snapshot.branchId)
+      throw new AppError(
+        409,
+        'ORGANIZATION_CHANGED',
+        'Office head branch changed. Refresh and try again.'
+      );
+    if (!head.archivedAt)
+      throw new AppError(
+        409,
+        'ALREADY_ARCHIVED',
+        'Office head is not archived'
+      );
+    await assertOrgRefsActive(
+      {
+        officeId: head.officeId
+      },
+      tx
+    );
+    return tx.officeHead.update({
+      where: { id },
+      data: { archivedAt: null }
+    });
   });
 }
 
 // Employees have NO name uniqueness either, for the reason stated above: two
 // people named Juan Cruz at one branch is not an error (§4.3). There is no
 // assertEmployeeNameFree and the migration records the omission as deliberate.
-async function loadEmployee(id: string) {
-  const employee = await prisma.employee.findUnique({ where: { id } });
+async function loadEmployee(
+  id: string,
+  client: Prisma.TransactionClient = prisma
+) {
+  const employee = await client.employee.findUnique({ where: { id } });
   if (!employee) throw new AppError(404, 'NOT_FOUND', 'Employee not found');
   return employee;
 }
@@ -363,41 +405,62 @@ export async function listEmployees(
 }
 
 export async function createEmployee(body: CreateEmployeeBody) {
-  await assertOrgRefsActive({ branchId: body.branchId });
-  return prisma.employee.create({ data: body });
+  return prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive({ branchId: body.branchId }, tx);
+    return tx.employee.create({ data: body });
+  });
 }
 
 export async function updateEmployee(id: string, body: UpdateEmployeeBody) {
-  await loadEmployee(id);
-  // NOT create-only. branchId is required on this resource, so "move Ana to
-  // North" is a one-field PATCH an admin makes routinely — and without this
-  // line it lands an active employee under a closed branch. This is the G-1
-  // case that enforcement.test.ts exists to catch.
-  await assertOrgRefsActive({ branchId: body.branchId });
-  return prisma.employee.update({ where: { id }, data: body });
+  return prisma.$transaction(async (tx) => {
+    await loadEmployee(id, tx);
+    // NOT create-only. branchId is required on this resource, so "move Ana to
+    // North" is a one-field PATCH an admin makes routinely — and without this
+    // line it lands an active employee under a closed branch. This is the G-1
+    // case that enforcement.test.ts exists to catch.
+    await assertOrgRefsActive({ branchId: body.branchId }, tx);
+    return tx.employee.update({ where: { id }, data: body });
+  });
 }
 
 export async function archiveEmployee(id: string) {
-  const employee = await loadEmployee(id);
-  if (employee.archivedAt)
-    throw new AppError(409, 'ALREADY_ARCHIVED', 'Employee is already archived');
-  assertArchivable(employee.name, await employeeBlockers(id));
-  return prisma.employee.update({
-    where: { id },
-    data: { archivedAt: new Date() }
+  return prisma.$transaction(async (tx) => {
+    await lockEmployees(tx, [id]);
+    const employee = await loadEmployee(id, tx);
+    if (employee.archivedAt)
+      throw new AppError(
+        409,
+        'ALREADY_ARCHIVED',
+        'Employee is already archived'
+      );
+    assertArchivable(employee.name, await employeeBlockers(id, tx));
+    return tx.employee.update({
+      where: { id },
+      data: { archivedAt: new Date() }
+    });
   });
 }
 
 export async function restoreEmployee(id: string) {
-  const employee = await loadEmployee(id);
-  if (!employee.archivedAt)
-    throw new AppError(409, 'ALREADY_ARCHIVED', 'Employee is not archived');
-  // restoreOfficeHead's reasoning, minus the cycle: nothing points a branch at
-  // an employee, so requiring the branch to be active cannot deadlock a pair
-  // the way it would for the office/head cycle documented in restoreOffice.
-  await assertOrgRefsActive({ branchId: employee.branchId });
-  return prisma.employee.update({
-    where: { id },
-    data: { archivedAt: null }
+  const snapshot = await loadEmployee(id);
+  return prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive({ branchId: snapshot.branchId }, tx);
+    await lockEmployees(tx, [id]);
+    const employee = await loadEmployee(id, tx);
+    if (employee.branchId !== snapshot.branchId)
+      throw new AppError(
+        409,
+        'ORGANIZATION_CHANGED',
+        'Employee branch changed. Refresh and try again.'
+      );
+    if (!employee.archivedAt)
+      throw new AppError(409, 'ALREADY_ARCHIVED', 'Employee is not archived');
+    // restoreOfficeHead's reasoning, minus the cycle: nothing points a branch at
+    // an employee, so requiring the branch to be active cannot deadlock a pair
+    // the way it would for the office/head cycle documented in restoreOffice.
+    return tx.employee.update({
+      where: { id },
+      data: { archivedAt: null }
+    });
   });
 }

@@ -10,7 +10,10 @@ const tripTicketUpdateSchema = z
     vehicle_id: z.string().uuid('Please select a vehicle'),
     driver_id: z.string().uuid('Please select a driver'),
     branch_id: z.string().uuid('Please select a branch'),
-    requested_by: z.string().min(1, 'Requested by is required'),
+    requested_by: z
+      .string()
+      .uuid('Please select a requester')
+      .or(z.literal('')),
     destination: z.string().min(1, 'Destination is required'),
     purpose: z.string().min(1, 'Purpose is required'),
     date_requested: z.string().min(1, 'Date requested is required'),

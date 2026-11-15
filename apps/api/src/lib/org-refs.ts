@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { AppError } from './errors.js';
 import { prisma } from './prisma.js';
+import { lockBranches } from './branch-locks.js';
 
 export interface OrgRefs {
   branchId?: string | null;
@@ -23,6 +24,12 @@ export async function assertOrgRefsActive(
   refs: OrgRefs,
   client: Prisma.TransactionClient = prisma
 ): Promise<void> {
+  // A preflight check cannot protect a later write. Transaction callers hold
+  // this shared parent lock through their mutation; archive takes a conflicting
+  // lock before checking blockers. Re-read archivedAt only after acquiring it.
+  if (refs.branchId && client !== prisma) {
+    await lockBranches(client, [refs.branchId]);
+  }
   const checks: Promise<string | null>[] = [];
 
   if (refs.branchId) {

@@ -5,12 +5,17 @@ import type {
   DriversListQuery,
   UpdateDriverBody
 } from '@mms/shared';
-import { Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import {
+  isForeignKeyConflict,
+  foreignKeyConstraintName
+} from '../../lib/prisma-conflicts.js';
 import { AppError } from '../../lib/errors.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
+import { lockDrivers } from '../../lib/resource-locks.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import { toOperationalDriver } from './projection.js';
 import {
@@ -74,7 +79,6 @@ export async function create(
   body: CreateDriverBody,
   photoPath: string | null = null
 ) {
-  await assertOrgRefsActive({ branchId: body.branchId });
   if (await findDriverByEmail(body.email)) {
     throw new AppError(
       409,
@@ -82,7 +86,10 @@ export async function create(
       'A driver with this email already exists'
     );
   }
-  return prisma.driver.create({ data: { ...body, photo: photoPath } });
+  return prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive({ branchId: body.branchId }, tx);
+    return tx.driver.create({ data: { ...body, photo: photoPath } });
+  });
 }
 
 export async function update(
@@ -90,8 +97,8 @@ export async function update(
   body: UpdateDriverBody,
   newPhotoPath: string | null = null
 ) {
-  await assertOrgRefsActive({ branchId: body.branchId });
-  await mustExist(id);
+  const snapshot = await mustExist(id);
+  const activating = body.status !== undefined && body.status !== 'inactive';
   if (body.email) {
     const clash = await findDriverByEmail(body.email);
     if (clash && clash.id !== id) {
@@ -106,9 +113,37 @@ export async function update(
   // neither leaves the existing photo alone.
   const { removePhoto, ...rest } = body;
   const photo = newPhotoPath ? newPhotoPath : removePhoto ? null : undefined;
-  return prisma.driver.update({
-    where: { id },
-    data: { ...rest, ...(photo !== undefined ? { photo } : {}) }
+  return prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive(
+      {
+        branchId:
+          body.branchId !== undefined
+            ? body.branchId
+            : activating
+              ? snapshot.branchId
+              : undefined
+      },
+      tx
+    );
+    await lockDrivers(tx, [id]);
+    const existing = await tx.driver.findUnique({ where: { id } });
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Driver not found');
+    // Never acquire another parent lock after the child lock. A concurrent move
+    // invalidates the preflight parent set and must be retried as a fresh edit.
+    if (
+      activating &&
+      body.branchId === undefined &&
+      existing.branchId !== snapshot.branchId
+    )
+      throw new AppError(
+        409,
+        'ORGANIZATION_CHANGED',
+        'Driver branch changed. Refresh and try again.'
+      );
+    return tx.driver.update({
+      where: { id },
+      data: { ...rest, ...(photo !== undefined ? { photo } : {}) }
+    });
   });
 }
 
@@ -125,9 +160,8 @@ export async function remove(id: string): Promise<void> {
     // orders, an active tool loan) — only THIS constraint gets the specific
     // message; everything else keeps falling through to that generic 409.
     if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === 'P2003' &&
-      err.meta?.constraint === 'tool_borrows_borrower_id_fkey'
+      isForeignKeyConflict(err) &&
+      foreignKeyConstraintName(err) === 'tool_borrows_borrower_id_fkey'
     ) {
       // "delete that history first" named an action nothing in the API
       // performs — no code path anywhere deletes a tool_borrows row (round-2

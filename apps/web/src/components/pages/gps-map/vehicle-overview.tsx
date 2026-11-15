@@ -2,6 +2,7 @@ import { Clock3, Gauge, KeyRound, MapPin, Radio } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
+  gpsPositionTime,
   hasGpsPosition,
   isRecentReport,
   reportAge,
@@ -20,7 +21,8 @@ export default function VehicleOverview({
   gpsUnavailable: boolean;
 }) {
   const point = vehicle.point;
-  const fresh = isRecentReport(point?.created_at, now);
+  const positionTime = point ? gpsPositionTime(point) : undefined;
+  const fresh = isRecentReport(positionTime, now);
   const ignition =
     point?.engine_status === 'on' || point?.engine_status === 'off'
       ? point.engine_status.toUpperCase()
@@ -74,7 +76,7 @@ export default function VehicleOverview({
     {
       label: 'Update age',
       icon: Clock3,
-      value: reportAge(point?.created_at, now)
+      value: reportAge(positionTime, now)
     }
   ];
   return (
@@ -94,7 +96,7 @@ export default function VehicleOverview({
           <p className="text-muted-foreground mt-1 text-xs">
             Latest vehicle report{' '}
             {point
-              ? `· ${new Date(point.created_at).toLocaleString()}`
+              ? `· ${new Date(gpsPositionTime(point)).toLocaleString()}`
               : '· No position received'}
           </p>
         </div>

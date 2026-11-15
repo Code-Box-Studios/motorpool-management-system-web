@@ -3,11 +3,11 @@
 // interval. Date-only status checks use the Philippine calendar day.
 import { formatDisplayDate } from '../../lib/timezone.js';
 
-// Adds whole calendar months using JS Date.setMonth (preserving the FE's
-// overflow behavior, e.g. Jan 31 + 1 month -> Mar 3).
+// Calendar dates are represented at UTC midnight. UTC arithmetic avoids a host
+// DST change shifting that date; month overflow remains Jan31 +1 -> Mar3.
 export function addMonths(date: Date, months: number): Date {
   const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
+  d.setUTCMonth(d.getUTCMonth() + months);
   return d;
 }
 

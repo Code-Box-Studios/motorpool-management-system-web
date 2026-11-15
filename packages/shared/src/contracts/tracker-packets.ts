@@ -19,6 +19,7 @@ export const TRACKER_PACKET_OUTCOMES = [
   'oversized',
   'resolution_error',
   'forward_error',
+  'forward_overload',
   'socket_error'
 ] as const;
 

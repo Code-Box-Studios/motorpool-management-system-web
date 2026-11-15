@@ -25,6 +25,7 @@ interface IngestBody {
   vehicleId: string;
   deviceId: string;
   protocol: 'h02';
+  fixTime: string | null;
   packet?: TrackerPacketBody;
   latitude: number;
   longitude: number;
@@ -42,6 +43,7 @@ function toIngestBody(
     vehicleId,
     deviceId: frame.deviceId,
     protocol: 'h02',
+    fixTime: frame.fixTime?.toISOString() ?? null,
     ...(packet ? { packet } : {}),
     latitude: frame.latitude,
     longitude: frame.longitude

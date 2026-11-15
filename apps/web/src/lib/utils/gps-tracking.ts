@@ -18,11 +18,21 @@ export function vehicleConnection(
   // A position receipt proves contact even while the gateway's lookup is cached.
   if (
     hasGpsPosition(vehicle.point) &&
-    isRecentReport(vehicle.point?.created_at, now)
+    isRecentReport(
+      vehicle.point?.last_contact_at ?? vehicle.point?.created_at,
+      now
+    )
   )
     return 'online';
   if (registryUnavailable || !vehicle.tracker) return 'unknown';
   return isRecentReport(vehicle.tracker.lastSeenAt, now) ? 'online' : 'offline';
+}
+
+// Legacy rows have no measurement time and retain their receipt-time fallback.
+export function gpsPositionTime(
+  point: Pick<GpsDataRow, 'fix_time' | 'created_at'>
+): string {
+  return point.fix_time ?? point.created_at;
 }
 
 export function hasGpsPosition(
@@ -75,7 +85,7 @@ export function routeSegments(points: GpsDataRow[]): [number, number][][] {
     segment = [];
   };
   for (const point of points) {
-    const time = Date.parse(point.created_at);
+    const time = Date.parse(gpsPositionTime(point));
     if (!hasGpsPosition(point) || !Number.isFinite(time)) {
       flush();
       previousTime = null;

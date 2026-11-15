@@ -322,3 +322,157 @@ describe('gateway', () => {
     }
   });
 });
+
+describe('GPS audit invariants', () => {
+  it('reports an unavailable initial receipt honestly when overload outcomes can still be stored', async () => {
+    const packets: TrackerPacketBody[] = [];
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const gateway = await startGateway(
+      { ...CONFIG, forwardQueueMax: 1 },
+      {
+        registry: {
+          resolve: async () => {
+            await held;
+            return 'veh-1';
+          }
+        },
+        forwarder: { send: async () => {} },
+        packetLogger: {
+          record: async (packet) => {
+            if (packet.revision === 0) throw new Error('disk unavailable');
+            packets.push(packet);
+          },
+          close: async () => {}
+        }
+      }
+    );
+    server = gateway;
+    try {
+      await sendToGateway(
+        (gateway.address() as AddressInfo).port,
+        VALID.repeat(2)
+      );
+      await expect
+        .poll(
+          () =>
+            packets.filter((packet) => packet.outcome === 'forward_overload')
+              .length
+        )
+        .toBe(1);
+      const overloaded = packets.find(
+        (packet) => packet.outcome === 'forward_overload'
+      )!;
+      expect(overloaded.reason).toContain('initial receipt unavailable');
+      expect(overloaded.reason).not.toContain('raw receipt preserved');
+      expect(overloaded.rawHex).toBe(Buffer.from(VALID).toString('hex'));
+      expect(errors).toHaveBeenCalled();
+    } finally {
+      release();
+      await gateway.shutdown();
+      server = null;
+      errors.mockRestore();
+    }
+  });
+
+  it.each([1, 2])(
+    'GPS-01 bounds retained forward work at cap %i while preserving overload receipts',
+    async (cap) => {
+      const packets: TrackerPacketBody[] = [];
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let started = 0;
+      const gateway = await startGateway(
+        { ...CONFIG, forwardQueueMax: cap },
+        {
+          registry: {
+            resolve: async () => {
+              started++;
+              await held;
+              return 'veh-1';
+            }
+          },
+          forwarder: { send: async () => {} },
+          packetLogger: {
+            record: async (packet) => {
+              packets.push(packet);
+            },
+            close: async () => {}
+          }
+        }
+      );
+      server = gateway;
+      try {
+        await sendToGateway(
+          (gateway.address() as AddressInfo).port,
+          VALID.repeat(25)
+        );
+        await expect
+          .poll(() => packets.filter((p) => p.revision === 0).length)
+          .toBe(25);
+        expect(started).toBe(1);
+        const overloaded = packets.filter(
+          (p) => p.outcome === 'forward_overload'
+        );
+        expect(overloaded).toHaveLength(25 - cap);
+        expect(
+          overloaded.every(
+            (p) =>
+              p.rawHex === Buffer.from(VALID).toString('hex') &&
+              p.reason?.includes(String(cap))
+          )
+        ).toBe(true);
+      } finally {
+        release();
+        await gateway.shutdown();
+        server = null;
+      }
+      expect(packets.filter((p) => p.outcome === 'saved')).toHaveLength(cap);
+    }
+  );
+
+  it('GPS-02 keeps same-device forwarding in wire order while the first lookup waits', async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let started = 0;
+    const forwarded: string[] = [];
+    const gateway = await startTestGateway({
+      registry: {
+        resolve: async () => {
+          if (++started === 1) await held;
+          return 'veh-1';
+        }
+      },
+      forwarder: {
+        send: async (_vehicle, frame) => {
+          forwarded.push(frame.fixTime!.toISOString());
+        }
+      }
+    });
+    server = gateway;
+    try {
+      await sendToGateway(
+        (gateway.address() as AddressInfo).port,
+        VALID + VALID.replace('084739', '094739')
+      );
+      expect(forwarded).toEqual([]);
+      release();
+      await expect.poll(() => forwarded.length).toBe(2);
+      expect(forwarded).toEqual([
+        '2020-04-20T08:47:39.000Z',
+        '2020-04-20T09:47:39.000Z'
+      ]);
+    } finally {
+      release();
+      await gateway.shutdown();
+      server = null;
+    }
+  });
+});

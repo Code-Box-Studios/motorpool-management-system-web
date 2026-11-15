@@ -1,10 +1,16 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { useLocation } from '@tanstack/react-router';
+import { useLocation, useRouterState } from '@tanstack/react-router';
 import { BreadcrumbContext } from '@/components/context/breadcrumb-context';
 
 export const BreadcrumbProvider = ({ children }: { children: ReactNode }) => {
   const { pathname } = useLocation();
+  const resolvedPathname = useRouterState({
+    select: (state) =>
+      state.resolvedLocation?.pathname ?? state.location.pathname
+  });
 
+  // Bind labels to the rendered route. The URL can change before its outgoing
+  // record unmounts; capturing that pending path would label the incoming page.
   // The label is stored against the path it was set on, rather than cleared by
   // an effect on navigation. Clearing it that way loses the race: child effects
   // run before their parent's, so the incoming page would set its label and the
@@ -16,9 +22,9 @@ export const BreadcrumbProvider = ({ children }: { children: ReactNode }) => {
 
   const setLabel = useCallback(
     (label: string | null) => {
-      setEntry(label ? { path: pathname, label } : null);
+      setEntry(label ? { path: resolvedPathname, label } : null);
     },
-    [pathname]
+    [resolvedPathname]
   );
 
   const value = useMemo(

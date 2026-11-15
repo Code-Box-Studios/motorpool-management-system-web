@@ -1,4 +1,5 @@
 import { LIVE_TRIP_STATUSES } from '@mms/shared';
+import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 
@@ -32,51 +33,54 @@ const liveTicket = { in: [...LIVE_TRIP_STATUSES] };
 // completed trip ticket. Child offices, heads and employees block only while
 // ACTIVE; counting archived children would make a branch impossible to empty,
 // because children can only be archived and never deleted.
-export function branchBlockers(id: string): Promise<Blocker[]> {
+export function branchBlockers(
+  id: string,
+  client: Prisma.TransactionClient = prisma
+): Promise<Blocker[]> {
   return collect([
     {
       resource: 'vehicles',
-      count: prisma.vehicle.count({ where: { branchId: id } })
+      count: client.vehicle.count({ where: { branchId: id } })
     },
     {
       resource: 'drivers',
-      count: prisma.driver.count({
+      count: client.driver.count({
         where: { branchId: id, status: { not: 'inactive' } }
       })
     },
     {
       resource: 'users',
-      count: prisma.user.count({
+      count: client.user.count({
         where: { branchId: id, status: { not: 'inactive' } }
       })
     },
     {
       resource: 'departmentOffices',
-      count: prisma.departmentOffice.count({
+      count: client.departmentOffice.count({
         where: { branchId: id, archivedAt: null }
       })
     },
     {
       resource: 'officeHeads',
-      count: prisma.officeHead.count({
+      count: client.officeHead.count({
         where: { branchId: id, archivedAt: null }
       })
     },
     {
       resource: 'employees',
-      count: prisma.employee.count({
+      count: client.employee.count({
         where: { branchId: id, archivedAt: null }
       })
     },
     {
       resource: 'tripTickets',
-      count: prisma.tripTicket.count({
+      count: client.tripTicket.count({
         where: { branchId: id, status: liveTicket }
       })
     },
     {
       resource: 'jobOrders',
-      count: prisma.jobOrder.count({
+      count: client.jobOrder.count({
         where: { branchId: id, status: { not: 'repaired' } }
       })
     }
@@ -122,11 +126,14 @@ export function officeHeadBlockers(id: string): Promise<Blocker[]> {
 
 // Live trips hold their employees whether they ride as participants or guides.
 // Count tickets once, even if historical data references both roles.
-export function employeeBlockers(id: string): Promise<Blocker[]> {
+export function employeeBlockers(
+  id: string,
+  client: Prisma.TransactionClient = prisma
+): Promise<Blocker[]> {
   return collect([
     {
       resource: 'tripTickets',
-      count: prisma.tripTicket.count({
+      count: client.tripTicket.count({
         where: {
           status: liveTicket,
           OR: [

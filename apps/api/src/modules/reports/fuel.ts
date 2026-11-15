@@ -49,23 +49,26 @@ export async function fuelReport(
     .filter((d) => d.preTripCheckedAt && d.postTripCheckedAt);
   const starts = outings.map((d) => d.preTripCheckedAt!.getTime()),
     ends = outings.map((d) => d.postTripCheckedAt!.getTime());
+  // Attribute samples by measurement time, retaining receipt time for legacy rows.
+  // The alias adapts that instant to gpsDistance's existing timestamp contract;
+  // its coverage, gap and speed checks must all use the same event-time clock.
   const samples = starts.length
-    ? await prisma.gpsData.findMany({
-        where: {
-          vehicleId: vehicle.id,
-          createdAt: {
-            gte: new Date(Math.min(...starts)),
-            lte: new Date(Math.max(...ends))
-          }
-        },
-        select: {
-          tripId: true,
-          latitude: true,
-          longitude: true,
-          createdAt: true
-        },
-        orderBy: { createdAt: 'asc' }
-      })
+    ? await prisma.$queryRaw<
+        {
+          tripId: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          createdAt: Date;
+        }[]
+      >`
+        SELECT trip_id AS "tripId", latitude, longitude,
+          COALESCE(fix_time, created_at) AS "createdAt"
+        FROM gps_data
+        WHERE vehicle_id = ${vehicle.id}::uuid
+          AND COALESCE(fix_time, created_at) >= ${new Date(Math.min(...starts))}
+          AND COALESCE(fix_time, created_at) <= ${new Date(Math.max(...ends))}
+        ORDER BY COALESCE(fix_time, created_at) ASC, created_at ASC, gps_id ASC
+      `
     : [];
   const excluded: { reference: string; reason: string }[] = [];
   const rows: ReportResult['rows'] = [];
@@ -203,7 +206,7 @@ export async function fuelReport(
       'Each ticket allocation is counted once across all its completed outings. Partial tickets and unsuitable traces are excluded.',
       'GPS quality requires at least two valid samples per outing, gaps and gate-boundary coverage within 15 minutes, and segment speeds no higher than 180 km/h.',
       'Planned route distance is supplied for estimation; it is not a straight-line distance or a recorded future GPS trace.',
-      'GPS timestamps reflect receipt by the system. Delayed or buffered uploads can affect outing attribution and coverage; review excluded history before using the estimate.'
+      'GPS outing attribution and coverage use measurement time when reported, otherwise receipt time. Legacy records without measurement time retain receipt-time attribution; review excluded history before using the estimate.'
     ],
     fuel: {
       vehicle: `${vehicle.licensePlate} · ${vehicle.make} ${vehicle.model}`,

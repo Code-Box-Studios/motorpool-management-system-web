@@ -154,7 +154,15 @@ interface TripTicketApiResponse {
   dateRequested: string;
   participants: string[];
   participantType?: 'students' | 'employees';
-  participantEmployees?: { employeeId: string; employee: { id: string; name: string; position: string | null; archivedAt: string | null } }[];
+  participantEmployees?: {
+    employeeId: string;
+    employee: {
+      id: string;
+      name: string;
+      position: string | null;
+      archivedAt: string | null;
+    };
+  }[];
   participantsCount: number | null;
   guides: TripGuideApiResponse[];
   preparedBy: string;
@@ -196,8 +204,12 @@ function toSnake(t: TripTicketApiResponse): TripTicket {
     date_requested: t.dateRequested.slice(0, 10), // @db.Date -> YYYY-MM-DD for <input type="date">/display
     participants: t.participants ?? [],
     participant_type: t.participantType ?? 'students',
-    participant_employee_ids: (t.participantEmployees ?? []).map((row) => row.employeeId),
-    participant_employees: (t.participantEmployees ?? []).map((row) => row.employee),
+    participant_employee_ids: (t.participantEmployees ?? []).map(
+      (row) => row.employeeId
+    ),
+    participant_employees: (t.participantEmployees ?? []).map(
+      (row) => row.employee
+    ),
     participants_count: t.participantsCount ?? null,
     // `?? []` for the same reason participants above has it: if
     // tripTicketInclude is ever missing the guides embed, a ticket renders with
@@ -253,8 +265,8 @@ interface TripTicketRequestBody {
   branchId?: string;
   driverId?: string;
   vehicleId?: string;
-  officeId?: string;
-  officeHeadId?: string;
+  officeId?: string | null;
+  officeHeadId?: string | null;
   destination?: string;
   destinationLatitude?: number | null;
   destinationLongitude?: number | null;
@@ -322,9 +334,9 @@ function mapUpdateBody(u: Record<string, unknown>): TripTicketRequestBody {
   if (u.branch_id !== undefined)
     body.branchId = (u.branch_id as string) || undefined;
   if (u.office_id !== undefined)
-    body.officeId = (u.office_id as string) || undefined;
+    body.officeId = (u.office_id as string) || null;
   if (u.office_head_id !== undefined)
-    body.officeHeadId = (u.office_head_id as string) || undefined;
+    body.officeHeadId = (u.office_head_id as string) || null;
   if (u.destination !== undefined) body.destination = u.destination as string;
   if (u.destination_latitude !== undefined)
     body.destinationLatitude = u.destination_latitude as number | null;
@@ -529,15 +541,25 @@ export async function reassignTripTicketGuides(
 }
 
 // Guard scans only stamp departure/return; readings belong to the assigned driver.
-export async function checkOutTripTicket(id: string, dateId: string): Promise<TripTicket> {
+export async function checkOutTripTicket(
+  id: string,
+  dateId: string
+): Promise<TripTicket> {
   return toSnake(
-    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-out`, { dateId })
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-out`, {
+      dateId
+    })
   );
 }
 
-export async function checkInTripTicket(id: string, dateId: string): Promise<TripTicket> {
+export async function checkInTripTicket(
+  id: string,
+  dateId: string
+): Promise<TripTicket> {
   return toSnake(
-    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-in`, { dateId })
+    await api.post<TripTicketApiResponse>(`/trip-tickets/${id}/check-in`, {
+      dateId
+    })
   );
 }
 

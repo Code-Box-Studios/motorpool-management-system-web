@@ -1,3 +1,4 @@
+import { manilaDateString } from '@mms/shared';
 // src/components/pages/trip-tickets/add-trip-ticket/actions.ts
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -57,7 +58,7 @@ const tripTicketSchema = z
 export type TripTicketFormData = z.infer<typeof tripTicketSchema>;
 
 export const useTripTicketForm = () => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = manilaDateString();
 
   return useForm<TripTicketFormData>({
     resolver: zodResolver(tripTicketSchema),

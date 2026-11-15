@@ -339,6 +339,12 @@ test('pending employee edits retain historical identities and approved employee 
     .getByRole('button', { name: 'Update Trip Ticket', exact: true })
     .click();
   await expect.poll(() => update?.purpose).toBe('Preserve historical employee');
+  // Capturing PATCH precedes its response and the successful-save navigation.
+  // Wait for that transition before staging the next fixture state.
+  await expect(page).toHaveURL(/\/trip-tickets(?:\?.*)?$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Trip Tickets', exact: true })
+  ).toBeVisible();
   // Unchanged assignments are omitted so archived roster members survive unrelated edits.
   expect(update).not.toHaveProperty('participantEmployeeIds');
   const employees = listData(
@@ -348,7 +354,8 @@ test('pending employee edits retain historical identities and approved employee 
   fixture.guides = [
     { employeeId: employees[0].id, employee: employees[0], user: null }
   ];
-  await page.reload();
+  await page.goto(`/trip-tickets/${source.id}`);
+  await expect(page).toHaveURL(new RegExp(`/trip-tickets/${source.id}$`));
   await page
     .getByRole('button', { name: 'Reassign guides', exact: true })
     .click();

@@ -7,7 +7,7 @@ import type {
 } from '@mms/shared';
 import { usersListQuerySchema } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
-import { publicUploadPath } from '../../lib/uploads.js';
+import { retainUploadedFiles, uploadedFileUrl } from '../../lib/uploads.js';
 import * as service from './service.js';
 
 // GET /api/users — optionally filtered by ?role=, paginated.
@@ -20,10 +20,10 @@ export async function list(req: Request, res: Response): Promise<void> {
 // POST /api/users — creates a login (admin only); multipart avatar optional.
 export async function create(req: Request, res: Response): Promise<void> {
   const body = req.body as CreateUserBody;
-  const avatarPath = req.file
-    ? publicUploadPath('avatars', req.file.filename)
-    : null;
-  res.status(201).json(await service.create(body, avatarPath));
+  const avatarPath = req.file ? uploadedFileUrl('avatars', req.file) : null;
+  const saved = await service.create(body, avatarPath);
+  retainUploadedFiles(req);
+  res.status(201).json(saved);
 }
 
 // Narrows req.user (populated by requireAuth) or throws 401.
@@ -43,16 +43,14 @@ function requireIdParam(req: Request): string {
 
 // PATCH /api/users/:id — updates profile fields and role (admin only); multipart avatar optional.
 export async function update(req: Request, res: Response): Promise<void> {
-  const avatarPath = req.file
-    ? publicUploadPath('avatars', req.file.filename)
-    : null;
-  res.json(
-    await service.update(
-      requireIdParam(req),
-      req.body as UpdateUserBody,
-      avatarPath
-    )
+  const avatarPath = req.file ? uploadedFileUrl('avatars', req.file) : null;
+  const saved = await service.update(
+    requireIdParam(req),
+    req.body as UpdateUserBody,
+    avatarPath
   );
+  retainUploadedFiles(req);
+  res.json(saved);
 }
 
 // GET /api/users/me — the signed-in user's own profile, any role.
@@ -63,16 +61,14 @@ export async function getMe(req: Request, res: Response): Promise<void> {
 // PATCH /api/users/me — self-service edit; the id comes from the token, so
 // this can only ever write the caller's own row.
 export async function updateMe(req: Request, res: Response): Promise<void> {
-  const avatarPath = req.file
-    ? publicUploadPath('avatars', req.file.filename)
-    : null;
-  res.json(
-    await service.updateOwnProfile(
-      requireUser(req).id,
-      req.body as UpdateOwnProfileBody,
-      avatarPath
-    )
+  const avatarPath = req.file ? uploadedFileUrl('avatars', req.file) : null;
+  const saved = await service.updateOwnProfile(
+    requireUser(req).id,
+    req.body as UpdateOwnProfileBody,
+    avatarPath
   );
+  retainUploadedFiles(req);
+  res.json(saved);
 }
 
 // PATCH /api/users/:id/password — self (with currentPassword) or admin (without).

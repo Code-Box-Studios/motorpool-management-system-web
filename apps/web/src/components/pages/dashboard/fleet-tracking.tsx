@@ -26,6 +26,7 @@ import {
   isDeviceOnline
 } from '@/lib/utils/tracker-devices';
 import { cn } from '@/lib/utils';
+import { gpsPositionTime } from '@/lib/utils/gps-tracking';
 
 // Fetch every page: a larger fleet must not silently lose trackers after row 100.
 async function getActiveTrackers() {
@@ -107,8 +108,8 @@ export default function FleetTracking() {
           : isDeviceOnline(tracker?.lastSeenAt ?? null);
         const fresh =
           !!point &&
-          Number.isFinite(Date.parse(point.created_at)) &&
-          now - Date.parse(point.created_at) < DEVICE_ONLINE_THRESHOLD_MS;
+          Number.isFinite(Date.parse(gpsPositionTime(point))) &&
+          now - Date.parse(gpsPositionTime(point)) < DEVICE_ONLINE_THRESHOLD_MS;
         const motion = !point
           ? 'No location'
           : !fresh
@@ -358,7 +359,7 @@ export default function FleetTracking() {
                     </span>
                     <span className="text-muted-foreground mt-1 block text-[11px]">
                       {row.point
-                        ? `Position · ${ageLabel(row.point.created_at, now)}`
+                        ? `Position · ${ageLabel(gpsPositionTime(row.point), now)}`
                         : gpsFailed
                           ? 'Position unavailable'
                           : 'Waiting for a GPS fix'}
@@ -460,7 +461,7 @@ export default function FleetTracking() {
                     )}
                   >
                     {selected.point
-                      ? `${selected.fresh ? 'Position received' : 'Last known position'} · ${ageLabel(selected.point.created_at, now)}`
+                      ? `${selected.fresh ? 'Position measured' : 'Last known position'} · ${ageLabel(gpsPositionTime(selected.point), now)}`
                       : gpsFailed
                         ? 'Position unavailable'
                         : 'No location received'}
@@ -518,13 +519,15 @@ export default function FleetTracking() {
                     <dd
                       className="mt-1 text-xs"
                       title={new Date(
-                        selected.point.created_at
+                        gpsPositionTime(selected.point)
                       ).toLocaleString()}
                     >
-                      {new Date(selected.point.created_at).toLocaleTimeString(
-                        [],
-                        { hour: '2-digit', minute: '2-digit' }
-                      )}
+                      {new Date(
+                        gpsPositionTime(selected.point)
+                      ).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </dd>
                   </div>
                 </dl>

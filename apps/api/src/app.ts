@@ -58,7 +58,20 @@ export function createApp(): express.Express {
   app.use(express.json({ limit: '4mb' }));
   app.use(cookieParser());
   if (process.env.NODE_ENV !== 'test' && process.env.VITEST === undefined) {
-    app.use(pinoHttp());
+    app.use(
+      pinoHttp({
+        // Request diagnostics must never create durable copies of credentials.
+        redact: {
+          paths: [
+            'req.headers.authorization',
+            'req.headers.cookie',
+            'req.headers["x-device-api-key"]',
+            'res.headers["set-cookie"]'
+          ],
+          remove: true
+        }
+      })
+    );
   }
 
   app.get('/api/health', (_req, res) => {

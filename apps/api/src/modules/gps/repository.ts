@@ -1,11 +1,18 @@
-import type { Prisma } from '@prisma/client';
-import type { IngestGpsBody } from '@mms/shared';
+import { Prisma, type GpsData } from '@prisma/client';
+import type { GpsHistoryQuery, IngestGpsBody } from '@mms/shared';
 import { prisma } from '../../lib/prisma.js';
+import { lockVehicles } from '../../lib/resource-locks.js';
 import { AppError } from '../../lib/errors.js';
 import { persistPacketLog } from './packet-logs.js';
 
 // Insert the point and update the vehicle's denormalized latest position, atomically.
 export async function ingest(body: IngestGpsBody) {
+  const receivedAt = new Date();
+  const fixTime =
+    body.fixTime ??
+    (body.packet?.fixTime ? new Date(body.packet.fixTime) : null) ??
+    (body.packet ? new Date(body.packet.receivedAt) : body.receivedAt) ??
+    receivedAt;
   return prisma.$transaction(async (tx) => {
     let vehicleId = body.vehicleId;
     if (body.deviceId) {
@@ -64,15 +71,28 @@ export async function ingest(body: IngestGpsBody) {
       vehicleId = device.vehicleId;
       await tx.trackerDevice.update({
         where: { id: device.id },
-        data: { lastSeenAt: new Date() }
+        data: {
+          lastSeenAt: new Date(
+            Math.max(receivedAt.getTime(), device.lastSeenAt?.getTime() ?? 0)
+          )
+        }
       });
     }
     // The identity-free contract is retained for trusted, device-key-authenticated
     // direct integrations. H02 gateway packets always take the identity path.
+    // Both identified and direct integrations serialize by vehicle. Acquire this
+    // before inserting a point, so concurrent commits see one event-time winner.
+    await lockVehicles(tx, [vehicleId]);
+    const vehicle = await tx.vehicle.findUniqueOrThrow({
+      where: { id: vehicleId },
+      select: { lastLocationUpdate: true }
+    });
     const point = await tx.gpsData.create({
       data: {
         ...(body.packet ? { id: body.packet.id } : {}),
         vehicleId,
+        fixTime,
+        createdAt: receivedAt,
         tripId: body.tripId ?? null,
         latitude: body.latitude,
         longitude: body.longitude,
@@ -81,12 +101,24 @@ export async function ingest(body: IngestGpsBody) {
         engineStatus: body.engineStatus ?? null
       }
     });
+    const [latest] = await tx.$queryRaw<{ id: string }[]>`
+      SELECT gps_id AS id FROM gps_data WHERE vehicle_id = ${vehicleId}::uuid
+      ORDER BY COALESCE(fix_time, created_at) DESC, created_at DESC, gps_id DESC LIMIT 1
+    `;
     await tx.vehicle.update({
       where: { id: vehicleId },
       data: {
-        latitude: body.latitude,
-        longitude: body.longitude,
-        lastLocationUpdate: new Date()
+        ...(latest?.id === point.id
+          ? { latitude: body.latitude, longitude: body.longitude }
+          : {}),
+        // A delayed measurement still proves a recent receipt, without making
+        // the older coordinates the current position or rewinding contact time.
+        lastLocationUpdate: new Date(
+          Math.max(
+            receivedAt.getTime(),
+            vehicle.lastLocationUpdate?.getTime() ?? 0
+          )
+        )
       }
     });
     if (body.packet) {
@@ -113,8 +145,8 @@ export async function ingest(body: IngestGpsBody) {
 }
 
 // Newest point per vehicle (spec §10) — DISTINCT ON is not expressible in the
-// Prisma query builder, so raw SQL (the @@index([vehicleId, createdAt desc])
-// backs it). snake_case columns; joined vehicle summary.
+// Prisma query builder, so raw SQL uses the additive effective-event-time index.
+// Null fix times retain the legacy receipt-time ordering. snake_case columns; joined vehicle summary.
 export interface LatestGpsRow {
   id: string;
   vehicleId: string;
@@ -124,6 +156,8 @@ export interface LatestGpsRow {
   heading: number | null;
   engineStatus: string | null;
   createdAt: Date;
+  fixTime: Date | null;
+  lastContactAt: Date;
   make: string;
   model: string;
   licensePlate: string;
@@ -142,6 +176,7 @@ export function latestPerVehicle() {
     SELECT DISTINCT ON (g.vehicle_id)
       g.gps_id AS "id", g.vehicle_id AS "vehicleId", g.latitude, g.longitude,
       g.speed, g.heading, g.engine_status AS "engineStatus", g.created_at AS "createdAt",
+      g.fix_time AS "fixTime", COALESCE(v.last_location_update, g.created_at) AS "lastContactAt",
       v.make, v.model, v.license_plate AS "licensePlate", v.status, v.mileage,
       v.fuel_type AS "fuelType"
     FROM gps_data g
@@ -154,25 +189,51 @@ export function latestPerVehicle() {
           AND t.last_seen_at IS NOT NULL
           AND g.created_at >= t.created_at
       )
-    ORDER BY g.vehicle_id, g.created_at DESC
+    ORDER BY g.vehicle_id, COALESCE(g.fix_time, g.created_at) DESC, g.created_at DESC, g.gps_id DESC
   `;
 }
 
-export async function history(
-  where: Prisma.GpsDataWhereInput,
-  take: number,
-  cursor?: string
-) {
-  const [data, count] = await Promise.all([
-    prisma.gpsData.findMany({
-      where,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: take + 1,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {})
-    }),
-    prisma.gpsData.count({ where })
+export async function history(query: GpsHistoryQuery) {
+  const conditions = [Prisma.sql`vehicle_id = ${query.vehicleId}::uuid`];
+  if (query.tripId)
+    conditions.push(Prisma.sql`trip_id = ${query.tripId}::uuid`);
+  if (query.from)
+    conditions.push(
+      Prisma.sql`COALESCE(fix_time, created_at) >= ${query.from}`
+    );
+  if (query.to)
+    conditions.push(Prisma.sql`COALESCE(fix_time, created_at) <= ${query.to}`);
+  const where = Prisma.join(conditions, ' AND ');
+  const [totals, anchors] = await Promise.all([
+    prisma.$queryRaw<
+      { count: bigint }[]
+    >`SELECT COUNT(*) AS count FROM gps_data WHERE ${where}`,
+    query.cursor
+      ? prisma.$queryRaw<{ eventTime: Date; createdAt: Date; id: string }[]>`
+          SELECT COALESCE(fix_time, created_at) AS "eventTime", created_at AS "createdAt", gps_id AS id
+          FROM gps_data WHERE ${where} AND gps_id = ${query.cursor}::uuid
+        `
+      : Promise.resolve([])
   ]);
-  const more = data.length > take;
-  const page = more ? data.slice(0, take) : data;
+  const count = Number(totals[0]?.count ?? 0);
+  // A foreign, removed or out-of-range cursor cannot anchor another journey.
+  if (query.cursor && !anchors[0]) return { data: [], count, nextCursor: null };
+  const anchor = anchors[0];
+  const after = anchor
+    ? Prisma.sql`AND (COALESCE(fix_time, created_at), created_at, gps_id)
+        < (${anchor.eventTime}, ${anchor.createdAt}, ${anchor.id}::uuid)`
+    : Prisma.empty;
+  // Measurement time drives filtering AND pagination. Keep receipt time as a
+  // legacy fallback and deterministic tie-breaker, without rewriting history.
+  const data = await prisma.$queryRaw<GpsData[]>`
+    SELECT gps_id AS id, vehicle_id AS "vehicleId", trip_id AS "tripId",
+      latitude, longitude, speed, heading, engine_status AS "engineStatus",
+      created_at AS "createdAt", updated_at AS "updatedAt", fix_time AS "fixTime"
+    FROM gps_data WHERE ${where} ${after}
+    ORDER BY COALESCE(fix_time, created_at) DESC, created_at DESC, gps_id DESC
+    LIMIT ${query.limit + 1}
+  `;
+  const more = data.length > query.limit;
+  const page = more ? data.slice(0, query.limit) : data;
   return { data: page, count, nextCursor: more ? page.at(-1)!.id : null };
 }

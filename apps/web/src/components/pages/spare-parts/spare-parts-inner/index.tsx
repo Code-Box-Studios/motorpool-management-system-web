@@ -170,6 +170,11 @@ const SparePartsInner = ({ sparePartId }: { sparePartId: string }) => {
   const refreshStock = async () => {
     const result = await refetch();
     if (!result.isSuccess) return;
+    // Accept refreshed stock as the comparison baseline while keeping the draft.
+    // Otherwise returning to the original quantity can erase an intended change.
+    const draftQuantity = form.getValues('quantity');
+    form.resetField('quantity', { defaultValue: result.data.quantity ?? 0 });
+    form.setValue('quantity', draftQuantity, { shouldDirty: true });
     setEditRevision(result.data.updated_at ?? undefined);
     setRefreshedStock(result.data.quantity);
     setStockConflict(false);

@@ -6,6 +6,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authHeader, createTestUser } from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
 import { issuePair } from './service.js';
+import { hashToken } from './tokens.js';
 
 const app = createApp();
 const cookies = (response: request.Response) =>
@@ -193,6 +194,110 @@ describe('revocation race and delegated test-account authority', () => {
     expect(
       await verifyPassword('StaleSelfPassword789!', current.passwordHash)
     ).toBe(false);
+  });
+
+  it('CR-04 rolls back a delegated source claim when origin revocation wins issuance', async () => {
+    const session = await switchedSession();
+    const independent = await request(app).post('/api/auth/login').send({
+      email: 'driver@mms.local',
+      password: 'Password123!'
+    });
+    expect(independent.status).toBe(200);
+    const sourceToken = session.cookies
+      .find((cookie) => cookie.startsWith('mms_refresh='))!
+      .slice('mms_refresh='.length);
+    let acquired!: () => void;
+    let release!: () => void;
+    const locked = new Promise<void>((resolve) => {
+      acquired = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const originReset = prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${session.origin.id}::uuid FOR NO KEY UPDATE`;
+      acquired();
+      await gate;
+      await tx.user.update({
+        where: { id: session.origin.id },
+        data: { authVersion: { increment: 1 } }
+      });
+    });
+    await locked;
+    const switching = request(app)
+      .post('/api/auth/test-accounts/switch')
+      .set('Authorization', session.bearer)
+      .set('Cookie', session.cookies)
+      .send({ role: 'admin' })
+      .then((response) => response);
+    let blocked = false;
+    try {
+      blocked = await waitForBlockedUserQuery('%FOR NO KEY UPDATE%');
+    } finally {
+      release();
+      await originReset;
+    }
+    const denied = await switching;
+    expect(blocked).toBe(true);
+    expect(denied.status).toBe(403);
+    expect(denied.body.error.code).toBe('TEST_ACCOUNT_FORBIDDEN');
+    expect(denied.headers['set-cookie']).toBeUndefined();
+    const source = await prisma.refreshToken.findUniqueOrThrow({
+      where: { tokenHash: hashToken(sourceToken) }
+    });
+    expect.soft(source.revokedAt).toBeNull();
+    const refreshed = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', session.cookies);
+    expect.soft(refreshed.status).toBe(200);
+    const otherDevice = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${independent.body.accessToken as string}`);
+    expect.soft(otherDevice.status).toBe(200);
+  });
+
+  it('rolls back a delegated source claim when destination authority changed before issuance', async () => {
+    const session = await switchedSession();
+    const { user: target } = await createTestUser({
+      email: 'requester@mms.local',
+      role: 'requester'
+    });
+    const snapshot = await prisma.user.findUniqueOrThrow({
+      where: { id: target.id },
+      include: { userRole: { include: { role: true } } }
+    });
+    await prisma.user.update({
+      where: { id: target.id },
+      data: { authVersion: { increment: 1 } }
+    });
+    const sourceToken = session.cookies
+      .find((cookie) => cookie.startsWith('mms_refresh='))!
+      .slice('mms_refresh='.length);
+    const source = await prisma.refreshToken.findUniqueOrThrow({
+      where: { tokenHash: hashToken(sourceToken) }
+    });
+    await expect(
+      issuePair(
+        snapshot,
+        'requester',
+        { id: session.origin.id, authVersion: 0 },
+        { userId: source.userId, tokenHash: source.tokenHash }
+      )
+    ).rejects.toMatchObject({ statusCode: 401 });
+    expect(
+      (
+        await prisma.refreshToken.findUniqueOrThrow({
+          where: { id: source.id }
+        })
+      ).revokedAt
+    ).toBeNull();
+    expect(
+      (
+        await request(app)
+          .post('/api/auth/refresh')
+          .set('Cookie', session.cookies)
+      ).status
+    ).toBe(200);
   });
 
   it('rechecks the grant origin version inside the token issuance lock', async () => {

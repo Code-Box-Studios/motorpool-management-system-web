@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import type { CreateSparePartBody, UpdateSparePartBody } from '@mms/shared';
 import { sparePartsListQuerySchema } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
-import { publicUploadPath } from '../../lib/uploads.js';
+import { retainUploadedFiles, uploadedFileUrl } from '../../lib/uploads.js';
 import * as service from './service.js';
 
 function requireIdParam(req: Request): string {
@@ -13,7 +13,7 @@ function requireIdParam(req: Request): string {
 }
 
 function imagePath(req: Request): string | null {
-  return req.file ? publicUploadPath('spare-parts', req.file.filename) : null;
+  return req.file ? uploadedFileUrl('spare-parts', req.file) : null;
 }
 
 export async function list(req: Request, res: Response): Promise<void> {
@@ -25,21 +25,22 @@ export async function getById(req: Request, res: Response): Promise<void> {
 }
 
 export async function create(req: Request, res: Response): Promise<void> {
-  res
-    .status(201)
-    .json(
-      await service.create(req.body as CreateSparePartBody, imagePath(req))
-    );
+  const saved = await service.create(
+    req.body as CreateSparePartBody,
+    imagePath(req)
+  );
+  retainUploadedFiles(req);
+  res.status(201).json(saved);
 }
 
 export async function update(req: Request, res: Response): Promise<void> {
-  res.json(
-    await service.update(
-      requireIdParam(req),
-      req.body as UpdateSparePartBody,
-      imagePath(req)
-    )
+  const saved = await service.update(
+    requireIdParam(req),
+    req.body as UpdateSparePartBody,
+    imagePath(req)
   );
+  retainUploadedFiles(req);
+  res.json(saved);
 }
 
 export async function remove(req: Request, res: Response): Promise<void> {

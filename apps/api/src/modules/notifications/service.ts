@@ -80,38 +80,47 @@ export interface NotifyInput {
  * Raise one event for a set of people.
  *
  * Deliberately swallows its own failures when called outside a transaction: a
- * trip must not fail to be approved because the bell could not be written. Pass
- * `tx` when the notification genuinely belongs to the same atomic unit.
+ * trip must not fail to be approved because the bell could not be prepared or
+ * written. Use a factory for recipient lookups and other preparation so those
+ * failures share the same boundary. Pass `tx` when the notification genuinely
+ * belongs to the same atomic unit; preparation and write failures then propagate.
  */
 export async function notify(
-  input: NotifyInput,
+  inputOrFactory: NotifyInput | (() => NotifyInput | Promise<NotifyInput>),
   tx?: Prisma.TransactionClient
 ): Promise<number> {
-  const recipients = [
-    ...new Set(
-      input.userIds.filter(
-        (id): id is string => !!id && id !== input.exceptUserId
+  const write = async () => {
+    const input =
+      typeof inputOrFactory === 'function'
+        ? await inputOrFactory()
+        : inputOrFactory;
+    const recipients = [
+      ...new Set(
+        input.userIds.filter(
+          (id): id is string => !!id && id !== input.exceptUserId
+        )
       )
-    )
-  ];
-  if (recipients.length === 0) return 0;
+    ];
+    if (recipients.length === 0) return 0;
 
-  const copy = historicalNotificationText(input);
-  const rows = recipients.map((userId) => ({
-    userId,
-    type: input.type,
-    title: copy.title,
-    body: copy.body,
-    linkTo: input.linkTo ?? null
-  }));
+    const copy = historicalNotificationText(input);
+    const rows = recipients.map((userId) => ({
+      userId,
+      type: input.type,
+      title: copy.title,
+      body: copy.body,
+      linkTo: input.linkTo ?? null
+    }));
+    return repository.createNotifications(rows, tx);
+  };
 
-  if (tx) return repository.createNotifications(rows, tx);
+  if (tx) return write();
 
   try {
-    return await repository.createNotifications(rows);
+    return await write();
   } catch (error) {
     // The workflow already succeeded; losing the bell is not worth failing it.
-    console.error('[notifications] failed to write', error);
+    console.error('[notifications] failed to prepare or write', error);
     return 0;
   }
 }

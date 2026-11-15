@@ -2,7 +2,11 @@ import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { prisma } from '../../lib/prisma.js';
-import { authHeader, createTestUser } from '../../test/factories.js';
+import {
+  authHeader,
+  createTestBranch,
+  createTestUser
+} from '../../test/factories.js';
 import { truncateAll } from '../../test/db.js';
 
 const app = createApp();
@@ -18,6 +22,74 @@ async function adminHeader() {
 describe('PATCH /api/users/:id', () => {
   beforeEach(truncateAll);
   afterAll(() => prisma.$disconnect());
+
+  it('rejects creating an active driver identity on an archived effective branch', async () => {
+    const { header } = await adminHeader();
+    const branch = await createTestBranch('Historical branch');
+    const { user } = await createTestUser({
+      email: 'historical@test.local',
+      role: 'requester',
+      status: 'inactive',
+      branchId: branch.id
+    });
+    const archive = await request(app)
+      .post(`/api/branches/${branch.id}/archive`)
+      .set('Authorization', header);
+    expect(archive.status).toBe(200);
+    const driverRole = await prisma.role.upsert({
+      where: { name: 'driver' },
+      update: {},
+      create: { name: 'driver' }
+    });
+    const changed = await request(app)
+      .patch(`/api/users/${user.id}`)
+      .set('Authorization', header)
+      .field('roleId', driverRole.id);
+    expect(changed.status).toBe(409);
+    expect(changed.body.error.code).toBe('PARENT_ARCHIVED');
+    expect(
+      await prisma.driver.findUnique({ where: { userId: user.id } })
+    ).toBeNull();
+    expect(
+      await prisma.userRole.findUnique({
+        where: { userId: user.id },
+        include: { role: true }
+      })
+    ).toMatchObject({ role: { name: 'requester' } });
+  });
+
+  it('allows the same driver-role change after moving to a live branch', async () => {
+    const { header } = await adminHeader();
+    const oldBranch = await createTestBranch('Old branch');
+    const branch = await createTestBranch('Live branch');
+    const { user } = await createTestUser({
+      email: 'moved@test.local',
+      role: 'requester',
+      status: 'inactive',
+      branchId: oldBranch.id
+    });
+    expect(
+      (
+        await request(app)
+          .post(`/api/branches/${oldBranch.id}/archive`)
+          .set('Authorization', header)
+      ).status
+    ).toBe(200);
+    const role = await prisma.role.upsert({
+      where: { name: 'driver' },
+      update: {},
+      create: { name: 'driver' }
+    });
+    const changed = await request(app)
+      .patch(`/api/users/${user.id}`)
+      .set('Authorization', header)
+      .field('roleId', role.id)
+      .field('branchId', branch.id);
+    expect(changed.status).toBe(200);
+    expect(
+      await prisma.driver.findUnique({ where: { userId: user.id } })
+    ).toMatchObject({ branchId: branch.id, status: 'active' });
+  });
 
   it.each([false, true])(
     'changing requester to driver creates or links one identity (existing=%s), idempotently',

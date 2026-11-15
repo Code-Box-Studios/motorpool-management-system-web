@@ -108,15 +108,23 @@ export default function ApprovalQueue({
     }
   };
 
-  const confirmDisapprove = () => {
-    if (selectedTicket && disapprovedReason.trim()) {
-      disapproveTripTicket.mutate({
-        id: selectedTicket,
-        reason: disapprovedReason
-      });
-      setSelectedTicket(null);
-      setActionType(null);
-      setDisapprovedReason('');
+  const confirmDisapprove = async () => {
+    if (
+      selectedTicket &&
+      disapprovedReason.trim() &&
+      !disapproveTripTicket.isPending
+    ) {
+      try {
+        await disapproveTripTicket.mutateAsync({
+          id: selectedTicket,
+          reason: disapprovedReason
+        });
+        setSelectedTicket(null);
+        setActionType(null);
+        setDisapprovedReason('');
+      } catch {
+        // The mutation hook shows the error; preserve the draft for retry.
+      }
     }
   };
 
@@ -434,7 +442,13 @@ export default function ApprovalQueue({
 
       <AlertDialog
         open={actionType === 'disapprove'}
-        onOpenChange={() => setActionType(null)}
+        onOpenChange={(open) => {
+          if (!open && !disapproveTripTicket.isPending) {
+            setSelectedTicket(null);
+            setActionType(null);
+            setDisapprovedReason('');
+          }
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -448,6 +462,7 @@ export default function ApprovalQueue({
             <Textarea
               id="disapproved_reason"
               value={disapprovedReason}
+              disabled={disapproveTripTicket.isPending}
               onChange={(e) => setDisapprovedReason(e.target.value)}
               placeholder="e.g. Fuel budget exceeds the allowance for this route."
               className="mt-2"
@@ -456,6 +471,7 @@ export default function ApprovalQueue({
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel
+              disabled={disapproveTripTicket.isPending}
               onClick={() => {
                 setActionType(null);
                 setDisapprovedReason('');
@@ -464,11 +480,16 @@ export default function ApprovalQueue({
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDisapprove}
-              disabled={!disapprovedReason.trim()}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmDisapprove();
+              }}
+              disabled={
+                !disapprovedReason.trim() || disapproveTripTicket.isPending
+              }
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Decline
+              {disapproveTripTicket.isPending ? 'Declining…' : 'Decline'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

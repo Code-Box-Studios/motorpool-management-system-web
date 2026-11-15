@@ -62,6 +62,10 @@ test('trip workflow shows the current stage, terminal outcomes and repeated outi
     }
     // Discard cached detail state between fixtures without any business writes.
     await page.goto('/trip-tickets');
+    // Finish auth bootstrap and list render before starting another document.
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Trip Tickets', exact: true })
+    ).toBeVisible();
   }
   const dates = original.dates as Record<string, unknown>[];
   fixture = {
@@ -79,7 +83,6 @@ test('trip workflow shows the current stage, terminal outcomes and repeated outi
     ]
   };
   await page.goto(`/trip-tickets/${base.id}`);
-  await page.reload();
   const progress = page.getByRole('region', {
     name: 'Trip progress',
     exact: true

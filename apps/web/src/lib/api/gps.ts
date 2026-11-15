@@ -15,6 +15,8 @@ export interface GpsDataWithVehicle {
   heading: number | null;
   engine_status: string | null;
   created_at: string;
+  fix_time?: string | null;
+  last_contact_at?: string | null;
   vehicles?: {
     id: string;
     make: string;
@@ -40,6 +42,8 @@ interface GpsLatestApiRow {
   heading: number | null;
   engineStatus: string | null;
   createdAt: string;
+  fixTime?: string | null;
+  lastContactAt?: string | null;
   make: string;
   model: string;
   licensePlate: string;
@@ -59,6 +63,8 @@ interface GpsHistoryApiRow {
   heading: number | null;
   engineStatus: string | null;
   createdAt: string;
+  fixTime?: string | null;
+  lastContactAt?: string | null;
 }
 
 // Nest a flat /gps/latest row into the FE's snake_case + nested `vehicles` shape.
@@ -73,6 +79,8 @@ function toNested(row: GpsLatestApiRow): GpsDataWithVehicle {
     heading: row.heading,
     engine_status: row.engineStatus,
     created_at: row.createdAt,
+    fix_time: row.fixTime ?? null,
+    last_contact_at: row.lastContactAt ?? row.createdAt,
     vehicles: {
       id: row.vehicleId,
       make: row.make,
@@ -96,7 +104,8 @@ function toRow(row: GpsHistoryApiRow): GpsDataRow {
     speed: row.speed,
     heading: row.heading,
     engine_status: row.engineStatus,
-    created_at: row.createdAt
+    created_at: row.createdAt,
+    fix_time: row.fixTime ?? null
   };
 }
 
@@ -173,7 +182,8 @@ export async function getGpsRouteHistory(
   return {
     points: [...points.values()].sort(
       (a, b) =>
-        Date.parse(a.created_at) - Date.parse(b.created_at) ||
+        Date.parse(a.fix_time ?? a.created_at) -
+          Date.parse(b.fix_time ?? b.created_at) ||
         a.gps_id.localeCompare(b.gps_id)
     ),
     count

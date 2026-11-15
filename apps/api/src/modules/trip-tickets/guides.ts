@@ -64,10 +64,11 @@ export async function listGuideOptions() {
 
 /** New assignments must refer to distinct, unarchived employees. */
 export async function assertGuideEmployeesActive(
-  employeeIds: string[]
+  employeeIds: string[],
+  client: Prisma.TransactionClient = prisma
 ): Promise<void> {
   if (employeeIds.length === 0) return; // The caller supplies the route-specific empty-list error.
-  const count = await prisma.employee.count({
+  const count = await client.employee.count({
     where: {
       id: { in: employeeIds },
       archivedAt: null

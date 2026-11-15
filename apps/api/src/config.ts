@@ -9,6 +9,8 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32),
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).optional(),
   UPLOADS_DIR: z.string().default('uploads'),
+  UPLOADS_PROVIDER: z.enum(['local', 'vercel-blob']).default('local'),
+  BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
   // Device-ingest secret. Validated/known at boot but intentionally NOT exposed
   // on `config` — the gps device-key middleware reads process.env live so tests
   // can toggle it per case (spec §10, fail-closed).
@@ -16,6 +18,9 @@ const envSchema = z.object({
 });
 
 const env = envSchema.parse(process.env);
+if (env.UPLOADS_PROVIDER === 'vercel-blob' && !env.BLOB_READ_WRITE_TOKEN) {
+  throw new Error('BLOB_READ_WRITE_TOKEN is required for vercel-blob uploads');
+}
 
 export const config = {
   databaseUrl: env.DATABASE_URL,
@@ -30,5 +35,7 @@ export const config = {
   // same-site local dev wants Lax. Explicit env always wins.
   cookieSameSite:
     env.COOKIE_SAMESITE ?? (env.NODE_ENV === 'production' ? 'none' : 'lax'),
-  uploadsDir: env.UPLOADS_DIR
+  uploadsDir: env.UPLOADS_DIR,
+  uploadsProvider: env.UPLOADS_PROVIDER,
+  blobReadWriteToken: env.BLOB_READ_WRITE_TOKEN
 };

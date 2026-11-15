@@ -12,6 +12,7 @@ import type {
 import type { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
+import { lockBranches } from '../../lib/branch-locks.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { hashPassword, verifyPassword } from '../../lib/password.js';
@@ -84,6 +85,9 @@ async function ensureDriverIdentity(
       throw new AppError(409, 'EMAIL_TAKEN', 'This driver already has a login');
     }
   } else {
+    // A role-only edit can create active personnel even when the login remains
+    // inactive. Validate the effective parent at this new relationship write.
+    await assertOrgRefsActive({ branchId: user.branchId }, tx);
     await tx.driver.create({
       data: {
         userId: user.id,
@@ -101,7 +105,6 @@ export async function create(
   body: CreateUserBody,
   avatarPath: string | null
 ): Promise<UserResponse> {
-  await assertOrgRefsActive({ branchId: body.branchId });
   if (await findUserByEmail(body.email)) {
     throw new AppError(
       409,
@@ -116,6 +119,7 @@ export async function create(
   const passwordHash = await hashPassword(body.password);
 
   const created = await prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive({ branchId: body.branchId }, tx);
     const user = await tx.user.create({
       data: {
         email: body.email,
@@ -141,7 +145,6 @@ export async function update(
   body: UpdateUserBody,
   avatarPath: string | null
 ): Promise<UserResponse> {
-  await assertOrgRefsActive({ branchId: body.branchId });
   const existing = await findUserById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'User not found');
   const role = body.roleId
@@ -150,6 +153,17 @@ export async function update(
   if (body.roleId && !role)
     throw new AppError(400, 'INVALID_ROLE', 'Unknown role');
   const updated = await prisma.$transaction(async (tx) => {
+    const effectiveBranch =
+      body.branchId === undefined ? existing.branchId : body.branchId;
+    // Parent locks precede user/driver writes. A role-only edit validates this
+    // branch only if ensureDriverIdentity actually creates a new identity.
+    if (
+      effectiveBranch &&
+      (body.branchId !== undefined ||
+        body.status === 'active' ||
+        role?.name === USER_ROLES.driver)
+    )
+      await lockBranches(tx, [effectiveBranch]);
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${id}::uuid FOR NO KEY UPDATE`;
     // Compare under the same lock as token issuance so concurrent edits cannot
     // miss an authority change or leave a newly issued refresh session alive.
@@ -158,6 +172,27 @@ export async function update(
       include: userInclude
     });
     if (!current) throw new AppError(404, 'NOT_FOUND', 'User not found');
+    if (
+      body.branchId === undefined &&
+      (body.status === 'active' || role?.name === USER_ROLES.driver) &&
+      current.branchId !== existing.branchId
+    )
+      throw new AppError(
+        409,
+        'ORGANIZATION_CHANGED',
+        'User branch changed. Refresh and try again.'
+      );
+    await assertOrgRefsActive({ branchId: body.branchId }, tx);
+    // Revalidate the effective parent under the same lock as reactivation.
+    if (body.status === 'active') {
+      await assertOrgRefsActive(
+        {
+          branchId:
+            body.branchId === undefined ? current.branchId : body.branchId
+        },
+        tx
+      );
+    }
     const authorityChanged =
       (body.roleId !== undefined && body.roleId !== current.userRole?.roleId) ||
       (body.status !== undefined && body.status !== current.status) ||
@@ -200,12 +235,9 @@ export async function update(
 // The branch name is resolved here rather than sent as an id: the profile
 // screen shows a user where they belong, and a non-admin has no branch list
 // to look the id up in.
-async function toOwnProfile(userId: string): Promise<OwnProfileResponse> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { ...userInclude, branch: true }
-  });
-  if (!user) throw new AppError(404, 'NOT_FOUND', 'User not found');
+function ownProfileResponse(
+  user: UserRow & { branch: { name: string } | null }
+): OwnProfileResponse {
   return {
     id: user.id,
     email: user.email,
@@ -221,6 +253,15 @@ async function toOwnProfile(userId: string): Promise<OwnProfileResponse> {
   };
 }
 
+async function toOwnProfile(userId: string): Promise<OwnProfileResponse> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { ...userInclude, branch: true }
+  });
+  if (!user) throw new AppError(404, 'NOT_FOUND', 'User not found');
+  return ownProfileResponse(user);
+}
+
 export function getOwnProfile(userId: string): Promise<OwnProfileResponse> {
   return toOwnProfile(userId);
 }
@@ -234,16 +275,17 @@ export async function updateOwnProfile(
   body: UpdateOwnProfileBody,
   avatarPath: string | null
 ): Promise<OwnProfileResponse> {
-  await prisma.user.update({
+  const user = await prisma.user.update({
     where: { id: userId },
     data: {
       fullName: body.fullName,
       phone: body.phone,
       address: body.address,
       ...(avatarPath ? { avatarUrl: avatarPath } : {})
-    }
+    },
+    include: { ...userInclude, branch: true }
   });
-  return toOwnProfile(userId);
+  return ownProfileResponse(user);
 }
 
 // Changes a user's password; self-change requires currentPassword, admin

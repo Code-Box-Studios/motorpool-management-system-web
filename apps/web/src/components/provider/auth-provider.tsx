@@ -1,3 +1,5 @@
+import { SessionCoordinationError } from '@/lib/api/session-coordination';
+import { hasPendingLogout } from '@/lib/api/logout-intent';
 import React, { Fragment, useEffect, useRef, useState } from 'react';
 import { getCurrentUser, signIn, signOut } from '@/lib/api/auth';
 import { onAuthFailure, resetAuthSession } from '@/lib/api/client';
@@ -7,45 +9,6 @@ import { Loading } from '../ui/loader';
 import { Button } from '../ui/button';
 import ThemeSwitcher from '../app-header/theme-switcher';
 
-const LOGOUT_PENDING_KEY = 'mms.logout-pending';
-
-function hasPendingLogout(): boolean {
-  if (
-    new URL(window.location.href).searchParams.get(LOGOUT_PENDING_KEY) ===
-    'true'
-  ) {
-    return true;
-  }
-  try {
-    return sessionStorage.getItem(LOGOUT_PENDING_KEY) === 'true';
-  } catch {
-    // Inaccessible storage cannot establish that a previous logout finished.
-    return true;
-  }
-}
-
-function rememberLogout(pending: boolean): boolean {
-  try {
-    if (pending) sessionStorage.setItem(LOGOUT_PENDING_KEY, 'true');
-    else sessionStorage.removeItem(LOGOUT_PENDING_KEY);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function rememberLogoutInUrl(pending: boolean): void {
-  const url = new URL(window.location.href);
-  if (pending) url.searchParams.set(LOGOUT_PENDING_KEY, 'true');
-  else {
-    if (!url.searchParams.has(LOGOUT_PENDING_KEY)) return;
-    url.searchParams.delete(LOGOUT_PENDING_KEY);
-  }
-  // Preserve router history state and unrelated query parameters. The marker
-  // contains no account data and survives reload even if storage writes fail.
-  window.history.replaceState(window.history.state, '', url);
-}
-
 type AuthProviderProps = {
   children: React.ReactNode;
 };
@@ -53,6 +16,7 @@ type AuthProviderProps = {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const [logoutPending, setLogoutPending] = useState(hasPendingLogout);
   const pendingLogout = useRef(logoutPending);
   const [sessionRevision, setSessionRevision] = useState(0);
@@ -63,7 +27,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     let active = true;
     const bootOperation = operation.current;
     const unsubscribe = onAuthFailure(() => {
-      if (pendingLogout.current) return;
+      pendingLogout.current = hasPendingLogout();
+      setLogoutPending(pendingLogout.current);
       operation.current += 1;
       resetAuthSession();
       setUser(null);
@@ -108,8 +73,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
   const logout: AuthContextType['logout'] = async () => {
     const logoutOperation = ++operation.current;
+    setLogoutError(null);
+    resetAuthSession();
     pendingLogout.current = true;
-    if (!rememberLogout(true)) rememberLogoutInUrl(true);
     setLogoutPending(true);
     setUser(null);
     setSessionRevision((revision) => revision + 1);
@@ -117,13 +83,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(true);
     try {
       await signOut();
-      if (operation.current === logoutOperation) {
-        rememberLogout(false);
-        rememberLogoutInUrl(false);
-        pendingLogout.current = false;
-        setLogoutPending(false);
-      }
+    } catch (error) {
+      if (
+        operation.current === logoutOperation &&
+        error instanceof SessionCoordinationError
+      )
+        setLogoutError(error.message);
+      throw error;
     } finally {
+      // A peer completion can invalidate this local operation while its queued
+      // logout is still valid. Reconcile the gate after that transport settles.
+      pendingLogout.current = hasPendingLogout();
+      setLogoutPending(pendingLogout.current);
       if (operation.current === logoutOperation) setLoading(false);
     }
   };
@@ -161,6 +132,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               ? 'Your workspace is hidden while sign-out finishes.'
               : 'Your workspace is hidden until sign-out is confirmed. Retry to finish signing out before signing in again.'}
           </p>
+          {logoutError && (
+            <p role="alert" className="text-sm">
+              {logoutError}
+            </p>
+          )}
           <Button
             disabled={loading}
             onClick={() => void logout().catch(() => undefined)}

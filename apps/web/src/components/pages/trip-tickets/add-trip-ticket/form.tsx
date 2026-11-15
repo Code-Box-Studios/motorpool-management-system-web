@@ -1,3 +1,4 @@
+import { manilaDateString } from '@mms/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -315,7 +316,7 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
     if (user) {
       form.setValue('requested_by', user.id);
     }
-    const today = new Date().toISOString().split('T')[0];
+    const today = manilaDateString();
     form.setValue('date_requested', today);
     // Opened by clicking a day on the calendar: start the trip on that day.
     // The row's start/end already default to 08:00/17:00 (useTripTicketForm),

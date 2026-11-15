@@ -3,6 +3,7 @@ import {
   Fragment,
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ReactNode
 } from 'react';
@@ -45,6 +46,7 @@ import {
 } from './actions';
 import { FuelAllocationDialog, ReasonDialog } from '../transition-dialogs';
 import { TripDatesSection } from './dates-section';
+import { OutingEditor } from './outing-editor';
 import { ParticipantsList } from './participants-list';
 import { TripProgress } from './trip-progress';
 import { useGuideOptions, useTripTicket } from '@/lib/query/trip-tickets';
@@ -58,7 +60,11 @@ import {
 import { useAllDrivers } from '@/lib/query/drivers';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import { useBranches, useBranchesForDisplay } from '@/lib/query/shared';
-import { useDepartmentOfficesForDisplay } from '@/lib/query/offices';
+import {
+  useDepartmentOffices,
+  useDepartmentOfficesForDisplay,
+  useOfficeHeads
+} from '@/lib/query/offices';
 import { useAdmins, useAllUsers } from '@/lib/query/user-management';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserRole } from '@/hooks/use-user-role';
@@ -133,6 +139,8 @@ const TripTicketsInner = () => {
   const { data: allBranches, isPending: allBranchesLoading } =
     useBranchesForDisplay();
   const { data: offices } = useDepartmentOfficesForDisplay();
+  const { data: activeOffices = [] } = useDepartmentOffices();
+  const { data: officeHeads = [] } = useOfficeHeads();
   const { data: admins } = useAdmins();
   const { data: allUsers } = useAllUsers();
   const { data: guideOptions = [], isLoading: guidesLoading } =
@@ -146,6 +154,8 @@ const TripTicketsInner = () => {
   const reassignGuides = useReassignGuides();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
+  const [editConflict, setEditConflict] = useState(false);
+  const editSource = useRef<typeof tripTicket>(undefined);
   const [participants, setParticipants] = useState<string[]>(['']);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingData, setPendingData] =
@@ -180,66 +190,92 @@ const TripTicketsInner = () => {
     tripTicket ? formatRef('TT', tripTicket.ticket_no) : undefined
   );
 
-  const resetFromTicket = useCallback(() => {
-    if (!tripTicket) return;
+  const dirtyEdit = Object.keys(form.formState.dirtyFields).length > 0;
+  const resetFromTicket = useCallback(
+    (keepDirtyValues = false) => {
+      if (!tripTicket) return;
+      const keepParticipantDraft =
+        keepDirtyValues && form.getFieldState('participants').isDirty;
 
-    // Initialize participants from trip ticket
-    if (tripTicket.participants && Array.isArray(tripTicket.participants)) {
-      setParticipants(
-        tripTicket.participant_type === 'students' &&
-          tripTicket.participants.length > 0
-          ? tripTicket.participants
-          : ['']
+      // Initialize participants from trip ticket
+      if (
+        !keepParticipantDraft &&
+        tripTicket.participants &&
+        Array.isArray(tripTicket.participants)
+      ) {
+        setParticipants(
+          tripTicket.participant_type === 'students' &&
+            tripTicket.participants.length > 0
+            ? tripTicket.participants
+            : ['']
+        );
+      } else if (
+        !keepParticipantDraft &&
+        typeof tripTicket.participants === 'string'
+      ) {
+        const participantsList = (tripTicket.participants as string)
+          .split(',')
+          .map((p: string) => p.trim())
+          .filter((p: string) => p);
+        setParticipants(participantsList.length > 0 ? participantsList : ['']);
+      }
+
+      const startDateTime = manilaDateTime(tripTicket.start_ts);
+      const endDateTime = manilaDateTime(tripTicket.end_ts);
+
+      form.reset(
+        {
+          vehicle_id: tripTicket.vehicle_id,
+          driver_id: tripTicket.driver_id,
+          branch_id: tripTicket.branch_id,
+          requested_by: tripTicket.requested_by || '',
+          destination: tripTicket.destination,
+          purpose: tripTicket.purpose,
+          date_requested: tripTicket.date_requested.slice(0, 10),
+          start_ts: startDateTime,
+          end_ts: endDateTime,
+          status: tripTicket.status || 'pending_admin_approval',
+          remarks: tripTicket.remarks || '',
+          cancellation_reason: tripTicket.cancellation_reason || '',
+          disapproved_reason: tripTicket.disapproved_reason || '',
+          participants:
+            tripTicket.participant_type === 'students'
+              ? (tripTicket.participants ?? [])
+              : [],
+          participant_type: tripTicket.participant_type,
+          participant_employee_ids: tripTicket.participant_employee_ids,
+          guide_ids: tripTicket.guides.map((guide) => guide.id),
+          office_id: tripTicket.office_id || '',
+          office_head_id: tripTicket.office_head_id || '',
+          allocation_date: tripTicket.allocation_date || '',
+          allocation_trip_to: tripTicket.allocation_trip_to || '',
+          allocation_purpose: tripTicket.allocation_purpose || '',
+          allocation_vehicle_id: tripTicket.allocation_vehicle_id || '',
+          allocation_fuel_type: tripTicket.allocation_fuel_type || '',
+          allocation_approved_by_evp_operations:
+            tripTicket.allocation_approved_by_evp_operations || ''
+        },
+        { keepDirtyValues }
       );
-    } else if (typeof tripTicket.participants === 'string') {
-      const participantsList = (tripTicket.participants as string)
-        .split(',')
-        .map((p: string) => p.trim())
-        .filter((p: string) => p);
-      setParticipants(participantsList.length > 0 ? participantsList : ['']);
-    }
-
-    const startDateTime = manilaDateTime(tripTicket.start_ts);
-    const endDateTime = manilaDateTime(tripTicket.end_ts);
-
-    form.reset({
-      vehicle_id: tripTicket.vehicle_id,
-      driver_id: tripTicket.driver_id,
-      branch_id: tripTicket.branch_id,
-      requested_by: tripTicket.requested_by || tripTicket.prepared_by,
-      destination: tripTicket.destination,
-      purpose: tripTicket.purpose,
-      date_requested: tripTicket.date_requested.slice(0, 10),
-      start_ts: startDateTime,
-      end_ts: endDateTime,
-      status: tripTicket.status || 'pending_admin_approval',
-      remarks: tripTicket.remarks || '',
-      cancellation_reason: tripTicket.cancellation_reason || '',
-      disapproved_reason: tripTicket.disapproved_reason || '',
-      participants:
-        tripTicket.participant_type === 'students'
-          ? (tripTicket.participants ?? [])
-          : [],
-      participant_type: tripTicket.participant_type,
-      participant_employee_ids: tripTicket.participant_employee_ids,
-      guide_ids: tripTicket.guides.map((guide) => guide.id),
-      office_id: tripTicket.office_id || '',
-      office_head_id: tripTicket.office_head_id || '',
-      allocation_date: tripTicket.allocation_date || '',
-      allocation_trip_to: tripTicket.allocation_trip_to || '',
-      allocation_purpose: tripTicket.allocation_purpose || '',
-      allocation_vehicle_id: tripTicket.allocation_vehicle_id || '',
-      allocation_fuel_type: tripTicket.allocation_fuel_type || '',
-      allocation_approved_by_evp_operations:
-        tripTicket.allocation_approved_by_evp_operations || ''
-    });
-  }, [tripTicket, form]);
+      editSource.current = tripTicket;
+      setEditConflict(false);
+    },
+    [tripTicket, form]
+  );
 
   useEffect(() => {
+    if (editSource.current === tripTicket) return;
+    setShowConfirm(false);
+    setPendingData(null);
+    if (isEditing && dirtyEdit) {
+      setEditConflict(true);
+      return;
+    }
     resetFromTicket();
-  }, [resetFromTicket]);
+  }, [tripTicket, resetFromTicket, isEditing, dirtyEdit]);
 
   const onSubmit = (data: UpdateTripTicketFormData) => {
+    if (editConflict || editSource.current !== tripTicket) return;
     if (editSeats !== undefined && editPassengerCount > editSeats) {
       form.setError(
         data.participant_type === 'employees'
@@ -256,8 +292,17 @@ const TripTicketsInner = () => {
   };
 
   const handleConfirmUpdate = () => {
+    if (editConflict || editSource.current !== tripTicket) return;
     if (tripTicket && pendingData) {
       const updates = { ...pendingData } as Record<string, unknown>;
+      if (!isAdmin || pendingData.requested_by === tripTicket.requested_by)
+        delete updates.requested_by;
+      if (pendingData.office_id === (tripTicket.office_id || ''))
+        delete updates.office_id;
+      if (pendingData.office_head_id === (tripTicket.office_head_id || ''))
+        delete updates.office_head_id;
+      if (pendingData.branch_id === tripTicket.branch_id)
+        delete updates.branch_id;
       if (pendingData.date_requested === tripTicket.date_requested.slice(0, 10))
         delete updates.date_requested;
       const sameIds = (left: string[], right: string[]) =>
@@ -535,6 +580,36 @@ const TripTicketsInner = () => {
 
       {isEditing ? (
         <form id="edit-trip-ticket-form" onSubmit={form.handleSubmit(onSubmit)}>
+          {editConflict && (
+            <div
+              role="alert"
+              className="bg-card border-border mb-5 space-y-3 rounded-2xl border p-5"
+            >
+              <p className="font-medium">
+                This ticket changed while you were editing.
+              </p>
+              <p className="text-muted-foreground text-sm">
+                Your draft is preserved. Keep your edits and load the latest
+                values for other fields, or discard your edits and reload.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => resetFromTicket(true)}
+                >
+                  Keep my edits and load other updates
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => resetFromTicket()}
+                >
+                  Discard my edits and reload
+                </Button>
+              </div>
+            </div>
+          )}
           <FormLayout>
             <FormSection
               title="Trip"
@@ -637,7 +712,15 @@ const TripTicketsInner = () => {
                       <Field data-invalid={fieldState.invalid}>
                         <FieldLabel htmlFor="branch_id">Branch *</FieldLabel>
                         <Select
-                          onValueChange={field.onChange}
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            form.setValue('office_id', '', {
+                              shouldDirty: true
+                            });
+                            form.setValue('office_head_id', '', {
+                              shouldDirty: true
+                            });
+                          }}
                           value={field.value}
                           disabled={!isEditing}
                         >
@@ -672,17 +755,118 @@ const TripTicketsInner = () => {
                         <FieldLabel htmlFor="requested_by">
                           Requested By *
                         </FieldLabel>
-                        <Input
-                          {...field}
-                          id="requested_by"
-                          type="text"
-                          aria-invalid={fieldState.invalid}
-                          placeholder="Enter preparer name"
-                          disabled={!isEditing}
-                        />
+                        {isAdmin ? (
+                          <Select
+                            value={field.value}
+                            onValueChange={field.onChange}
+                          >
+                            <SelectTrigger
+                              id="requested_by"
+                              aria-invalid={fieldState.invalid}
+                            >
+                              <SelectValue placeholder="Select requester" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(allUsers ?? [])
+                                .filter(
+                                  (person) =>
+                                    person.status === 'active' ||
+                                    person.id === field.value
+                                )
+                                .map((person) => (
+                                  <SelectItem key={person.id} value={person.id}>
+                                    {person.full_name || person.email}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            id="requested_by"
+                            value={requestedByName || 'Requester unavailable'}
+                            readOnly
+                            disabled
+                          />
+                        )}
                         {fieldState.invalid && (
                           <FieldError errors={[fieldState.error]} />
                         )}
+                      </Field>
+                    )}
+                  />
+                </FormRow>
+
+                <FormRow>
+                  <Controller
+                    name="office_id"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Field>
+                        <FieldLabel htmlFor="office_id">
+                          Department/Office/College
+                        </FieldLabel>
+                        <Select
+                          value={field.value || 'none'}
+                          onValueChange={(value) => {
+                            field.onChange(value === 'none' ? '' : value);
+                            form.setValue('office_head_id', '', {
+                              shouldDirty: true
+                            });
+                          }}
+                        >
+                          <SelectTrigger id="office_id">
+                            <SelectValue placeholder="Select office" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No office</SelectItem>
+                            {activeOffices
+                              .filter(
+                                (office) =>
+                                  office.branch_id === form.watch('branch_id')
+                              )
+                              .map((office) => (
+                                <SelectItem key={office.id} value={office.id}>
+                                  {office.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    )}
+                  />
+                  <Controller
+                    name="office_head_id"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Field>
+                        <FieldLabel htmlFor="office_head_id">
+                          Office Head
+                        </FieldLabel>
+                        <Select
+                          value={field.value || 'none'}
+                          onValueChange={(value) =>
+                            field.onChange(value === 'none' ? '' : value)
+                          }
+                        >
+                          <SelectTrigger id="office_head_id">
+                            <SelectValue placeholder="Select office head" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No office head</SelectItem>
+                            {officeHeads
+                              .filter(
+                                (head) =>
+                                  head.branch_id === form.watch('branch_id') &&
+                                  (!form.watch('office_id') ||
+                                    head.office_id === form.watch('office_id'))
+                              )
+                              .map((head) => (
+                                <SelectItem key={head.id} value={head.id}>
+                                  {head.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
                       </Field>
                     )}
                   />
@@ -845,6 +1029,7 @@ const TripTicketsInner = () => {
                         currentGuides={tripTicket.participant_employees}
                         onChange={(ids) =>
                           form.setValue('participant_employee_ids', ids, {
+                            shouldDirty: true,
                             shouldValidate: form.formState.isSubmitted
                           })
                         }
@@ -936,6 +1121,7 @@ const TripTicketsInner = () => {
                     currentGuides={tripTicket.guides}
                     onChange={(ids) =>
                       form.setValue('guide_ids', ids, {
+                        shouldDirty: true,
                         shouldValidate: form.formState.isSubmitted
                       })
                     }
@@ -1040,7 +1226,7 @@ const TripTicketsInner = () => {
 
             <FormSection
               title="Fuel Allocation"
-              description="Fuel allocation details for this trip ticket."
+              description="Fuel allocation is read-only here. Use Approve and allocate fuel on the ticket to enter fuel details."
             >
               <div className="flex flex-col gap-5">
                 <FormRow>
@@ -1057,7 +1243,7 @@ const TripTicketsInner = () => {
                           id="allocation_date"
                           type="date"
                           aria-invalid={fieldState.invalid}
-                          disabled={!isEditing}
+                          disabled
                         />
                         {fieldState.invalid && (
                           <FieldError errors={[fieldState.error]} />
@@ -1079,7 +1265,7 @@ const TripTicketsInner = () => {
                           type="text"
                           aria-invalid={fieldState.invalid}
                           placeholder="Enter destination"
-                          disabled={!isEditing}
+                          disabled
                         />
                         {fieldState.invalid && (
                           <FieldError errors={[fieldState.error]} />
@@ -1101,7 +1287,7 @@ const TripTicketsInner = () => {
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
-                          disabled={!isEditing}
+                          disabled
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select a vehicle" />
@@ -1143,7 +1329,7 @@ const TripTicketsInner = () => {
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
-                          disabled={!isEditing}
+                          disabled
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select fuel type" />
@@ -1178,7 +1364,7 @@ const TripTicketsInner = () => {
                         type="text"
                         aria-invalid={fieldState.invalid}
                         placeholder="Enter approver name"
-                        disabled={!isEditing}
+                        disabled
                       />
                       {fieldState.invalid && (
                         <FieldError errors={[fieldState.error]} />
@@ -1201,7 +1387,7 @@ const TripTicketsInner = () => {
                         aria-invalid={fieldState.invalid}
                         placeholder="Enter allocation purpose"
                         rows={3}
-                        disabled={!isEditing}
+                        disabled
                       />
                       {fieldState.invalid && (
                         <FieldError errors={[fieldState.error]} />
@@ -1216,7 +1402,7 @@ const TripTicketsInner = () => {
               <Button
                 type="submit"
                 form="edit-trip-ticket-form"
-                disabled={updateTripTicket.isPending}
+                disabled={updateTripTicket.isPending || editConflict}
               >
                 {updateTripTicket.isPending
                   ? 'Updating...'
@@ -1447,6 +1633,15 @@ const TripTicketsInner = () => {
             </DetailSection>
           </div>
 
+          {canEdit && (
+            <OutingEditor
+              ticketId={tripTicket.id}
+              dates={tripTicket.dates}
+              onSaved={() => {
+                void refetch();
+              }}
+            />
+          )}
           <TripDatesSection
             ticketId={tripTicket.id}
             dates={tripTicket.dates}

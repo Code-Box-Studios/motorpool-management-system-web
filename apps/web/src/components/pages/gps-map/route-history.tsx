@@ -4,7 +4,7 @@ import VehicleMap from '@/components/shared/vehicle-map';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useGpsRouteHistory } from '@/lib/query/gps';
-import { hasGpsPosition } from '@/lib/utils/gps-tracking';
+import { gpsPositionTime, hasGpsPosition } from '@/lib/utils/gps-tracking';
 
 function localDateTime(time: number): string {
   const date = new Date(time);
@@ -177,11 +177,11 @@ export default function RouteHistory({
           <div className="text-muted-foreground flex flex-wrap justify-between gap-3 border-t px-4 py-3 text-xs">
             <span>
               <strong className="text-foreground">Route start</strong> ·{' '}
-              {new Date(validPoints[0].created_at).toLocaleString()}
+              {new Date(gpsPositionTime(validPoints[0])).toLocaleString()}
             </span>
             <span>
               <strong className="text-foreground">Route end</strong> ·{' '}
-              {new Date(validPoints.at(-1)!.created_at).toLocaleString()}
+              {new Date(gpsPositionTime(validPoints.at(-1)!)).toLocaleString()}
             </span>
           </div>
           <p className="text-muted-foreground border-t px-4 py-2 text-[11px]">

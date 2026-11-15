@@ -87,7 +87,12 @@ async function fixtures(page: Page, failure: '503' | 'transport') {
         /(?:^|;\s*)mms_refresh=([^;]+)/
       )?.[1];
       return cookie
-        ? route.fulfill({ json: { accessToken: `${cookie}-token` } })
+        ? route.fulfill({
+            json: {
+              accessToken: `${cookie}-token`,
+              user: cookie === 'requester' ? requester : administrator
+            }
+          })
         : unauthorized();
     }
     if (path === '/api/auth/test-accounts')
@@ -267,17 +272,15 @@ for (const failure of ['503', 'transport'] as const) {
         (cookie) => cookie.name === 'mms_refresh'
       )
     ).toBe(false);
-    // removeItem also throws, but confirmed server logout still allows a new
-    // account in this document. A later blocked-storage startup stays closed.
+    // The confirmed first-party logout state survives blocked sessionStorage
+    // so a later reload can restore the explicitly signed-in new account.
     await signIn(page, requester);
-    const readsBeforeNextReload = server.authReads();
     await page.reload();
-    await expect(retry).toBeVisible();
+    await expect(retry).toHaveCount(0);
+    await page.locator('header [aria-haspopup="menu"]').last().click();
     await expect(
-      page.getByRole('heading', { name: 'Finish signing out' })
+      page.getByRole('menu').getByText(requester.email)
     ).toBeVisible();
-    await expect(page.locator('header [aria-haspopup="menu"]')).toHaveCount(0);
-    expect(server.authReads()).toBe(readsBeforeNextReload);
   });
 }
 
@@ -384,6 +387,10 @@ test('failed logout and retry keep an obsolete refresh from replacing the next a
   await refreshSeen.promise;
   try {
     await startLogout(page);
+    await expect(
+      page.getByRole('heading', { name: 'Signing out…' })
+    ).toBeVisible();
+    oldRefresh.release();
     await expect(
       page.getByRole('button', { name: 'Retry sign-out' })
     ).toBeVisible();

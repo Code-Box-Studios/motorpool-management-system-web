@@ -10,6 +10,8 @@ import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
 import { prisma } from '../../lib/prisma.js';
+import { lockVehicles } from '../../lib/resource-locks.js';
+import { isForeignKeyConflict } from '../../lib/prisma-conflicts.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import { findVehicleById, listVehicles } from './repository.js';
 import { changeVehicleStatus } from './status.js';
@@ -51,8 +53,10 @@ export async function getById(id: string) {
 // New vehicles are created directly (creation is not a status "change", so no
 // audit row — spec §4.2).
 export async function create(body: CreateVehicleBody, imagePaths: string[]) {
-  await assertOrgRefsActive({ branchId: body.branchId });
-  return prisma.vehicle.create({ data: { ...body, images: imagePaths } });
+  return prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive({ branchId: body.branchId }, tx);
+    return tx.vehicle.create({ data: { ...body, images: imagePaths } });
+  });
 }
 
 export async function update(
@@ -61,26 +65,26 @@ export async function update(
   newImagePaths: string[],
   actor: AuthenticatedUser
 ) {
-  await assertOrgRefsActive({ branchId: body.branchId });
-  const existing = await findVehicleById(id);
-  if (!existing) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
-
-  // Image merge (spec §9 / recon): keep existing paths not in removedImages,
-  // then append the newly uploaded ones. Orphaned files are accepted in v1.
-  const removed = normalizeRemoved(body.removedImages);
-  const mergedImages =
-    newImagePaths.length > 0 || removed.length > 0
-      ? [
-          ...existing.images.filter((url) => !removed.includes(url)),
-          ...newImagePaths
-        ]
-      : undefined;
-
   // Never write status through vehicle.update — route it through the audit
   // choke point so the change is recorded.
   const { status, removedImages: _removed, ...rest } = body;
 
   return prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive({ branchId: body.branchId }, tx);
+    await lockVehicles(tx, [id]);
+    const existing = await tx.vehicle.findUnique({ where: { id } });
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
+    // Merge the latest committed collection while holding the same lock used
+    // by operational vehicle edits. Accepted concurrent additions/removals
+    // must survive the next edit's read/merge/write.
+    const removed = normalizeRemoved(body.removedImages);
+    const mergedImages =
+      newImagePaths.length > 0 || removed.length > 0
+        ? [
+            ...existing.images.filter((url) => !removed.includes(url)),
+            ...newImagePaths
+          ]
+        : undefined;
     if (status !== undefined) {
       await changeVehicleStatus(tx, id, status, {
         changedBy: actor.id,
@@ -102,10 +106,7 @@ export async function remove(id: string): Promise<void> {
   } catch (err) {
     // FK RESTRICT from trip tickets, job orders, maintenance, tracking, audit,
     // or GPS rows — surface a domain 409 instead of a generic conflict.
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === 'P2003'
-    ) {
+    if (isForeignKeyConflict(err)) {
       throw new AppError(
         409,
         'VEHICLE_IN_USE',

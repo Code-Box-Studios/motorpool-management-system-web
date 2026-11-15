@@ -39,7 +39,7 @@ function ignitionFromStatus(statusHex: string): boolean | null {
 }
 
 function parseFixTime(hhmmss: string, ddmmyy: string): Date | null {
-  if (hhmmss.length < 6 || ddmmyy.length < 6) return null;
+  if (!/^\d{6}$/.test(hhmmss) || !/^\d{6}$/.test(ddmmyy)) return null;
   const hh = Number(hhmmss.slice(0, 2));
   const mi = Number(hhmmss.slice(2, 4));
   const ss = Number(hhmmss.slice(4, 6));
@@ -48,7 +48,20 @@ function parseFixTime(hhmmss: string, ddmmyy: string): Date | null {
   const yy = Number(ddmmyy.slice(4, 6));
   if ([hh, mi, ss, dd, mo, yy].some((n) => !Number.isFinite(n))) return null;
   const ms = Date.UTC(2000 + yy, mo - 1, dd, hh, mi, ss);
-  return Number.isNaN(ms) ? null : new Date(ms);
+  const parsed = new Date(ms);
+  // Date.UTC normalizes impossible dates such as February 31. Keep an unknown
+  // measurement time unknown so ingest can use the actual receipt fallback.
+  if (
+    Number.isNaN(ms) ||
+    parsed.getUTCFullYear() !== 2000 + yy ||
+    parsed.getUTCMonth() !== mo - 1 ||
+    parsed.getUTCDate() !== dd ||
+    parsed.getUTCHours() !== hh ||
+    parsed.getUTCMinutes() !== mi ||
+    parsed.getUTCSeconds() !== ss
+  )
+    return null;
+  return parsed;
 }
 
 function toNumberOrNull(value: string | undefined): number | null {
@@ -61,9 +74,13 @@ function toNumberOrNull(value: string | undefined): number | null {
  * Decodes one H02 text frame: `*HQ,<imei>,<type>,<hhmmss>,<A|V>,<lat>,<N|S>,<lon>,<E|W>,<speed>,<course>,<ddmmyy>,<status>[,...]#`
  * Pure: no I/O, no state. Anything it cannot confidently parse is `unknown`.
  */
-export function decodeFrame(raw: string, speedUnit: 'knots' | 'kmh'): DecodedFrame {
+export function decodeFrame(
+  raw: string,
+  speedUnit: 'knots' | 'kmh'
+): DecodedFrame {
   const trimmed = raw.trim();
-  if (!trimmed.startsWith('*') || !trimmed.endsWith('#')) return { kind: 'unknown', raw };
+  if (!trimmed.startsWith('*') || !trimmed.endsWith('#'))
+    return { kind: 'unknown', raw };
 
   const parts = trimmed.slice(1, -1).split(',');
   const deviceId = parts[1];
@@ -73,8 +90,10 @@ export function decodeFrame(raw: string, speedUnit: 'knots' | 'kmh'): DecodedFra
   if (HEARTBEAT_TYPES.has(type)) return { kind: 'heartbeat', deviceId, raw };
   if (!POSITION_TYPES.has(type)) return { kind: 'unknown', raw };
 
-  const [, , , time, validity, lat, ns, lon, ew, speed, course, date, status] = parts;
-  if (!time || !validity || !lat || !ns || !lon || !ew || !date) return { kind: 'unknown', raw };
+  const [, , , time, validity, lat, ns, lon, ew, speed, course, date, status] =
+    parts;
+  if (!time || !validity || !lat || !ns || !lon || !ew || !date)
+    return { kind: 'unknown', raw };
 
   const latitude = dmToDecimal(lat, ns);
   const longitude = dmToDecimal(lon, ew);
@@ -82,7 +101,11 @@ export function decodeFrame(raw: string, speedUnit: 'knots' | 'kmh'): DecodedFra
 
   const rawSpeed = toNumberOrNull(speed);
   const speedKmh =
-    rawSpeed === null ? null : speedUnit === 'knots' ? rawSpeed * KNOTS_TO_KMH : rawSpeed;
+    rawSpeed === null
+      ? null
+      : speedUnit === 'knots'
+        ? rawSpeed * KNOTS_TO_KMH
+        : rawSpeed;
 
   return {
     kind: 'position',

@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import type { CreateVehicleBody, UpdateVehicleBody } from '@mms/shared';
 import { vehiclesListQuerySchema } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
-import { publicUploadPath } from '../../lib/uploads.js';
+import { retainUploadedFiles, uploadedFileUrl } from '../../lib/uploads.js';
 import * as service from './service.js';
 
 function requireIdParam(req: Request): string {
@@ -21,7 +21,7 @@ function requireUser(req: Request) {
 // multer .array() puts uploaded files on req.files (an array here).
 function uploadedPaths(req: Request): string[] {
   const files = (req.files as Express.Multer.File[] | undefined) ?? [];
-  return files.map((f) => publicUploadPath('vehicles', f.filename));
+  return files.map((f) => uploadedFileUrl('vehicles', f));
 }
 
 export async function list(req: Request, res: Response): Promise<void> {
@@ -33,22 +33,23 @@ export async function getById(req: Request, res: Response): Promise<void> {
 }
 
 export async function create(req: Request, res: Response): Promise<void> {
-  res
-    .status(201)
-    .json(
-      await service.create(req.body as CreateVehicleBody, uploadedPaths(req))
-    );
+  const saved = await service.create(
+    req.body as CreateVehicleBody,
+    uploadedPaths(req)
+  );
+  retainUploadedFiles(req);
+  res.status(201).json(saved);
 }
 
 export async function update(req: Request, res: Response): Promise<void> {
-  res.json(
-    await service.update(
-      requireIdParam(req),
-      req.body as UpdateVehicleBody,
-      uploadedPaths(req),
-      requireUser(req)
-    )
+  const saved = await service.update(
+    requireIdParam(req),
+    req.body as UpdateVehicleBody,
+    uploadedPaths(req),
+    requireUser(req)
   );
+  retainUploadedFiles(req);
+  res.json(saved);
 }
 
 export async function remove(req: Request, res: Response): Promise<void> {

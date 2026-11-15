@@ -79,13 +79,18 @@ async function issuePairUnderLock(
 async function issuePair(
   user: UserWithRole,
   role: string,
-  grantOrigin?: Pick<UserWithRole, 'id' | 'authVersion'>
+  grantOrigin?: Pick<UserWithRole, 'id' | 'authVersion'>,
+  sourceSession?: { userId: string; tokenHash: string }
 ): Promise<AuthResult> {
   return prisma.$transaction(async (tx) => {
     // Stable lock order also covers delegated test-account authority. Locking
     // only the destination would let an origin reset race with issuance.
     const ids = [
-      ...new Set([user.id, ...(grantOrigin ? [grantOrigin.id] : [])])
+      ...new Set([
+        user.id,
+        ...(grantOrigin ? [grantOrigin.id] : []),
+        ...(sourceSession ? [sourceSession.userId] : [])
+      ])
     ].sort();
     for (const id of ids) {
       await tx.$queryRaw`SELECT id FROM users WHERE id = ${id}::uuid FOR NO KEY UPDATE`;
@@ -111,6 +116,24 @@ async function issuePair(
           'Test account switching is unavailable'
         );
       }
+    }
+    // Claim and issuance commit together. A denied origin/destination check
+    // must leave the ordinary source session available for its next refresh.
+    if (sourceSession) {
+      const claimed = await tx.refreshToken.updateMany({
+        where: {
+          ...sourceSession,
+          revokedAt: null,
+          expiresAt: { gt: new Date() }
+        },
+        data: { revokedAt: new Date() }
+      });
+      if (claimed.count !== 1)
+        throw new AppError(
+          403,
+          'TEST_ACCOUNT_FORBIDDEN',
+          'Test account session has ended'
+        );
     }
     // A login/refresh may have read this account before an admin changed it.
     // Reject stale issuance rather than resurrecting a revoked refresh session.

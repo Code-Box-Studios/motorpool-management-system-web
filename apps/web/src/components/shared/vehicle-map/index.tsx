@@ -14,7 +14,11 @@ import {
 } from 'react-leaflet';
 import { DEVICE_ONLINE_THRESHOLD_MS } from '@/lib/utils/tracker-devices';
 import type { GpsDataRow } from '@/lib/api/gps';
-import { hasGpsPosition, routeSegments } from '@/lib/utils/gps-tracking';
+import {
+  gpsPositionTime,
+  hasGpsPosition,
+  routeSegments
+} from '@/lib/utils/gps-tracking';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -80,6 +84,8 @@ export interface GpsDataWithVehicle {
   heading: number | null;
   engine_status: string | null;
   created_at: string;
+  fix_time?: string | null;
+  last_contact_at?: string | null;
   vehicles?: {
     id: string;
     make: string;
@@ -246,7 +252,8 @@ export function VehicleMap({
   const validRoute = useMemo(
     () =>
       routePoints?.filter(
-        (p) => hasGpsPosition(p) && Number.isFinite(Date.parse(p.created_at))
+        (p) =>
+          hasGpsPosition(p) && Number.isFinite(Date.parse(gpsPositionTime(p)))
       ),
     [routePoints]
   );
@@ -397,8 +404,8 @@ export function VehicleMap({
         {validGpsData.map((data) => {
           const vehicle = data.vehicles!;
           const fresh =
-            Number.isFinite(Date.parse(data.created_at)) &&
-            Date.now() - Date.parse(data.created_at) <
+            Number.isFinite(Date.parse(gpsPositionTime(data))) &&
+            Date.now() - Date.parse(gpsPositionTime(data)) <
               DEVICE_ONLINE_THRESHOLD_MS;
           const trackingColor = !fresh
             ? '#64748b'
@@ -519,8 +526,8 @@ export function VehicleMap({
                         color: '#666'
                       }}
                     >
-                      Position recorded:{' '}
-                      {new Date(data.created_at).toLocaleString()}
+                      Position time:{' '}
+                      {new Date(gpsPositionTime(data)).toLocaleString()}
                     </p>
                   </div>
                 </Popup>

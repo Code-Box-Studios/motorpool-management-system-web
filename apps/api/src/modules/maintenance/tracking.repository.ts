@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import type { Prisma } from '@prisma/client';
 
 export function findTrackingWithItem(id: string) {
   return prisma.vehicleMaintenanceTracking.findUnique({
@@ -14,8 +15,11 @@ export function listTrackingForVehicle(vehicleId: string) {
   });
 }
 
-export function findTrackedItemIds(vehicleId: string) {
-  return prisma.vehicleMaintenanceTracking.findMany({
+export function findTrackedItemIds(
+  vehicleId: string,
+  client: Prisma.TransactionClient = prisma
+) {
+  return client.vehicleMaintenanceTracking.findMany({
     where: { vehicleId },
     select: { maintenanceScheduleItemId: true }
   });

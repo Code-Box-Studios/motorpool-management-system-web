@@ -289,21 +289,125 @@ test('an unavailable stored photo uses the same noninteractive UM logo fallback'
   ).toHaveCount(0);
 });
 
-test('non-admin users cannot enter vehicle or tracker management', async ({
+test('EVP can read vehicle details but cannot edit vehicles, tasks or trackers', async ({
   page
 }) => {
   await login(page, 'evp');
-  await page.goto(`/vehicles/${vehicleId}`);
-  await page.waitForURL(/\/dashboard/);
+  const standardId = '77777777-7777-4777-8777-777777777771';
+  const itemId = '77777777-7777-4777-8777-777777777772';
+  const scheduleItem = {
+    id: itemId,
+    maintenanceStandardId: standardId,
+    taskName: 'Readonly oil change',
+    taskDescription: 'Read-only task',
+    intervalType: 'mileage',
+    intervalMileage: 5000,
+    intervalMonths: null
+  };
+  await page.route(/\/api\/maintenance-standards(?:\?|$)/, (route) =>
+    route.fulfill({
+      json: {
+        data: [
+          {
+            id: standardId,
+            name: 'Readonly fleet standard',
+            description: null,
+            scheduleItems: [scheduleItem]
+          }
+        ],
+        count: 1
+      }
+    })
+  );
+  await page.route(
+    `**/api/vehicles/${vehicleId}/maintenance-tracking`,
+    (route) =>
+      route.fulfill({
+        json: {
+          data: [
+            {
+              id: '77777777-7777-4777-8777-777777777773',
+              vehicleId,
+              maintenanceScheduleItemId: itemId,
+              scheduleItem,
+              status: 'pending',
+              displayStatus: 'pending',
+              nextDueMileage: 47350,
+              nextDueDate: null,
+              lastCompletedDate: null,
+              lastCompletedMileage: null
+            }
+          ],
+          count: 1
+        }
+      })
+  );
+  await fixture(page, ['/vehicle-layout-photo-1.svg']);
+  await expect(page).toHaveURL(new RegExp(`/vehicles/${vehicleId}$`));
+  const overview = page.getByRole('region', {
+    name: 'Vehicle overview',
+    exact: true
+  });
+  await expect(overview).toBeVisible();
+  await expectField(overview, 'Mileage', '42,350 km');
   await expect(
-    page.getByRole('region', { name: 'Vehicle overview' })
+    overview.getByRole('button', { name: 'Edit', exact: true })
   ).toHaveCount(0);
+  await expect(
+    overview.getByRole('button', { name: /Remove photo|Add photos/ })
+  ).toHaveCount(0);
+  await expect(page.getByLabel('Add vehicle photos')).toHaveCount(0);
   await expect(
     page.getByRole('button', { name: 'Delete vehicle', exact: true })
   ).toHaveCount(0);
+  const tracking = page.getByRole('region', {
+    name: 'Tracked maintenance',
+    exact: true
+  });
+  await expect(tracking).toContainText('Readonly oil change');
+  await expect(tracking).toContainText('47,350 km');
+  await expect(
+    tracking.getByRole('button', {
+      name: /Assign standard|Complete|Record completion/
+    })
+  ).toHaveCount(0);
+  await expect(tracking.getByRole('combobox')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'GPS Tracker' })).toHaveCount(
     0
   );
+  await page.goto('/vehicles');
+  await page.waitForURL(/\/dashboard$/);
+  await expect(
+    page.getByRole('region', { name: 'Vehicle overview' })
+  ).toHaveCount(0);
+  await page.goto('/tracker-devices');
+  await page.waitForURL(/\/dashboard$/);
+  await page.goto('/tracker-devices/77777777-7777-4777-8777-777777777774');
+  await page.waitForURL(/\/dashboard$/);
+});
+
+test('guard cannot enter vehicle detail or tracker management', async ({
+  page
+}) => {
+  await login(page, 'guard');
+  for (const path of [
+    `/vehicles/${vehicleId}`,
+    '/vehicles',
+    '/tracker-devices',
+    '/tracker-devices/77777777-7777-4777-8777-777777777774'
+  ]) {
+    await page.goto(path);
+    await page.waitForURL(/\/dashboard$/);
+    await expect(
+      page.getByRole('region', { name: 'Vehicle overview' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('region', { name: 'Tracked maintenance' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: 'GPS Tracker' })
+    ).toHaveCount(0);
+  }
 });
 
 for (const width of [1280, 900]) {

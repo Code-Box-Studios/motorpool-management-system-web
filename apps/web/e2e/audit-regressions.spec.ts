@@ -631,7 +631,10 @@ test.describe('audit regressions', () => {
   });
 
   test('F14 requester resource children and trailing slash are denied; shared routes remain open', async ({
-    page
+    page,
+    browser,
+    baseURL,
+    timezoneId
   }) => {
     test.setTimeout(90000);
     await login(page, 'requester');
@@ -650,15 +653,25 @@ test.describe('audit regressions', () => {
     }
     await page.goto('/profile');
     await expect(page).toHaveURL(/\/profile$/);
-    await page.context().clearCookies();
-    await login(page, 'guard');
-    await expect(page.getByText('Gate check').first()).toBeVisible();
-    await page.goto('/profile');
-    await expect(page).toHaveURL(/\/profile$/);
+    // A profile boot can still rotate its cookie after clearCookies(). The
+    // second actor gets an independent context so pending requester responses
+    // cannot restore requester credentials during the guard login.
+    const guardContext = await browser.newContext({ baseURL, timezoneId });
+    try {
+      const guardPage = await guardContext.newPage();
+      await login(guardPage, 'guard');
+      await expect(guardPage.getByText('Gate check').first()).toBeVisible();
+      await guardPage.goto('/profile');
+      await expect(guardPage).toHaveURL(/\/profile$/);
+    } finally {
+      await guardContext.close();
+    }
   });
 
   test('F14 shared detail and profile access follows all five API roles', async ({
-    page
+    browser,
+    baseURL,
+    timezoneId
   }) => {
     test.setTimeout(90000);
     const trip = await fixtureTrip(
@@ -686,41 +699,46 @@ test.describe('audit regressions', () => {
       'evp',
       'guard'
     ] as const) {
-      await page.context().clearCookies();
-      await login(page, role);
-      await page.goto('/profile');
-      await expect(
-        page.getByRole('heading', { name: 'My Profile' })
-      ).toBeVisible();
-      await page.goto(`/trip-tickets/${trip.id}`);
-      await expect(
-        page.getByRole('heading', {
-          name: `${marker} shared trip`,
-          exact: true
-        })
-      ).toBeVisible();
-      if (role !== 'admin' && role !== 'requester')
+      const actorContext = await browser.newContext({ baseURL, timezoneId });
+      try {
+        const page = await actorContext.newPage();
+        await login(page, role);
+        await page.goto('/profile');
         await expect(
-          page.getByRole('button', { name: 'Edit', exact: true })
-        ).toHaveCount(0);
-      await page.goto(`/job-order/${job.id}`);
-      if (role === 'guard') await expect(page).toHaveURL(/\/dashboard$/);
-      else
+          page.getByRole('heading', { name: 'My Profile' })
+        ).toBeVisible();
+        await page.goto(`/trip-tickets/${trip.id}`);
         await expect(
           page.getByRole('heading', {
-            name: `${marker} shared repair`,
+            name: `${marker} shared trip`,
             exact: true
           })
         ).toBeVisible();
-      await page.goto(`/tools/${tool.id}`);
-      if (role === 'admin' || role === 'driver')
-        await expect(
-          page.getByRole('heading', {
-            name: `${marker} shared tool`,
-            exact: true
-          })
-        ).toBeVisible();
-      else await expect(page).toHaveURL(/\/dashboard$/);
+        if (role !== 'admin' && role !== 'requester')
+          await expect(
+            page.getByRole('button', { name: 'Edit', exact: true })
+          ).toHaveCount(0);
+        await page.goto(`/job-order/${job.id}`);
+        if (role === 'guard') await expect(page).toHaveURL(/\/dashboard$/);
+        else
+          await expect(
+            page.getByRole('heading', {
+              name: `${marker} shared repair`,
+              exact: true
+            })
+          ).toBeVisible();
+        await page.goto(`/tools/${tool.id}`);
+        if (role === 'admin' || role === 'driver')
+          await expect(
+            page.getByRole('heading', {
+              name: `${marker} shared tool`,
+              exact: true
+            })
+          ).toBeVisible();
+        else await expect(page).toHaveURL(/\/dashboard$/);
+      } finally {
+        await actorContext.close();
+      }
     }
   });
 

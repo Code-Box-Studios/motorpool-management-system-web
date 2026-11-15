@@ -9,6 +9,7 @@ import type {
 import { LIVE_TRIP_STATUSES, normaliseTripDates } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { lockDrivers, lockVehicles } from '../../lib/resource-locks.js';
+import { lockEmployees } from '../../lib/employee-locks.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { toSkipTake } from '../../lib/pagination.js';
 import { toOrderBy } from '../../lib/sorting.js';
@@ -21,6 +22,7 @@ import {
   tripTicketInclude
 } from './repository.js';
 import { replaceTripDates } from './dates.js';
+import { assertTripOrganization } from './organization.js';
 import {
   assertTripGuideRules,
   replaceTripParticipants,
@@ -312,12 +314,6 @@ export async function create(
   body: CreateTripTicketBody,
   actor: AuthenticatedUser
 ) {
-  await assertOrgRefsActive({
-    branchId: body.branchId,
-    officeId: body.officeId,
-    officeHeadId: body.officeHeadId
-  });
-  await assertGuideEmployeesActive(body.guideIds);
   // WHO ASKED is the authenticated caller — not a field the client fills in. It
   // used to be spread straight out of the body, so a requester could book a trip
   // in the admin's name, or with `requestedById: null` and no owner at all — and
@@ -343,8 +339,19 @@ export async function create(
   // update() below.
   const { guideIds, participantEmployeeIds, ...ticketData } = body;
   const ticket = await prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive(
+      {
+        branchId: body.branchId,
+        officeId: body.officeId,
+        officeHeadId: body.officeHeadId
+      },
+      tx
+    );
+    await assertTripOrganization(tx, body);
     await lockDrivers(tx, [body.driverId]);
     await lockVehicles(tx, [body.vehicleId]);
+    await lockEmployees(tx, [...guideIds, ...(participantEmployeeIds ?? [])]);
+    await assertGuideEmployeesActive(guideIds, tx);
     const { employeeIds, replaceMembership, ...partyData } =
       await resolveTripParticipants(tx, body);
     assertTripGuideRules(partyData.participantType, guideIds, employeeIds);
@@ -390,12 +397,15 @@ export async function update(
   body: UpdateTripTicketBody,
   actor: AuthenticatedUser
 ) {
-  await assertOrgRefsActive({
-    branchId: body.branchId,
-    officeId: body.officeId,
-    officeHeadId: body.officeHeadId
-  });
   await prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive(
+      {
+        branchId: body.branchId,
+        officeId: body.officeId,
+        officeHeadId: body.officeHeadId
+      },
+      tx
+    );
     await tx.$queryRaw`SELECT id FROM trip_tickets WHERE id = ${id}::uuid FOR UPDATE`;
     const existing = await tx.tripTicket.findUnique({
       where: { id },
@@ -417,6 +427,21 @@ export async function update(
         'Trip ticket can only be edited while pending admin approval'
       );
     }
+    if (
+      body.branchId !== undefined ||
+      body.officeId !== undefined ||
+      body.officeHeadId !== undefined
+    ) {
+      await assertTripOrganization(tx, {
+        branchId: body.branchId ?? existing.branchId,
+        officeId:
+          body.officeId === undefined ? existing.officeId : body.officeId,
+        officeHeadId:
+          body.officeHeadId === undefined
+            ? existing.officeHeadId
+            : body.officeHeadId
+      });
+    }
     await lockDrivers(tx, [
       existing.driverId,
       body.driverId ?? existing.driverId
@@ -432,7 +457,12 @@ export async function update(
     const guidesChanged =
       body.guideIds !== undefined &&
       !sameEmployeeIds(body.guideIds, currentGuideIds);
-    if (guidesChanged) await assertGuideEmployeesActive(nextGuideIds);
+    await lockEmployees(tx, [
+      ...nextGuideIds,
+      ...(body.participantEmployeeIds ??
+        existing.participantEmployees.map((row) => row.employeeId))
+    ]);
+    if (guidesChanged) await assertGuideEmployeesActive(nextGuideIds, tx);
     const { employeeIds, replaceMembership, ...partyData } =
       await resolveTripParticipants(tx, body, existing);
     assertTripGuideRules(partyData.participantType, nextGuideIds, employeeIds);

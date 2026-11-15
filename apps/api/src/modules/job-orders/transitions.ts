@@ -1,4 +1,5 @@
 import type { CompleteRepairBody, NoteJobOrderBody } from '@mms/shared';
+import { manilaDateString } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { lockSpareParts, lockVehicles } from '../../lib/resource-locks.js';
 import { prisma } from '../../lib/prisma.js';
@@ -184,6 +185,13 @@ export async function completeRepair(
     );
   }
   const releaseDate = body.actualDateOfRelease ?? new Date();
+  if (releaseDate.getTime() > Date.now()) {
+    throw new AppError(
+      400,
+      'RELEASE_IN_THE_FUTURE',
+      'An actual release date cannot be in the future'
+    );
+  }
   const maintenanceType =
     body.maintenanceType === undefined
       ? order.maintenanceType
@@ -235,7 +243,7 @@ export async function completeRepair(
       data: {
         vehicleId: order.vehicleId,
         type: maintenanceType ?? 'repair',
-        date: releaseDate,
+        date: new Date(`${manilaDateString(releaseDate)}T00:00:00.000Z`),
         mileage: body.completedMileage,
         description: body.remarks ?? null
       }

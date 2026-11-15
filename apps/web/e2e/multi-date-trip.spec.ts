@@ -86,6 +86,19 @@ test('an event on two non-consecutive dates: one approval, two gate cycles', asy
   const heads = listData(
     await apiGet(request, '/api/office-heads', admin.token)
   );
+  // Organization lists sort independently; array positions are not relationships.
+  const branch =
+    branches.find((row) => row.id === requester.user.branchId) ?? branches[0];
+  expect(branch, 'a seeded branch is available').toBeTruthy();
+  const office = offices.find((row) => row.branchId === branch.id);
+  expect(office, 'the selected branch has a linked office').toBeTruthy();
+  const head = heads.find(
+    (row) => row.branchId === branch.id && row.officeId === office!.id
+  );
+  expect(
+    head,
+    'the selected office has a head in the same branch'
+  ).toBeTruthy();
   const vehicles = listData(
     await apiGet(request, '/api/vehicles', admin.token)
   );
@@ -102,8 +115,13 @@ test('an event on two non-consecutive dates: one approval, two gate cycles', asy
     guide,
     'an active employee is available to guide the trips'
   ).toBeTruthy();
-  const linkedDriver =
-    drivers.find((d) => d.userId === driver.user.id) ?? drivers[0];
+  const linkedDriver = drivers.find(
+    (d) => d.userId === driver.user.id && d.status === 'active'
+  );
+  expect(
+    linkedDriver,
+    'the driver login has an active linked driver record'
+  ).toBeTruthy();
 
   // Far-future, distinct windows: the seeded demo data and every other spec
   // share this database, and an overlapping window fails with
@@ -122,11 +140,11 @@ test('an event on two non-consecutive dates: one approval, two gate cycles', asy
       '/api/trip-tickets',
       requester.token,
       {
-        branchId: branches[0].id as string,
-        driverId: linkedDriver.id as string,
+        branchId: branch.id as string,
+        driverId: linkedDriver!.id as string,
         vehicleId: vehicle!.id as string,
-        officeId: (offices[0]?.id as string) ?? null,
-        officeHeadId: (heads[0]?.id as string) ?? null,
+        officeId: office!.id as string,
+        officeHeadId: head!.id as string,
         destination,
         purpose: 'E2E multi-date event',
         dateRequested: new Date().toISOString(),
@@ -147,7 +165,10 @@ test('an event on two non-consecutive dates: one approval, two gate cycles', asy
         ]
       }
     );
-    expect(created.ok, 'requester books a two-date event').toBeTruthy();
+    expect(
+      created.ok,
+      `requester books a two-date event: HTTP ${created.status} ${JSON.stringify(created.body)}`
+    ).toBeTruthy();
     const ticket = created.body as {
       id: string;
       dates: { id: string; startTs: string; status: string }[];
@@ -196,11 +217,11 @@ test('an event on two non-consecutive dates: one approval, two gate cycles', asy
     // A single 60→64-day continuous window would have refused this outright
     // (VEHICLE_DOUBLE_BOOKED); per-date booking is what leaves it free.
     const gap = await apiPost(request, '/api/trip-tickets', requester.token, {
-      branchId: branches[0].id as string,
-      driverId: linkedDriver.id as string,
+      branchId: branch.id as string,
+      driverId: linkedDriver!.id as string,
       vehicleId: vehicle!.id as string,
-      officeId: (offices[0]?.id as string) ?? null,
-      officeHeadId: (heads[0]?.id as string) ?? null,
+      officeId: office!.id as string,
+      officeHeadId: head!.id as string,
       destination: `${destination} GAP`,
       purpose: 'E2E gap-day booking',
       dateRequested: new Date().toISOString(),
@@ -216,7 +237,10 @@ test('an event on two non-consecutive dates: one approval, two gate cycles', asy
         }
       ]
     });
-    expect(gap.ok, 'the days between two dates stay bookable').toBeTruthy();
+    expect(
+      gap.ok,
+      `the days between two dates stay bookable: HTTP ${gap.status} ${JSON.stringify(gap.body)}`
+    ).toBeTruthy();
     const gapTripId = (gap.body as { id: string }).id;
     createdIds.push(gapTripId);
 
@@ -257,11 +281,11 @@ test('an event on two non-consecutive dates: one approval, two gate cycles', asy
 
     // ---------- A cancelled date frees its window for other bookings ----------
     const freed = await apiPost(request, '/api/trip-tickets', requester.token, {
-      branchId: branches[0].id as string,
-      driverId: linkedDriver.id as string,
+      branchId: branch.id as string,
+      driverId: linkedDriver!.id as string,
       vehicleId: vehicle!.id as string,
-      officeId: (offices[0]?.id as string) ?? null,
-      officeHeadId: (heads[0]?.id as string) ?? null,
+      officeId: office!.id as string,
+      officeHeadId: head!.id as string,
       destination: `${destination} FREED`,
       purpose: 'E2E freed-window booking',
       dateRequested: new Date().toISOString(),
@@ -279,7 +303,7 @@ test('an event on two non-consecutive dates: one approval, two gate cycles', asy
     });
     expect(
       freed.ok,
-      'a cancelled date frees its window for other bookings'
+      `a cancelled date frees its window for other bookings: HTTP ${freed.status} ${JSON.stringify(freed.body)}`
     ).toBeTruthy();
     const freedTripId = (freed.body as { id: string }).id;
     createdIds.push(freedTripId);

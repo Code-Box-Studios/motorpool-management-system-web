@@ -14,6 +14,9 @@ export const ingestGpsBodySchema = z
     protocol: z.literal('h02').optional(),
     packet: trackerPacketBodySchema.optional(),
     tripId: z.string().uuid().nullable().optional(),
+    // Measurement time and optional transport receipt are separate from storage time.
+    fixTime: z.coerce.date().nullable().optional(),
+    receivedAt: z.coerce.date().optional(),
     latitude: z.coerce.number().min(-90).max(90),
     longitude: z.coerce.number().min(-180).max(180),
     speed: z.coerce.number().nullable().optional(),
@@ -21,6 +24,44 @@ export const ingestGpsBodySchema = z
     engineStatus: z.string().nullable().optional() // free text; only 'on' seen today
   })
   .superRefine((body, ctx) => {
+    // Permit a small tracker clock skew, never a future timestamp that could
+    // indefinitely suppress subsequent genuine fixes.
+    const latestAllowed = Date.now() + 60_000;
+    for (const [path, time] of [
+      [
+        'fixTime',
+        body.fixTime?.getTime() ??
+          (body.packet?.fixTime ? Date.parse(body.packet.fixTime) : undefined)
+      ],
+      [
+        'receivedAt',
+        body.receivedAt?.getTime() ??
+          (body.packet ? Date.parse(body.packet.receivedAt) : undefined)
+      ]
+    ] as const) {
+      if (time !== undefined && time > latestAllowed) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [path],
+          message: 'GPS timestamps cannot be in the future'
+        });
+      }
+    }
+    if (
+      body.packet &&
+      ((body.fixTime !== undefined &&
+        (body.fixTime?.getTime() ?? null) !==
+          (body.packet.fixTime ? Date.parse(body.packet.fixTime) : null)) ||
+        (body.receivedAt !== undefined &&
+          body.receivedAt.getTime() !== Date.parse(body.packet.receivedAt)))
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['packet'],
+        message: 'Position times must match the original packet'
+      });
+    }
+
     if (Boolean(body.deviceId) !== Boolean(body.protocol)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

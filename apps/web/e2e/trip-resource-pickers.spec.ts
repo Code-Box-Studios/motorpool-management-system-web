@@ -17,7 +17,13 @@ async function openLargeRoster(page: Page) {
       const response = await route.fetch();
       const body = await response.json();
       const templates = body.data;
-      const main = templates[0].branchId;
+      // The wizard selects the first branch, independently of fleet ordering.
+      // Build the 90-row group for that branch rather than the newest vehicle.
+      const branchResponse = await route.fetch({
+        url: new URL('/api/branches', request.url()).href
+      });
+      const branches = await branchResponse.json();
+      const main = branches.data[0].id;
       const other = templates.find(
         (row: { branchId: string }) => row.branchId !== main
       )?.branchId;

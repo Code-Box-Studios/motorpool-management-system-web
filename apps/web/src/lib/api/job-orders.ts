@@ -52,9 +52,8 @@ interface JobOrderApiResponse {
 // (licensePlate -> license_plate), and rebuild `spare_parts_used` (the old
 // ids-only array) from the spareParts join so components that still read it
 // keep working. Typed return (no `as`) so tsc enforces every `job_orders` column.
-// Note: incidentDate/dateOfRequest/dateApproved/targetDate/actualDateOfRelease
-// are `@db.Date` but every FE consumer binds them to `<input type="datetime-local">`
-// (not `type="date"`), so they're passed through as full ISO strings, unsliced.
+// Repair dates are instants edited with datetime-local controls. Preserve their
+// full ISO strings; calendar-only slicing would lose the chosen local time.
 function toSnake(o: JobOrderApiResponse): JobOrderWithRelations {
   return {
     id: o.id,
@@ -106,6 +105,10 @@ interface JobOrderRequestBody {
   remarks?: string | null;
 }
 
+function dateTimeForApi(value: string | undefined): string | undefined {
+  return value ? new Date(value).toISOString() : undefined;
+}
+
 // snake_case -> camelCase for the create body. vehicleId/branchId are
 // `.uuid()` REQUIRED by the API — map '' -> undefined so an unset id is
 // OMITTED rather than sent as an invalid empty-string uuid. Only the 6 fields
@@ -117,7 +120,7 @@ function mapCreateBody(o: NewJobOrder): JobOrderRequestBody {
     serviceLocation: o.service_location || undefined,
     vehicleId: o.vehicle_id || undefined,
     branchId: o.branch_id || undefined,
-    incidentDate: o.incident_date || undefined,
+    incidentDate: dateTimeForApi(o.incident_date || undefined),
     incidentDetails: o.incident_details ?? undefined,
     requestedById: o.requested_by || undefined,
     remarks: o.remarks ?? undefined
@@ -140,7 +143,9 @@ function mapUpdateBody(u: Record<string, unknown>): JobOrderRequestBody {
   if (u.branch_id !== undefined)
     body.branchId = (u.branch_id as string) || undefined;
   if (u.incident_date !== undefined)
-    body.incidentDate = (u.incident_date as string) || undefined;
+    body.incidentDate = dateTimeForApi(
+      (u.incident_date as string) || undefined
+    );
   if (u.incident_details !== undefined) {
     body.incidentDetails =
       (u.incident_details as string) === ''
@@ -232,7 +237,11 @@ export async function noteJobOrder(
   }
 ): Promise<JobOrderWithRelations> {
   return toSnake(
-    await api.post<JobOrderApiResponse>(`/job-orders/${id}/note`, body)
+    await api.post<JobOrderApiResponse>(`/job-orders/${id}/note`, {
+      ...body,
+      dateOfRequest: dateTimeForApi(body.dateOfRequest),
+      targetDate: dateTimeForApi(body.targetDate)
+    })
   );
 }
 
@@ -261,9 +270,11 @@ export async function completeRepairJobOrder(
   }
 ): Promise<JobOrderWithRelations> {
   return toSnake(
-    await api.post<JobOrderApiResponse>(
-      `/job-orders/${id}/complete-repair`,
-      body
-    )
+    await api.post<JobOrderApiResponse>(`/job-orders/${id}/complete-repair`, {
+      ...body,
+      // datetime-local is in the operator's browser timezone. Send an instant
+      // so the API host never interprets it in its own timezone.
+      actualDateOfRelease: dateTimeForApi(body.actualDateOfRelease)
+    })
   );
 }

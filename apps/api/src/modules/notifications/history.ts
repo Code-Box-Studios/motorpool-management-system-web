@@ -80,6 +80,12 @@ export function historicalNotificationText(notification: {
         body = 'The repair was signed off.';
       }
       break;
+    case 'job_order_completed':
+      title = title.replace(/^(JO(?:-\d+)?) is repaired$/, '$1 was repaired');
+      if (body === 'The repair is closed and the vehicle is available again.') {
+        body = 'The repair was completed and closed.';
+      }
+      break;
     case 'trip_checked_out':
       body = body?.replace(/^On the road to /, 'Departed for ') ?? null;
       break;

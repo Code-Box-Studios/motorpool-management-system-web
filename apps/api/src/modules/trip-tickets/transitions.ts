@@ -11,6 +11,7 @@ import {
 } from './odometer-policy.js';
 import { AppError } from '../../lib/errors.js';
 import { lockDrivers, lockVehicles } from '../../lib/resource-locks.js';
+import { lockEmployees } from '../../lib/employee-locks.js';
 import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
@@ -650,7 +651,6 @@ export async function checkIn(
  * AuthenticatedUser and an events.* call like the rest.
  */
 export async function reassignGuides(id: string, guideIds: string[]) {
-  await assertGuideEmployeesActive(guideIds);
   await prisma.$transaction(async (tx) => {
     await lockTicket(tx, id);
     const ticket = await loadInState(
@@ -668,6 +668,8 @@ export async function reassignGuides(id: string, guideIds: string[]) {
       participants.map((row) => row.employeeId)
     );
     await lockVehicles(tx, [ticket.vehicleId]);
+    await lockEmployees(tx, guideIds);
+    await assertGuideEmployeesActive(guideIds, tx);
     const vehicle = await tx.vehicle.findUnique({
       where: { id: ticket.vehicleId },
       select: { capacity: true }
@@ -744,7 +746,7 @@ export async function recordOdometer(
     const canRecord =
       ['approved', 'in_progress', 'completed'].includes(ticket.status) ||
       (ticket.status === 'cancelled' && outing.status === 'completed');
-    if (driver.status !== 'active' || !canRecord) {
+    if (driver.status === 'inactive' || !canRecord) {
       throw new AppError(
         409,
         'INVALID_TRANSITION',

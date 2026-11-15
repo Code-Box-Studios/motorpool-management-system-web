@@ -51,6 +51,7 @@ const OUTCOME_LABELS: Record<TrackerPacketLog['outcome'], string> = {
   oversized: 'Oversized',
   resolution_error: 'Resolution error',
   forward_error: 'Forwarding error',
+  forward_overload: 'Forward queue full',
   socket_error: 'Socket error'
 };
 const KIND_LABELS: Record<TrackerPacketLog['kind'], string> = {

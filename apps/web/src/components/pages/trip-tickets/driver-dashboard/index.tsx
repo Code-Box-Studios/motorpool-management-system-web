@@ -1,5 +1,5 @@
 import { OdometerActions } from './odometer-actions';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import QRCode from 'react-qr-code';
 import { ArrowRight, CalendarDays, CarFront, QrCode, X } from 'lucide-react';
@@ -103,6 +103,34 @@ const DriverDashboard = () => {
       ),
     [tripTicketsData, currentDriver?.id]
   );
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    setNow(Date.now());
+  }, [assignedTickets]);
+  useEffect(() => {
+    const refreshTime = () => setNow(Date.now());
+    const nextEnd = assignedTickets
+      .flatMap((ticket) => ticket.dates)
+      .filter((date) => date.status === 'scheduled')
+      .map((date) => new Date(date.end_ts).getTime() + 1)
+      .filter((end) => end > now)
+      .sort((a, b) => a - b)[0];
+    // Browsers can suspend background timers; visibility/focus catches up on return.
+    const timer =
+      nextEnd === undefined
+        ? undefined
+        : window.setTimeout(
+            refreshTime,
+            Math.min(Math.max(0, nextEnd - Date.now()), 2_147_483_647)
+          );
+    window.addEventListener('focus', refreshTime);
+    document.addEventListener('visibilitychange', refreshTime);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', refreshTime);
+      document.removeEventListener('visibilitychange', refreshTime);
+    };
+  }, [assignedTickets, now]);
   const history = useMemo(
     () => driverTripHistory(assignedTickets, currentDriver?.id),
     [assignedTickets, currentDriver?.id]
@@ -128,14 +156,13 @@ const DriverDashboard = () => {
         )
         .map((date) => ({ ticket, date }))
     );
-    const now = Date.now();
     return list.sort(
       (a, b) =>
         outingPriority(a.date, now) - outingPriority(b.date, now) ||
         new Date(a.date.start_ts).getTime() -
           new Date(b.date.start_ts).getTime()
     );
-  }, [assignedTickets]);
+  }, [assignedTickets, now]);
 
   if (driversLoading || ticketsLoading) {
     return (

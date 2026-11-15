@@ -8,6 +8,8 @@ import type {
 import { AppError } from '../../lib/errors.js';
 import { config } from '../../config.js';
 import { prisma } from '../../lib/prisma.js';
+import { lockBranches } from '../../lib/branch-locks.js';
+import { assertOrgRefsActive } from '../../lib/org-refs.js';
 import { validateOrganizationCsv } from './csv-validation.js';
 
 // Tokens bind confirmation to the exact file and current organization snapshot.
@@ -72,7 +74,16 @@ export async function organizationCsv(
             'CSV_PREVIEW_STALE',
             'Organization data changed or preview is missing. Preview the file again.'
           );
+        // Take the whole parent set in ID order before any row writes. A branch
+        // archived since this serializable snapshot aborts as a stale preview.
+        await lockBranches(
+          tx,
+          validation.rows.flatMap((row) =>
+            row.data.branchId ? [row.data.branchId] : []
+          )
+        );
         for (const row of validation.rows) {
+          await assertOrgRefsActive({ branchId: row.data.branchId }, tx);
           if (resource === 'employees') {
             const data = {
               name: row.data.name,
@@ -104,7 +115,8 @@ export async function organizationCsv(
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2034'
+      (error.code === 'P2034' ||
+        (error.code === 'P2010' && error.meta?.code === '40001'))
     ) {
       throw new AppError(
         409,

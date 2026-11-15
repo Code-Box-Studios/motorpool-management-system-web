@@ -252,29 +252,17 @@ export async function switchTestAccount(
       'TEST_ACCOUNT_UNAVAILABLE',
       'This test account is unavailable'
     );
-  // Claim the old refresh token before issuing the next identity. A stale or
-  // concurrently used session must never mint another account's credentials.
-  const claimed = await prisma.refreshToken.updateMany({
-    where: {
-      tokenHash: grant.refreshHash,
-      userId: grant.currentId,
-      revokedAt: null,
-      expiresAt: { gt: new Date() }
+  // Source claim, origin validation, and destination issuance share one
+  // transaction and stable user-lock order. Denied switching consumes nothing.
+  const result = await issuePair(
+    user,
+    account.role,
+    {
+      id: grant.originId,
+      authVersion: grant.originAuthVersion
     },
-    data: { revokedAt: new Date() }
-  });
-  if (claimed.count !== 1)
-    throw new AppError(
-      403,
-      'TEST_ACCOUNT_FORBIDDEN',
-      'Test account session has ended'
-    );
-  // Enforce the originating admin's credential generation again under the
-  // issuance locks: a reset between grant validation and issuance must win.
-  const result = await issuePair(user, account.role, {
-    id: grant.originId,
-    authVersion: grant.originAuthVersion
-  });
+    { userId: grant.currentId, tokenHash: grant.refreshHash }
+  );
   // Refresh cookie uses the same cross-site settings as regular login.
   res.cookie('mms_refresh', result.refreshToken, {
     ...cookieOptions(),

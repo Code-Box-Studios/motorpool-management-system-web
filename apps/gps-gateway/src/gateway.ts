@@ -48,13 +48,18 @@ export async function startGateway(
   const forwarder = deps?.forwarder ?? createForwarder(config);
   const logger = deps?.packetLogger ?? (await createPacketLogger(config));
   const processing = new Set<Promise<void>>();
+  const byConnection = new Map<string, Promise<void>>();
+  const byDevice = new Map<string, Promise<void>>();
+  let retainedForwards = 0;
 
   async function persist(packet: TrackerPacketBody) {
     try {
       await logger.record(packet);
+      return true;
     } catch (error) {
       // A failed disk must be visible, while vehicle position processing continues.
       console.error(`[gateway] failed to persist packet ${packet.id}:`, error);
+      return false;
     }
   }
 
@@ -88,8 +93,34 @@ export async function startGateway(
       ignition: frame.kind === 'position' ? frame.ignition : null,
       reason: null
     };
+    const invalidPosition =
+      frame.kind === 'position' &&
+      (!frame.valid ||
+        Math.abs(frame.latitude) > 90 ||
+        Math.abs(frame.longitude) > 180 ||
+        (frame.fixTime !== null &&
+          frame.fixTime.getTime() > Date.parse(packet.receivedAt) + 60_000));
+    const needsForward =
+      !socketError &&
+      !fragment &&
+      (frame.kind === 'heartbeat' ||
+        (frame.kind === 'position' && !invalidPosition));
+    // Reserve synchronously, before any disk/registry await. The cap includes
+    // running work and work waiting for a previous device/connection packet.
+    const overloaded =
+      needsForward && retainedForwards >= config.forwardQueueMax;
+    const admitted = needsForward && !overloaded;
+    const deviceId = frame.kind !== 'unknown' ? frame.deviceId : null;
+    const previous = admitted
+      ? [
+          byConnection.get(connectionId),
+          deviceId ? byDevice.get(deviceId) : undefined
+        ]
+      : [];
+    if (admitted) retainedForwards++;
     const task = (async () => {
-      await persist(packet);
+      const receiptSaved = await persist(packet);
+      await Promise.all(previous);
       const result: TrackerPacketBody = { ...packet, revision: 1 };
       if (socketError) {
         result.outcome = 'socket_error';
@@ -105,16 +136,17 @@ export async function startGateway(
       } else if (frame.kind === 'unknown') {
         result.outcome = 'unsupported';
         result.reason = 'Malformed or unsupported H02 message';
-      } else if (
-        frame.kind === 'position' &&
-        (!frame.valid ||
-          Math.abs(frame.latitude) > 90 ||
-          Math.abs(frame.longitude) > 180)
-      ) {
+      } else if (frame.kind === 'position' && invalidPosition) {
         result.outcome = 'invalid_fix';
         result.reason = !frame.valid
           ? 'Tracker reported an invalid GPS fix'
-          : 'Coordinates were outside geographic bounds';
+          : frame.fixTime &&
+              frame.fixTime.getTime() > Date.parse(packet.receivedAt) + 60_000
+            ? 'Tracker fix time was in the future'
+            : 'Coordinates were outside geographic bounds';
+      } else if (overloaded) {
+        result.outcome = 'forward_overload';
+        result.reason = `Forward queue capacity ${config.forwardQueueMax} reached; position forwarding was skipped; ${receiptSaved ? 'raw receipt preserved' : 'initial receipt unavailable; raw bytes included in this outcome'}`;
       } else {
         let vehicleId: string | null = null;
         try {
@@ -158,7 +190,20 @@ export async function startGateway(
       )
     );
     processing.add(task);
-    void task.finally(() => processing.delete(task));
+    if (admitted) {
+      byConnection.set(connectionId, task);
+      if (deviceId) byDevice.set(deviceId, task);
+    }
+    void task.finally(() => {
+      processing.delete(task);
+      if (admitted) {
+        retainedForwards--;
+        if (byConnection.get(connectionId) === task)
+          byConnection.delete(connectionId);
+        if (deviceId && byDevice.get(deviceId) === task)
+          byDevice.delete(deviceId);
+      }
+    });
   };
 
   try {

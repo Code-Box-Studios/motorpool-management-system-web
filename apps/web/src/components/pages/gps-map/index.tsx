@@ -12,6 +12,7 @@ import { useTrackerDevices } from '@/lib/query/tracker-devices';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import {
   hasGpsPosition,
+  gpsPositionTime,
   reportAge,
   vehicleConnection,
   type TrackingVehicle
@@ -238,7 +239,7 @@ export default function GpsMapPage() {
                         </span>
                         <span className="text-muted-foreground">
                           {vehicle.point
-                            ? reportAge(vehicle.point.created_at, now)
+                            ? reportAge(gpsPositionTime(vehicle.point), now)
                             : 'No location yet'}
                         </span>
                       </span>

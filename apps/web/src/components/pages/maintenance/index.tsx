@@ -1,3 +1,4 @@
+import { MaintenanceStandardsManager } from './standards-manager';
 import ListToolbar from '@/components/shared/list-toolbar';
 import TableFilters, {
   type TableFilterDefinition
@@ -205,7 +206,7 @@ const MaintenancePage = () => {
         onValueChange={handleTabChange}
         className="w-full"
       >
-        <TabsList className="grid w-full max-w-md grid-cols-3">
+        <TabsList className="grid h-auto w-full max-w-xl grid-cols-2 sm:grid-cols-4">
           <TabsTrigger value="schedule" className={ACTIVE_TAB}>
             Schedule
           </TabsTrigger>
@@ -214,6 +215,9 @@ const MaintenancePage = () => {
           </TabsTrigger>
           <TabsTrigger value="predictive" className={ACTIVE_TAB}>
             Predictive
+          </TabsTrigger>
+          <TabsTrigger value="standards" className={ACTIVE_TAB}>
+            Standards
           </TabsTrigger>
         </TabsList>
         <TabsContent value="schedule" className="mt-6">
@@ -498,6 +502,9 @@ const MaintenancePage = () => {
               </Tabs>
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="standards" className="mt-6">
+          <MaintenanceStandardsManager />
         </TabsContent>
         <TabsContent value="preventive" className="mt-6">
           <PreventiveMaintenance showViewAll={false} />

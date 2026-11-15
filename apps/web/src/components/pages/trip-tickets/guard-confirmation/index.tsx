@@ -1,5 +1,5 @@
 import { gateOuting } from './outings';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { CheckCircle2, QrCode } from 'lucide-react';
 import { matchesSearch } from '@mms/shared';
@@ -80,12 +80,38 @@ export default function GuardConfirmationPage() {
   const actionButton = useRef<HTMLButtonElement | null>(null);
   const submitting = useRef(false);
   const pending = checkIn.isPending || checkOut.isPending;
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const refreshTime = () => setNow(Date.now());
+    const day = 86400000;
+    const offset = 8 * 3600000;
+    const midnight = Math.floor((now + offset) / day) * day + day - offset;
+    const nextEnd = tickets
+      .flatMap((item) => item.dates)
+      .filter((date) => date.status === 'scheduled')
+      .map((date) => new Date(date.end_ts).getTime())
+      .filter((end) => end > now)
+      .sort((left, right) => left - right)[0];
+    const boundary = Math.min(midnight, nextEnd ?? midnight);
+    const timer = window.setTimeout(
+      refreshTime,
+      Math.max(1, boundary - Date.now())
+    );
+    // Suspended background timers must catch up before the next gate action.
+    window.addEventListener('focus', refreshTime);
+    document.addEventListener('visibilitychange', refreshTime);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', refreshTime);
+      document.removeEventListener('visibilitychange', refreshTime);
+    };
+  }, [tickets, now]);
   const vehicleOf = (id: string) =>
     vehicles.find((vehicle) => vehicle.id === id);
   const driverOf = (id: string) =>
     drivers.find((driver) => driver.id === id)?.full_name ?? 'Unknown driver';
   const outingOf = (item: TripTicket) =>
-    gateOuting(item.status ?? '', item.dates);
+    gateOuting(item.status ?? '', item.dates, new Date(now));
   const atGate = tickets.filter((item) =>
     ['approved', 'in_progress'].includes(item.status ?? '')
   );
@@ -108,7 +134,7 @@ export default function GuardConfirmationPage() {
   const gateLabel = (item: TripTicket) =>
     item.status === 'in_progress' ? 'Out on trip' : 'Ready to depart';
   const openScan = (item: TripTicket, trigger: HTMLButtonElement) => {
-    const outing = outingOf(item);
+    const outing = gateOuting(item.status ?? '', item.dates);
     if (!outing) return;
     actionButton.current = trigger;
     setDateId(outing.id);

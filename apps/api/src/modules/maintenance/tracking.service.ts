@@ -1,4 +1,5 @@
 import type { CompleteTrackingBody } from '@mms/shared';
+import { manilaDateString } from '@mms/shared';
 import { AppError } from '../../lib/errors.js';
 import { lockVehicles } from '../../lib/resource-locks.js';
 import { advanceOdometer } from '../vehicles/status.js';
@@ -15,26 +16,27 @@ import {
 // 'pending'). Existing tracking rows — and their completion history — are left
 // intact. Returns { data, count } of the NEWLY created rows.
 export async function assign(vehicleId: string, maintenanceStandardId: string) {
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id: vehicleId },
-    select: { mileage: true }
-  });
-  if (!vehicle) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
-  const standard = await prisma.maintenanceStandard.findUnique({
-    where: { id: maintenanceStandardId },
-    include: { scheduleItems: true }
-  });
-  if (!standard)
-    throw new AppError(404, 'NOT_FOUND', 'Maintenance standard not found');
-
-  const trackedIds = new Set(
-    (await findTrackedItemIds(vehicleId)).map(
-      (t) => t.maintenanceScheduleItemId
-    )
-  );
-  const now = new Date();
-
   const created = await prisma.$transaction(async (tx) => {
+    await lockVehicles(tx, [vehicleId]);
+    // Read after waiting for odometer/assignment writes. Both the mileage
+    // anchor and existing task keys must belong to this serialized snapshot.
+    const vehicle = await tx.vehicle.findUnique({
+      where: { id: vehicleId },
+      select: { mileage: true }
+    });
+    if (!vehicle) throw new AppError(404, 'NOT_FOUND', 'Vehicle not found');
+    const standard = await tx.maintenanceStandard.findUnique({
+      where: { id: maintenanceStandardId },
+      include: { scheduleItems: true }
+    });
+    if (!standard)
+      throw new AppError(404, 'NOT_FOUND', 'Maintenance standard not found');
+    const trackedIds = new Set(
+      (await findTrackedItemIds(vehicleId, tx)).map(
+        (t) => t.maintenanceScheduleItemId
+      )
+    );
+    const now = new Date(`${manilaDateString()}T00:00:00.000Z`);
     await tx.vehicle.update({
       where: { id: vehicleId },
       data: { maintenanceStandardId }
@@ -101,7 +103,7 @@ export async function complete(
     throw new AppError(404, 'NOT_FOUND', 'Tracking record not found');
   const now = new Date();
   const { nextDueDate, nextDueMileage } = computeNextDue(
-    now,
+    new Date(`${manilaDateString(now)}T00:00:00.000Z`),
     body.completedMileage,
     tracking.scheduleItem.intervalMonths,
     tracking.scheduleItem.intervalMileage
@@ -125,7 +127,7 @@ export async function complete(
       data: {
         vehicleId: tracking.vehicleId,
         type: 'preventive',
-        date: now,
+        date: new Date(`${manilaDateString(now)}T00:00:00.000Z`),
         mileage: body.completedMileage,
         nextDue: nextDueDate,
         description: body.notes
@@ -144,7 +146,7 @@ export async function complete(
     return tx.vehicleMaintenanceTracking.update({
       where: { id: trackingId },
       data: {
-        lastCompletedDate: now,
+        lastCompletedDate: new Date(`${manilaDateString(now)}T00:00:00.000Z`),
         lastCompletedMileage: body.completedMileage,
         nextDueDate,
         nextDueMileage,

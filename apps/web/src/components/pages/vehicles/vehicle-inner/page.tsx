@@ -35,6 +35,7 @@ import {
 } from '@/components/shared/form-section';
 import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
 import { useUserRole } from '@/hooks/use-user-role';
+import { VehicleMaintenanceTracking } from './vehicle-maintenance-tracking';
 import { VehicleMaintenanceInsights } from './vehicle-maintenance-insights';
 import { VehicleTrackerSummary } from './vehicle-tracker-summary';
 import { VehicleOverview } from './vehicle-overview';
@@ -72,6 +73,7 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   const isAdmin = userRole?.roles?.name === USER_ROLES.admin;
 
   const form = useVehicleUpdateForm();
+  const { dirtyFields } = form.formState;
 
   useBreadcrumbLabel(vehicle?.license_plate);
 
@@ -109,9 +111,11 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
       // The form field is `branchId` (a branch UUID from the <Select>), but
       // the FE's Vehicle row type (and what the adapter sends on) names the
       // column `branch` -- map it explicitly so the value actually reaches the API.
-      const { newImages, branchId, ...rest } = pendingData;
+      const { newImages, branchId, mileage, ...rest } = pendingData;
       const updates: Omit<UpdateVehicle, 'images'> = {
         ...rest,
+        // Preserve newer operational readings unless the operator edits mileage.
+        ...(dirtyFields.mileage ? { mileage } : {}),
         branch: branchId
       };
       updateVehicle.mutate(
@@ -162,11 +166,11 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <Link
-        to="/vehicles"
+        to={isAdmin ? '/vehicles' : '/dashboard'}
         className="text-muted-foreground hover:text-foreground inline-flex w-fit items-center gap-1 text-sm transition-colors"
       >
         <ChevronLeft className="size-4" aria-hidden="true" />
-        Vehicles
+        {isAdmin ? 'Vehicles' : 'Dashboard'}
       </Link>
       <VehicleOverview
         vehicle={vehicle}
@@ -175,11 +179,15 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
         fuelType={fuelType}
         images={images}
         isEditing={isEditing}
-        onEdit={() => {
-          resetFromRecord();
-          setIsEditing(!isEditing);
-          if (isEditing) setRemovedImages([]);
-        }}
+        onEdit={
+          isAdmin
+            ? () => {
+                resetFromRecord();
+                setIsEditing(!isEditing);
+                if (isEditing) setRemovedImages([]);
+              }
+            : undefined
+        }
         onRemovePhoto={(url) => setRemovedImages((prev) => [...prev, url])}
         photoUpload={
           isEditing ? (
@@ -593,6 +601,15 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
 
       {(isAdmin || userRole?.roles?.name === USER_ROLES.evp_operations) && (
         <VehicleMaintenanceInsights vehicleId={vehicleId} />
+      )}
+      {['admin', 'requester', 'evp_operations', 'driver'].includes(
+        userRole?.roles?.name ?? ''
+      ) && (
+        <VehicleMaintenanceTracking
+          vehicleId={vehicleId}
+          mileage={vehicle.mileage}
+          standardId={vehicle.maintenance_standard_id}
+        />
       )}
       <VehicleTrackerSummary vehicleId={vehicleId} />
 

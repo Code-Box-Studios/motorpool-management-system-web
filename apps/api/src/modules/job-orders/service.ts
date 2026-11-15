@@ -100,7 +100,6 @@ export async function create(
   // closed branch permanently beyond reopening-free repair. branchId is
   // client-supplied and required (contracts/job-orders.ts), and dropping it
   // from the picker only stops it being OFFERED, never sent.
-  await assertOrgRefsActive({ branchId: body.branchId });
 
   // WHO RAISED IT is the authenticated caller — the same hole the trip tickets
   // had, still open here. `requestedById` came straight out of the body, so a
@@ -124,9 +123,12 @@ export async function create(
     );
   }
 
-  const order = await prisma.jobOrder.create({
-    data: { ...body, requestedById, status: 'pending' },
-    include: jobOrderInclude
+  const order = await prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive({ branchId: body.branchId }, tx);
+    return tx.jobOrder.create({
+      data: { ...body, requestedById, status: 'pending' },
+      include: jobOrderInclude
+    });
   });
   await events.jobOrderSubmitted(order, actor);
   return order;
@@ -137,7 +139,6 @@ export async function update(id: string, body: UpdateJobOrderBody) {
   // by assertOrgRefsActive, so an order already sitting on a branch that was
   // archived afterwards stays editable — only a MOVE onto an archived branch
   // is refused.
-  await assertOrgRefsActive({ branchId: body.branchId });
   const existing = await findJobOrderById(id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Job order not found');
   if (existing.status !== 'pending') {
@@ -147,7 +148,15 @@ export async function update(id: string, body: UpdateJobOrderBody) {
       'Job order can only be edited while pending'
     );
   }
+  if (body.incidentDate && body.incidentDate.getTime() > Date.now()) {
+    throw new AppError(
+      400,
+      'INCIDENT_IN_THE_FUTURE',
+      'An incident date cannot be in the future'
+    );
+  }
   await prisma.$transaction(async (tx) => {
+    await assertOrgRefsActive({ branchId: body.branchId }, tx);
     await lockVehicles(tx, [
       existing.vehicleId,
       ...(body.vehicleId ? [body.vehicleId] : [])
@@ -236,6 +245,8 @@ export async function remove(id: string): Promise<void> {
     }
     await tx.jobOrder.delete({ where: { id } }); // job_order_spare_parts cascade (schema)
 
+    // A pending request never acquired a workshop hold, so deleting it must
+    // preserve an independently imposed maintenance hold.
     // Noting a job order takes the vehicle INTO the workshop. Deleting that job
     // order used to leave it there — stranded in `under_maintenance` with no job
     // order left to explain why, and unbookable until someone noticed and edited
@@ -246,7 +257,7 @@ export async function remove(id: string): Promise<void> {
         status: { in: ['assigned_mechanic', 'ongoing_repair'] }
       }
     });
-    if (heldByAnother === 0) {
+    if (order.status !== 'pending' && heldByAnother === 0) {
       await changeVehicleStatus(tx, order.vehicleId, 'available', {
         changedBy: null,
         source: 'job_order_note',

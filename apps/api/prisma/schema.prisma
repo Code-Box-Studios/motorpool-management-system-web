@@ -512,16 +512,16 @@ model JobOrder {
   vehicleId           String         @map("vehicle_id") @db.Uuid
   branchId            String         @map("branch_id") @db.Uuid
   status              JobOrderStatus @default(pending)
-  incidentDate        DateTime?      @map("incident_date") @db.Date
+  incidentDate        DateTime?      @map("incident_date") @db.Timestamptz(3)
   incidentDetails     String?        @map("incident_details")
   requestedById       String?        @map("requested_by") @db.Uuid
   notedById           String?        @map("noted_by") @db.Uuid
   approvedById        String?        @map("approved_by") @db.Uuid
   assignedMechanicId  String?        @map("assigned_mechanic") @db.Uuid
-  dateOfRequest       DateTime?      @map("date_of_request") @db.Date
+  dateOfRequest       DateTime?      @map("date_of_request") @db.Timestamptz(3)
   dateApproved        DateTime?      @map("date_approved")
-  targetDate          DateTime?      @map("target_date") @db.Date
-  actualDateOfRelease DateTime?      @map("actual_date_of_release") @db.Date
+  targetDate          DateTime?      @map("target_date") @db.Timestamptz(3)
+  actualDateOfRelease DateTime?      @map("actual_date_of_release") @db.Timestamptz(3)
   repairDone          RepairType?    @map("repair_done")
   maintenanceType     MaintenanceType? @map("maintenance_type")
   serviceLocation     ServiceLocation? @map("service_location")
@@ -735,6 +735,7 @@ model GpsData {
   speed        Float?
   heading      Float?
   engineStatus String?  @map("engine_status")
+  fixTime      DateTime? @map("fix_time")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 

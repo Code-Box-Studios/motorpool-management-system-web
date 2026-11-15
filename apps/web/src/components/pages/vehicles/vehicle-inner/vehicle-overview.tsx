@@ -223,7 +223,7 @@ export const VehicleOverview = ({
   fuelType?: string;
   images: string[];
   isEditing: boolean;
-  onEdit: () => void;
+  onEdit?: () => void;
   onRemovePhoto: (url: string) => void;
   photoUpload?: ReactNode;
 }) => (
@@ -266,10 +266,15 @@ export const VehicleOverview = ({
               {branchName || 'No branch assigned'}
             </p>
           </div>
-          <Button onClick={onEdit} variant={isEditing ? 'outline' : 'default'}>
-            {!isEditing && <Pencil className="size-4" />}
-            {isEditing ? 'Cancel' : 'Edit'}
-          </Button>
+          {onEdit && (
+            <Button
+              onClick={onEdit}
+              variant={isEditing ? 'outline' : 'default'}
+            >
+              {!isEditing && <Pencil className="size-4" />}
+              {isEditing ? 'Cancel' : 'Edit'}
+            </Button>
+          )}
         </header>
         <dl className="bg-muted/30 border-border divide-border grid grid-cols-3 divide-x overflow-hidden rounded-xl border">
           <DetailItem

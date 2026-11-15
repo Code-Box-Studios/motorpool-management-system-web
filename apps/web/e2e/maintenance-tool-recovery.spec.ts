@@ -313,11 +313,17 @@ for (const condition of [
     expect(captured?.borrowedById).toBe('');
     expect(captured?.status).toBe(condition.value);
     await expect(page).toHaveURL(/\/tools$/);
+    // The router can update the URL before the outgoing detail stops rendering.
+    // Wait for the list, then click its row rather than the matching old title.
+    await expect(
+      page.getByRole('heading', { name: 'Tools', exact: true })
+    ).toBeVisible();
     await page
-      .locator('main')
-      .getByText(tool.name, { exact: true })
-      .first()
+      .getByRole('row')
+      .filter({ hasText: tool.name })
+      .getByRole('cell', { name: tool.name, exact: true })
       .click();
+    await expect(page).toHaveURL(new RegExp(`/tools/${T}$`));
     await expect(
       page.getByRole('heading', { name: tool.name, exact: true })
     ).toBeVisible();

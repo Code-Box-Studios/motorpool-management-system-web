@@ -27,25 +27,25 @@ export async function tripSubmitted(
   ticket: TripTicket,
   actor: AuthenticatedUser
 ) {
-  await notify({
+  await notify(async () => ({
     userIds: await adminIds(),
     exceptUserId: actor.id,
     type: 'trip_awaiting_approval',
     title: `${ref('TT', ticket.ticketNo)} needs your approval`,
     body: `${ticket.destination} — ${ticket.purpose}`,
     linkTo: tripLink(ticket.id)
-  });
+  }));
   // An admin may raise a trip in somebody else's name (see service.create). That
   // person owns it and otherwise has no way of knowing it exists — while a
   // requester raising their own is the actor, so hears nothing extra.
-  await notify({
+  await notify(async () => ({
     userIds: [ticket.requestedById],
     exceptUserId: actor.id,
     type: 'trip_submitted',
     title: `${ref('TT', ticket.ticketNo)} was raised in your name`,
     body: `${ticket.destination} — waiting on admin approval.`,
     linkTo: tripLink(ticket.id)
-  });
+  }));
 }
 
 /** Admin approved and allocated fuel — now it is the EVP's to sign off, and the
@@ -54,22 +54,22 @@ export async function tripApprovedByAdmin(
   ticket: TripTicket,
   actor: AuthenticatedUser
 ) {
-  await notify({
+  await notify(async () => ({
     userIds: await evpIds(),
     exceptUserId: actor.id,
     type: 'trip_awaiting_approval',
     title: `${ref('TT', ticket.ticketNo)} awaits your fuel sign-off`,
     body: `${ticket.destination} — approved by an admin`,
     linkTo: tripLink(ticket.id)
-  });
-  await notify({
+  }));
+  await notify(async () => ({
     userIds: [ticket.requestedById],
     exceptUserId: actor.id,
     type: 'trip_approved',
     title: `${ref('TT', ticket.ticketNo)} approved by admin`,
     body: 'Waiting on EVP for the fuel allocation.',
     linkTo: tripLink(ticket.id)
-  });
+  }));
 }
 
 /** EVP signed off — the trip is really on, so the requester AND the driver who
@@ -78,30 +78,32 @@ export async function tripApprovedByEvp(
   ticket: TripTicket,
   actor: AuthenticatedUser
 ) {
-  const driverUserId = await userIdForDriver(ticket.driverId);
-  // How many outings the driver is actually taking on — a two-date event means
-  // two separate gate cycles, not one, and the QR gets shown at each.
-  const dateCount = await prisma.tripDate.count({
-    where: { tripTicketId: ticket.id, status: { not: 'cancelled' } }
-  });
-  await notify({
+  await notify(async () => ({
     userIds: [ticket.requestedById],
     exceptUserId: actor.id,
     type: 'trip_approved',
     title: `${ref('TT', ticket.ticketNo)} is approved`,
     body: `${ticket.destination} — fuel allocated. You are good to go.`,
     linkTo: tripLink(ticket.id)
-  });
-  await notify({
-    userIds: [driverUserId],
-    exceptUserId: actor.id,
-    type: 'trip_assigned',
-    title: `You are driving ${ref('TT', ticket.ticketNo)}`,
-    body:
-      dateCount > 1
-        ? `${ticket.destination} — ${dateCount} outings. Show your QR at the gate each time.`
-        : `${ticket.destination} — show your QR at the gate.`,
-    linkTo: tripLink(ticket.id)
+  }));
+  await notify(async () => {
+    const driverUserId = await userIdForDriver(ticket.driverId);
+    // Count only live outings for the driver's assignment. Both lookups belong
+    // to this notification, not to the already committed approval.
+    const dateCount = await prisma.tripDate.count({
+      where: { tripTicketId: ticket.id, status: { not: 'cancelled' } }
+    });
+    return {
+      userIds: [driverUserId],
+      exceptUserId: actor.id,
+      type: 'trip_assigned',
+      title: `You are driving ${ref('TT', ticket.ticketNo)}`,
+      body:
+        dateCount > 1
+          ? `${ticket.destination} — ${dateCount} outings. Show your QR at the gate each time.`
+          : `${ticket.destination} — show your QR at the gate.`,
+      linkTo: tripLink(ticket.id)
+    };
   });
 }
 
@@ -119,7 +121,7 @@ export async function tripDisapproved(
   actor: AuthenticatedUser,
   reason: string
 ) {
-  await notify({
+  await notify(async () => ({
     userIds: [
       ticket.requestedById,
       ticket.approvedByAdminId,
@@ -130,7 +132,7 @@ export async function tripDisapproved(
     title: `${ref('TT', ticket.ticketNo)} was declined`,
     body: reason,
     linkTo: tripLink(ticket.id)
-  });
+  }));
 }
 
 /**
@@ -146,31 +148,31 @@ export async function tripCancelled(
   actor: AuthenticatedUser,
   reason: string
 ) {
-  const driverUserId = await userIdForDriver(ticket.driverId);
-  // Filtered so a driver who is also the requester gets the pointed message
-  // below rather than two rows saying much the same thing.
-  const others = [
-    ticket.requestedById,
-    ...(await adminIds()),
-    ...(wasAwaitingEvp(ticket) ? await evpIds() : [])
-  ].filter((id) => id !== driverUserId);
-
-  await notify({
-    userIds: others,
-    exceptUserId: actor.id,
-    type: 'trip_cancelled',
-    title: `${ref('TT', ticket.ticketNo)} was cancelled`,
-    body: reason,
-    linkTo: tripLink(ticket.id)
+  await notify(async () => {
+    const driverUserId = await userIdForDriver(ticket.driverId);
+    // A driver who is also the requester receives the dedicated driver message.
+    const others = [
+      ticket.requestedById,
+      ...(await adminIds()),
+      ...(wasAwaitingEvp(ticket) ? await evpIds() : [])
+    ].filter((id) => id !== driverUserId);
+    return {
+      userIds: others,
+      exceptUserId: actor.id,
+      type: 'trip_cancelled',
+      title: `${ref('TT', ticket.ticketNo)} was cancelled`,
+      body: reason,
+      linkTo: tripLink(ticket.id)
+    };
   });
-  await notify({
-    userIds: [driverUserId],
+  await notify(async () => ({
+    userIds: [await userIdForDriver(ticket.driverId)],
     exceptUserId: actor.id,
     type: 'trip_cancelled',
     title: `${ref('TT', ticket.ticketNo)} is cancelled — you are not driving it`,
     body: reason,
     linkTo: tripLink(ticket.id)
-  });
+  }));
 }
 
 /**
@@ -197,30 +199,29 @@ export async function tripDateCancelled(
   actor: AuthenticatedUser,
   reason: string
 ) {
-  const driverUserId = await userIdForDriver(ticket.driverId);
-  const day = formatDisplayDate(outing.startTs);
-  // Filtered so a driver who is also the requester gets the pointed message
-  // below rather than two rows saying much the same thing.
-  const others = [ticket.requestedById, ...(await adminIds())].filter(
-    (id) => id !== driverUserId
-  );
-
-  await notify({
-    userIds: others,
+  await notify(async () => {
+    const driverUserId = await userIdForDriver(ticket.driverId);
+    const day = formatDisplayDate(outing.startTs);
+    const others = [ticket.requestedById, ...(await adminIds())].filter(
+      (id) => id !== driverUserId
+    );
+    return {
+      userIds: others,
+      exceptUserId: actor.id,
+      type: 'trip_cancelled',
+      title: `${ref('TT', ticket.ticketNo)}: the ${day} date was cancelled`,
+      body: reason,
+      linkTo: tripLink(ticket.id)
+    };
+  });
+  await notify(async () => ({
+    userIds: [await userIdForDriver(ticket.driverId)],
     exceptUserId: actor.id,
     type: 'trip_cancelled',
-    title: `${ref('TT', ticket.ticketNo)}: the ${day} date was cancelled`,
+    title: `${ref('TT', ticket.ticketNo)}: your ${formatDisplayDate(outing.startTs)} outing is cancelled`,
     body: reason,
     linkTo: tripLink(ticket.id)
-  });
-  await notify({
-    userIds: [driverUserId],
-    exceptUserId: actor.id,
-    type: 'trip_cancelled',
-    title: `${ref('TT', ticket.ticketNo)}: your ${day} outing is cancelled`,
-    body: reason,
-    linkTo: tripLink(ticket.id)
-  });
+  }));
 }
 
 /**
@@ -233,15 +234,14 @@ export async function tripCheckedOut(
   outing: TripDate,
   actor: AuthenticatedUser
 ) {
-  const day = formatDisplayDate(outing.startTs);
-  await notify({
+  await notify(async () => ({
     userIds: [ticket.requestedById, ...(await adminIds())],
     exceptUserId: actor.id,
     type: 'trip_checked_out',
     title: `${ref('TT', ticket.ticketNo)} left the gate`,
-    body: `On the road to ${ticket.destination} (${day}).`,
+    body: `On the road to ${ticket.destination} (${formatDisplayDate(outing.startTs)}).`,
     linkTo: tripLink(ticket.id)
-  });
+  }));
 }
 
 /**
@@ -259,16 +259,18 @@ export async function tripCheckedIn(
   actor: AuthenticatedUser,
   ticketCompleted: boolean
 ) {
-  const day = formatDisplayDate(outing.startTs);
-  await notify({
-    userIds: [ticket.requestedById, ...(await adminIds())],
-    exceptUserId: actor.id,
-    type: 'trip_checked_in',
-    title: `${ref('TT', ticket.ticketNo)} is back`,
-    body: ticketCompleted
-      ? `Returned from ${ticket.destination} (${day}). Trip completed.`
-      : `Returned from ${ticket.destination} (${day}). Other dates on this ticket are still scheduled.`,
-    linkTo: tripLink(ticket.id)
+  await notify(async () => {
+    const day = formatDisplayDate(outing.startTs);
+    return {
+      userIds: [ticket.requestedById, ...(await adminIds())],
+      exceptUserId: actor.id,
+      type: 'trip_checked_in',
+      title: `${ref('TT', ticket.ticketNo)} is back`,
+      body: ticketCompleted
+        ? `Returned from ${ticket.destination} (${day}). Trip completed.`
+        : `Returned from ${ticket.destination} (${day}). Other dates on this ticket are still scheduled.`,
+      linkTo: tripLink(ticket.id)
+    };
   });
 }
 
@@ -279,23 +281,23 @@ export async function jobOrderSubmitted(
   order: JobOrder,
   actor: AuthenticatedUser
 ) {
-  await notify({
+  await notify(async () => ({
     userIds: await adminIds(),
     exceptUserId: actor.id,
     type: 'job_order_awaiting_action',
     title: `${ref('JO', order.orderNo)} needs a mechanic`,
     body: order.incidentDetails ?? 'A repair is waiting to be assigned.',
     linkTo: jobOrderLink(order.id)
-  });
+  }));
   // Same on-behalf case as a trip: an admin may raise the repair for someone.
-  await notify({
+  await notify(async () => ({
     userIds: [order.requestedById],
     exceptUserId: actor.id,
     type: 'job_order_awaiting_action',
     title: `${ref('JO', order.orderNo)} was raised in your name`,
     body: order.incidentDetails ?? 'Waiting for a mechanic to be assigned.',
     linkTo: jobOrderLink(order.id)
-  });
+  }));
 }
 
 /**
@@ -310,32 +312,32 @@ export async function jobOrderNoted(
   actor: AuthenticatedUser,
   mechanicDriverId: string | null | undefined
 ) {
-  await notify({
+  await notify(async () => ({
     userIds: await evpIds(),
     exceptUserId: actor.id,
     type: 'job_order_awaiting_action',
     title: `${ref('JO', order.orderNo)} awaits your sign-off`,
     body: order.incidentDetails ?? 'A mechanic has been assigned.',
     linkTo: jobOrderLink(order.id)
-  });
+  }));
   // The person who has to actually do the work. Without this, the one role the
   // assignment exists for is the only one never told about it.
-  await notify({
+  await notify(async () => ({
     userIds: [await userIdForDriver(mechanicDriverId)],
     exceptUserId: actor.id,
     type: 'job_order_awaiting_action',
     title: `${ref('JO', order.orderNo)} is yours to repair`,
     body: order.incidentDetails ?? 'A repair has been assigned to you.',
     linkTo: jobOrderLink(order.id)
-  });
-  await notify({
+  }));
+  await notify(async () => ({
     userIds: [order.requestedById],
     exceptUserId: actor.id,
     type: 'job_order_awaiting_action',
     title: `${ref('JO', order.orderNo)} has a mechanic`,
     body: 'The repair is assigned and awaiting sign-off.',
     linkTo: jobOrderLink(order.id)
-  });
+  }));
 }
 
 /** Signed off — whoever raised it can stop chasing, and the mechanic may start. */
@@ -343,7 +345,7 @@ export async function jobOrderApproved(
   order: JobOrder,
   actor: AuthenticatedUser
 ) {
-  await notify({
+  await notify(async () => ({
     userIds: [
       order.requestedById,
       await userIdForDriver(order.assignedMechanicId),
@@ -354,19 +356,18 @@ export async function jobOrderApproved(
     title: `${ref('JO', order.orderNo)} was approved`,
     body: 'The repair is signed off and can proceed.',
     linkTo: jobOrderLink(order.id)
-  });
+  }));
 }
 
 /**
- * Repair closed. This is the event that puts the van back on the road — it is
- * what flips the vehicle to `available` — so it matters to more people than the
- * paperwork suggests, and it used to notify nobody at all.
+ * Record this repair's completion. Another active repair may still hold the
+ * vehicle, and availability can change again before this history is read.
  */
 export async function jobOrderCompleted(
   order: JobOrder,
   actor: AuthenticatedUser
 ) {
-  await notify({
+  await notify(async () => ({
     userIds: [
       order.requestedById,
       await userIdForDriver(order.assignedMechanicId),
@@ -374,8 +375,8 @@ export async function jobOrderCompleted(
     ],
     exceptUserId: actor.id,
     type: 'job_order_completed',
-    title: `${ref('JO', order.orderNo)} is repaired`,
-    body: 'The repair is closed and the vehicle is available again.',
+    title: `${ref('JO', order.orderNo)} was repaired`,
+    body: 'The repair was completed and closed.',
     linkTo: jobOrderLink(order.id)
-  });
+  }));
 }

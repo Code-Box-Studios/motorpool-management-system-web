@@ -53,6 +53,7 @@ describe('forwarder', () => {
         vehicleId: 'veh-1',
         deviceId: 'imei-1',
         protocol: 'h02',
+        fixTime: '2026-07-12T00:00:00.000Z',
         latitude: 14.5995,
         longitude: 120.9842,
         speed: 42,

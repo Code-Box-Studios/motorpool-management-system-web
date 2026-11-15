@@ -286,6 +286,8 @@ test('a late bootstrap response cannot replace the requester after authenticatio
         .map((entry) => entry.name)
         .find((url) => new URL(url).pathname === '/src/lib/api/client.ts')!;
       const client = await import(clientUrl);
+      // A private request during bootstrap must carry existing authority.
+      client.setAccessToken('expired-bootstrap-token');
       await client.api.get('/auth-race-probe').catch(() => undefined);
     });
     await expect(page.getByLabel('Email address')).toBeVisible();
@@ -337,9 +339,16 @@ test('logout cancels a prior refresh so its late token cannot overwrite a new lo
   });
   await refreshSeen.promise;
   try {
-    await signOut(page);
-    await signIn(page, requester);
+    await page.locator('header [aria-haspopup="menu"]').last().click();
+    await page.getByRole('menuitem', { name: 'Logout', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Signing out…' })
+    ).toBeVisible();
+    // Logout hides private state immediately, but cookie mutation waits for
+    // the consumed refresh response before sending the logout request.
     oldRefresh.release();
+    await expect(page.getByLabel('Email address')).toBeVisible();
+    await signIn(page, requester);
     expect(
       await page.evaluate(
         () => (window as unknown as { oldRequest: Promise<string> }).oldRequest
@@ -381,7 +390,9 @@ test('a returning session still boots through cookie refresh after a document re
   });
   handlers.set('/api/auth/refresh', async (route) => {
     refreshes += 1;
-    await route.fulfill({ json: { accessToken: 'restored-token' } });
+    await route.fulfill({
+      json: { accessToken: 'restored-token', user: admin }
+    });
   });
   await page.goto('/dashboard');
   await page.locator('header [aria-haspopup="menu"]').last().click();

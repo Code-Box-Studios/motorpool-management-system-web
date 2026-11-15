@@ -127,9 +127,15 @@ async function fixtures(page: Page, transition: Transition) {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     const send = (json: unknown) => route.fulfill({ json });
-    if (path === '/api/auth/me') return send(actor);
+    if (path === '/api/auth/me')
+      return request.headers().authorization
+        ? send(actor)
+        : route.fulfill({
+            status: 401,
+            json: { error: { code: 'UNAUTHORIZED', message: 'Missing bearer' } }
+          });
     if (path === '/api/auth/refresh')
-      return send({ accessToken: 'repair-fixture-token' });
+      return send({ accessToken: 'repair-fixture-token', user: actor });
     if (path === '/api/auth/test-accounts') return send({ enabled: false });
     if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method())) {
       if (
@@ -271,7 +277,7 @@ async function assertComplete(dialog: Locator) {
   );
 }
 
-test.use({ timezoneId: 'Europe/Malta' });
+test.use({ timezoneId: 'Asia/Manila' });
 
 for (const entry of ['list', 'detail'] as const) {
   for (const transition of ['note', 'complete-repair'] as const) {
@@ -355,8 +361,8 @@ for (const entry of ['list', 'detail'] as const) {
           transition === 'note'
             ? {
                 assignedMechanicId: ids.mechanic,
-                dateOfRequest: '2026-11-12T10:15',
-                targetDate: '2026-11-20T16:30',
+                dateOfRequest: '2026-11-12T02:15:00.000Z',
+                targetDate: '2026-11-20T08:30:00.000Z',
                 spareParts: [
                   { sparePartId: ids.part, quantity: 2 },
                   { sparePartId: ids.secondPart, quantity: 3 }
@@ -368,7 +374,7 @@ for (const entry of ['list', 'detail'] as const) {
                 maintenanceType: 'preventive',
                 serviceLocation: 'outside',
                 remarks: 'Retained completion draft',
-                actualDateOfRelease: '2026-11-10T11:25'
+                actualDateOfRelease: '2026-11-10T03:25:00.000Z'
               };
         expect(fixture.payloads).toEqual([expected, expected]);
         fixture.pendingRetry.release();
@@ -420,7 +426,7 @@ for (const entry of ['list', 'detail'] as const) {
         await expect(dialog.locator('input[type="number"]')).toHaveCount(0);
       } else {
         await expect(dialog.locator('#actual_date_of_release')).toHaveValue(
-          '2026-11-12T11:00'
+          '2026-11-12T18:00'
         );
         await expect(dialog.getByRole('combobox').first()).toHaveText(
           'Select type'

@@ -153,3 +153,36 @@ vehicle. Confirm with `journalctl -u gps-gateway -f` that frames arrive and forw
 
 > ⚠️ **2G is being switched off in many countries.** Confirm your carrier still runs a
 > 2G network before buying more of these devices.
+
+
+## Forwarding limits and GPS event time
+
+`FORWARD_QUEUE_MAX` bounds admitted registry/position work, including tasks waiting
+behind an earlier packet. Each connection and tracker is processed in arrival
+order. Independent connections/devices can progress concurrently. At capacity,
+new work is not forwarded: the raw receipt and a final `forward_overload`
+record are written through the existing disk spool when storage is available. The packet viewer exposes
+that outcome as **Forward queue full** with the configured limit in its reason.
+This policy preserves evidence but does not replay skipped positions automatically.
+Existing spool capacity/disk failures remain explicit errors in the gateway log.
+An overloaded packet can be lost if neither write succeeds. The outcome only
+claims that its initial receipt was preserved when that write actually succeeded;
+otherwise it reports the unavailable receipt and includes raw bytes in the final
+outcome write. Monitor disk space and spool upload failures.
+
+The forwarder transmits the decoded fix time separately from API receipt time.
+The API retains every accepted point and selects current coordinates by event
+time, then receipt time and UUID for deterministic ties. A delayed older fix
+cannot replace a newer vehicle position, even across simultaneous direct ingests.
+A missing/invalid calendar fix time uses the original packet receipt (or current
+API receipt for direct integrations). Event/receipt times more than 60 seconds
+in the future are rejected; planned tracker clock correction must happen at the
+tracker rather than poisoning latest-position ordering. Raw packet logs remain
+available for rejected fixes.
+
+The additive migration leaves historical fix times NULL. Their existing receipt
+time remains the fallback; no old coordinates or timestamps are rewritten.
+`createdAt` remains API receipt/storage time, `fixTime` exposes the effective
+measurement time, and `lastContactAt` remains recent vehicle receipt/contact.
+The map uses measurement age for position freshness and contact age for online
+status, so a recent transmission of an old position is shown as last known.
