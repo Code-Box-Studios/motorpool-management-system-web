@@ -87,9 +87,10 @@ trap rollback EXIT
 
 node_path=$(command -v node)
 env_path=$(command -v env)
+# WorkingDirectory is a scalar path; shell-style quotes become literal text.
 cat > "$release_dir/new-dropin.conf" <<EOF
 [Service]
-WorkingDirectory="$runtime"
+WorkingDirectory=$runtime
 ExecStart=
 ExecStart="$env_path" PACKET_LOG_DIR=/var/lib/mms-gps-gateway "$node_path" "$runtime/dist/main.js"
 StateDirectory=mms-gps-gateway
