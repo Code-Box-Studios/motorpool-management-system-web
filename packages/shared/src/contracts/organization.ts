@@ -89,6 +89,16 @@ export const ORGANIZATION_CSV_HEADERS = {
     'office_id',
     'office_name',
     'archived_at'
+  ],
+  branches: ['id', 'name', 'location', 'archived_at'],
+  offices: [
+    'id',
+    'name',
+    'branch_id',
+    'branch_name',
+    'head_id',
+    'head_name',
+    'archived_at'
   ]
 } as const;
 export type OrganizationCsvResource = keyof typeof ORGANIZATION_CSV_HEADERS;

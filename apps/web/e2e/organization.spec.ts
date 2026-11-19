@@ -111,6 +111,19 @@ async function goToOrganization(page: Page): Promise<void> {
   ).toBeVisible({ timeout: 15_000 });
 }
 
+// The tables page at 10 rows and every run leaves archived E2E records
+// behind, so a record is found by searching its unique name, not by hoping
+// it sorts onto page 1.
+async function searchTable(
+  page: Page,
+  tab: 'branches' | 'offices' | 'employees',
+  text: string
+): Promise<void> {
+  await page
+    .getByRole('searchbox', { name: `Search ${tab}`, exact: true })
+    .fill(text);
+}
+
 async function selectTab(
   page: Page,
   name: 'Branches' | 'Offices' | 'Office Heads' | 'Employees'
@@ -246,6 +259,7 @@ test('admin creates a branch, sees it live in the booking form, archives it away
   // ---------- 6: listed under Status → Archived with its badge; restore it ----------
   await goToOrganization(page);
   await chooseFilter(page, 'Status', 'Archived');
+  await searchTable(page, 'branches', branchName);
   await expect(branchRow).toBeVisible({ timeout: 15_000 });
   await expect(branchRow.getByText('Archived')).toBeVisible();
   await branchRow.getByRole('button', { name: 'Restore' }).click();
@@ -413,6 +427,7 @@ test('editing an office whose branch has since been archived shows the branch as
   // ---------- Edit the archived office: its archived branch must show, not blank ----------
   await selectTab(page, 'Offices');
   await chooseFilter(page, 'Status', 'Archived');
+  await searchTable(page, 'offices', officeName);
   officeRow = page.getByRole('row').filter({ hasText: officeName });
   await expect(officeRow).toBeVisible({ timeout: 15_000 });
   await officeRow.getByRole('button', { name: 'Edit' }).click();
@@ -644,6 +659,9 @@ test('admin adds a branch employee, edits it, and archives it away', async ({
   await page.getByRole('option', { name: 'Main Branch', exact: true }).click();
   await dialog.getByRole('button', { name: 'Add Employee' }).click();
   await expect(dialog).toBeHidden({ timeout: 15_000 });
+  // Kept for the rest of the test: the renamed row still matches, and the
+  // search survives the Status filter changes below.
+  await searchTable(page, 'employees', employeeName);
 
   const row = page.getByRole('row').filter({ hasText: employeeName });
   await expect(row).toBeVisible({ timeout: 15_000 });

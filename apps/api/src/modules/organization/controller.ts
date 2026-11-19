@@ -4,6 +4,7 @@ import type {
   CreateEmployeeBody,
   CreateOfficeBody,
   CreateOfficeHeadBody,
+  OrganizationCsvResource,
   UpdateBranchBody,
   UpdateEmployeeBody,
   UpdateOfficeBody,
@@ -190,27 +191,12 @@ export async function restoreEmployee(
   res.json(await service.restoreEmployee(requireIdParam(req)));
 }
 
-export async function previewEmployeesCsv(
-  req: Request,
-  res: Response
-): Promise<void> {
-  res.json(await csvService.organizationCsv('employees', req.body, false));
-}
-export async function importEmployeesCsv(
-  req: Request,
-  res: Response
-): Promise<void> {
-  res.json(await csvService.organizationCsv('employees', req.body, true));
-}
-export async function previewOfficeHeadsCsv(
-  req: Request,
-  res: Response
-): Promise<void> {
-  res.json(await csvService.organizationCsv('office-heads', req.body, false));
-}
-export async function importOfficeHeadsCsv(
-  req: Request,
-  res: Response
-): Promise<void> {
-  res.json(await csvService.organizationCsv('office-heads', req.body, true));
+// Preview (confirm = false) and import share one handler per resource.
+export function organizationCsvHandler(
+  resource: OrganizationCsvResource,
+  confirm: boolean
+) {
+  return async (req: Request, res: Response): Promise<void> => {
+    res.json(await csvService.organizationCsv(resource, req.body, confirm));
+  };
 }

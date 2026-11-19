@@ -113,3 +113,168 @@ describe('organization CSV validation', () => {
     ).toMatch(/512/);
   });
 });
+
+describe('organization CSV round trips', () => {
+  const archivedAt = new Date('2026-10-01T00:00:00Z');
+  const closedBranch = {
+    id: '55555555-5555-4555-8555-555555555555',
+    name: 'Closed',
+    archivedAt
+  };
+
+  it('keeps an archived record on its archived branch when the export comes back unchanged', () => {
+    const result = validateOrganizationCsv(
+      'employees',
+      headers +
+        `${id},Ana,,,${closedBranch.id},Closed,${archivedAt.toISOString()}`,
+      {
+        ...context,
+        branches: [branch, closedBranch],
+        records: [{ id, archivedAt, branchId: closedBranch.id }]
+      }
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.rows[0]!.data.branchId).toBe(closedBranch.id);
+  });
+
+  it('still refuses to move a record onto an archived branch', () => {
+    const result = validateOrganizationCsv(
+      'employees',
+      headers + `${id},Ana,,,${closedBranch.id},Closed,`,
+      {
+        ...context,
+        branches: [branch, closedBranch],
+        records: [{ id, archivedAt: null, branchId: branch.id }]
+      }
+    );
+    expect(result.errors[0]!.message).toMatch(/active/i);
+  });
+
+  it('keeps an archived office head on its archived office when unchanged', () => {
+    const closedOffice = {
+      ...office,
+      id: '66666666-6666-4666-8666-666666666666',
+      name: 'Old Ops',
+      archivedAt
+    };
+    const result = validateOrganizationCsv(
+      'office-heads',
+      `id,name,branch_id,branch_name,office_id,office_name,archived_at\n${id},Ana,${branch.id},Main,${closedOffice.id},Old Ops,${archivedAt.toISOString()}`,
+      {
+        ...context,
+        offices: [office, closedOffice],
+        records: [
+          { id, archivedAt, branchId: branch.id, officeId: closedOffice.id }
+        ]
+      }
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.rows[0]!.data.officeId).toBe(closedOffice.id);
+  });
+
+  it('trims names and optional text the way the record form does', () => {
+    const result = validateOrganizationCsv(
+      'employees',
+      headers + `,  Ana Cruz  ,   ,  +63912  ,,Main,`,
+      context
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.rows[0]!.data).toEqual({
+      name: 'Ana Cruz',
+      position: null,
+      phone: '+63912',
+      branchId: branch.id
+    });
+  });
+});
+
+describe('organization CSV branches', () => {
+  const branchHeaders = 'id,name,location,archived_at\n';
+  const branchContext = { ...context, records: [branch, other] };
+
+  it('creates and updates branches with trimmed names and locations', () => {
+    const result = validateOrganizationCsv(
+      'branches',
+      branchHeaders +
+        `,  South  ,  Davao  ,\n${branch.id},Main Campus,,\n${other.id},north,,`,
+      branchContext
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(2);
+    expect(result.rows.map((row) => row.data)).toEqual([
+      { name: 'South', location: 'Davao' },
+      { name: 'Main Campus', location: null },
+      { name: 'north', location: null }
+    ]);
+  });
+
+  it.each([
+    [',north,,', 'existing branch'],
+    [',South,,\n,SOUTH,,', 'in-file duplicate'],
+    [`${branch.id},North,,`, 'rename onto another branch'],
+    [`,Closed,,`, 'name held by an archived branch']
+  ])('rejects a duplicate branch name (%s: %s)', (body) => {
+    const result = validateOrganizationCsv('branches', branchHeaders + body, {
+      ...branchContext,
+      branches: [
+        branch,
+        other,
+        { id: 'x', name: 'Closed', archivedAt: new Date() }
+      ],
+      records: [branch, other]
+    });
+    expect(result.errors.at(-1)!.message).toMatch(/already exists/i);
+  });
+});
+
+describe('organization CSV offices', () => {
+  const officeHeaders =
+    'id,name,branch_id,branch_name,head_id,head_name,archived_at\n';
+  const head = {
+    id: '77777777-7777-4777-8777-777777777777',
+    name: 'Chief',
+    archivedAt: null,
+    branchId: branch.id,
+    officeId: office.id
+  };
+  const officeContext = { ...context, heads: [head], records: [office] };
+
+  it('creates offices with the branch and head resolved by name', () => {
+    const result = validateOrganizationCsv(
+      'offices',
+      officeHeaders + `,  Records  ,,Main,,Chief,\n,Ops,,North,,,`,
+      officeContext
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.rows.map((row) => row.data)).toEqual([
+      { name: 'Records', branchId: branch.id, headId: head.id },
+      { name: 'Ops', branchId: other.id, headId: null }
+    ]);
+  });
+
+  it.each([
+    [',ops,,Main,,,', /already exists/i],
+    [',Records,,Main,,Missing,', /head/i],
+    [`${office.id},Ops,${other.id},North,,,`, /office heads/i]
+  ])('rejects an invalid office row (%s)', (body, message) => {
+    const result = validateOrganizationCsv(
+      'offices',
+      officeHeaders + body,
+      officeContext
+    );
+    expect(result.errors[0]!.message).toMatch(message);
+  });
+
+  it('asks for an ID when two office heads share a name', () => {
+    const result = validateOrganizationCsv(
+      'offices',
+      officeHeaders + ',Records,,Main,,Chief,',
+      {
+        ...officeContext,
+        heads: [head, { ...head, id: '88888888-8888-4888-8888-888888888888' }]
+      }
+    );
+    expect(result.errors[0]!.message).toMatch(/ambiguous/i);
+  });
+});

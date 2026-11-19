@@ -111,9 +111,15 @@ test('CSV export includes every filtered record beyond a normal list page', asyn
   });
   await page.goto('/organization');
   await page.getByRole('tab', { name: 'Employees', exact: true }).click();
+  // The table shows 10 rows per page; the export below must still carry all
+  // 205 filtered records, not just the visible page.
+  await expect(
+    page.getByRole('cell', { name: 'CSV Fixture 0', exact: true })
+  ).toBeVisible();
+  await expect(page.getByText('1 of 21', { exact: true })).toBeVisible();
   await expect(
     page.getByRole('cell', { name: 'CSV Fixture 204', exact: true })
-  ).toBeVisible();
+  ).toHaveCount(0);
   for (const [search, expectedRows] of [
     ['', 205],
     ['CSV Fixture 204', 1]
@@ -197,15 +203,13 @@ for (const outcome of ['success', 'validation-error'] as const) {
     });
     const dialog = page.getByRole('dialog', { name: 'Import employees CSV' });
     const uploadAndReview = async (name: string) => {
-      await dialog
-        .getByLabel('CSV file')
-        .setInputFiles({
-          name: 'employees.csv',
-          mimeType: 'text/csv',
-          buffer: Buffer.from(
-            `id,name,position,phone,branch_id,branch_name,archived_at\n,${name},,,,,`
-          )
-        });
+      await dialog.getByLabel('CSV file').setInputFiles({
+        name: 'employees.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(
+          `id,name,position,phone,branch_id,branch_name,archived_at\n,${name},,,,,`
+        )
+      });
       await dialog
         .getByRole('button', { name: 'Preview CSV', exact: true })
         .click();

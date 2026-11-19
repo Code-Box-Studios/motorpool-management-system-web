@@ -6,6 +6,7 @@ import TableFilters, {
 } from '@/components/shared/table-filters';
 import { useListControls } from '@/hooks/use-list-controls';
 import EmptyState from '@/components/shared/empty-state';
+import TablePagination from '@/components/shared/table-pagination';
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +35,9 @@ import { CsvControls } from './csv-controls';
 import { RecordDialog, type RecordDialogState } from './record-dialog';
 
 const isArchived = (r: OrgRecord) => r.archivedAt !== null;
+
+// Same page size as the app's other list tables.
+const PAGE_SIZE = 10;
 
 type Column =
   | 'Name'
@@ -89,9 +93,17 @@ export function ResourceTab({ resource }: ResourceTabProps) {
   const [search, setSearch] = useState('');
   const statusKey = `${resource}Status`;
   const branchKey = `${resource}Branch`;
-  const { filters, setFilter, clearFilters, hasFilters } = useListControls(
-    resource === 'branches' ? [statusKey] : [statusKey, branchKey]
-  );
+  const { page, setPage, filters, setFilter, clearFilters, hasFilters } =
+    useListControls(
+      resource === 'branches' ? [statusKey] : [statusKey, branchKey]
+    );
+  // Filters and tab switches reset the URL page through setFilter. Search is
+  // local state, so a new search resets it here: staying on page 3 would hide
+  // the first matches of a different result set.
+  const changeSearch = (value: string) => {
+    setSearch(value);
+    if (page !== 1) setPage(1);
+  };
   const [dialogState, setDialogState] = useState<RecordDialogState>(null);
   const [archivingRecord, setArchivingRecord] = useState<OrgRecord | null>(
     null
@@ -158,6 +170,17 @@ export function ResourceTab({ resource }: ResourceTabProps) {
       ])
   );
 
+  // Every list is fetched whole, so paging happens here. The page is clamped
+  // because archiving the last row of the last page, or a stale ?page= link,
+  // would otherwise land on an empty page past the end. CSV export still uses
+  // the full filtered `records`, not just the visible page.
+  const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRecords = records.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   const renderCell = (record: OrgRecord, column: Column) => {
     switch (column) {
       case 'Name':
@@ -196,31 +219,29 @@ export function ResourceTab({ resource }: ResourceTabProps) {
         </Button>
       </div>
 
-      {(resource === 'employees' || resource === 'office-heads') && (
-        <div className="mb-4">
-          <CsvControls
-            resource={resource}
-            records={records}
-            branches={branchesQuery.data ?? []}
-            offices={officesQuery.data ?? []}
-            disabled={
-              query.isLoading ||
-              !!query.error ||
-              branchesQuery.isLoading ||
-              !!branchesQuery.error ||
-              officesQuery.isLoading ||
-              !!officesQuery.error
-            }
-          />
-        </div>
-      )}
+      <div className="mb-4">
+        <CsvControls
+          resource={resource}
+          records={records}
+          branches={branchesQuery.data ?? []}
+          offices={officesQuery.data ?? []}
+          heads={headsQuery.data ?? []}
+          // Only the lists this resource's export and template read.
+          disabled={[
+            query,
+            ...(resource === 'branches' ? [] : [branchesQuery]),
+            ...(resource === 'office-heads' ? [officesQuery] : []),
+            ...(resource === 'offices' ? [headsQuery] : [])
+          ].some((q) => q.isLoading || !!q.error)}
+        />
+      </div>
       <Card>
         <CardContent>
           <ListToolbar
             searchControl={
               <ListSearchInput
                 value={search}
-                onChange={setSearch}
+                onChange={changeSearch}
                 label={`Search ${meta.title.toLowerCase()}`}
               />
             }
@@ -250,78 +271,86 @@ export function ResourceTab({ resource }: ResourceTabProps) {
               Error loading {meta.title.toLowerCase()}: {query.error.message}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {meta.columns.map((c) => (
-                    <TableHead key={c}>{c}</TableHead>
-                  ))}
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.length > 0 ? (
-                  records.map((record) => (
-                    <TableRow
-                      key={record.id}
-                      className={cn(
-                        isArchived(record) && 'text-muted-foreground'
-                      )}
-                    >
-                      {meta.columns.map((c) => (
-                        <TableCell key={c}>{renderCell(record, c)}</TableCell>
-                      ))}
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              setDialogState({ mode: 'edit', record })
-                            }
-                          >
-                            Edit
-                          </Button>
-                          {isArchived(record) ? (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {meta.columns.map((c) => (
+                      <TableHead key={c}>{c}</TableHead>
+                    ))}
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pageRecords.length > 0 ? (
+                    pageRecords.map((record) => (
+                      <TableRow
+                        key={record.id}
+                        className={cn(
+                          isArchived(record) && 'text-muted-foreground'
+                        )}
+                      >
+                        {meta.columns.map((c) => (
+                          <TableCell key={c}>{renderCell(record, c)}</TableCell>
+                        ))}
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={restore.isPending}
-                              onClick={() => restore.mutate(record.id)}
+                              onClick={() =>
+                                setDialogState({ mode: 'edit', record })
+                              }
                             >
-                              Restore
+                              Edit
                             </Button>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setArchivingRecord(record)}
-                            >
-                              Archive
-                            </Button>
-                          )}
-                        </div>
+                            {isArchived(record) ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={restore.isPending}
+                                onClick={() => restore.mutate(record.id)}
+                              >
+                                Restore
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setArchivingRecord(record)}
+                              >
+                                Archive
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={meta.columns.length + 1}
+                        className="text-muted-foreground py-8 text-center"
+                      >
+                        <EmptyState
+                          message={`No ${meta.title.toLowerCase()} found.`}
+                          search={search}
+                          hasFilters={hasFilters}
+                          onClearFilters={clearFilters}
+                          onClearSearch={() => changeSearch('')}
+                        />
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={meta.columns.length + 1}
-                      className="text-muted-foreground py-8 text-center"
-                    >
-                      <EmptyState
-                        message={`No ${meta.title.toLowerCase()} found.`}
-                        search={search}
-                        hasFilters={hasFilters}
-                        onClearFilters={clearFilters}
-                        onClearSearch={() => setSearch('')}
-                      />
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+
+              <TablePagination
+                page={currentPage}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
+            </>
           )}
         </CardContent>
       </Card>

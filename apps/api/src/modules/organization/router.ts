@@ -157,26 +157,24 @@ organizationRouter.post(
 );
 
 // CSV endpoints remain per-route guarded because device-key routes share /api.
-for (const [resource, preview, confirm] of [
-  ['employees', controller.previewEmployeesCsv, controller.importEmployeesCsv],
-  [
-    'office-heads',
-    controller.previewOfficeHeadsCsv,
-    controller.importOfficeHeadsCsv
-  ]
+for (const resource of [
+  'employees',
+  'office-heads',
+  'branches',
+  'offices'
 ] as const) {
   organizationRouter.post(
     `/${resource}/import/preview`,
     requireAuth,
     requireRole(USER_ROLES.admin),
     validateBody(organizationCsvBodySchema),
-    preview
+    controller.organizationCsvHandler(resource, false)
   );
   organizationRouter.post(
     `/${resource}/import`,
     requireAuth,
     requireRole(USER_ROLES.admin),
     validateBody(organizationCsvBodySchema),
-    confirm
+    controller.organizationCsvHandler(resource, true)
   );
 }

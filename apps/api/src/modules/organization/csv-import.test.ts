@@ -88,7 +88,11 @@ describe('organization CSV import', () => {
       '/api/employees/import/preview',
       '/api/employees/import',
       '/api/office-heads/import/preview',
-      '/api/office-heads/import'
+      '/api/office-heads/import',
+      '/api/branches/import/preview',
+      '/api/branches/import',
+      '/api/offices/import/preview',
+      '/api/offices/import'
     ]) {
       expect(
         (
@@ -167,5 +171,81 @@ describe('organization CSV office heads and rollback', () => {
         'DROP FUNCTION IF EXISTS csv_test_reject()'
       );
     }
+  });
+});
+
+describe('organization CSV branches, offices and archived links', () => {
+  beforeEach(truncateAll);
+  afterAll(() => prisma.$disconnect());
+
+  async function importCsv(auth: string, resource: string, csv: string) {
+    const preview = await request(app)
+      .post(`/api/${resource}/import/preview`)
+      .set('Authorization', auth)
+      .send({ csv });
+    expect(preview.status).toBe(200);
+    expect(preview.body.errors).toEqual([]);
+    const imported = await request(app)
+      .post(`/api/${resource}/import`)
+      .set('Authorization', auth)
+      .send({ csv, previewToken: preview.body.previewToken });
+    expect(imported.status).toBe(200);
+    return preview.body as { created: number; updated: number };
+  }
+
+  it('creates and renames branches, then creates an office under one with its head', async () => {
+    const auth = await actor();
+    const main = await createTestBranch('Main');
+    const head = await prisma.officeHead.create({
+      data: { name: 'Chief', branchId: main.id }
+    });
+    expect(
+      await importCsv(
+        auth,
+        'branches',
+        `id,name,location,archived_at\n,South,Davao,\n${main.id},Main Campus,,`
+      )
+    ).toMatchObject({ created: 1, updated: 1 });
+    expect(
+      await prisma.branch.findFirst({ where: { name: 'South' } })
+    ).toMatchObject({ location: 'Davao', archivedAt: null });
+    expect(
+      (await prisma.branch.findUniqueOrThrow({ where: { id: main.id } })).name
+    ).toBe('Main Campus');
+
+    expect(
+      await importCsv(
+        auth,
+        'offices',
+        `id,name,branch_id,branch_name,head_id,head_name,archived_at\n,Records,,Main Campus,,Chief,`
+      )
+    ).toMatchObject({ created: 1, updated: 0 });
+    expect(
+      await prisma.departmentOffice.findFirst({ where: { name: 'Records' } })
+    ).toMatchObject({ branchId: main.id, headId: head.id });
+  });
+
+  it('re-imports an archived employee that still belongs to its archived branch', async () => {
+    const auth = await actor();
+    const closed = await createTestBranch('Closed');
+    const employee = await createTestEmployee(closed.id, 'Former Guide');
+    const archivedAt = new Date('2026-10-01T00:00:00Z');
+    await prisma.employee.update({
+      where: { id: employee.id },
+      data: { archivedAt }
+    });
+    await prisma.branch.update({
+      where: { id: closed.id },
+      data: { archivedAt }
+    });
+    await importCsv(
+      auth,
+      'employees',
+      headers +
+        `${employee.id},Former Guide,Guide,,${closed.id},Closed,${archivedAt.toISOString()}`
+    );
+    expect(
+      await prisma.employee.findUniqueOrThrow({ where: { id: employee.id } })
+    ).toMatchObject({ branchId: closed.id, position: 'Guide', archivedAt });
   });
 });

@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   encodeCsv,
@@ -35,6 +34,27 @@ import {
   type OrgRecord
 } from '@/lib/api/organization';
 import { ApiError } from '@/lib/api/client';
+import { useOrgInvalidation } from '@/lib/mutation/organization';
+
+const LABELS: Record<OrganizationCsvResource, string> = {
+  employees: 'employees',
+  'office-heads': 'office heads',
+  branches: 'branches',
+  offices: 'offices'
+};
+
+// What a row does on import, per resource. People may share a name; branch
+// names are unique, and office names are unique within their branch.
+const IMPORT_RULES: Record<OrganizationCsvResource, string> = {
+  employees:
+    'Blank ID creates a person; existing ID updates that person. Duplicate names are allowed. Use active branch IDs or unambiguous names. Imports do not create login accounts.',
+  'office-heads':
+    'Blank ID creates a person; existing ID updates that person. Duplicate names are allowed. Use active branch and office IDs or unambiguous names. Imports do not create login accounts.',
+  branches:
+    'Blank ID creates a branch; existing ID updates that branch. Branch names must be unique.',
+  offices:
+    'Blank ID creates an office; existing ID updates that office. Office names must be unique within a branch. Use active branch and office head IDs or unambiguous names.'
+};
 
 function downloadCsv(filename: string, csv: string) {
   const url = URL.createObjectURL(
@@ -54,6 +74,7 @@ interface Props {
   records: OrgRecord[];
   branches: OrgRecord[];
   offices: OrgRecord[];
+  heads: OrgRecord[];
   disabled: boolean;
 }
 
@@ -62,9 +83,10 @@ export function CsvControls({
   records,
   branches,
   offices,
+  heads,
   disabled
 }: Props) {
-  const queryClient = useQueryClient();
+  const invalidate = useOrgInvalidation(resource);
   const [open, setOpen] = useState(false);
   const [csv, setCsv] = useState('');
   const [preview, setPreview] = useState<OrganizationCsvPreview | null>(null);
@@ -72,7 +94,7 @@ export function CsvControls({
   const [busy, setBusy] = useState(false);
   const requestId = useRef(0);
   const headers = [...ORGANIZATION_CSV_HEADERS[resource]];
-  const label = resource === 'employees' ? 'employees' : 'office heads';
+  const label = LABELS[resource];
   const changeOpen = (next: boolean) => {
     requestId.current++;
     setOpen(next);
@@ -81,30 +103,46 @@ export function CsvControls({
     setError('');
     setBusy(false);
   };
+  // Column order follows ORGANIZATION_CSV_HEADERS[resource].
   const exportCsv = () => {
-    const branchesById = new Map(branches.map((r) => [r.id, r.name]));
-    const officesById = new Map(offices.map((r) => [r.id, r.name]));
-    const rows = records.map((record) =>
-      resource === 'employees'
-        ? [
+    const nameOf = (list: OrgRecord[], id?: string | null) =>
+      list.find((r) => r.id === id)?.name;
+    const rows = records.map((record) => {
+      switch (resource) {
+        case 'employees':
+          return [
             record.id,
             record.name,
             record.position,
             record.phone,
             record.branchId,
-            branchesById.get(record.branchId ?? ''),
+            nameOf(branches, record.branchId),
             record.archivedAt
-          ]
-        : [
+          ];
+        case 'office-heads':
+          return [
             record.id,
             record.name,
             record.branchId,
-            branchesById.get(record.branchId ?? ''),
+            nameOf(branches, record.branchId),
             record.officeId,
-            officesById.get(record.officeId ?? ''),
+            nameOf(offices, record.officeId),
             record.archivedAt
-          ]
-    );
+          ];
+        case 'branches':
+          return [record.id, record.name, record.location, record.archivedAt];
+        case 'offices':
+          return [
+            record.id,
+            record.name,
+            record.branchId,
+            nameOf(branches, record.branchId),
+            record.headId,
+            nameOf(heads, record.headId),
+            record.archivedAt
+          ];
+      }
+    });
     downloadCsv(`${resource}.csv`, encodeCsv(headers, rows));
   };
   const template = () => {
@@ -112,27 +150,40 @@ export function CsvControls({
     const office = offices.find(
       (r) => !r.archivedAt && (r.branchId ?? null) === (branch?.id ?? null)
     );
-    const example =
-      resource === 'employees'
-        ? [
-            '',
-            'Example Person',
-            'Clerk',
-            '+639123456789',
-            branch?.id,
-            branch?.name ?? 'Main Branch',
-            ''
-          ]
-        : [
-            '',
-            'Example Person',
-            branch?.id,
-            branch?.name ?? '',
-            office?.id,
-            office?.name,
-            ''
-          ];
-    downloadCsv(`${resource}-template.csv`, encodeCsv(headers, [example]));
+    const examples: Record<OrganizationCsvResource, (string | undefined)[]> = {
+      employees: [
+        '',
+        'Example Person',
+        'Clerk',
+        '+639123456789',
+        branch?.id,
+        branch?.name ?? 'Main Branch',
+        ''
+      ],
+      'office-heads': [
+        '',
+        'Example Person',
+        branch?.id,
+        branch?.name ?? '',
+        office?.id,
+        office?.name,
+        ''
+      ],
+      branches: ['', 'Example Branch', 'Example City', ''],
+      offices: [
+        '',
+        'Example Office',
+        branch?.id,
+        branch?.name ?? '',
+        '',
+        '',
+        ''
+      ]
+    };
+    downloadCsv(
+      `${resource}-template.csv`,
+      encodeCsv(headers, [examples[resource]])
+    );
   };
   const loadFile = async (file?: File) => {
     const current = ++requestId.current;
@@ -178,12 +229,9 @@ export function CsvControls({
     setError('');
     try {
       const result = await importOrgCsv(resource, csv, preview.previewToken);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['organization', resource] }),
-        queryClient.invalidateQueries({
-          queryKey: [resource === 'employees' ? 'employees' : 'officeHeads']
-        })
-      ]);
+      // The same caches a manual edit refreshes, so a branch renamed by CSV
+      // also updates the vehicle and user tables that show branch names.
+      await invalidate();
       toast.success(
         `Imported ${result.created} new and ${result.updated} updated ${label}`
       );
@@ -214,13 +262,11 @@ export function CsvControls({
           </DialogHeader>
           <DialogBody className="space-y-4">
             <p className="text-muted-foreground text-sm">
-              Blank ID creates a person; existing ID updates that person.
-              Duplicate names are allowed. Use active branch and office IDs or
-              unambiguous names. Keep archived_at unchanged; use Archive or
-              Restore to change status. Imports do not create login accounts.
+              {IMPORT_RULES[resource]} Keep archived_at unchanged; use Archive
+              or Restore to change status.
             </p>
             <p className="text-muted-foreground text-sm">
-              Template contains an Example Person row; replace it before import.
+              Template contains an example row; replace it before import.
               Exports prefix formula-like text with an apostrophe and double
               literal leading apostrophes. Import reverses these escapes,
               including +63 phone numbers.

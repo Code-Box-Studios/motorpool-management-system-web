@@ -75,6 +75,11 @@ test('archiving an employee removes it from the default table; Status → Archiv
 
   await login(page, 'admin');
   await page.goto('/organization?orgTab=employees');
+  // The roster pages at 10 rows; searching keeps this record on screen in
+  // every Status view below.
+  await page
+    .getByRole('searchbox', { name: 'Search employees', exact: true })
+    .fill(name);
   const row = page.getByRole('row').filter({ hasText: name });
   await expect(row).toBeVisible({ timeout: 15_000 });
   await expectFilterValue(page, 'Status', 'Active');

@@ -18,10 +18,14 @@ const LABELS: Record<OrgResource, string> = {
   employees: 'Employee'
 };
 
-function useOrgInvalidation(resource: OrgResource) {
+// Returns the refetches so a caller (the CSV import) can wait for fresh
+// tables before it closes; the mutation hooks below ignore it.
+export function useOrgInvalidation(resource: OrgResource) {
   const queryClient = useQueryClient();
   return () => {
-    queryClient.invalidateQueries({ queryKey: ['organization', resource] });
+    const pending = [
+      queryClient.invalidateQueries({ queryKey: ['organization', resource] })
+    ];
     // Every other dropdown in the app reads its own, differently-keyed query
     // rather than this admin list, so each has to be told separately that an
     // archive/restore/create/update here made its cache stale — otherwise the
@@ -39,19 +43,23 @@ function useOrgInvalidation(resource: OrgResource) {
     // twins again below would be a no-op; this comment is the guard against
     // someone re-keying them out from under the prefix.
     if (resource === 'branches') {
-      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      pending.push(queryClient.invalidateQueries({ queryKey: ['branches'] }));
       // These two do NOT ride the prefix: the vehicle and user tables embed
       // branch NAMES resolved at fetch time (lib/api/vehicles.ts,
       // lib/api/user-management.ts), under keys of their own. Without these,
       // renaming a branch leaves both tables showing the old name until
       // something else happens to refetch them.
-      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-      queryClient.invalidateQueries({ queryKey: ['allUsers'] });
+      pending.push(queryClient.invalidateQueries({ queryKey: ['vehicles'] }));
+      pending.push(queryClient.invalidateQueries({ queryKey: ['allUsers'] }));
     }
     if (resource === 'offices')
-      queryClient.invalidateQueries({ queryKey: ['departmentOffices'] });
+      pending.push(
+        queryClient.invalidateQueries({ queryKey: ['departmentOffices'] })
+      );
     if (resource === 'office-heads')
-      queryClient.invalidateQueries({ queryKey: ['officeHeads'] });
+      pending.push(
+        queryClient.invalidateQueries({ queryKey: ['officeHeads'] })
+      );
     // This refreshes a guide picker that is ALREADY MOUNTED — a booking dialog
     // left open while the roster is edited behind it — so it stops offering an
     // employee who was just renamed, archived or moved to another branch.
@@ -63,7 +71,8 @@ function useOrgInvalidation(resource: OrgResource) {
     // one `staleTime` added to useEmployees would make this the only thing
     // standing between an archived employee and the picker (design §9.1).
     if (resource === 'employees')
-      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      pending.push(queryClient.invalidateQueries({ queryKey: ['employees'] }));
+    return Promise.all(pending);
   };
 }
 
