@@ -1,4 +1,4 @@
-import { matchesSearch } from '@mms/shared';
+import { describeJobOrder, matchesSearch } from '@mms/shared';
 import type { ApprovalHistoryQuery, DecisionRecord } from '@mms/shared';
 import * as repo from './repository.js';
 
@@ -76,7 +76,7 @@ export async function history(
     decidedByName: o.approvedBy?.fullName ?? null,
     decidedByRole: o.approvedBy?.userRole?.role.name ?? null,
     reason: null,
-    title: o.incidentDetails ?? 'Repair',
+    title: describeJobOrder(o) ?? 'Repair',
     subtitle: plate(o.vehicle),
     liters: null,
     fuelType: null

@@ -110,7 +110,7 @@ export async function remove(id: string): Promise<void> {
       throw new AppError(
         409,
         'VEHICLE_IN_USE',
-        'Vehicle is referenced by existing records; set it out of service instead'
+        'Vehicle is referenced by existing records and cannot be deleted'
       );
     }
     throw err;

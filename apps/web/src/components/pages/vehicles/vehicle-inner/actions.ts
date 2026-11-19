@@ -2,7 +2,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { FUEL_TYPE, VEHICLE_STATUS } from '@/lib/enums';
+import { FUEL_TYPE } from '@/lib/enums';
 
 const updateVehicleSchema = z.object({
   make: z.string().min(1, 'Make is required'),
@@ -10,7 +10,6 @@ const updateVehicleSchema = z.object({
   year: z.coerce.number().min(1900, 'Year must be at least 1900'),
   license_plate: z.string().min(1, 'License plate is required'),
   vin: z.string().min(1, 'VIN is required'),
-  status: z.enum(Object.values(VEHICLE_STATUS) as [string, ...string[]]),
   branchId: z.string().uuid('Branch is required'),
   fuel_type: z.enum(Object.values(FUEL_TYPE) as [string, ...string[]]),
   mileage: z.coerce.number().min(0, 'Mileage must be non-negative'),
@@ -31,7 +30,6 @@ export const useVehicleUpdateForm = () => {
       year: new Date().getFullYear(),
       license_plate: '',
       vin: '',
-      status: 'available',
       branchId: '',
       fuel_type: '',
       mileage: 0,

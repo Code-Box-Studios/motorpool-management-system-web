@@ -29,6 +29,7 @@ interface JobOrderApiResponse {
   status: string | null;
   incidentDate: string | null;
   incidentDetails: string | null;
+  services?: string[] | null;
   requestedById: string | null;
   notedById: string | null;
   approvedById: string | null;
@@ -63,6 +64,7 @@ function toSnake(o: JobOrderApiResponse): JobOrderWithRelations {
     status: o.status,
     incident_date: o.incidentDate,
     incident_details: o.incidentDetails,
+    services: o.services ?? [],
     requested_by: o.requestedById,
     noted_by: o.notedById,
     approved_by: o.approvedById,
@@ -101,6 +103,7 @@ interface JobOrderRequestBody {
   branchId?: string;
   incidentDate?: string;
   incidentDetails?: string | null;
+  services?: string[];
   requestedById?: string;
   remarks?: string | null;
 }
@@ -121,7 +124,8 @@ function mapCreateBody(o: NewJobOrder): JobOrderRequestBody {
     vehicleId: o.vehicle_id || undefined,
     branchId: o.branch_id || undefined,
     incidentDate: dateTimeForApi(o.incident_date || undefined),
-    incidentDetails: o.incident_details ?? undefined,
+    incidentDetails: o.incident_details || undefined,
+    services: o.services ?? [],
     requestedById: o.requested_by || undefined,
     remarks: o.remarks ?? undefined
   };
@@ -152,6 +156,7 @@ function mapUpdateBody(u: Record<string, unknown>): JobOrderRequestBody {
         ? null
         : (u.incident_details as string);
   }
+  if (u.services !== undefined) body.services = u.services as string[];
   if (u.requested_by !== undefined)
     body.requestedById = (u.requested_by as string) || undefined;
   if (u.remarks !== undefined)

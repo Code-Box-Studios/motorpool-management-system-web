@@ -1,5 +1,6 @@
 import ListToolbar from '@/components/shared/list-toolbar';
 import { matchesSearch } from '@mms/shared';
+import { jobOrderSummary } from '@/lib/job-order-summary';
 import ListSearchInput from '@/components/shared/list-search-input';
 import TableFilters from '@/components/shared/table-filters';
 import { useListControls } from '@/hooks/use-list-controls';
@@ -166,7 +167,7 @@ export default function ApprovalQueue({
       matchesSearch(search, [
         'Repair sign-off Job orders',
         formatRef('JO', order.order_no),
-        order.incident_details,
+        jobOrderSummary(order),
         order.vehicles?.make,
         order.vehicles?.model,
         order.vehicles?.license_plate,
@@ -356,7 +357,7 @@ export default function ApprovalQueue({
                         {formatRef('JO', order.order_no)}
                       </div>
                       <h3 className="mt-1 text-lg font-semibold tracking-tight">
-                        {order.incident_details ?? 'Repair'}
+                        {jobOrderSummary(order) ?? 'Repair'}
                         {order.vehicles && (
                           <>
                             {' — '}

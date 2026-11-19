@@ -19,6 +19,12 @@ export interface TableFilterDefinition {
   key: string;
   label: string;
   options: { value: string; label: string }[];
+  // The option an unset filter means. With a default there is no built-in
+  // "All" item (an empty value would just mean the default again), so a
+  // filter that needs "everything" lists it as one of its own options.
+  // Choosing the default writes an empty value, keeping it out of the URL
+  // and out of the active-filter count.
+  defaultValue?: string;
 }
 
 interface TableFiltersProps {
@@ -37,7 +43,10 @@ export default function TableFilters({
   onClear
 }: TableFiltersProps) {
   const id = useId();
-  const active = filters.filter((filter) => !!values[filter.key]);
+  const active = filters.filter(
+    (filter) =>
+      !!values[filter.key] && values[filter.key] !== filter.defaultValue
+  );
   const summary = active
     .map(
       (filter) =>
@@ -109,22 +118,27 @@ export default function TableFilters({
                 {filter.label}
               </label>
               <Select
-                value={values[filter.key] || ALL}
+                value={values[filter.key] || filter.defaultValue || ALL}
                 onValueChange={(value) =>
-                  onChange(filter.key, value === ALL ? '' : value)
+                  onChange(
+                    filter.key,
+                    value === ALL || value === filter.defaultValue ? '' : value
+                  )
                 }
               >
                 <SelectTrigger
                   id={`${id}-${filter.key}`}
                   aria-label={`Filter by ${filter.label.toLowerCase()}`}
                   className={
-                    values[filter.key] ? 'border-primary/40' : undefined
+                    active.includes(filter) ? 'border-primary/40' : undefined
                   }
                 >
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent align="start">
-                  <SelectItem value={ALL}>All</SelectItem>
+                  {filter.defaultValue === undefined && (
+                    <SelectItem value={ALL}>All</SelectItem>
+                  )}
                   {filter.options.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}

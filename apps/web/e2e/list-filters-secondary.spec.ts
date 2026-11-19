@@ -63,9 +63,11 @@ test('organization combines archive and branch filters and preserves each tab', 
   );
   await page.goto('/organization');
   await page.getByRole('tab', { name: 'Offices', exact: true }).click();
+  // Status defaults to Active: the archived office is out of the default view.
+  await expect(page.getByText('North active', { exact: true })).toBeVisible();
   await expect(
     page.getByRole('cell', { name: 'North archived Archived', exact: true })
-  ).toBeVisible();
+  ).toHaveCount(0);
   await chooseFilter(page, 'Branch', 'North');
   await chooseFilter(page, 'Status', 'Archived');
   await page.reload();
@@ -97,6 +99,9 @@ test('organization combines archive and branch filters and preserves each tab', 
     .getByRole('button', { name: 'Clear filters', exact: true })
     .click();
   await expect(page.getByText('South active', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('cell', { name: 'North archived Archived', exact: true })
+  ).toHaveCount(0);
 });
 
 test('requester status options include later pages and filter before pagination', async ({

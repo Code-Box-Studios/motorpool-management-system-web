@@ -11,7 +11,7 @@ import {
   VehicleStatus,
   type Prisma
 } from '@prisma/client';
-import { STATUS_LABELS } from '@mms/shared';
+import { JOB_ORDER_SERVICES, STATUS_LABELS } from '@mms/shared';
 
 // Every word must match a visible field. This also finds composed labels such
 // as "Toyota Hiace" without requiring a stored vehicle display-name column.
@@ -118,12 +118,24 @@ export const maintenanceSearch = (
     { vehicle: { OR: vehicleFields(word) } }
   ]);
 
+function servicesMatching(word: string): string[] {
+  const needle = word.toLocaleLowerCase();
+  return JOB_ORDER_SERVICES.filter((service) =>
+    service.toLocaleLowerCase().includes(needle)
+  );
+}
+
 export const jobOrderSearch = (
   search?: string,
   referenceNumbers: readonly number[] = []
 ): Prisma.JobOrderWhereInput =>
   words<Prisma.JobOrderWhereInput>(search, (word) => [
     { incidentDetails: text(word) },
+    // Picked services are a fixed list, so a word matches the services that
+    // contain it ("brake" finds "Check up brake system").
+    ...servicesMatching(word).map((service) => ({
+      services: { has: service }
+    })),
     { vehicle: { OR: vehicleFields(word) } },
     { assignedMechanic: { fullName: text(word) } },
     { status: { in: enums(JobOrderStatus, word) } },

@@ -1,7 +1,9 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import {
+  apiDelete,
   apiGet,
   apiLogin,
+  apiPost,
   CREDENTIALS,
   listData,
   login,
@@ -446,4 +448,151 @@ test('pending student request switches to an employee roster and clears its guid
       participantsCount: 1,
       guideIds: []
     });
+});
+
+test('a student trip can be booked by headcount alone, without typing names', async ({
+  page,
+  request
+}) => {
+  const admin = await apiLogin(request, CREDENTIALS.admin);
+  const employees = listData(
+    await apiGet(request, '/api/trip-tickets/guide-options', admin.token)
+  );
+  const dialog = await openTripStep(page);
+  for (const label of ['Vehicle', 'Driver']) {
+    await dialog
+      .getByRole('group')
+      .filter({ hasText: new RegExp(`^${label}`) })
+      .getByRole('combobox')
+      .click();
+    await page.getByRole('option').first().click();
+  }
+  await dialog.locator('#destination').fill('Headcount fixture destination');
+  await dialog.locator('#purpose').fill('Class field trip');
+
+  // Names stay the default; a headcount replaces the name rows.
+  await expect(
+    dialog.getByRole('radio', { name: 'Type names', exact: true })
+  ).toBeChecked();
+  // Click the visible pill, as a person would; the radio itself is sr-only.
+  await dialog.getByText('Enter number', { exact: true }).click();
+  await expect(
+    dialog.getByRole('radio', { name: 'Enter number', exact: true })
+  ).toBeChecked();
+  await expect(
+    dialog.getByPlaceholder('Participant 1', { exact: true })
+  ).toHaveCount(0);
+  await dialog.locator('#participants_count').fill('3');
+
+  await dialog
+    .getByRole('button', { name: 'Select guides', exact: true })
+    .click();
+  const guidePicker = page.getByRole('dialog', {
+    name: 'Choose guides',
+    exact: true
+  });
+  await guidePicker
+    .getByRole('textbox', { name: 'Search employees' })
+    .fill(employees[0].name as string);
+  await guidePicker.getByRole('checkbox').first().check();
+  await guidePicker.getByRole('button', { name: 'Done', exact: true }).click();
+  // The headcount spends seats exactly like typed names would.
+  await expect(dialog.getByText(/4 of \d+ seats \(1 guide\)/)).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+  await pickDate(
+    page,
+    dialog.locator('button[id="dates.0.date"]'),
+    '2027-03-24'
+  );
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+  await expect(
+    dialog.getByText('3 students (names not listed)', { exact: true })
+  ).toBeVisible();
+
+  const submitted = page.waitForRequest(
+    (req) => req.method() === 'POST' && req.url().endsWith('/api/trip-tickets')
+  );
+  // Inspect the real form's wire payload without creating a stored booking.
+  await page.route('**/api/trip-tickets', (route) =>
+    route.request().method() === 'POST'
+      ? route.fulfill({
+          status: 409,
+          json: {
+            error: {
+              code: 'FIXTURE_ONLY',
+              message: 'Fixture request captured.'
+            }
+          }
+        })
+      : route.fallback()
+  );
+  await dialog.getByRole('button', { name: 'Submit Request' }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Submit Request' })
+    .click();
+  expect((await submitted).postDataJSON()).toMatchObject({
+    participantType: 'students',
+    participantEmployeeIds: [],
+    participants: [],
+    participantsCount: 3,
+    guideIds: [employees[0].id]
+  });
+});
+
+test('a headcount-only student ticket shows its count and reopens in headcount mode', async ({
+  page,
+  request
+}) => {
+  const admin = await apiLogin(request, CREDENTIALS.admin);
+  const [branches, vehicles, drivers, guides] = await Promise.all(
+    [
+      '/api/branches',
+      '/api/vehicles',
+      '/api/drivers',
+      '/api/trip-tickets/guide-options'
+    ].map(async (path) => listData(await apiGet(request, path, admin.token)))
+  );
+  const branch = branches.find((b) => b.name === 'Main Branch')!;
+  const vehicle = vehicles.find((v) => v.status === 'available') ?? vehicles[0];
+  const start = new Date(Date.now() + 160 * 86_400_000);
+  const created = await apiPost(request, '/api/trip-tickets', admin.token, {
+    branchId: branch.id,
+    driverId: drivers[0].id,
+    vehicleId: vehicle.id,
+    destination: `Headcount detail ${Date.now()}`,
+    purpose: 'Headcount detail check',
+    dateRequested: new Date().toISOString(),
+    participantType: 'students',
+    participants: [],
+    participantsCount: 3,
+    guideIds: [guides[0].id],
+    preparedBy: 'E2E',
+    requestedById: admin.user.id,
+    dates: [
+      {
+        startTs: start.toISOString(),
+        endTs: new Date(start.getTime() + 6 * 3_600_000).toISOString()
+      }
+    ]
+  });
+  expect(created.ok, `headcount ticket created (${created.status})`).toBe(true);
+  const id = (created.body as { id: string }).id;
+
+  try {
+    await login(page, 'admin');
+    await page.goto(`/trip-tickets/${id}`);
+    await expect(
+      page.getByText('3 students (names not listed)', { exact: true })
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    await expect(
+      page.getByRole('radio', { name: 'Enter number', exact: true })
+    ).toBeChecked();
+    await expect(page.locator('#edit_participants_count')).toHaveValue('3');
+  } finally {
+    await apiDelete(request, `/api/trip-tickets/${id}`, admin.token);
+  }
 });

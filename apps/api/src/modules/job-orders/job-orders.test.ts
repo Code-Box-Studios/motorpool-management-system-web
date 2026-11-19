@@ -280,6 +280,77 @@ describe('job-order request rules', () => {
     expect(res.status).toBe(400); // the admin has to assign a mechanic off the back of this
   });
 
+  it('takes picked services in place of written details, deduplicated and searchable', async () => {
+    const s = await scaffold();
+    const { user: admin } = await createTestUser({
+      email: 'a@test.local',
+      role: 'admin'
+    });
+    const header = authHeader(admin.id, admin.email, 'admin');
+    const body = orderBody(s) as Record<string, unknown>;
+    delete body.incidentDetails;
+
+    const res = await request(app)
+      .post('/api/job-orders')
+      .set('Authorization', header)
+      .send({
+        ...body,
+        services: ['Check up brake system', 'Check up brake system']
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.services).toEqual(['Check up brake system']);
+
+    const found = await request(app)
+      .get('/api/job-orders?search=brake')
+      .set('Authorization', header);
+    expect(found.status).toBe(200);
+    expect(found.body.data.map((o: { id: string }) => o.id)).toContain(
+      res.body.id
+    );
+  });
+
+  it('refuses a service that is not on the standard list', async () => {
+    const s = await scaffold();
+    const { user: admin } = await createTestUser({
+      email: 'a@test.local',
+      role: 'admin'
+    });
+    const res = await request(app)
+      .post('/api/job-orders')
+      .set('Authorization', authHeader(admin.id, admin.email, 'admin'))
+      .send({ ...orderBody(s), services: ['Fix everything'] });
+    expect(res.status).toBe(400);
+  });
+
+  it('refuses an edit that would leave no services and no details', async () => {
+    const s = await scaffold();
+    const { user: admin } = await createTestUser({
+      email: 'a@test.local',
+      role: 'admin'
+    });
+    const header = authHeader(admin.id, admin.email, 'admin');
+    const body = orderBody(s) as Record<string, unknown>;
+    delete body.incidentDetails;
+    const created = await request(app)
+      .post('/api/job-orders')
+      .set('Authorization', header)
+      .send({ ...body, services: ['Check up tire pressure'] });
+    expect(created.status).toBe(201);
+
+    const emptied = await request(app)
+      .patch(`/api/job-orders/${created.body.id}`)
+      .set('Authorization', header)
+      .send({ services: [] });
+    expect(emptied.status).toBe(400);
+    expect(emptied.body.error.code).toBe('NO_SERVICES');
+
+    const swapped = await request(app)
+      .patch(`/api/job-orders/${created.body.id}`)
+      .set('Authorization', header)
+      .send({ services: [], incidentDetails: 'Replace wiper blades' });
+    expect(swapped.status).toBe(200);
+  });
+
   it('refuses an incident dated in the future', async () => {
     const s = await scaffold();
     const { user: admin } = await createTestUser({

@@ -27,9 +27,6 @@ const tripTicketSchema = z
     // Trip purpose and participants
     purpose: z.string().min(1, 'Purpose is required'),
     ...participantFields,
-    participants_count: z.coerce
-      .number()
-      .min(1, 'Number of participants must be at least 1'),
 
     // Trip details
     vehicle_id: z.string().uuid('Please select a vehicle'),
@@ -69,6 +66,7 @@ export const useTripTicketForm = () => {
       office_id: '',
       purpose: '',
       participant_type: 'students',
+      participant_entry: 'names',
       participant_employee_ids: [],
       guide_ids: [],
       participants: [],
@@ -104,8 +102,12 @@ export const useAddTripTicketAction = () => {
         data.participant_type === 'employees'
           ? data.participant_employee_ids
           : [],
+      // A headcount-only student trip sends no names, just participants_count.
       participants:
-        data.participant_type === 'students' ? data.participants : [],
+        data.participant_type === 'students' &&
+        data.participant_entry === 'names'
+          ? data.participants
+          : [],
       // Guides are already ids: no split, no join, no reconciliation against a
       // count. Renamed to the wire's camelCase here because mapCreateBody reads
       // `guideIds`; the snake_case `guide_ids` the spread also carries is not a

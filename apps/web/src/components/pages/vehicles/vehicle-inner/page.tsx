@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { VEHICLE_STATUS, FUEL_TYPE, USER_ROLES } from '@/lib/enums';
+import { FUEL_TYPE, USER_ROLES } from '@/lib/enums';
+import StatusBadge from '@/components/shared/status-badge';
 import { CarFront, ChevronLeft, ShieldCheck } from 'lucide-react';
 import { Loading } from '@/components/ui/loader';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
@@ -85,7 +86,6 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
         year: vehicle.year,
         license_plate: vehicle.license_plate,
         vin: vehicle.vin,
-        status: vehicle.status,
         branchId: vehicle.branch || '',
         fuel_type: vehicle.fuel_type || '',
         mileage: vehicle.mileage,
@@ -133,8 +133,8 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
     }
   };
 
-  // The server refuses a vehicle that is still referenced (409 VEHICLE_IN_USE,
-  // "set it out of service instead"); the mutation toasts that message, so the
+  // The server refuses a vehicle that is still referenced (409 VEHICLE_IN_USE);
+  // the mutation toasts that message, so the
   // dialog just closes and the record stays put.
   const handleConfirmDelete = () => {
     if (!vehicle) return;
@@ -336,33 +336,21 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
                       </Field>
                     )}
                   />
-                  <Controller
-                    name="status"
-                    control={form.control}
-                    render={({ field, fieldState }) => (
-                      <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor="status">Status</FieldLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <SelectTrigger id="status">
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.values(VEHICLE_STATUS).map((status) => (
-                              <SelectItem key={status} value={status}>
-                                {titleCase(status)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {fieldState.invalid && (
-                          <FieldError errors={[fieldState.error]} />
-                        )}
-                      </Field>
-                    )}
-                  />
+                  {/* Read-only: trips, repairs and maintenance move a
+                      vehicle's status, so an edit never writes it. */}
+                  <Field>
+                    <FieldLabel id="vehicle-status-label">Status</FieldLabel>
+                    <div
+                      aria-labelledby="vehicle-status-label"
+                      role="group"
+                      className="flex min-h-11 items-center"
+                    >
+                      <StatusBadge status={vehicle.status} />
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      Set automatically by trips, repairs and maintenance.
+                    </p>
+                  </Field>
                 </FormRow>
 
                 <FormRow>
@@ -616,7 +604,7 @@ const VehicleInner = ({ vehicleId }: { vehicleId: string }) => {
       {!isEditing && isAdmin && (
         <DetailSection
           title="Danger zone"
-          description="Deleting a vehicle is permanent. If it is referenced by trips, job orders or maintenance, set its status to Out of Service instead."
+          description="Deleting a vehicle is permanent. A vehicle referenced by trips, job orders or maintenance cannot be deleted."
         >
           <Button variant="destructive" onClick={() => setShowDelete(true)}>
             Delete vehicle

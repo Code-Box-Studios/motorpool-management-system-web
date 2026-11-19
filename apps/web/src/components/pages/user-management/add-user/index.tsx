@@ -3,6 +3,7 @@ import { toImageFileList } from '@/components/shared/image-upload-files';
 // src/components/pages/user-management/add-user/index.tsx
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import {
   Select,
   SelectContent,
@@ -186,10 +187,9 @@ export function AddUser() {
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="signup-password">Password</FieldLabel>
-                    <Input
+                    <PasswordInput
                       {...field}
                       id="signup-password"
-                      type="password"
                       aria-invalid={fieldState.invalid}
                       placeholder="Enter password"
                       autoComplete="new-password"

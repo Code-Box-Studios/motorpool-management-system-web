@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { jobOrderSummary } from '@/lib/job-order-summary';
 import { useAllTripTickets } from '@/lib/query/trip-tickets';
 import { useAllJobOrders } from '@/lib/query/job-orders';
 import { useAllVehicles } from '@/lib/query/vehicles';
@@ -77,7 +78,7 @@ const NeedsYou = () => {
       .map((o) => ({
         key: `job-${o.id}`,
         ref: formatRef('JO', o.order_no),
-        title: `Assign mechanic — ${o.incident_details ?? 'repair'}`,
+        title: `Assign mechanic — ${jobOrderSummary(o) ?? 'repair'}`,
         subtitle: vehicleLabel(o.vehicle_id),
         status: o.status ?? '',
         // The Job Orders table's row action for a pending order is "Note Job

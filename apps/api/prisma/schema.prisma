@@ -514,6 +514,9 @@ model JobOrder {
   status              JobOrderStatus @default(pending)
   incidentDate        DateTime?      @map("incident_date") @db.Timestamptz(3)
   incidentDetails     String?        @map("incident_details")
+  // Standard services picked from JOB_ORDER_SERVICES (@mms/shared);
+  // incidentDetails holds any additional services beyond the list.
+  services            String[]       @default([])
   requestedById       String?        @map("requested_by") @db.Uuid
   notedById           String?        @map("noted_by") @db.Uuid
   approvedById        String?        @map("approved_by") @db.Uuid

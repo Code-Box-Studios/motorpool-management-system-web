@@ -115,13 +115,20 @@ export function ResourceTab({ resource }: ResourceTabProps) {
   const officesById = new Map((officesQuery.data ?? []).map((o) => [o.id, o]));
   const headsById = new Map((headsQuery.data ?? []).map((h) => [h.id, h]));
 
+  // Every list here is fetched archived-inclusive, because Restore needs the
+  // row, but an archived record should leave the default view the moment it
+  // is archived. Status therefore defaults to Active, and archived rows stay
+  // reachable as Archived or All.
+  const status = filters[statusKey] ?? 'active';
   const tableFilters: TableFilterDefinition[] = [
     {
       key: statusKey,
       label: 'Status',
+      defaultValue: 'active',
       options: [
         { value: 'active', label: 'Active' },
-        { value: 'archived', label: 'Archived' }
+        { value: 'archived', label: 'Archived' },
+        { value: 'all', label: 'All' }
       ]
     }
   ];
@@ -137,8 +144,8 @@ export function ResourceTab({ resource }: ResourceTabProps) {
 
   const records = allRecords.filter(
     (record) =>
-      (!filters[statusKey] ||
-        (isArchived(record) ? 'archived' : 'active') === filters[statusKey]) &&
+      (status === 'all' ||
+        (isArchived(record) ? 'archived' : 'active') === status) &&
       (!filters[branchKey] || record.branchId === filters[branchKey]) &&
       matchesSearch(search, [
         record.name,

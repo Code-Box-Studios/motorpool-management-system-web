@@ -33,6 +33,10 @@ import { DatePicker } from '@/components/shared/date-picker';
 import { TimePicker } from '@/components/shared/time-picker';
 import { DetailGrid, DetailItem } from '@/components/shared/detail-view';
 import { GuidePicker } from '@/components/pages/trip-tickets/guide-picker';
+import {
+  ParticipantEntryToggle,
+  StudentCountField
+} from '@/components/pages/trip-tickets/participant-entry';
 import { BorrowedBadge } from '@/components/shared/borrowed-badge';
 import { isBorrowed } from '@/lib/borrowed';
 import { resolveStatus } from '@/lib/status';
@@ -61,6 +65,7 @@ const STEPS = [
       'purpose',
       'guide_ids',
       'participant_type',
+      'participant_entry',
       'participant_employee_ids',
       'participants'
     ]
@@ -162,6 +167,10 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
   const participantType = form.watch('participant_type');
   const employeeParticipantIds = form.watch('participant_employee_ids');
   const employeeTrip = participantType === 'employees';
+  // A student trip listed by headcount alone: no name rows, just a number.
+  const participantEntry = form.watch('participant_entry');
+  const countEntry = !employeeTrip && participantEntry === 'count';
+  const headcount = Number(form.watch('participants_count')) || 0;
   const guideIds = form.watch('guide_ids');
   const guideCount = guideIds.filter(Boolean).length;
 
@@ -199,12 +208,16 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
 
   const namedCount = employeeTrip
     ? employeeParticipantIds.length
-    : participants.filter((p) => p.trim()).length;
+    : countEntry
+      ? headcount
+      : participants.filter((p) => p.trim()).length;
   // One budget, two buttons: a guide takes a seat exactly like a participant,
   // so the same flag stops "Add participant" and "Add guide".
   const full =
     seats !== null &&
-    (employeeTrip ? namedCount : participants.length) + guideCount >= seats;
+    (employeeTrip || countEntry ? namedCount : participants.length) +
+      guideCount >=
+      seats;
 
   // The seat budget as one line, guides included — a counter that ignored them
   // would promise room the van does not have, and the trip would be refused
@@ -341,7 +354,11 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
       // it was invisible and the submit just stopped with no explanation. That
       // path was hard to reach before; counting guides makes it ordinary.
       form.setError(
-        employeeTrip ? 'participant_employee_ids' : 'participants',
+        employeeTrip
+          ? 'participant_employee_ids'
+          : countEntry
+            ? 'participants_count'
+            : 'participants',
         {
           message:
             `That vehicle seats ${seats} — this trip is ` +
@@ -579,7 +596,13 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                           )?.capacity;
                           if (!nextSeats) return;
                           const room = Math.max(nextSeats - guideCount, 1);
-                          if (!employeeTrip && participants.length > room) {
+                          if (countEntry && headcount > room) {
+                            form.setValue('participants_count', room);
+                          } else if (
+                            !employeeTrip &&
+                            !countEntry &&
+                            participants.length > room
+                          ) {
                             syncParticipants(participants.slice(0, room));
                           }
                         }}
@@ -743,13 +766,25 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                       value={field.value}
                       onValueChange={(value: 'students' | 'employees') => {
                         field.onChange(value);
-                        const count =
-                          value === 'employees'
-                            ? employeeParticipantIds.length
-                            : participants.filter((name) => name.trim()).length;
-                        form.setValue('participants_count', Math.max(count, 1));
+                        // A typed student headcount is left alone; otherwise
+                        // the count follows the names or the roster picks.
+                        if (
+                          value === 'employees' ||
+                          participantEntry === 'names'
+                        ) {
+                          const count =
+                            value === 'employees'
+                              ? employeeParticipantIds.length
+                              : participants.filter((name) => name.trim())
+                                  .length;
+                          form.setValue(
+                            'participants_count',
+                            Math.max(count, 1)
+                          );
+                        }
                         form.clearErrors([
                           'participants',
+                          'participants_count',
                           'participant_employee_ids',
                           'guide_ids'
                         ]);
@@ -800,88 +835,139 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                   />
                 </Field>
               ) : (
-                <Controller
-                  name="participants"
-                  control={form.control}
-                  render={({ fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <FieldLabel htmlFor="participants">
-                          Participants *
-                        </FieldLabel>
-                        {/* The seat budget, spent and remaining — guides
+                <>
+                  <ParticipantEntryToggle
+                    name="participant_entry"
+                    value={participantEntry}
+                    onChange={(next) => {
+                      form.setValue('participant_entry', next, {
+                        shouldDirty: true
+                      });
+                      // Back to names: the count follows the rows again.
+                      if (next === 'names') {
+                        form.setValue(
+                          'participants_count',
+                          Math.max(
+                            participants.filter((name) => name.trim()).length,
+                            1
+                          )
+                        );
+                      }
+                      form.clearErrors(['participants', 'participants_count']);
+                    }}
+                  />
+                  {/* Keyed: both branches put a Controller in the same slot,
+                      and a reused instance re-registers under the other name,
+                      leaving `participants` undefined. */}
+                  {countEntry ? (
+                    <Controller
+                      key="participants_count"
+                      name="participants_count"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <StudentCountField
+                          id="participants_count"
+                          value={field.value ?? ''}
+                          onChange={field.onChange}
+                          max={
+                            seats === null
+                              ? undefined
+                              : Math.max(seats - guideCount, 1)
+                          }
+                          error={fieldState.error}
+                          summary={seatSummary}
+                        />
+                      )}
+                    />
+                  ) : (
+                    <Controller
+                      key="participants"
+                      name="participants"
+                      control={form.control}
+                      render={({ fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <FieldLabel htmlFor="participants">
+                              Participants *
+                            </FieldLabel>
+                            {/* The seat budget, spent and remaining — guides
                           included, because the API counts them against the
                           same capacity (see seatSummary above). */}
-                        <span className="text-muted-foreground text-xs tabular-nums">
-                          {seatSummary}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                        {participants.map((participant, index) => (
-                          <div key={index} className="flex items-center gap-2">
-                            <Input
-                              value={participant}
-                              onChange={(e) =>
-                                syncParticipants(
-                                  participants.map((p, i) =>
-                                    i === index ? e.target.value : p
-                                  )
-                                )
-                              }
-                              placeholder={`Participant ${index + 1}`}
-                              aria-invalid={fieldState.invalid}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              aria-label={`Remove participant ${index + 1}`}
-                              // Never zero rows: a trip has to carry someone.
-                              disabled={participants.length === 1}
-                              onClick={() =>
-                                syncParticipants(
-                                  participants.filter((_, i) => i !== index)
-                                )
-                              }
-                            >
-                              <TrashIcon className="size-4" />
-                            </Button>
+                            <span className="text-muted-foreground text-xs tabular-nums">
+                              {seatSummary}
+                            </span>
                           </div>
-                        ))}
-                      </div>
 
-                      {/* Wrapped: Field's vertical variant sets `*:w-full`, which
+                          <div className="flex flex-col gap-2">
+                            {participants.map((participant, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2"
+                              >
+                                <Input
+                                  value={participant}
+                                  onChange={(e) =>
+                                    syncParticipants(
+                                      participants.map((p, i) =>
+                                        i === index ? e.target.value : p
+                                      )
+                                    )
+                                  }
+                                  placeholder={`Participant ${index + 1}`}
+                                  aria-invalid={fieldState.invalid}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={`Remove participant ${index + 1}`}
+                                  // Never zero rows: a trip has to carry someone.
+                                  disabled={participants.length === 1}
+                                  onClick={() =>
+                                    syncParticipants(
+                                      participants.filter((_, i) => i !== index)
+                                    )
+                                  }
+                                >
+                                  <TrashIcon className="size-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Wrapped: Field's vertical variant sets `*:w-full`, which
                         stretches every direct child — so the button has to sit
                         inside something else to keep its own size. */}
-                      <div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          // The van fills up; the button stops rather than letting
-                          // someone name a headcount the vehicle cannot carry.
-                          disabled={full}
-                          onClick={() =>
-                            syncParticipants([...participants, ''])
-                          }
-                        >
-                          <PlusIcon className="size-4" />
-                          Add participant
-                        </Button>
-                      </div>
-                      {full && (
-                        <p className="text-muted-foreground text-xs">
-                          That vehicle is full.
-                        </p>
-                      )}
+                          <div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              // The van fills up; the button stops rather than letting
+                              // someone name a headcount the vehicle cannot carry.
+                              disabled={full}
+                              onClick={() =>
+                                syncParticipants([...participants, ''])
+                              }
+                            >
+                              <PlusIcon className="size-4" />
+                              Add participant
+                            </Button>
+                          </div>
+                          {full && (
+                            <p className="text-muted-foreground text-xs">
+                              That vehicle is full.
+                            </p>
+                          )}
 
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
+                          {fieldState.invalid && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
+                        </Field>
                       )}
-                    </Field>
+                    />
                   )}
-                />
+                </>
               )}
 
               {/* Guides share the passenger seat budget and use employee identities. */}
@@ -1188,7 +1274,9 @@ export function AddTripTicket({ initialDate, onDone }: TripTicketFormProps) {
                               nameOf(guideOptions, id) ?? 'Unavailable employee'
                           )
                           .join(', ')
-                      : participants.filter((name) => name.trim()).join(', ')
+                      : countEntry
+                        ? `${headcount} student${headcount === 1 ? '' : 's'} (names not listed)`
+                        : participants.filter((name) => name.trim()).join(', ')
                   }
                   wide
                 />

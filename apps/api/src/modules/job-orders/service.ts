@@ -155,6 +155,22 @@ export async function update(id: string, body: UpdateJobOrderBody) {
       'An incident date cannot be in the future'
     );
   }
+  // An edit that rewrites the work may not leave it empty. Only checked when
+  // the edit touches it, so an unrelated edit to an older order still saves.
+  const nextServices = body.services ?? existing.services ?? [];
+  const nextDetails =
+    body.incidentDetails !== undefined
+      ? body.incidentDetails
+      : existing.incidentDetails;
+  const settingWork =
+    body.services !== undefined || body.incidentDetails !== undefined;
+  if (settingWork && nextServices.length === 0 && !nextDetails?.trim()) {
+    throw new AppError(
+      400,
+      'NO_SERVICES',
+      'Choose a service or describe the additional services'
+    );
+  }
   await prisma.$transaction(async (tx) => {
     await assertOrgRefsActive({ branchId: body.branchId }, tx);
     await lockVehicles(tx, [

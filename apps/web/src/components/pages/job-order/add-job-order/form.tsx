@@ -1,4 +1,5 @@
 import { ServiceMetadataFields } from '../service-metadata-fields';
+import { ServicesPicker } from '../services-picker';
 import { useEffect, useState } from 'react';
 import { Controller, type FieldErrors } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -36,7 +37,10 @@ import {
 // steps and had no business being asked here.
 const STEPS = [
   { title: 'The vehicle', fields: ['branch_id', 'vehicle_id'] },
-  { title: 'What happened', fields: ['incident_date', 'incident_details'] },
+  {
+    title: 'What happened',
+    fields: ['incident_date', 'services', 'incident_details']
+  },
   { title: 'Review', fields: [] }
 ] as const satisfies ReadonlyArray<{
   title: string;
@@ -279,18 +283,52 @@ export function AddJobOrder({ onDone }: JobOrderFormProps) {
               </FormRow>
 
               <Controller
+                name="services"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="services">
+                      Services to be done *
+                    </FieldLabel>
+                    <ServicesPicker
+                      id="services"
+                      value={field.value}
+                      onChange={(next) => {
+                        field.onChange(next);
+                        // Re-check now rather than on the next Continue, so a
+                        // "choose a service" error clears as soon as one is.
+                        if (form.formState.errors.services)
+                          void form.trigger('services');
+                      }}
+                      invalid={fieldState.invalid}
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+
+              <Controller
                 name="incident_details"
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor="incident_details">
-                      What is wrong *
+                      Additional Services to be done
                     </FieldLabel>
                     <Textarea
                       {...field}
+                      onChange={(event) => {
+                        field.onChange(event);
+                        // Writing the work out also satisfies the services
+                        // rule, so clear a standing "choose a service" error.
+                        if (form.formState.errors.services)
+                          void form.trigger('services');
+                      }}
                       id="incident_details"
                       aria-invalid={fieldState.invalid}
-                      placeholder="Describe the fault — the admin assigns a mechanic and notes the parts off the back of this."
+                      placeholder="Anything not on the list"
                       rows={4}
                     />
                     {fieldState.invalid && (
@@ -346,8 +384,17 @@ export function AddJobOrder({ onDone }: JobOrderFormProps) {
                   value={review.service_location}
                 />
                 <DetailItem
-                  label="What is wrong"
-                  value={review.incident_details}
+                  label="Services to be done"
+                  value={
+                    review.services?.length
+                      ? review.services.join(', ')
+                      : undefined
+                  }
+                  wide
+                />
+                <DetailItem
+                  label="Additional services"
+                  value={review.incident_details?.trim() || undefined}
                   wide
                 />
               </DetailGrid>

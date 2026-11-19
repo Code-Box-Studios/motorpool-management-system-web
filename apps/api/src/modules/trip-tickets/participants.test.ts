@@ -254,6 +254,65 @@ describe('student and employee trip participants', () => {
     expect(response.body.participantEmployees).toHaveLength(2);
   });
 
+  it('books a student trip from a headcount alone', async () => {
+    const s = await setup();
+    const response = await s.create({
+      ...s.body,
+      participantType: 'students',
+      participantEmployeeIds: [],
+      participants: [],
+      participantsCount: 3,
+      guideIds: [s.guide.id]
+    });
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      participantType: 'students',
+      participants: [],
+      participantsCount: 3
+    });
+
+    // Names typed later replace the bare headcount.
+    const named = await s.patch(response.body.id, {
+      participants: ['Student One', 'Student Two'],
+      participantsCount: 2
+    });
+    expect(named.status).toBe(200);
+    expect(named.body).toMatchObject({
+      participants: ['Student One', 'Student Two'],
+      participantsCount: 2
+    });
+  });
+
+  it('switches an employee trip to a student headcount without carrying employee names over', async () => {
+    const s = await setup();
+    const created = await s.create();
+    expect(created.status).toBe(201);
+    expect(
+      (
+        await s.patch(created.body.id, {
+          participantType: 'students',
+          participantEmployeeIds: [],
+          guideIds: [s.guide.id]
+        })
+      ).status
+    ).toBe(400);
+
+    const response = await s.patch(created.body.id, {
+      participantType: 'students',
+      participantEmployeeIds: [],
+      participants: [],
+      participantsCount: 4,
+      guideIds: [s.guide.id]
+    });
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      participantType: 'students',
+      participants: [],
+      participantsCount: 4,
+      participantEmployees: []
+    });
+  });
+
   it('requires guides when switching employees to students and clears roster membership after a valid switch', async () => {
     const s = await setup();
     const created = await s.create();

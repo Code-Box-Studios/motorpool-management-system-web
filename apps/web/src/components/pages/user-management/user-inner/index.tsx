@@ -6,6 +6,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { USER_ROLES } from '@mms/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
   Select,
@@ -413,9 +414,9 @@ const UserInner = ({ userId }: { userId: string }) => {
                     <FieldLabel htmlFor="current-password">
                       Current password
                     </FieldLabel>
-                    <Input
+                    <PasswordInput
                       id="current-password"
-                      type="password"
+                      toggleLabel="current password"
                       autoComplete="current-password"
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
@@ -424,9 +425,9 @@ const UserInner = ({ userId }: { userId: string }) => {
                 )}
                 <Field>
                   <FieldLabel htmlFor="new-password">New password</FieldLabel>
-                  <Input
+                  <PasswordInput
                     id="new-password"
-                    type="password"
+                    toggleLabel="new password"
                     autoComplete="new-password"
                     placeholder="At least 8 characters"
                     value={newPassword}

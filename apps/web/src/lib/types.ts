@@ -50,6 +50,9 @@ export interface JobOrderMetadata {
     | 'service'
     | null;
   service_location?: 'motorpool' | 'outside' | null;
+  // Standard services picked from JOB_ORDER_SERVICES; incident_details holds
+  // any additional services beyond the list.
+  services?: string[];
 }
 export type JobOrder = Tables<'job_orders'> & JobOrderMetadata;
 export type NewJobOrder = TablesInsert<'job_orders'> & JobOrderMetadata;

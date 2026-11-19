@@ -1,4 +1,5 @@
 import {
+  describeJobOrder,
   REPORT_TITLES,
   type ReportColumn,
   type ReportQuery,
@@ -251,7 +252,7 @@ export async function generateReport(
       status: titleCase(o.status),
       serviceLocation: titleCase(o.serviceLocation),
       repairType: titleCase(o.repairDone),
-      notes: o.remarks ?? o.incidentDetails
+      notes: o.remarks ?? describeJobOrder(o)
     }));
     result.summary = [
       { label: 'Job orders', value: rows.length },

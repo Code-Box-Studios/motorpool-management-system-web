@@ -8,6 +8,7 @@ import {
   apiPost,
   listData
 } from './helpers';
+import { chooseFilter } from './filter-controls';
 
 // This is the first and only thing that actually runs the Organization page
 // in a browser — Tasks 1-7 shipped on tsc + eslint + a static trace of the
@@ -224,9 +225,8 @@ test('admin creates a branch, sees it live in the booking form, archives it away
     .getByRole('button', { name: 'Archive', exact: true })
     .click();
   await expect(archiveDialog).toBeHidden({ timeout: 15_000 });
-  await expect(branchRow.getByText('Archived')).toBeVisible({
-    timeout: 15_000
-  });
+  // Archived records leave the default (Active) view at once.
+  await expect(branchRow).toHaveCount(0, { timeout: 15_000 });
   await shot(page, 'organization-2-branch-archived');
 
   // ---------- 5: gone from the booking dropdown ----------
@@ -243,14 +243,16 @@ test('admin creates a branch, sees it live in the booking form, archives it away
   ).toHaveCount(0);
   await closeBookingDialog(page, booking);
 
-  // ---------- 6: still listed on /organization with an Archived badge; restore it ----------
+  // ---------- 6: listed under Status → Archived with its badge; restore it ----------
   await goToOrganization(page);
+  await chooseFilter(page, 'Status', 'Archived');
   await expect(branchRow).toBeVisible({ timeout: 15_000 });
   await expect(branchRow.getByText('Archived')).toBeVisible();
   await branchRow.getByRole('button', { name: 'Restore' }).click();
-  await expect(branchRow.getByText('Archived')).toHaveCount(0, {
-    timeout: 15_000
-  });
+  // Restored, it leaves the Archived view and is back among the active rows.
+  await expect(branchRow).toHaveCount(0, { timeout: 15_000 });
+  await chooseFilter(page, 'Status', 'Active');
+  await expect(branchRow.getByText('Archived')).toHaveCount(0);
   await expect(branchRow.getByRole('button', { name: 'Archive' })).toBeVisible({
     timeout: 15_000
   });
@@ -393,9 +395,7 @@ test('editing an office whose branch has since been archived shows the branch as
     .getByRole('button', { name: 'Archive', exact: true })
     .click();
   await expect(archiveDialog).toBeHidden({ timeout: 15_000 });
-  await expect(officeRow.getByText('Archived')).toBeVisible({
-    timeout: 15_000
-  });
+  await expect(officeRow).toHaveCount(0, { timeout: 15_000 });
 
   await selectTab(page, 'Branches');
   await expect(branchRow).toBeVisible({ timeout: 15_000 });
@@ -408,12 +408,11 @@ test('editing an office whose branch has since been archived shows the branch as
   // state. If it did, either the office archive above didn't really take, or
   // branchBlockers is (wrongly) still counting an archived child.
   await expect(archiveDialog).toBeHidden({ timeout: 15_000 });
-  await expect(branchRow.getByText('Archived')).toBeVisible({
-    timeout: 15_000
-  });
+  await expect(branchRow).toHaveCount(0, { timeout: 15_000 });
 
   // ---------- Edit the archived office: its archived branch must show, not blank ----------
   await selectTab(page, 'Offices');
+  await chooseFilter(page, 'Status', 'Archived');
   officeRow = page.getByRole('row').filter({ hasText: officeName });
   await expect(officeRow).toBeVisible({ timeout: 15_000 });
   await officeRow.getByRole('button', { name: 'Edit' }).click();
@@ -696,15 +695,18 @@ test('admin adds a branch employee, edits it, and archives it away', async ({
     .getByRole('button', { name: 'Archive', exact: true })
     .click();
   await expect(archiveDialog).toBeHidden({ timeout: 15_000 });
+  // Gone from the default (Active) roster; still one filter away.
+  await expect(renamedRow).toHaveCount(0, { timeout: 15_000 });
+  await chooseFilter(page, 'Status', 'Archived');
   await expect(renamedRow.getByText('Archived')).toBeVisible({
     timeout: 15_000
   });
   await shot(page, 'organization-8-employee-archived');
 
   await renamedRow.getByRole('button', { name: 'Restore' }).click();
-  await expect(renamedRow.getByText('Archived')).toHaveCount(0, {
-    timeout: 15_000
-  });
+  await expect(renamedRow).toHaveCount(0, { timeout: 15_000 });
+  await chooseFilter(page, 'Status', 'Active');
+  await expect(renamedRow.getByText('Archived')).toHaveCount(0);
   await expect(renamedRow.getByRole('button', { name: 'Archive' })).toBeVisible(
     { timeout: 15_000 }
   );

@@ -1,4 +1,5 @@
 import type { TripTicket, TripDate, JobOrder } from '@prisma/client';
+import { describeJobOrder } from '@mms/shared';
 import type { AuthenticatedUser } from '../../middleware/require-auth.js';
 import { prisma } from '../../lib/prisma.js';
 import { formatDisplayDate } from '../../lib/timezone.js';
@@ -286,7 +287,7 @@ export async function jobOrderSubmitted(
     exceptUserId: actor.id,
     type: 'job_order_awaiting_action',
     title: `${ref('JO', order.orderNo)} needs a mechanic`,
-    body: order.incidentDetails ?? 'A repair is waiting to be assigned.',
+    body: describeJobOrder(order) ?? 'A repair is waiting to be assigned.',
     linkTo: jobOrderLink(order.id)
   }));
   // Same on-behalf case as a trip: an admin may raise the repair for someone.
@@ -295,7 +296,7 @@ export async function jobOrderSubmitted(
     exceptUserId: actor.id,
     type: 'job_order_awaiting_action',
     title: `${ref('JO', order.orderNo)} was raised in your name`,
-    body: order.incidentDetails ?? 'Waiting for a mechanic to be assigned.',
+    body: describeJobOrder(order) ?? 'Waiting for a mechanic to be assigned.',
     linkTo: jobOrderLink(order.id)
   }));
 }
@@ -317,7 +318,7 @@ export async function jobOrderNoted(
     exceptUserId: actor.id,
     type: 'job_order_awaiting_action',
     title: `${ref('JO', order.orderNo)} awaits your sign-off`,
-    body: order.incidentDetails ?? 'A mechanic has been assigned.',
+    body: describeJobOrder(order) ?? 'A mechanic has been assigned.',
     linkTo: jobOrderLink(order.id)
   }));
   // The person who has to actually do the work. Without this, the one role the
@@ -327,7 +328,7 @@ export async function jobOrderNoted(
     exceptUserId: actor.id,
     type: 'job_order_awaiting_action',
     title: `${ref('JO', order.orderNo)} is yours to repair`,
-    body: order.incidentDetails ?? 'A repair has been assigned to you.',
+    body: describeJobOrder(order) ?? 'A repair has been assigned to you.',
     linkTo: jobOrderLink(order.id)
   }));
   await notify(async () => ({

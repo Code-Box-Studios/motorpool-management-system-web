@@ -229,7 +229,8 @@ describe('Operations audit invariants', () => {
           branchId: 'branch',
           vehicleId: 'vehicle',
           incidentDate: new Date('2099-11-13'),
-          incidentDetails: 'Future incident'
+          incidentDetails: 'Future incident',
+          services: []
         },
         actor
       )

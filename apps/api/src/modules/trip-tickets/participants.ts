@@ -39,17 +39,18 @@ export async function resolveTripParticipants(
         'Student participants use names instead of employee selections'
       );
     }
-    if (
-      existing?.participantType === 'employees' &&
-      !input.participants?.length
-    ) {
+    const switching = existing?.participantType === 'employees';
+    if (switching && !input.participants?.length && !input.participantsCount) {
       throw new AppError(
         400,
         'INVALID_PARTICIPANTS',
-        'Enter student names when changing the participant type'
+        'Enter student names or a headcount when changing the participant type'
       );
     }
-    const participants = input.participants ?? existing?.participants ?? [];
+    // Student trips are listed by name or by headcount alone. Employee names
+    // never carry over as student names: a switch starts from what was sent.
+    const participants =
+      input.participants ?? (switching ? [] : (existing?.participants ?? []));
     const participantsCount =
       input.participantsCount !== undefined
         ? input.participantsCount

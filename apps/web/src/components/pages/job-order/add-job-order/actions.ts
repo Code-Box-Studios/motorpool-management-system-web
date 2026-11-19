@@ -13,26 +13,39 @@ import type { NewJobOrder } from '@/lib/types';
 // every one of them is reached through a transition (note -> approve ->
 // complete-repair) with its own guard. Carrying them here only invited someone
 // to wire up a control that would silently do nothing.
-const jobOrderSchema = z.object({
-  vehicle_id: z.string().uuid('Please select a vehicle'),
-  branch_id: z.string().uuid('Please select a branch'),
-  // A fault cannot have happened tomorrow. The API refuses it
-  // (400 INCIDENT_IN_THE_FUTURE) — catch it here so it lands on the field
-  // instead of coming back as a failed submit.
-  incident_date: z
-    .string()
-    .min(1, 'Incident date is required')
-    .refine((v) => new Date(v).getTime() <= Date.now(), {
-      message: 'The incident cannot be in the future'
-    }),
+const jobOrderSchema = z
+  .object({
+    vehicle_id: z.string().uuid('Please select a vehicle'),
+    branch_id: z.string().uuid('Please select a branch'),
+    // A fault cannot have happened tomorrow. The API refuses it
+    // (400 INCIDENT_IN_THE_FUTURE) — catch it here so it lands on the field
+    // instead of coming back as a failed submit.
+    incident_date: z
+      .string()
+      .min(1, 'Incident date is required')
+      .refine((v) => new Date(v).getTime() <= Date.now(), {
+        message: 'The incident cannot be in the future'
+      }),
+    // Picked from JOB_ORDER_SERVICES.
+    services: z.array(z.string()),
+    // "Additional Services to be done": anything not on the list. Optional.
+    incident_details: z.string().optional(),
+    remarks: z.string().optional(),
+    maintenance_type: z.string().optional(),
+    service_location: z.string().optional(),
+    requested_by: z.string().optional()
+  })
   // The admin assigns a mechanic and notes the parts off the back of this, so a
-  // repair request that says nothing is one nobody can work.
-  incident_details: z.string().min(1, 'Describe what is wrong'),
-  remarks: z.string().optional(),
-  maintenance_type: z.string().optional(),
-  service_location: z.string().optional(),
-  requested_by: z.string().optional()
-});
+  // repair request that names no work is one nobody can act on.
+  .superRefine((data, ctx) => {
+    if (data.services.length === 0 && !data.incident_details?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['services'],
+        message: 'Choose a service or describe the additional services'
+      });
+    }
+  });
 
 export type JobOrderFormData = z.infer<typeof jobOrderSchema>;
 
@@ -43,6 +56,7 @@ export const useJobOrderForm = () => {
       vehicle_id: '',
       branch_id: '',
       incident_date: '',
+      services: [],
       incident_details: '',
       remarks: '',
       maintenance_type: '',

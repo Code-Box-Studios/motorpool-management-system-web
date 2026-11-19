@@ -15,22 +15,73 @@ const serviceMetadata = {
   serviceLocation: z.enum(['motorpool', 'outside']).nullable().optional()
 };
 
-export const createJobOrderBodySchema = z.object({
+// The standard services a requester picks from. Anything else goes in
+// `incidentDetails`, shown as "Additional Services to be done".
+export const JOB_ORDER_SERVICES = [
+  'Check and replace engine oil',
+  'Check and replace oil filter',
+  'Check up brake system',
+  'Check up under chassis',
+  'Check up charging system',
+  'Check up lighting system',
+  'Check up tire pressure',
+  'Check and cleaning of air cleaner element',
+  'Check up electrical system',
+  'Check up hydraulic oil level'
+] as const;
+export type JobOrderService = (typeof JOB_ORDER_SERVICES)[number];
+
+/**
+ * One line naming what a job order is for: the picked services, then any
+ * additional work. Notifications, approval queues and reports use it as the
+ * order's title, so an order with only picked services still says something.
+ */
+export function describeJobOrder(order: {
+  services?: readonly string[] | null;
+  incidentDetails?: string | null;
+}): string | null {
+  const details = order.incidentDetails?.trim() || null;
+  const services = order.services?.filter(Boolean) ?? [];
+  if (services.length === 0) return details;
+  const list = services.join(', ');
+  return details ? `${list}; ${details}` : list;
+}
+
+const jobOrderBodyFieldsSchema = z.object({
   ...serviceMetadata,
   vehicleId: z.string().uuid(),
   branchId: z.string().uuid(),
-  // A repair request that does not say what happened is a repair request nobody
-  // can act on: the admin has to assign a mechanic and note the parts off the
-  // back of it. Both were optional.
   incidentDate: z.coerce.date(),
-  incidentDetails: z.string().min(1),
+  // Picked from the standard list; duplicates collapse.
+  services: z
+    .array(z.enum(JOB_ORDER_SERVICES))
+    .transform((picked) => [...new Set(picked)]),
+  // Additional services to be done, beyond the list. Optional now that the
+  // list carries the common ones.
+  incidentDetails: z.string().nullable().optional(),
   requestedById: z.string().uuid().nullable().optional(),
   remarks: z.string().nullable().optional()
 });
+
+// A repair request that says nothing about the work is one nobody can act on:
+// the admin assigns a mechanic and notes the parts off the back of it. So it
+// needs a picked service, additional services written out, or both.
+export const createJobOrderBodySchema = jobOrderBodyFieldsSchema
+  .extend({ services: jobOrderBodyFieldsSchema.shape.services.default([]) })
+  .superRefine((body, ctx) => {
+    if (body.services.length === 0 && !body.incidentDetails?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['services'],
+        message: 'Choose a service or describe the additional services'
+      });
+    }
+  });
 export type CreateJobOrderBody = z.infer<typeof createJobOrderBodySchema>;
 
 // PATCH legal only while pending (service-enforced); never changes status.
-export const updateJobOrderBodySchema = createJobOrderBodySchema.partial();
+// The service re-checks the services-or-details rule against the stored order.
+export const updateJobOrderBodySchema = jobOrderBodyFieldsSchema.partial();
 export type UpdateJobOrderBody = z.infer<typeof updateJobOrderBodySchema>;
 
 // note(admin): assigns a mechanic and records spare parts used (quantity is a

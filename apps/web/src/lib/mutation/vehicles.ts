@@ -53,7 +53,7 @@ export const useUpdateVehicle = () => {
 
 // Delete a vehicle (admin only, enforced by the API). A vehicle still
 // referenced by trips, job orders, maintenance or GPS rows comes back as a 409
-// whose message names the way out ("set it out of service instead") — toast the
+// whose message says why ("referenced by existing records") — toast the
 // server's message verbatim so the admin is told what to do, not just that it
 // failed.
 export const useDeleteVehicle = () => {

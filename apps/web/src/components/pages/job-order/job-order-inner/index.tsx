@@ -1,4 +1,5 @@
 import { useParams } from '@tanstack/react-router';
+import { jobOrderSummary } from '@/lib/job-order-summary';
 import { Wrench } from 'lucide-react';
 import { WorkflowProgress } from '@/components/shared/workflow-progress';
 import { useJobOrder } from '@/lib/query/job-orders';
@@ -242,6 +243,8 @@ export const JobOrderInner = () => {
   });
 
   const incident = jobOrder.incident_details?.trim();
+  const services = jobOrder.services ?? [];
+  const summary = jobOrderSummary(jobOrder);
   const hasRepairOutcome = Boolean(
     jobOrder.repair_done?.trim() || jobOrder.actual_date_of_release
   );
@@ -254,7 +257,7 @@ export const JobOrderInner = () => {
           status rules; RecordHeader lays the actions out. */}
       <RecordHeader
         reference={formatRef('JO', jobOrder.order_no)}
-        title={incident || 'Job order'}
+        title={summary || 'Job order'}
         status={jobOrder.status ?? undefined}
         meta={
           vehicleName && (
@@ -326,7 +329,12 @@ export const JobOrderInner = () => {
               value={formatDateTime(jobOrder.incident_date) || notRecorded}
             />
             <DetailItem
-              label="Incident details"
+              label="Services to be done"
+              value={services.length ? services.join(', ') : notRecorded}
+              className="sm:col-span-2"
+            />
+            <DetailItem
+              label="Additional services"
               value={incident || notRecorded}
               className="sm:col-span-2"
             />
