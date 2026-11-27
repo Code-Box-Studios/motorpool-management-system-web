@@ -1,4 +1,4 @@
-import { MAINTENANCE_TYPE } from '@mms/shared';
+import { JOB_ORDER_MAINTENANCE_TYPES, maintenanceTypeLabel } from '@mms/shared';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -36,9 +36,9 @@ export function ServiceMetadataFields({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="unspecified">Not recorded</SelectItem>
-            {Object.values(MAINTENANCE_TYPE).map((value) => (
+            {JOB_ORDER_MAINTENANCE_TYPES.map((value) => (
               <SelectItem key={value} value={value}>
-                {value.charAt(0).toUpperCase() + value.slice(1)}
+                {maintenanceTypeLabel(value)}
               </SelectItem>
             ))}
           </SelectContent>

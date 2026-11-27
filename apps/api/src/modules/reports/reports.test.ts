@@ -234,12 +234,12 @@ describe('administrator reports', () => {
         branchId: t.branch.id,
         incidentDate: '2026-10-25',
         incidentDetails: 'Oil service',
-        maintenanceType: 'preventive',
+        maintenanceType: 'preventive_corrective',
         serviceLocation: 'outside'
       });
     expect(created.status).toBe(201);
     expect(created.body).toMatchObject({
-      maintenanceType: 'preventive',
+      maintenanceType: 'preventive_corrective',
       serviceLocation: 'outside'
     });
     const edited = await request(app)
@@ -258,16 +258,16 @@ describe('administrator reports', () => {
       .send({
         repairDone: 'simple',
         completedMileage: 1000,
-        maintenanceType: 'corrective',
+        maintenanceType: 'inspection',
         serviceLocation: 'outside'
       });
     expect(done.status).toBe(200);
     expect(done.body).toMatchObject({
-      maintenanceType: 'corrective',
+      maintenanceType: 'inspection',
       serviceLocation: 'outside'
     });
     expect((await prisma.maintenance.findFirstOrThrow()).type).toBe(
-      'corrective'
+      'inspection'
     );
   });
   it('validates dates, fuel vehicle requirement, and planned distance', async () => {

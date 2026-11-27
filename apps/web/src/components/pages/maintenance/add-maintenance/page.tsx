@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { MAINTENANCE_TYPE } from '@/lib/enums';
+import { MAINTENANCE_TYPE, maintenanceTypeLabel } from '@/lib/enums';
 import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
@@ -118,7 +118,7 @@ export function AddMaintenance() {
                         <SelectContent>
                           {Object.values(MAINTENANCE_TYPE).map((type) => (
                             <SelectItem key={type} value={type}>
-                              {type.charAt(0).toUpperCase() + type.slice(1)}
+                              {maintenanceTypeLabel(type)}
                             </SelectItem>
                           ))}
                         </SelectContent>

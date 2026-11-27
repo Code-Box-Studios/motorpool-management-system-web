@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {
   JOB_ORDER_STATUS,
   REPAIR_DONE_TYPE,
-  MAINTENANCE_TYPE
+  JOB_ORDER_MAINTENANCE_TYPES
 } from '../enums.js';
 import {
   paginationQuerySchema,
@@ -11,7 +11,7 @@ import {
 } from './common.js';
 
 const serviceMetadata = {
-  maintenanceType: z.nativeEnum(MAINTENANCE_TYPE).nullable().optional(),
+  maintenanceType: z.enum(JOB_ORDER_MAINTENANCE_TYPES).nullable().optional(),
   serviceLocation: z.enum(['motorpool', 'outside']).nullable().optional()
 };
 
@@ -27,7 +27,8 @@ export const JOB_ORDER_SERVICES = [
   'Check up tire pressure',
   'Check and cleaning of air cleaner element',
   'Check up electrical system',
-  'Check up hydraulic oil level'
+  'Check up hydraulic oil level',
+  'Check up oil and water level'
 ] as const;
 export type JobOrderService = (typeof JOB_ORDER_SERVICES)[number];
 

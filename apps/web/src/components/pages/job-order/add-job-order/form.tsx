@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useAllVehicles } from '@/lib/query/vehicles';
+import { maintenanceTypeLabel } from '@mms/shared';
 import { useBranches } from '@/lib/query/shared';
 import { useAuth } from '@/hooks/use-auth';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
@@ -49,14 +50,6 @@ const STEPS = [
 
 const LAST = STEPS.length - 1;
 
-// An incident cannot have happened tomorrow, so the picker cannot offer it.
-const nowLocal = () => {
-  const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
-};
-
 const formatWhen = (value: string | undefined) => {
   if (!value) return undefined;
   const parsed = new Date(value);
@@ -73,13 +66,18 @@ const formatWhen = (value: string | undefined) => {
 
 interface JobOrderFormProps {
   onDone: () => void;
+  // `YYYY-MM-DDTHH:mm`, e.g. the day picked on the job order calendar.
+  initialIncidentDate?: string;
 }
 
-export function AddJobOrder({ onDone }: JobOrderFormProps) {
+export function AddJobOrder({
+  onDone,
+  initialIncidentDate
+}: JobOrderFormProps) {
   const { data: vehicles } = useAllVehicles();
   const { data: branches } = useBranches();
   const addJobOrderAction = useAddJobOrderAction();
-  const form = useJobOrderForm();
+  const form = useJobOrderForm(initialIncidentDate);
   const { user } = useAuth();
 
   const [step, setStep] = useState(0);
@@ -268,10 +266,6 @@ export function AddJobOrder({ onDone }: JobOrderFormProps) {
                         {...field}
                         id="incident_date"
                         type="datetime-local"
-                        // The API refuses a future incident
-                        // (400 INCIDENT_IN_THE_FUTURE); the picker should not
-                        // offer one either.
-                        max={nowLocal()}
                         aria-invalid={fieldState.invalid}
                       />
                       {fieldState.invalid && (
@@ -377,7 +371,7 @@ export function AddJobOrder({ onDone }: JobOrderFormProps) {
                 />
                 <DetailItem
                   label="Maintenance type"
-                  value={review.maintenance_type}
+                  value={maintenanceTypeLabel(review.maintenance_type)}
                 />
                 <DetailItem
                   label="Service location"

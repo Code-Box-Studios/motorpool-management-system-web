@@ -1,6 +1,7 @@
 import { useParams } from '@tanstack/react-router';
 import { jobOrderSummary } from '@/lib/job-order-summary';
 import { Wrench } from 'lucide-react';
+import { maintenanceTypeLabel } from '@mms/shared';
 import { WorkflowProgress } from '@/components/shared/workflow-progress';
 import { useJobOrder } from '@/lib/query/job-orders';
 import { useAllDrivers } from '@/lib/query/drivers';
@@ -358,7 +359,7 @@ export const JobOrderInner = () => {
             />
             <DetailItem
               label="Maintenance type"
-              value={titleCase(jobOrder.maintenance_type) || notSet}
+              value={maintenanceTypeLabel(jobOrder.maintenance_type) || notSet}
             />
             <DetailItem
               label="Service location"

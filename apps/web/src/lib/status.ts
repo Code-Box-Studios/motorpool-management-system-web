@@ -84,6 +84,7 @@ export function statusEventColor(status: string): string {
 // their own mapping onto the same tones.
 const MAINTENANCE_TYPE_TONE: Record<string, StatusTone> = {
   preventive: 'wait',
+  preventive_corrective: 'wait',
   inspection: 'neutral',
   service: 'done',
   repair: 'move',

@@ -57,10 +57,41 @@ export const REPAIR_DONE_TYPE = {
 export const MAINTENANCE_TYPE = {
   PREVENTIVE: 'preventive',
   CORRECTIVE: 'corrective',
+  PREVENTIVE_CORRECTIVE: 'preventive_corrective',
   INSPECTION: 'inspection',
   REPAIR: 'repair',
   SERVICE: 'service'
 } as const;
+export type MaintenanceTypeValue =
+  (typeof MAINTENANCE_TYPE)[keyof typeof MAINTENANCE_TYPE];
+
+// Job orders offer preventive and corrective as one choice. Plain maintenance
+// records keep them separate.
+export const JOB_ORDER_MAINTENANCE_TYPES = [
+  MAINTENANCE_TYPE.PREVENTIVE_CORRECTIVE,
+  MAINTENANCE_TYPE.INSPECTION,
+  MAINTENANCE_TYPE.REPAIR,
+  MAINTENANCE_TYPE.SERVICE
+] as const;
+
+export const MAINTENANCE_TYPE_LABELS: Record<MaintenanceTypeValue, string> = {
+  preventive: 'Preventive',
+  corrective: 'Corrective',
+  preventive_corrective: 'Preventive / Corrective',
+  inspection: 'Inspection',
+  repair: 'Repair',
+  service: 'Service'
+};
+
+export function maintenanceTypeLabel(
+  value: string | null | undefined
+): string | null {
+  if (!value) return null;
+  return (
+    MAINTENANCE_TYPE_LABELS[value as MaintenanceTypeValue] ??
+    value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
 
 // Canonical driver status values for the new DB (snake_case), with the
 // display strings the current UI renders.

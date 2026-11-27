@@ -212,32 +212,11 @@ describe('Operations audit invariants', () => {
     expect(h.state.user.status).toBe('inactive');
   });
 
-  it('OPS-04 rejects future incident edits without changing the pending request', async () => {
+  it('OPS-04 lets a pending request be rescheduled to a later month', async () => {
     const future = new Date('2099-11-13T00:00:00Z');
     const body = updateJobOrderBodySchema.parse({ incidentDate: future });
-    await expect(jobs.update('job', body)).rejects.toMatchObject({
-      code: 'INCIDENT_IN_THE_FUTURE',
-      statusCode: 400
-    });
-    expect(h.state.order.incidentDate).toBeUndefined();
-  });
-
-  it('keeps incident chronology validation aligned with creation', async () => {
-    await expect(
-      jobs.create(
-        {
-          branchId: 'branch',
-          vehicleId: 'vehicle',
-          incidentDate: new Date('2099-11-13'),
-          incidentDetails: 'Future incident',
-          services: []
-        },
-        actor
-      )
-    ).rejects.toMatchObject({
-      code: 'INCIDENT_IN_THE_FUTURE',
-      statusCode: 400
-    });
+    await jobs.update('job', body);
+    expect(h.state.order.incidentDate).toEqual(future);
   });
 
   it('accepts an actual release at the current instant', async () => {

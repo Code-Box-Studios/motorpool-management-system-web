@@ -351,7 +351,7 @@ describe('job-order request rules', () => {
     expect(swapped.status).toBe(200);
   });
 
-  it('refuses an incident dated in the future', async () => {
+  it('accepts a job order scheduled months ahead', async () => {
     const s = await scaffold();
     const { user: admin } = await createTestUser({
       email: 'a@test.local',
@@ -364,10 +364,9 @@ describe('job-order request rules', () => {
       .send({
         ...orderBody(s),
         incidentDate: new Date(
-          Date.now() + 7 * 24 * 60 * 60 * 1000
+          Date.now() + 60 * 24 * 60 * 60 * 1000
         ).toISOString()
       });
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe('INCIDENT_IN_THE_FUTURE');
+    expect(res.status).toBe(201);
   });
 });

@@ -17,15 +17,8 @@ const jobOrderSchema = z
   .object({
     vehicle_id: z.string().uuid('Please select a vehicle'),
     branch_id: z.string().uuid('Please select a branch'),
-    // A fault cannot have happened tomorrow. The API refuses it
-    // (400 INCIDENT_IN_THE_FUTURE) — catch it here so it lands on the field
-    // instead of coming back as a failed submit.
-    incident_date: z
-      .string()
-      .min(1, 'Incident date is required')
-      .refine((v) => new Date(v).getTime() <= Date.now(), {
-        message: 'The incident cannot be in the future'
-      }),
+    // May be in the future: preventive work is scheduled ahead, months out.
+    incident_date: z.string().min(1, 'Incident date is required'),
     // Picked from JOB_ORDER_SERVICES.
     services: z.array(z.string()),
     // "Additional Services to be done": anything not on the list. Optional.
@@ -49,13 +42,13 @@ const jobOrderSchema = z
 
 export type JobOrderFormData = z.infer<typeof jobOrderSchema>;
 
-export const useJobOrderForm = () => {
+export const useJobOrderForm = (initialIncidentDate = '') => {
   return useForm<JobOrderFormData>({
     resolver: zodResolver(jobOrderSchema),
     defaultValues: {
       vehicle_id: '',
       branch_id: '',
-      incident_date: '',
+      incident_date: initialIncidentDate,
       services: [],
       incident_details: '',
       remarks: '',

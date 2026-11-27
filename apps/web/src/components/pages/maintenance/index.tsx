@@ -3,14 +3,14 @@ import ListToolbar from '@/components/shared/list-toolbar';
 import TableFilters, {
   type TableFilterDefinition
 } from '@/components/shared/table-filters';
-import { MAINTENANCE_TYPE } from '@/lib/enums';
+import { MAINTENANCE_TYPE, maintenanceTypeLabel } from '@/lib/enums';
 import ListSearchInput from '@/components/shared/list-search-input';
 import { useAllMaintenances, useMaintenances } from '@/lib/query/maintenance';
 import { useAllVehicles } from '@/lib/query/vehicles';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import PageHeader from '@/components/shared/page-header';
-import { maintenanceEventColor, resolveStatus } from '@/lib/status';
+import { maintenanceEventColor } from '@/lib/status';
 import { cn } from '@/lib/utils';
 import { Eye, Pencil, Trash2 } from 'lucide-react';
 import { useDeleteMaintenance } from '@/lib/mutation/maintenance';
@@ -67,7 +67,7 @@ const FILTER_DEFINITIONS: TableFilterDefinition[] = [
     label: 'Type',
     options: Object.values(MAINTENANCE_TYPE).map((value) => ({
       value,
-      label: resolveStatus(value).label
+      label: maintenanceTypeLabel(value) ?? value
     }))
   }
 ];
@@ -158,7 +158,7 @@ const MaintenancePage = () => {
         : 'Unassigned vehicle';
       return {
         id: maintenance.id,
-        title: `${maintenance.type} — ${label}`,
+        title: `${maintenanceTypeLabel(maintenance.type)} — ${label}`,
         start: maintenance.date,
         backgroundColor: maintenanceEventColor(maintenance.type),
         borderColor: maintenanceEventColor(maintenance.type),
@@ -385,8 +385,8 @@ const MaintenancePage = () => {
                               <TableCell>
                                 {vehicleCell(maintenance.vehicle_id)}
                               </TableCell>
-                              <TableCell className="capitalize">
-                                {maintenance.type}
+                              <TableCell>
+                                {maintenanceTypeLabel(maintenance.type)}
                               </TableCell>
                               <TableCell className="text-muted-foreground max-w-xs truncate">
                                 {maintenance.description || <EmDash />}

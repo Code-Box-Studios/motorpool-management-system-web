@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { MAINTENANCE_TYPE } from '@/lib/enums';
+import { MAINTENANCE_TYPE, maintenanceTypeLabel } from '@/lib/enums';
 import { Textarea } from '@/components/ui/textarea';
 import { useCallback, useEffect, useState } from 'react';
 import { ConfirmationModal } from '@/components/shared/confirmation-modal';
@@ -36,8 +36,7 @@ import {
 } from '@/components/shared/form-section';
 import { useBreadcrumbLabel } from '@/hooks/use-breadcrumb';
 
-const titleCase = (value: string) =>
-  value.charAt(0).toUpperCase() + value.slice(1);
+const titleCase = (value: string) => maintenanceTypeLabel(value) ?? value;
 
 const formatDate = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleDateString() : undefined;

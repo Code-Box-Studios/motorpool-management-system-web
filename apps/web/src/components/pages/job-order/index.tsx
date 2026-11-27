@@ -55,6 +55,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
+import type { DateClickArg } from '@fullcalendar/interaction';
 import { useMemo, useState } from 'react';
 
 // shadcn paints the ACTIVE tab with --background — a canvas beige that sits
@@ -115,6 +116,7 @@ const JobOrdersPage = () => {
   const completeRepair = useCompleteRepair();
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
+  const [createDate, setCreateDate] = useState<string>();
   const {
     page,
     sort,
@@ -155,14 +157,18 @@ const JobOrdersPage = () => {
 
   const calendarEvents = useMemo(() => {
     if (!calendarData) return [];
+    // The target date once an admin has set one; before that, the date the
+    // order was raised for, so work booked into a later month shows there.
     return calendarData
-      .filter((order) => order.target_date)
+      .filter((order) => order.target_date || order.incident_date)
       .map((order) => {
-        const targetDate = new Date(order.target_date || new Date());
+        const when = new Date(
+          (order.target_date || order.incident_date) as string
+        );
         return {
           id: order.id,
           title: `${order.vehicles?.make ?? ''} ${order.vehicles?.model ?? ''} — ${resolveStatus(order.status ?? '').label}`,
-          start: targetDate.toISOString(),
+          start: when.toISOString(),
           allDay: true,
           backgroundColor: statusEventColor(order.status || 'pending'),
           borderColor: statusEventColor(order.status || 'pending'),
@@ -181,7 +187,19 @@ const JobOrdersPage = () => {
 
   // Raising a repair is a dialog, not a page: a form you fill and dismiss, not a
   // place you navigate to and have to find your way back from.
-  const handleDateClick = () => setCreateOpen(true);
+  // Opens the create form on the clicked day, so work can be booked into a
+  // later month straight from the calendar. Month-view clicks carry no time.
+  const handleDateClick = (arg: DateClickArg) => {
+    setCreateDate(
+      arg.allDay ? `${arg.dateStr}T08:00` : arg.dateStr.slice(0, 16)
+    );
+    setCreateOpen(true);
+  };
+
+  const openBlankCreate = () => {
+    setCreateDate(undefined);
+    setCreateOpen(true);
+  };
 
   const openOrder = (orderId: string) => {
     navigate({ to: `/job-order/${orderId}` });
@@ -226,9 +244,7 @@ const JobOrdersPage = () => {
       <PageHeader
         title="Job Orders"
         description="Repairs raised against the fleet, and who is working on them."
-        action={
-          <Button onClick={() => setCreateOpen(true)}>Create Job Order</Button>
-        }
+        action={<Button onClick={openBlankCreate}>Create Job Order</Button>}
       />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -243,7 +259,12 @@ const JobOrdersPage = () => {
           <DialogBody>
             {/* Remounted per open, so a dismissed half-filled request is not
                 still sitting there next time. */}
-            {createOpen && <AddJobOrder onDone={() => setCreateOpen(false)} />}
+            {createOpen && (
+              <AddJobOrder
+                initialIncidentDate={createDate}
+                onDone={() => setCreateOpen(false)}
+              />
+            )}
           </DialogBody>
         </DialogContent>
       </Dialog>

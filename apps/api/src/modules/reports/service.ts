@@ -1,5 +1,6 @@
 import {
   describeJobOrder,
+  maintenanceTypeLabel,
   REPORT_TITLES,
   type ReportColumn,
   type ReportQuery,
@@ -194,7 +195,7 @@ export async function generateReport(
     ]);
     result.rows = rows.map((m) => ({
       plate: m.vehicle.licensePlate,
-      type: titleCase(m.type),
+      type: maintenanceTypeLabel(m.type),
       date: dateLabel(m.date),
       mileage: m.mileage,
       description: m.description,
@@ -246,7 +247,7 @@ export async function generateReport(
     result.rows = rows.map((o) => ({
       reference: reference('JO', o.orderNo),
       plate: o.vehicle.licensePlate,
-      maintenanceType: titleCase(o.maintenanceType),
+      maintenanceType: maintenanceTypeLabel(o.maintenanceType),
       date: dateLabel(o.dateOfRequest ?? o.createdAt),
       mechanic: o.assignedMechanic?.fullName ?? null,
       status: titleCase(o.status),

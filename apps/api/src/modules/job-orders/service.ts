@@ -114,14 +114,7 @@ export async function create(
       ? body.requestedById
       : actor.id;
 
-  // The incident cannot have happened tomorrow.
-  if (body.incidentDate && body.incidentDate.getTime() > Date.now()) {
-    throw new AppError(
-      400,
-      'INCIDENT_IN_THE_FUTURE',
-      'An incident date cannot be in the future'
-    );
-  }
+  // A future date is allowed: preventive work is booked ahead, months out.
 
   const order = await prisma.$transaction(async (tx) => {
     await assertOrgRefsActive({ branchId: body.branchId }, tx);
@@ -146,13 +139,6 @@ export async function update(id: string, body: UpdateJobOrderBody) {
       409,
       'INVALID_TRANSITION',
       'Job order can only be edited while pending'
-    );
-  }
-  if (body.incidentDate && body.incidentDate.getTime() > Date.now()) {
-    throw new AppError(
-      400,
-      'INCIDENT_IN_THE_FUTURE',
-      'An incident date cannot be in the future'
     );
   }
   // An edit that rewrites the work may not leave it empty. Only checked when

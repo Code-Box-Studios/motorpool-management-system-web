@@ -234,7 +234,7 @@ test('repair completion prefills current metadata and sends explicit null when i
     incidentDate: '2026-10-20T00:00:00Z',
     incidentDetails: 'Metadata regression',
     remarks: 'Keep this note',
-    maintenanceType: 'preventive',
+    maintenanceType: 'preventive_corrective',
     serviceLocation: 'outside',
     createdAt: '2026-10-20T00:00:00Z',
     updatedAt: '2026-10-20T00:00:00Z'
@@ -262,7 +262,7 @@ test('repair completion prefills current metadata and sends explicit null when i
   const dialog = page.getByRole('alertdialog', { name: 'Complete Repair' });
   await expect(
     dialog.getByRole('combobox', { name: 'Maintenance type', exact: true })
-  ).toContainText('Preventive');
+  ).toContainText('Preventive / Corrective');
   await expect(
     dialog.getByRole('combobox', { name: 'Service location', exact: true })
   ).toContainText('Done outside');

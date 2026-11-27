@@ -45,6 +45,7 @@ export interface JobOrderMetadata {
   maintenance_type?:
     | 'preventive'
     | 'corrective'
+    | 'preventive_corrective'
     | 'inspection'
     | 'repair'
     | 'service'

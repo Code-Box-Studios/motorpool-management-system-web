@@ -109,7 +109,7 @@ async function fixtures(page: Page, transition: Transition) {
     targetDate: transition === 'note' ? null : '2026-11-20T16:30:00Z',
     actualDateOfRelease: null,
     repairDone: null,
-    maintenanceType: 'corrective',
+    maintenanceType: 'preventive_corrective',
     serviceLocation: 'motorpool',
     remarks: null,
     createdAt: revision,
@@ -254,7 +254,7 @@ async function fillComplete(page: Page, dialog: Locator) {
   await page.getByRole('option', { name: 'Simple', exact: true }).click();
   await dialog.locator('#completed_mileage').fill('30001');
   await dialog.locator('#complete-service-type').click();
-  await page.getByRole('option', { name: 'Preventive', exact: true }).click();
+  await page.getByRole('option', { name: 'Service', exact: true }).click();
   await dialog.locator('#complete-service-location').click();
   await page.getByRole('option', { name: 'Done outside', exact: true }).click();
   await dialog.locator('#remarks').fill('Retained completion draft');
@@ -266,9 +266,7 @@ async function assertComplete(dialog: Locator) {
   );
   await expect(dialog.getByRole('combobox').first()).toHaveText('Simple');
   await expect(dialog.locator('#completed_mileage')).toHaveValue('30001');
-  await expect(dialog.locator('#complete-service-type')).toHaveText(
-    'Preventive'
-  );
+  await expect(dialog.locator('#complete-service-type')).toHaveText('Service');
   await expect(dialog.locator('#complete-service-location')).toHaveText(
     'Done outside'
   );
@@ -371,7 +369,7 @@ for (const entry of ['list', 'detail'] as const) {
             : {
                 repairDone: 'simple',
                 completedMileage: 30001,
-                maintenanceType: 'preventive',
+                maintenanceType: 'service',
                 serviceLocation: 'outside',
                 remarks: 'Retained completion draft',
                 actualDateOfRelease: '2026-11-10T03:25:00.000Z'
@@ -433,7 +431,7 @@ for (const entry of ['list', 'detail'] as const) {
         );
         await expect(dialog.locator('#completed_mileage')).toHaveValue('');
         await expect(dialog.locator('#complete-service-type')).toHaveText(
-          'Corrective'
+          'Preventive / Corrective'
         );
         await expect(dialog.locator('#complete-service-location')).toHaveText(
           'Done in the motorpool'
